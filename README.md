@@ -177,10 +177,15 @@ cobre-docs's and is preserved unchanged here.
 
 ## License
 
-Copyright 2026 Rogerio J. M. Alves and Cobre Contributors. Licensed under the
-[Apache License 2.0](LICENSE), the license of the Novomodelo codebase. It covers the whole
-repository: the documentation content (prose, equations, figures) and the code (build
-scripts, Astro components, configuration).
+Copyright 2026 Rogerio J. M. Alves and Cobre Contributors.
+Copyright 2026 Operador Nacional do Sistema Elétrico - ONS, Câmara de
+Comercialização de Energia Elétrica - CCEE, Empresa de Pesquisa Energética - EPE
+and Contributors.
+
+Licensed under the [Apache License 2.0](LICENSE), the license of the Novomodelo
+codebase. It covers the whole repository: the documentation content (prose,
+equations, figures) and the code (build scripts, Astro components,
+configuration). [`NOTICE`](NOTICE) states where the fork comes from.
 
 See [`public/THIRD-PARTY-NOTICES.txt`](public/THIRD-PARTY-NOTICES.txt) for the bundled
 third-party dependencies.

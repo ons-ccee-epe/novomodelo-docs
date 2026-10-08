@@ -60,7 +60,7 @@ const ROOT_FOOTER = [
   '<p class="sl-footer-notice"><a href="/THIRD-PARTY-NOTICES.txt">Third-party notices</a></p>',
   '<p class="sl-footer-notice">© 2026 Operador Nacional do Sistema Elétrico - ONS, Câmara de Comercialização ',
   "de Energia Elétrica - CCEE, Empresa de Pesquisa Energética - EPE and Contributors, adapted from the ",
-  '<a href="https://github.com/cobre-rs/cobre-docs">Cobre Methodology Documentation</a> ',
+  '<a href="https://github.com/cobre-rs/cobre-docs">Cobre Documentation</a> ',
   "© 2026 Rogerio J. M. Alves and Cobre Contributors — licensed under ",
   '<a href="https://github.com/ons-ccee-epe/novomodelo-docs/blob/main/LICENSE">Apache-2.0</a></p>',
   "</div>",
