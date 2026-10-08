@@ -441,7 +441,7 @@ test("a table before the first section heading is not indexed", () => {
 });
 
 test("the equivalent-terms tables are exempt from the index but not from the token rules", () => {
-  const exempt = `${CLEAN}\n\n## Equivalent terms in other planning tools\n\n| Cobre concept | Term elsewhere | Note |\n| --- | --- | --- |\n| Zulu | Zulu | A note. |\n`;
+  const exempt = `${CLEAN}\n\n## Equivalent terms in other planning tools\n\n| Novomodelo concept | Term elsewhere | Note |\n| --- | --- | --- |\n| Zulu | Zulu | A note. |\n`;
   assert.deepEqual(hits(exempt), []);
   const tokens = edit(
     exempt,

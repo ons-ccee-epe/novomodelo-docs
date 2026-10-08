@@ -1,7 +1,7 @@
 # Starlight CI — pull-request verification for the Astro/Starlight docs.
 #
 # On every pull request to `main` (and on manual dispatch) this workflow installs
-# Node, a pinned d2 and a pinned cobre, runs the static corpus gates before the
+# Node, a pinned d2 and a pinned novomodelo, runs the static corpus gates before the
 # build, builds the multi-version site with `npm run build:versions`, then runs
 # `npm test`, `npm run check`, `npm run check:math`, `npm run check:links` and
 # `npm run check:e10`.
@@ -80,30 +80,30 @@ jobs:
         run: d2 --version
 
       # ticket-243 (GRD-05, G3 decision B1, ADR-021): check:gc-examples runs the
-      # pinned non-MPI cobre release asset, installed the way d2 is: pinned URL,
+      # pinned non-MPI novomodelo release asset, installed the way d2 is: pinned URL,
       # workflow-pinned sha256, extract, move onto PATH. The workflow pins the
       # sha256 itself; the release `.sha256` sidecar is not the pin source. Bump the
       # URL, the hash, this step's name, the README check:gc-examples line and
-      # scripts/cobre-ref.mjs DEFAULT_COBRE_REF together at each cobre sync: the
-      # gate exits 2 when `cobre version` differs from that ref. Re-vendor the
+      # scripts/novomodelo-ref.mjs DEFAULT_NOVOMODELO_REF together at each novomodelo sync: the
+      # gate exits 2 when `novomodelo version` differs from that ref. Re-vendor the
       # error kinds in the same sync with `npm run refresh:error-kinds`
       # (check:error-coverage reads them).
       # Only the binary is extracted, so the directory is empty after the move and
       # nothing is left in the checkout for the build.
-      - name: Install cobre (pinned v0.18.0, sha256-verified)
+      - name: Install novomodelo (pinned v0.18.0, sha256-verified)
         run: |
-          cobre_tarball=cobre-cli-x86_64-unknown-linux-gnu.tar.xz
-          cobre_sha256=93cb730702539bb53e11667dd740995b4cf830333f6af3cb2fb1f96a35672baa
-          curl -fsSL "https://github.com/cobre-rs/cobre/releases/download/v0.18.0/${cobre_tarball}" -o "${cobre_tarball}"
-          echo "${cobre_sha256}  ${cobre_tarball}" | sha256sum -c -
-          tar xJf "${cobre_tarball}" cobre-cli-x86_64-unknown-linux-gnu/cobre
-          sudo mv cobre-cli-x86_64-unknown-linux-gnu/cobre /usr/local/bin/cobre
-          sudo chmod +x /usr/local/bin/cobre
-          rm -f "${cobre_tarball}"
-          rmdir cobre-cli-x86_64-unknown-linux-gnu
+          novomodelo_tarball=novomodelo-cli-x86_64-unknown-linux-gnu.tar.xz
+          novomodelo_sha256=636d692eb6bcc5388dea62decb351962d76275f5f5b0b07b35fa7e43f171dc38
+          curl -fsSL "https://github.com/ons-ccee-epe/novomodelo/releases/download/v0.18.0/${novomodelo_tarball}" -o "${novomodelo_tarball}"
+          echo "${novomodelo_sha256}  ${novomodelo_tarball}" | sha256sum -c -
+          tar xJf "${novomodelo_tarball}" novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
+          sudo mv novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo /usr/local/bin/novomodelo
+          sudo chmod +x /usr/local/bin/novomodelo
+          rm -f "${novomodelo_tarball}"
+          rmdir novomodelo-cli-x86_64-unknown-linux-gnu
 
-      - name: Verify cobre
-        run: cobre version
+      - name: Verify novomodelo
+        run: novomodelo version
 
       - name: Install dependencies
         run: npm ci
@@ -121,7 +121,7 @@ jobs:
         run: npm run check:figures
 
       # Epic 04 ticket-015: the two-voice methodology gates, ported from
-      # cobre's scripts/ci/check_doc_voice.py / check_doc_counts.py /
+      # novomodelo's scripts/ci/check_doc_voice.py / check_doc_counts.py /
       # check_book_version.py. Static source-reading checks (no build needed),
       # so they run pre-build alongside check:figures. Pre-existing strict-zone
       # hits are grandfathered in scripts/doc-lint-allow.txt; check:voice and
@@ -132,7 +132,7 @@ jobs:
       - name: Check doc counts (column/field count vs adjacent table)
         run: npm run check:counts
 
-      - name: Check doc version (cobre-version references vs the Synced-to anchor)
+      - name: Check doc version (novomodelo-version references vs the Synced-to anchor)
         run: npm run check:version
 
       # R62/ADR-007: change-narration ratchet, both zones (static source read, pre-build).
@@ -144,7 +144,7 @@ jobs:
       - name: Check glossary (no software tokens; index complete)
         run: npm run check:glossary
 
-      # E13 ticket-214 (GRD-08): every emitted ErrorKind/LoadError variant has an error-codes section; vendored copy, no cobre checkout (ADR-020).
+      # E13 ticket-214 (GRD-08): every emitted ErrorKind/LoadError variant has an error-codes section; vendored copy, no novomodelo checkout (ADR-020).
       - name: Check error coverage (error-codes vs vendored error kinds)
         run: npm run check:error-coverage
 
@@ -152,17 +152,17 @@ jobs:
       - name: Check input schemas (vendored schemas vs case-format tables)
         run: npm run check:input-schemas
 
-      # GRD-04 (R87): every public cobre-python stub symbol has an anchor in reference/python-api; reads the vendored scripts/pystubs/ (refresh:pystubs), no cobre checkout.
+      # GRD-04 (R87): every public novomodelo-python stub symbol has an anchor in reference/python-api; reads the vendored scripts/pystubs/ (refresh:pystubs), no novomodelo checkout.
       - name: Check python-api coverage (vendored stubs vs reference/python-api)
         run: npm run check:python-api
 
       # ticket-014 (strategy §6b): advisory vendored-JSON-schema validation.
       # Asserts the COMMITTED public/schemas/ copy is present, exactly 18
-      # files, and every file is well-formed JSON. This needs NO `cobre`
+      # files, and every file is well-formed JSON. This needs NO `novomodelo`
       # checkout — it is a static-metadata check like check:figures/check:d2.
       # The tag-drift check (`npm run refresh:schemas -- --check`, which DOES
-      # need a `cobre` checkout) stays a local/maintainer action; the
-      # authoritative freshness gate stays in `cobre` (ticket-016).
+      # need a `novomodelo` checkout) stays a local/maintainer action; the
+      # authoritative freshness gate stays in `novomodelo` (ticket-016).
       - name: Check vendored JSON schemas (count + parse)
         run: |
           node -e '
@@ -178,14 +178,14 @@ jobs:
             console.log("check:schemas: " + files.length + " vendored schemas present and well-formed");
           '
 
-      # ticket-243 (GRD-05): every gc-check fence on reference/generic-constraints behaves as marked under the pinned cobre (D-160-4, D-179-2).
-      # The script sets no spawnSync timeout, so a hung `cobre validate` is bounded here.
-      - name: Check generic-constraint examples (cobre validate)
+      # ticket-243 (GRD-05): every gc-check fence on reference/generic-constraints behaves as marked under the pinned novomodelo (D-160-4, D-179-2).
+      # The script sets no spawnSync timeout, so a hung `novomodelo validate` is bounded here.
+      - name: Check generic-constraint examples (novomodelo validate)
         run: npm run check:gc-examples
         timeout-minutes: 5
 
       # ticket-243a (GRD-09, XD-129): the committed quickstart.gif matches scripts/recordings-provenance.json. Check only:
-      # CI has no cobre checkout, so the tape blob prints "tape not checked" (D-198-4); never drop --check here.
+      # CI has no novomodelo checkout, so the tape blob prints "tape not checked" (D-198-4); never drop --check here.
       - name: Check recordings provenance (quickstart.gif sha256)
         run: npm run refresh:recordings -- --check
 

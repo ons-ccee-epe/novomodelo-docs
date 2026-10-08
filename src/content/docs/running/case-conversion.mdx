@@ -1,44 +1,44 @@
 ---
-title: Case Conversion (cobre-bridge)
-description: Convert NEWAVE and DECOMP cases to the Cobre input format and compare their results with the standalone cobre-bridge Python package.
+title: Case Conversion (novomodelo-bridge)
+description: Convert NEWAVE and DECOMP cases to the Novomodelo input format and compare their results with the standalone novomodelo-bridge Python package.
 ---
 
-**cobre-bridge** is a standalone Python package that converts NEWAVE
-(long-term) and DECOMP (short-term) hydrothermal dispatch cases into Cobre case
-directories and compares the source model's published results with Cobre's
+**novomodelo-bridge** is a standalone Python package that converts NEWAVE
+(long-term) and DECOMP (short-term) hydrothermal dispatch cases into Novomodelo case
+directories and compares the source model's published results with Novomodelo's
 simulation output.
 
 The package is maintained in a separate repository:
-[github.com/cobre-rs/cobre-bridge](https://github.com/cobre-rs/cobre-bridge).
+[github.com/ons-ccee-epe/novomodelo-bridge](https://github.com/ons-ccee-epe/novomodelo-bridge).
 
 ---
 
 ## Installation
 
 ```bash
-uv tool install cobre-bridge    # isolated, on-PATH CLI (recommended)
-pipx install cobre-bridge       # alternative
-pip install cobre-bridge        # into the current environment
+uv tool install novomodelo-bridge    # isolated, on-PATH CLI (recommended)
+pipx install novomodelo-bridge       # alternative
+pip install novomodelo-bridge        # into the current environment
 ```
 
-cobre-bridge requires Python 3.12 or newer. The `cobre` CLI (the solver) is
-installed separately (see [installing cobre](/getting-started/installation/))
-and is needed only to run `cobre validate` and `cobre run` on the converted
+novomodelo-bridge requires Python 3.12 or newer. The `novomodelo` CLI (the solver) is
+installed separately (see [installing novomodelo](/getting-started/installation/))
+and is needed only to run `novomodelo validate` and `novomodelo run` on the converted
 case.
 
-`cobre-python` is a **required** runtime dependency, not an optional extra —
+`novomodelo-python` is a **required** runtime dependency, not an optional extra —
 it provides the Python bindings that `convert --validate`, `dashboard`, and
-`convert decomp`'s boundary-FCF import need, so installing cobre-bridge pulls
-it in automatically. (`compare` does not use the bindings: it reads Cobre's
+`convert decomp`'s boundary-FCF import need, so installing novomodelo-bridge pulls
+it in automatically. (`compare` does not use the bindings: it reads Novomodelo's
 simulation-output parquet files directly.)
 
-A cobre-bridge release `X.Y.Z` targets cobre `X.Y.Z`: the converted case
-follows that release's input contract. The bridge records its minimum cobre
+A novomodelo-bridge release `X.Y.Z` targets novomodelo `X.Y.Z`: the converted case
+follows that release's input contract. The bridge records its minimum novomodelo
 version (`0.18.0`) in the conversion manifest and uses it to decide whether the
-installed `cobre-python` can run `convert --validate`.
+installed `novomodelo-python` can run `convert --validate`.
 The [Dependencies](#dependencies) section lists the pin that tracks that
 minimum. If the
-installed `cobre-python` is older than the minimum cobre version,
+installed `novomodelo-python` is older than the minimum novomodelo version,
 `convert --validate` skips its validation step (printing a note) instead of
 failing.
 
@@ -49,15 +49,15 @@ failing.
 A NEWAVE case goes from preflight check to results comparison in six steps.
 
 ```bash
-cobre-bridge check newave <newave-dir>                          # preflight check; exit 2 = will not convert
-cobre-bridge convert newave <newave-dir> <case-dir> --dry-run   # convert in memory, write nothing
-cobre-bridge convert newave <newave-dir> <case-dir> --validate  # convert, then validate with cobre-python
-cobre validate <case-dir>                                       # validate the converted case
-cobre run <case-dir>                                            # solve; results go to <case-dir>/output/
-cobre-bridge compare newave <newave-dir> <case-dir>/output      # published NEWAVE results vs Cobre simulation
+novomodelo-bridge check newave <newave-dir>                          # preflight check; exit 2 = will not convert
+novomodelo-bridge convert newave <newave-dir> <case-dir> --dry-run   # convert in memory, write nothing
+novomodelo-bridge convert newave <newave-dir> <case-dir> --validate  # convert, then validate with novomodelo-python
+novomodelo validate <case-dir>                                       # validate the converted case
+novomodelo run <case-dir>                                            # solve; results go to <case-dir>/output/
+novomodelo-bridge compare newave <newave-dir> <case-dir>/output      # published NEWAVE results vs Novomodelo simulation
 ```
 
-For a DECOMP deck, replace `newave` with `decomp` in the cobre-bridge commands;
+For a DECOMP deck, replace `newave` with `decomp` in the novomodelo-bridge commands;
 [Converting a DECOMP Deck](#converting-a-decomp-deck) covers the boundary-FCF
 import that `convert decomp` runs by default.
 
@@ -66,10 +66,10 @@ import that `convert decomp` runs by default.
 ## Converting a Case
 
 The `convert` subcommand reads a source case directory and writes a complete
-Cobre case directory:
+Novomodelo case directory:
 
 ```bash
-cobre-bridge convert newave /path/to/source/case /path/to/output/case
+novomodelo-bridge convert newave /path/to/source/case /path/to/output/case
 ```
 
 ### Options
@@ -78,7 +78,7 @@ cobre-bridge convert newave /path/to/source/case /path/to/output/case
 
 | Flag                      | Description                                                                                                          |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `--validate`              | After conversion, validate the output with the cobre package.                                                          |
+| `--validate`              | After conversion, validate the output with the novomodelo package.                                                          |
 | `--force`                 | Overwrite the destination directory if it already contains files.                                                      |
 | `--diagnostics-json PATH` | Also write the conversion diagnostics (counts + findings) as JSON.                                                     |
 | `--json`                  | Emit a single machine-readable JSON verdict to stdout and suppress the human-readable (Rich) output.                   |
@@ -98,14 +98,14 @@ cobre-bridge convert newave /path/to/source/case /path/to/output/case
 | `1`  | Conversion error.                       |
 | `2`  | `--validate` reported a load failure.   |
 
-`convert decomp` uses the same `0`/`1`/`2` exit-code set. On every cobre-bridge
+`convert decomp` uses the same `0`/`1`/`2` exit-code set. On every novomodelo-bridge
 command, a usage error (an unknown option, a missing argument, or an invalid
 option value such as an unwritable `--log-file` path) also exits `2`, with a
 usage message.
 
 #### `--json` output
 
-With `--json`, `convert` (and every other cobre-bridge command) emits one
+With `--json`, `convert` (and every other novomodelo-bridge command) emits one
 JSON document to stdout instead of the Rich console output, with exactly
 five top-level keys in this fixed order: `schema_version`, `command`,
 `status`, `summary`, `diagnostics`. `summary` holds the command-specific
@@ -113,39 +113,39 @@ payload (entity counts, for `convert`); `diagnostics` is the same findings
 list the Rich panels render.
 
 For the complete flag reference for every command, see the
-[cobre-bridge CLI reference](https://github.com/cobre-rs/cobre-bridge/blob/v0.18.0/docs/cli.md).
+[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/cli.md).
 
 ### Converting a DECOMP Deck
 
 ```bash
-cobre-bridge convert decomp /path/to/deck /path/to/output/case
+novomodelo-bridge convert decomp /path/to/deck /path/to/output/case
 ```
 
 By default, when the deck declares its `cortes`/`cortesh` cut files (its FC
 records), `convert decomp` imports the deck's boundary FCF as a
-terminal-stage cobre policy checkpoint via an in-process, one-iteration
-cobre pass. This import is slow and requires `cobre-python`. It is always
+terminal-stage novomodelo policy checkpoint via an in-process, one-iteration
+novomodelo pass. This import is slow and requires `novomodelo-python`. It is always
 skipped under `--dry-run`, and is skipped — with an informational note, not
 an error — when the deck declares no cut files. Pass **`--no-fcf`** to skip
 the boundary-FCF import for a quicker conversion with no terminal FCF.
 
 :::caution
-An imported boundary loads only under a cobre whose version equals that of the
-`cobre-python` that converted the deck, patch included (`pip show cobre-python`
-prints it). Any other cobre version refuses the boundary: the
+An imported boundary loads only under a novomodelo whose version equals that of the
+`novomodelo-python` that converted the deck, patch included (`pip show novomodelo-python`
+prints it). Any other novomodelo version refuses the boundary: the
 [version gate](/running/policy-management/#version-gate) names the software and
 version that wrote it, and a boundary of another checkpoint `format_version` is
 refused at read by the format check.
-To run the case under another cobre release, install the cobre-bridge release
-paired with that cobre release, which pins its `cobre-python`, and convert the
-deck again. The cobre-bridge DECOMP guide covers
-[running a case with an imported boundary](https://github.com/cobre-rs/cobre-bridge/blob/v0.18.0/docs/decomp.md#running-a-case-with-an-imported-boundary).
+To run the case under another novomodelo release, install the novomodelo-bridge release
+paired with that novomodelo release, which pins its `novomodelo-python`, and convert the
+deck again. The novomodelo-bridge DECOMP guide covers
+[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/decomp.md#running-a-case-with-an-imported-boundary).
 :::
 
 ### What Gets Converted
 
 The conversion pipeline transforms the source case's input files into a
-complete Cobre case directory, organised by output sub-directory:
+complete Novomodelo case directory, organised by output sub-directory:
 
 - **`system/`** -- plant and network configuration: hydros, thermals, buses,
   lines, non-controllable sources, hydro production models, and hydro
@@ -157,14 +157,14 @@ complete Cobre case directory, organised by output sub-directory:
 - **Top level** -- study configuration, stage definitions, penalties, and
   initial conditions.
 
-For the authoritative, field-level source-to-Cobre lineage -- which deck
+For the authoritative, field-level source-to-Novomodelo lineage -- which deck
 file, record, and column feeds which output field, and what transformation
 is applied -- see the bridge's own generated data maps. They are produced by
 `scripts/gen-lineage-docs.py`, verified by tests against a real conversion,
 marked "Do not edit by hand," and written in Portuguese:
-[`newave-data-map.md`](https://github.com/cobre-rs/cobre-bridge/blob/v0.18.0/docs/newave-data-map.md)
+[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/newave-data-map.md)
 and
-[`decomp-data-map.md`](https://github.com/cobre-rs/cobre-bridge/blob/v0.18.0/docs/decomp-data-map.md).
+[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/decomp-data-map.md).
 
 ### Output Directory Structure
 
@@ -229,26 +229,26 @@ A case written by `convert decomp` does not write `scenarios/inflow_history.parq
 
 ## Comparing Results
 
-After running both the source tool and Cobre on the same case, the `compare`
-subcommand aligns the source tool's **published results** against **Cobre's
+After running both the source tool and Novomodelo on the same case, the `compare`
+subcommand aligns the source tool's **published results** against **Novomodelo's
 simulation-output parquets**:
 
 ```bash
-cobre-bridge compare newave /path/to/source/case /path/to/cobre/output
+novomodelo-bridge compare newave /path/to/source/case /path/to/novomodelo/output
 ```
 
-`compare newave <NEWAVE_DIR> <COBRE_OUTPUT_DIR>` compares NEWAVE's published
-results (`MEDIAS-*.CSV`, `pmo.dat`) against Cobre simulation output.
-`compare decomp <DECOMP_DIR> <COBRE_OUTPUT_DIR>` compares a DECOMP run's
+`compare newave <NEWAVE_DIR> <NOVOMODELO_OUTPUT_DIR>` compares NEWAVE's published
+results (`MEDIAS-*.CSV`, `pmo.dat`) against Novomodelo simulation output.
+`compare decomp <DECOMP_DIR> <NOVOMODELO_OUTPUT_DIR>` compares a DECOMP run's
 published operation (`dec_oper_*.csv`) the same way. Both source directories
 must hold the case/deck and its result files directly (not nested in a
 subdirectory).
 
 | Flag                | Description                                                                                                                    |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `--tolerance FLOAT` | Relative tolerance for the results comparison. Default `1e-2`. Env `COBRE_BRIDGE_RESULTS_TOLERANCE`.                            |
-| `--format FORMAT`   | Output format(s): `console,html,csv,parquet,json,all` (comma-separated and/or repeatable). Default `console,parquet,json`. Env `COBRE_BRIDGE_FORMAT`. |
-| `--out-dir PATH`    | Directory for file artifacts. Default `<cobre_output_dir>/comparison_artifacts`. Env `COBRE_BRIDGE_OUT_DIR`.                     |
+| `--tolerance FLOAT` | Relative tolerance for the results comparison. Default `1e-2`. Env `NOVOMODELO_BRIDGE_RESULTS_TOLERANCE`.                            |
+| `--format FORMAT`   | Output format(s): `console,html,csv,parquet,json,all` (comma-separated and/or repeatable). Default `console,parquet,json`. Env `NOVOMODELO_BRIDGE_FORMAT`. |
+| `--out-dir PATH`    | Directory for file artifacts. Default `<novomodelo_output_dir>/comparison_artifacts`. Env `NOVOMODELO_BRIDGE_OUT_DIR`.                     |
 | `--json`            | Emit a single machine-readable JSON verdict to stdout instead of the Rich tables.                                               |
 
 `compare` also shares `convert`'s `-v/--verbose`, `--log-file`, `--no-color`,
@@ -257,9 +257,9 @@ and `--quiet` flags.
 `--tolerance`, `--format` and `--out-dir` each take their value from the first
 source that sets it: the flag, then the environment variable, then the config
 file, then the built-in default. `compare` reads one config file, the first of
-these that exists: `cobre-bridge.toml` in the current directory or any parent;
-`$XDG_CONFIG_HOME/cobre-bridge/config.toml`, only when `XDG_CONFIG_HOME` is set
-and non-empty; `~/.config/cobre-bridge/config.toml`. It is not merged with the
+these that exists: `novomodelo-bridge.toml` in the current directory or any parent;
+`$XDG_CONFIG_HOME/novomodelo-bridge/config.toml`, only when `XDG_CONFIG_HOME` is set
+and non-empty; `~/.config/novomodelo-bridge/config.toml`. It is not merged with the
 others.
 It can set `[compare.results] tolerance`, `[compare] format` and
 `[compare] out_dir`; a malformed file, or a key of the wrong type, is ignored
@@ -273,25 +273,25 @@ tolerance or not, but a divergence never fails the run. On both the `newave` and
 | --------- | ------------------------------------------------------------------------ |
 | `0`       | The comparison ran (whether or not any divergence was found).            |
 | `1`       | `compare newave` only: the NEWAVE case directory is missing. (On `compare decomp` a missing deck directory exits `2`.) |
-| `2`       | An invalid `--format` token, or a source deck or Cobre output file that cannot be read (missing or malformed data). |
+| `2`       | An invalid `--format` token, or a source deck or Novomodelo output file that cannot be read (missing or malformed data). |
 
 A NEWAVE case whose `dger.dat` requests training without a final simulation
 (`tipo_execucao` 1 with `tipo_simulacao_final` 0) converts with
-`simulation.enabled` set to `false`. `cobre run` then writes no simulation
-output, so `compare newave` finds no Cobre simulation output to read and exits `2`, naming
+`simulation.enabled` set to `false`. `novomodelo run` then writes no simulation
+output, so `compare newave` finds no Novomodelo simulation output to read and exits `2`, naming
 the missing `simulation/hydro_bus_generation/` directory.
 
 ---
 
 ## Python API
 
-For programmatic use, install cobre-bridge into your project environment
-(`pip install cobre-bridge`; an isolated `uv tool` or `pipx` install exposes
+For programmatic use, install novomodelo-bridge into your project environment
+(`pip install novomodelo-bridge`; an isolated `uv tool` or `pipx` install exposes
 only the CLI), then import the conversion pipeline directly:
 
 ```python
 from pathlib import Path
-from cobre_bridge.newave.pipeline import convert_newave_case
+from novomodelo_bridge.newave.pipeline import convert_newave_case
 
 report = convert_newave_case(
     Path("/path/to/source/case"),
@@ -316,7 +316,7 @@ output paths written, or that would have been written under
 `dry_run=True`).
 
 DECOMP conversions use the equivalent
-`cobre_bridge.decomp.pipeline.convert_decomp_case(src, dst, *, force=False,
+`novomodelo_bridge.decomp.pipeline.convert_decomp_case(src, dst, *, force=False,
 on_phase=None, dry_run=False, fcf_inputs_out=None) -> ConversionReport`.
 
 ---
@@ -329,8 +329,8 @@ on_phase=None, dry_run=False, fcf_inputs_out=None) -> ConversionReport`.
 output — a preflight check before committing to a full `convert` run:
 
 ```bash
-cobre-bridge check newave /path/to/source/case
-cobre-bridge check decomp /path/to/deck
+novomodelo-bridge check newave /path/to/source/case
+novomodelo-bridge check decomp /path/to/deck
 ```
 
 `check decomp` also reports what the conversion will leave behind (deck
@@ -350,11 +350,11 @@ silent omission.
 
 ### Generating a Dashboard
 
-`dashboard` builds an interactive HTML dashboard from Cobre simulation
+`dashboard` builds an interactive HTML dashboard from Novomodelo simulation
 results:
 
 ```bash
-cobre-bridge dashboard /path/to/cobre/case
+novomodelo-bridge dashboard /path/to/novomodelo/case
 ```
 
 | Flag                 | Description                                                             |
@@ -372,8 +372,8 @@ cobre-bridge dashboard /path/to/cobre/case
 
 ### Entity ID Renumbering
 
-NEWAVE identifies subsystems and plants by arbitrary 1-based codes; Cobre uses
-0-based ids with no gaps. cobre-bridge sorts the source codes in ascending order and
+NEWAVE identifies subsystems and plants by arbitrary 1-based codes; Novomodelo uses
+0-based ids with no gaps. novomodelo-bridge sorts the source codes in ascending order and
 assigns the ids 0, 1, 2 and so on in that order, so an id does not depend on
 how the deck orders its entities, and an entity keeps the same id in every
 output file. `compare newave` rebuilds the same numbering from the source case,
@@ -383,7 +383,7 @@ declared subsystems.
 
 ### Which Plants Are Converted
 
-In a NEWAVE case, a hydro becomes a Cobre entity when `confhd.dat` marks it in
+In a NEWAVE case, a hydro becomes a Novomodelo entity when `confhd.dat` marks it in
 service: operating (`EX`) or operating with an expansion still to come (`EE`).
 An `EE` plant operates from the first stage at the machine configuration
 `modif.dat` declares for the study start, and gains the machines listed in
@@ -397,12 +397,12 @@ to the next real plant downstream.
 `convert decomp` converts the deck's operated hydros, with the deck's registry
 overrides applied, and its small plants as must-run non-controllable sources.
 
-For the full list of conversion rules, see the cobre-bridge
-[NEWAVE track guide](https://github.com/cobre-rs/cobre-bridge/blob/v0.18.0/docs/newave.md).
+For the full list of conversion rules, see the novomodelo-bridge
+[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/newave.md).
 
 ### Risk Measure Support
 
-When the source case configures risk-averse optimization (CVaR), cobre-bridge
+When the source case configures risk-averse optimization (CVaR), novomodelo-bridge
 converts the alpha and lambda parameters to per-stage `risk_measure` entries
 in `stages.json`. Three modes are supported:
 
@@ -413,7 +413,7 @@ in `stages.json`. Three modes are supported:
 
 ### Generic Constraints
 
-Three families of source constraints are converted into Cobre's
+Three families of source constraints are converted into Novomodelo's
 generic-constraint authoring format: one definition per constraint in
 `generic_constraints.json` (a `name`, an `expression`, and an optional `slack`),
 merged with sequential integer IDs, and per-stage right-hand-side bounds in
@@ -423,7 +423,7 @@ merged with sequential integer IDs, and per-stage right-hand-side bounds in
   participating reservoirs' end-of-stage storage, where the weight is that
   reservoir's accumulated productivity, referenced as a named parameter
   (`@rho_acum_h<id>`) declared in `constraints/generic_parameters.json` and
-  resolved by Cobre to its own ρ at solve time. This keeps the constraint's
+  resolved by Novomodelo to its own ρ at solve time. This keeps the constraint's
   coefficients aligned with the study's productivities rather than freezing a
   converted value.
 - **Electric** -- operational constraints on hydro generation and line flows.
@@ -433,14 +433,14 @@ merged with sequential integer IDs, and per-stage right-hand-side bounds in
 
 ## Dependencies
 
-cobre-bridge 0.18.0 installs its runtime dependencies with the package. Two
+novomodelo-bridge 0.18.0 installs its runtime dependencies with the package. Two
 pins matter:
 
-- `cobre-python==0.18.0`: the pinned version is the bridge's `MIN_COBRE_VERSION`
+- `novomodelo-python==0.18.0`: the pinned version is the bridge's `MIN_NOVOMODELO_VERSION`
   (`0.18.0`), and a packaging test keeps the pin and that constant in lockstep.
 - `inewave>=1.16.1`: the NEWAVE file reader.
 
-The minimum cobre version does not make versions interchangeable: an imported boundary
+The minimum novomodelo version does not make versions interchangeable: an imported boundary
 needs an exact version match (see the caution under
 [Converting a DECOMP Deck](#converting-a-decomp-deck)).
 

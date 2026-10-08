@@ -1,50 +1,50 @@
 // Vendored JSON Schema refresh (ticket-014, strategy §6b).
 //
 // The 18 JSON Schema files under public/schemas/ describe every JSON input
-// file in a Cobre case directory. They are GENERATED in the `cobre` repo from
-// `cobre-io` Rust types (code = ground truth) — cobre-docs vendors a committed
+// file in a Novomodelo case directory. They are GENERATED in the `novomodelo` repo from
+// `novomodelo-io` Rust types (code = ground truth) — novomodelo-docs vendors a committed
 // copy of that generated output for the reference/json-schemas index page and
 // for editor `$schema` validation. This script re-vendors them; it never
 // hand-edits schema content.
 //
 // Released-baseline rule (Epic 03 learnings, "Released-baseline discipline"):
 // content is read from an immutable git TAG via
-// `git -C <cobre> show <ref>:<schemas-path>/<name>`, NEVER the `cobre`
-// working tree. The local `cobre` checkout may sit mid-feature-branch with
+// `git -C <novomodelo> show <ref>:<schemas-path>/<name>`, NEVER the `novomodelo`
+// working tree. The local `novomodelo` checkout may sit mid-feature-branch with
 // unreleased fields (verified: `buses.schema.json` on `feat/water-travel-time`
 // adds an `operational_start_date` property absent at the `v0.9.0` tag) — a
 // working-tree read would leak those into the vendored copy.
 //
 // Usage:
-//   node scripts/refresh-schemas.mjs [--cobre <path>] [--ref <git-ref>] [--check]
-//     --cobre   path to a cobre checkout (default: $COBRE_REPO or ~/git/cobre).
+//   node scripts/refresh-schemas.mjs [--novomodelo <path>] [--ref <git-ref>] [--check]
+//     --novomodelo   path to a novomodelo checkout (default: $NOVOMODELO_REPO or ~/git/novomodelo).
 //               Only used to resolve the git object database — the ref is read
-//               via plumbing (ls-tree/show), so cobre's CURRENTLY CHECKED OUT
+//               via plumbing (ls-tree/show), so novomodelo's CURRENTLY CHECKED OUT
 //               branch is irrelevant; only the tag's committed object matters.
-//     --ref     git ref/tag to vendor from (default: DEFAULT_COBRE_REF, see
-//               scripts/cobre-ref.mjs).
+//     --ref     git ref/tag to vendor from (default: DEFAULT_NOVOMODELO_REF, see
+//               scripts/novomodelo-ref.mjs).
 //     --check   verify-only: compare public/schemas/ against <ref>, write
 //               nothing; exit 1 listing every drifted/missing file, else exit 0.
 //
-// Discovery: the schemas tree lives at `schemas/` since the cobre mdBook
+// Discovery: the schemas tree lives at `schemas/` since the novomodelo mdBook
 // retirement (v0.11.0) and at `book/src/schemas/` on earlier tags — the first
 // candidate path with entries at <ref> wins, and it must list exactly 18
 // entries — a guard against a wrong ref or a partial tree.
 // `--check` mode is the advisory staleness check (the authoritative freshness
-// gate lives in `cobre`, ticket-016); default mode is the write path.
+// gate lives in `novomodelo`, ticket-016); default mode is the write path.
 //
 // Do NOT hand-edit vendored schema content to fix anything: it is generated in
-// `cobre`; drift is fixed at the source (cobre-io Rust types) and re-vendored.
+// `novomodelo`; drift is fixed at the source (novomodelo-io Rust types) and re-vendored.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_COBRE_REF } from "./cobre-ref.mjs";
+import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 
 const EXPECTED_COUNT = 18;
-// Ordered candidates for the schemas tree in cobre: `schemas/` from the mdBook
+// Ordered candidates for the schemas tree in novomodelo: `schemas/` from the mdBook
 // retirement (v0.11.0) onward, `book/src/schemas/` on earlier tags.
 const SCHEMAS_SUBPATHS = ["schemas", "book/src/schemas"];
 
@@ -93,18 +93,18 @@ export function assertWellFormed(name, text) {
 // Resolve which candidate schemas tree exists at <ref>, returning
 // { subpath, stdout } for the first candidate with entries. Throws a named
 // error if none has any.
-function gitLsTree(cobre, ref) {
+function gitLsTree(novomodelo, ref) {
   for (const subpath of SCHEMAS_SUBPATHS) {
     let stdout;
     try {
       stdout = execFileSync(
         "git",
-        ["-C", cobre, "ls-tree", "--name-only", ref, `${subpath}/`],
+        ["-C", novomodelo, "ls-tree", "--name-only", ref, `${subpath}/`],
         { encoding: "utf8" },
       );
     } catch (error) {
       throw new Error(
-        `refresh:schemas: cannot list ${subpath}/ at ${ref} from ${cobre} — is the tag fetched? (${error.message})`,
+        `refresh:schemas: cannot list ${subpath}/ at ${ref} from ${novomodelo} — is the tag fetched? (${error.message})`,
       );
     }
     if (stdout.trim().length > 0) {
@@ -116,16 +116,16 @@ function gitLsTree(cobre, ref) {
   );
 }
 
-function gitShow(cobre, ref, subpath, name) {
+function gitShow(novomodelo, ref, subpath, name) {
   try {
     return execFileSync(
       "git",
-      ["-C", cobre, "show", `${ref}:${subpath}/${name}`],
+      ["-C", novomodelo, "show", `${ref}:${subpath}/${name}`],
       { encoding: "utf8" },
     );
   } catch (error) {
     throw new Error(
-      `refresh:schemas: cannot read ${ref} from ${cobre} — is the tag fetched? (${error.message})`,
+      `refresh:schemas: cannot read ${ref} from ${novomodelo} — is the tag fetched? (${error.message})`,
     );
   }
 }
@@ -133,13 +133,13 @@ function gitShow(cobre, ref, subpath, name) {
 // --- Arg parsing --------------------------------------------------------------
 
 function parseArgs(argv) {
-  let cobre = process.env.COBRE_REPO ?? join(homedir(), "git", "cobre");
-  let ref = DEFAULT_COBRE_REF;
+  let novomodelo = process.env.NOVOMODELO_REPO ?? join(homedir(), "git", "novomodelo");
+  let ref = DEFAULT_NOVOMODELO_REF;
   let check = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--cobre") {
-      cobre = argv[++i];
+    if (arg === "--novomodelo") {
+      novomodelo = argv[++i];
     } else if (arg === "--ref") {
       ref = argv[++i];
     } else if (arg === "--check") {
@@ -148,20 +148,20 @@ function parseArgs(argv) {
       throw new Error(`refresh:schemas: unrecognized argument '${arg}'`);
     }
   }
-  return { cobre, ref, check };
+  return { novomodelo, ref, check };
 }
 
 // --- Main (run only when invoked directly, not when imported by the test) ---
 
 function main() {
-  const { cobre, ref, check } = parseArgs(process.argv.slice(2));
+  const { novomodelo, ref, check } = parseArgs(process.argv.slice(2));
 
-  const { subpath, stdout } = gitLsTree(cobre, ref);
+  const { subpath, stdout } = gitLsTree(novomodelo, ref);
   const names = parseSchemaNames(stdout);
 
   const released = new Map();
   for (const name of names) {
-    const text = gitShow(cobre, ref, subpath, name);
+    const text = gitShow(novomodelo, ref, subpath, name);
     assertWellFormed(name, text);
     released.set(name, text);
   }

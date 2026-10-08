@@ -1,4 +1,4 @@
-This tab records how Cobre implements [§2.2 Reproducible Sampling](/math/scenario-generation#22-reproducible-sampling), [§2.3 Opening Tree](/math/scenario-generation#23-opening-tree), [§2.5 Historical-Residual Openings](/math/scenario-generation#25-historical-residual-openings), [§4.3 Noise Inversion for External and Historical Scenarios](/math/scenario-generation#43-noise-inversion-for-external-and-historical-scenarios) and [§4.5 x₀ Consistency Under Historical Replay](/math/scenario-generation#45-x-consistency-under-historical-replay),
+This tab records how Novomodelo implements [§2.2 Reproducible Sampling](/math/scenario-generation#22-reproducible-sampling), [§2.3 Opening Tree](/math/scenario-generation#23-opening-tree), [§2.5 Historical-Residual Openings](/math/scenario-generation#25-historical-residual-openings), [§4.3 Noise Inversion for External and Historical Scenarios](/math/scenario-generation#43-noise-inversion-for-external-and-historical-scenarios) and [§4.5 x₀ Consistency Under Historical Replay](/math/scenario-generation#45-x-consistency-under-historical-replay),
 and lists the byte layouts, the lag chain, the tolerance, the warnings and the limit that the methodology leaves out.
 
 ### Seed derivation
@@ -19,10 +19,10 @@ Window and external-scenario selection hash `(iteration, scenario)` with the For
 
 ### Inversion lag chain
 
-{/* quoted from source: crates/cobre-sddp/src/setup/mod.rs:1764-1778 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/setup/mod.rs:1764-1778 at novomodelo v0.18.0 */}
 The inversion of §4.3 advances its lag chain with the per-stage lag transitions that the LP uses. `resolve_stage_lag_transitions` derives the downstream PAR order and the per-stage lag transitions (`StageLagTransition`), and it is, in the source's words, "The sole owner of both derivations"; the LP setup and the historical scenario library each call it once, over their own PAR model.
 
-The library carries a fingerprint of the inflow-lag seed that rooted its inversion chain: a SipHash-1-3 digest of the seed's lag values as little-endian `f64` bytes. Cobre reports it as `historical_library_seed_digest` in `training/model_provenance.json` (see [Metadata Files](/reference/output/metadata/#trainingmodel_provenancejson)) and omits it when no library was built. A digest that differs from the one of the freshly derived seed marks a library inverted against a different x₀, whose replay is not exact.
+The library carries a fingerprint of the inflow-lag seed that rooted its inversion chain: a SipHash-1-3 digest of the seed's lag values as little-endian `f64` bytes. Novomodelo reports it as `historical_library_seed_digest` in `training/model_provenance.json` (see [Metadata Files](/reference/output/metadata/#trainingmodel_provenancejson)) and omits it when no library was built. A digest that differs from the one of the freshly derived seed marks a library inverted against a different x₀, whose replay is not exact.
 
 ### Deterministic tolerance
 
@@ -30,37 +30,37 @@ The σ = 0 rule of §4.3 compares the standard deviation with `0.0` exactly. At 
 
 ### Warnings
 
-Cobre logs these six warnings and continues. Each text below is fixed apart from the values at its placeholders.
+Novomodelo logs these six warnings and continues. Each text below is fixed apart from the values at its placeholders.
 
 - **Clamp by external scenarios.** A class on the external scheme has fewer raw external scenarios at a stage than the stage's `branching_factor`, and no tighter clamp applies:
-  {/* quoted from source: crates/cobre-stochastic/src/tree/generate.rs:137-145 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:137-145 at novomodelo v0.18.0 */}
   ```text
   External scenarios: {} raw scenarios < branching_factor {}; opening tree clamped to {} openings
   ```
 - **Clamp by the window pool.** A `historical_residuals` stage has a window pool smaller than its `branching_factor`:
-  {/* quoted from source: crates/cobre-stochastic/src/tree/generate.rs:250-258 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:250-258 at novomodelo v0.18.0 */}
   ```text
   HistoricalResiduals: {} historical windows < branching_factor {}; opening tree clamped to {} openings
   ```
 - **Out-of-sample fallback.** A class on the `out_of_sample` scheme has stages that select `selective` or `historical_residuals`, and the forward pass draws plain Monte Carlo noise at those stages:
-  {/* quoted from source: crates/cobre-stochastic/src/sampling/mod.rs:567-569 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/mod.rs:567-569 at novomodelo v0.18.0 */}
   ```text
   class '{class_str}' has {count} out-of-sample forward stage(s) selecting {methods} noise, not implemented in the forward pass; falling back to the sample-average method for stage id(s) {stage_ids:?}
   ```
 
   The `{methods}` placeholder reads `selective`, `historical_residuals` or `selective or historical_residuals`, and the sample-average method is the plain Monte Carlo method (`saa`).
 - **Few historical windows.** The historical window pool holds fewer windows than there are forward passes:
-  {/* quoted from source: crates/cobre-stochastic/src/sampling/window.rs:145-153 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/window.rs:145-153 at novomodelo v0.18.0 */}
   ```text
   fewer windows ({}) than forward passes ({forward_passes}): historical sampling will repeat windows across forward passes
   ```
-- **Few windows in the historical library.** Cobre checks the historical window pool again when it validates the library built from it, so the same shortfall logs a second warning:
-  {/* quoted from source: crates/cobre-stochastic/src/sampling/historical.rs:609-617 at cobre v0.18.0 */}
+- **Few windows in the historical library.** Novomodelo checks the historical window pool again when it validates the library built from it, so the same shortfall logs a second warning:
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:609-617 at novomodelo v0.18.0 */}
   ```text
   historical library has fewer windows ({}) than forward passes ({}); windows will be reused across forward passes
   ```
 - **Few scenarios in the external library.** No stage of an external scenario library holds as many scenarios as there are forward passes; each class on the external scheme is checked on its own:
-  {/* quoted from source: crates/cobre-stochastic/src/sampling/external.rs:785-795 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/external.rs:785-795 at novomodelo v0.18.0 */}
   ```text
   external {class} library has fewer scenarios ({n_scenarios}) than forward passes ({forward_passes}); scenarios will be reused across forward passes
   ```
@@ -69,10 +69,10 @@ Cobre logs these six warnings and continues. Each text below is fixed apart from
 
 ### Sobol dimension limit
 
-{/* quoted from source: crates/cobre-stochastic/src/tree/qmc_sobol/sobol_directions.rs:25 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-stochastic/src/tree/qmc_sobol/sobol_directions.rs:25 at novomodelo v0.18.0 */}
 
 The Sobol direction numbers cover `SOBOL_MAX_DIM: usize = 21201` dimensions. A stage on `qmc_sobol` whose noise vector has more coordinates is rejected with the error below, where `{method}` is `sobol`.
 
-{/* quoted from source: crates/cobre-stochastic/src/error.rs:46 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-stochastic/src/error.rs:46 at novomodelo v0.18.0 */}
 
 `noise dimension {dim} exceeds maximum supported dimension {max_dim} for {method}`

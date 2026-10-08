@@ -44,7 +44,7 @@ test("examples/* is lenient (worked examples carry concrete instance numbers)", 
 
 test("overview/* is strict", () => {
   assert.equal(zoneOf("overview/how-to-read.md"), ZONE_STRICT);
-  assert.equal(zoneOf("overview/what-cobre-solves.md"), ZONE_STRICT);
+  assert.equal(zoneOf("overview/what-novomodelo-solves.md"), ZONE_STRICT);
 });
 
 test("index.mdx is lenient", () => {

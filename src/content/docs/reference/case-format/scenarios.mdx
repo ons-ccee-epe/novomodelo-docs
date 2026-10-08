@@ -33,9 +33,9 @@ file naming the negative count and the most-negative value's hydro.
 
 The history serves four roles:
 
-- **Estimation.** The raw observations from which Cobre estimates whichever of
+- **Estimation.** The raw observations from which Novomodelo estimates whichever of
   `inflow_seasonal_stats` and `inflow_ar_coefficients` is absent.
-- **Derived inflow-lag seed.** The default-seeding record from which Cobre derives the
+- **Derived inflow-lag seed.** The default-seeding record from which Novomodelo derives the
   PAR lag chain and the mid-period accumulator, layered under the `recent_observations`
   conditioning of `initial_conditions.json` wherever the two cover the same date
   (see [`initial_conditions.json`](/reference/case-format/initial-conditions/#initial_conditionsjson)).
@@ -75,7 +75,7 @@ rule of a row for every bus at every study stage.
 **Methodology:** [PAR(p) Inflow Model](/math/par-inflow-model/)
 
 Autoregressive coefficients for the PAR(p) inflow model. The model's
-innovation scale is not an input: Cobre derives it at load from the
+innovation scale is not an input: Novomodelo derives it at load from the
 coefficients below via the periodic-ACF closure — see
 [PAR(p) Inflow Model](/math/par-inflow-model).
 
@@ -98,7 +98,7 @@ that column ignored outright; the derived value always wins.
 
 PAR(p)-A annual component of each (hydro, stage) pair: the annual coefficient, and the mean and standard deviation of
 the rolling 12-month average inflow.
-[PAR(p) Inflow Model — Implementation in Cobre](/math/par-inflow-model#implementation-in-cobre) states when the file
+[PAR(p) Inflow Model — Implementation in Novomodelo](/math/par-inflow-model#implementation-in-novomodelo) states when the file
 is honoured and when estimation overwrites it.
 
 | Name                 | Type    | Required | Default | Units | Description                                                                                        |
@@ -109,7 +109,7 @@ is honoured and when estimation overwrites it.
 | `annual_mean_m3s`    | Float64 | Yes      | —       | m³/s  | Mean of the rolling 12-month average inflow at the stage; finite.                                  |
 | `annual_std_m3s`     | Float64 | Yes      | —       | m³/s  | Standard deviation of the rolling 12-month average inflow at the stage; finite and `> 0`.          |
 
-**Validation rules.** Each rule names the error kind that `cobre validate` reports.
+**Validation rules.** Each rule names the error kind that `novomodelo validate` reports.
 
 - **Row checks.** Every column is present with its type, no value is null, `annual_coefficient` and
   `annual_mean_m3s` are finite, and `annual_std_m3s` is finite and `> 0`. Kind: `SchemaViolation`.
@@ -143,7 +143,7 @@ their mean and standard deviation from the file is stated under
 | `hydro_id`    | Int32   | Yes      | —       | —     | Hydro plant id; names a declared hydro.                                      |
 | `value_m3s`   | Float64 | Yes      | —       | m³/s  | Inflow value of the realization at the stage; finite.                        |
 
-**Validation rules.** Each rule names the error kind that `cobre validate` and `cobre run` print.
+**Validation rules.** Each rule names the error kind that `novomodelo validate` and `novomodelo run` print.
 
 - **Row checks.** Each file is read whenever it is present, whatever the class's scheme. `stage_id >= 0`,
   `scenario_id >= 0`, a finite value, and no repeated (`stage_id`, `scenario_id`, entity) row; a missing column or a
@@ -172,11 +172,11 @@ their mean and standard deviation from the file is stated under
   `simulation.scenario_source` is declared) needs at least one row for every entity its noise vector places (see the entity
   ordering under [`scenarios/noise_openings.parquet`](#scenariosnoise_openingsparquet)): every declared hydro, every
   bus with a row in `scenarios/load_seasonal_stats.parquet`, and every NCS with a row in
-  `scenarios/non_controllable_stats.parquet`. `cobre run` refuses a class with a missing entity when it sets the study
+  `scenarios/non_controllable_stats.parquet`. `novomodelo run` refuses a class with a missing entity when it sets the study
   up, with an `insufficient data` error that names the class and the entity, and exits `1`. A class that is `external`
   only in `simulation.scenario_source` is refused with a `library width mismatch` error (exit `1`) when its file adds
   an entity that the training noise vector does not place: a bus whose `std_mw` is `0`, or an NCS without a
-  `non_controllable_stats.parquet` row. `cobre validate` reports either refusal on every case: as phase
+  `non_controllable_stats.parquet` row. `novomodelo validate` reports either refusal on every case: as phase
   `StudySetupError`, labelled `scenarios/` for `insufficient data` and `config.json` for the width mismatch, or as
   `BoundaryReconciliationError` with the message prefixed `policy.boundary: ` when `policy.boundary` is configured.
 
@@ -249,7 +249,7 @@ file is optional and the mean and standard deviation come from the external file
 | `mean_mw`  | Float64 | Yes      | —       | MW    | Mean load of the bus at the stage; finite.                                                   |
 | `std_mw`   | Float64 | Yes      | —       | MW    | Standard deviation of the load at the stage; finite and `>= 0`. `0` is a deterministic load. |
 
-**Validation rules.** Each rule names the error kind that `cobre validate` reports.
+**Validation rules.** Each rule names the error kind that `novomodelo validate` reports.
 
 - **Row checks.** Every column is present with its type, `mean_mw` is finite, and `std_mw` is finite and `>= 0`.
   Kind: `SchemaViolation`.
@@ -404,7 +404,7 @@ Spatial correlation of the noise: named profiles of correlation groups and an op
 group holds entities of one class (`inflow`, `load` or `ncs`), and each class is correlated separately. The
 decomposition of the matrices and the treatment of negative eigenvalues are in
 [Scenario Generation §2.1](/math/scenario-generation/#21-correlated-noise-generation); the
-[PAR(p) Inflow Model](/math/par-inflow-model#implementation-in-cobre) Configure tab gives a worked example and the
+[PAR(p) Inflow Model](/math/par-inflow-model#implementation-in-novomodelo) Configure tab gives a worked example and the
 per-path use of the file.
 
 | Name                                                   | Type          | Required | Default | Units | Description                                                                                                                                                                                                                                                             |
@@ -421,7 +421,7 @@ per-path use of the file.
 | `schedule[].stage_id`                                  | integer       | Yes      | —       | —     | Stage the entry's profile applies to. The opening tree matches a declared study-stage id from `stages.json`; out-of-sample forward and simulation sampling matches the stage's 0-based position among the study stages. The two coincide when the ids are `0, 1, 2, …`. |
 | `schedule[].profile_name`                              | string        | Yes      | —       | —     | Name of a profile in `profiles`.                                                                                                                                                                                                                                        |
 
-**Validation rules.** Each rule names the error kind that `cobre validate` reports.
+**Validation rules.** Each rule names the error kind that `novomodelo validate` reports.
 
 - **Structure.** A missing required key, a value of the wrong type, a `method` other than `"spectral"`, or an unknown key
   in any object is a `ParseError`.

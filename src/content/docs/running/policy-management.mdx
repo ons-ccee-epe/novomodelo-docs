@@ -3,7 +3,7 @@ title: Policy Management
 description: Policy checkpoints, warm-start and resume modes, the policy load contract, and cross-study boundary cuts.
 ---
 
-Cobre stores the trained future-cost function (cuts) and LP basis in a _policy
+Novomodelo stores the trained future-cost function (cuts) and LP basis in a _policy
 directory_, together with the visited states when
 [`exports.states`](/running/configuration/#exports) is `true`. The `policy`
 section of `config.json` controls where that directory lives and whether
@@ -17,7 +17,7 @@ The `policy.mode` field selects one of three initialization strategies. The
 default is `"fresh"`.
 
 `policy.path` (default `./policy`) resolves against the run's output directory,
-`<case>/output` unless `cobre run --output` names another (an absolute path is
+`<case>/output` unless `novomodelo run --output` names another (an absolute path is
 used as is), so the default checkpoint is `<case>/output/policy`. Training writes
 it there; warm-start, resume and simulation-only read it there.
 [`policy.boundary.path`](#boundary-cuts) differs: it resolves against the case
@@ -37,7 +37,7 @@ influence from earlier iterations.
 
 ### Warm Start
 
-Cobre loads the cuts from an existing policy checkpoint before training begins.
+Novomodelo loads the cuts from an existing policy checkpoint before training begins.
 Training then continues, adding new cuts on top of the loaded ones. The loaded
 cuts count as the initial future-cost approximation.
 
@@ -58,7 +58,7 @@ check of the [Policy Load Contract](#policy-load-contract).
 Resume continues training from the checkpoint at `policy.path` (the one written
 when training ended, or the latest periodic checkpoint; see
 [Checkpointing Configuration](#checkpointing-configuration)),
-whichever stopping rule ended the earlier run. Cobre reads the checkpoint's
+whichever stopping rule ended the earlier run. Novomodelo reads the checkpoint's
 `completed_iterations` count and the loop continues from the next iteration. The
 load is a full-FCF load, so the checkpoint must pass every check of the
 [Policy Load Contract](#policy-load-contract).
@@ -80,7 +80,7 @@ jobs.
 
 The loop runs up to the largest `iteration_limit` in `training.stopping_rules`.
 That limit counts all iterations, the completed ones included; when the
-checkpoint has already reached it, Cobre warns and trains no further.
+checkpoint has already reached it, Novomodelo warns and trains no further.
 
 The seed comes from `config.json`, not from the checkpoint, and each iteration's
 forward-pass noise derives from the seed and the iteration number. With the
@@ -97,12 +97,12 @@ training starts.
 
 ## Simulation-Only Mode
 
-With `training.enabled` set to `false` and simulation enabled, `cobre run` skips
+With `training.enabled` set to `false` and simulation enabled, `novomodelo run` skips
 training, loads the checkpoint at `policy.path`, and simulates it.
 `policy.mode` is ignored in this mode.
 
 The load is a full-FCF load, so the checkpoint must pass every check of the
-[Policy Load Contract](#policy-load-contract): it comes from the running cobre
+[Policy Load Contract](#policy-load-contract): it comes from the running novomodelo
 version.
 
 Start from the `config.json` that trained the policy and change only
@@ -133,11 +133,11 @@ training):
 }
 ```
 
-With these keys in `config.json`, `cobre validate` accepts the case.
+With these keys in `config.json`, `novomodelo validate` accepts the case.
 Validate reads the checkpoint at `policy.path` and applies the same load, so
 this confirms the config and the policy load:
 
-{/* capture: cobre validate case 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; trained once with cobre run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; trained once with novomodelo run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
 
 ```text
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -193,7 +193,7 @@ total, which counts the iterations of all earlier slices:
 from the start of that slice's training. Keep an `iteration_limit` holding the
 total in the set (every rule set needs one), and leave
 [`stopping_mode`](/running/configuration/#trainingstopping_mode) at its default, `"any"`,
-so that `time_limit` alone ends a slice. Cobre checks `time_limit` after each
+so that `time_limit` alone ends a slice. Novomodelo checks `time_limit` after each
 iteration, so a slice runs up to one iteration past `seconds`. Set `seconds`
 below the job's wall time by that iteration, the case load, and the checkpoint
 write. The same set serves every slice, with `policy.mode` set to
@@ -266,7 +266,7 @@ never from the name.
 `manifest.bin` is written **last**. Every write is staged in
 `<policy.path>.staging`; the commit renames an existing `<policy.path>` to
 `<policy.path>.previous`, renames the staged copy into place, then removes
-`.previous`. Every reader (`cobre run`, `cobre validate`, the boundary load and
+`.previous`. Every reader (`novomodelo run`, `novomodelo validate`, the boundary load and
 Python `load_policy`) uses the first of `<policy.path>`, `.staging` and
 `.previous` that holds a `manifest.bin`.
 An interrupted write that replaces a checkpoint leaves a complete one, old or new;
@@ -286,7 +286,7 @@ any cut, basis, or state payload is parsed (step 1 of the
 [check order](#check-order)).
 
 `manifest.bin` records the study graph, the number of stages, the producing
-cobre version, and the producer provenance (completed iterations, lower- and
+novomodelo version, and the producer provenance (completed iterations, lower- and
 upper-bound values, forward passes per iteration, and the RNG seed) — see
 [Policy Checkpoint](/reference/output/policy/#policymanifestbin) for the full
 field-by-field table. Whether a checkpoint loads into the current study is
@@ -309,9 +309,9 @@ A [boundary load](#boundary-cuts) runs its own checks, listed under
 1. **Read.** `manifest.bin` is present and its wire `format_version` is `3` (the
    `format_version` gate). A `manifest.bin` stamped with another value is refused
    with:
-   {/* quoted from source: crates/cobre-io/src/output/policy/codec.rs:1528-1529 at cobre v0.18.0 */}
+   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs:1528-1529 at novomodelo v0.18.0 */}
    ```text
-   unsupported checkpoint manifest format_version {format_version}; expected 3; re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again
+   unsupported checkpoint manifest format_version {format_version}; expected 3; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
    ```
 2. **Cost scale.** The terminal pool records its `cost_scale_factor` (see
    [Cost-Scale Canonicalization](#cost-scale-canonicalization)).
@@ -337,16 +337,16 @@ patch or pre-release build (for example 0.17.0 against 0.17.1).
 
 The refusal reads:
 
-{/* quoted from source: crates/cobre-sddp/src/error.rs:103-108 at cobre v0.18.0 — not capturable (needs a checkpoint written by another software or version) */}
+{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 at novomodelo v0.18.0 — not capturable (needs a checkpoint written by another software or version) */}
 
 ```text
-policy was written by {writer}, but this is cobre {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again
+policy was written by {writer}, but this is novomodelo {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 ```
 
 `{writer}` names the recorded software and version: `<software> <version>`,
 `<software>, which recorded no version`, `software that recorded no name, version <version>`,
 or `software that recorded no name or version`; `{running}` is the version of
-the cobre that is loading it. `cobre run` reports
+the novomodelo that is loading it. `novomodelo run` reports
 the refusal as a validation error before training or simulation starts;
 [Error Codes](/reference/error-codes/#policy-load-errors) lists the exit code
 and the Python exception.
@@ -354,8 +354,8 @@ and the Python exception.
 To load the policy, retrain it with the running version. Alternatively,
 re-export it by re-running the pipeline that wrote the checkpoint under the
 running version: the script that calls
-[`cobre.write_policy_checkpoint`](#read-and-write-checkpoints-from-python),
-or the boundary import of [Case Conversion (cobre-bridge)](/running/case-conversion/).
+[`novomodelo.write_policy_checkpoint`](#read-and-write-checkpoints-from-python),
+or the boundary import of [Case Conversion (novomodelo-bridge)](/running/case-conversion/).
 
 A manifest that parses (step 1) is not thereby accepted: this gate decides
 whether the running version may load it.
@@ -365,9 +365,9 @@ covers the wire level.
 ### Stored-basis gate
 
 A full-FCF load uses a stored LP basis only when it fits its stage LP, leaves
-the others out with one warning, and proceeds. For example, `cobre run` prints:
+the others out with one warning, and proceeds. For example, `novomodelo run` prints:
 
-{/* capture: cobre run case 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with cobre run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
+{/* capture: novomodelo run case 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with novomodelo run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
 
 ```text
 warning: stored bases not used: 4 of 4 do not fit the current LP (first: node 0, 28 columns, the LP has 29); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, and its basic count equals its row count; the policy was trained on a different LP
@@ -391,7 +391,7 @@ they solve without a stored basis.
 Examples are a different block count, a different entity set, and a different
 block mode on a stage with hydro plants and more than one block.
 
-[`cobre validate`](/reference/cli-reference/#cobre-validate) runs the same load
+[`novomodelo validate`](/reference/cli-reference/#novomodelo-validate) runs the same load
 and reports the same warning.
 
 :::note
@@ -406,7 +406,7 @@ stages the change alters.
 
 ## Cost-Scale Canonicalization
 
-Cobre's objective cost-scale factor
+Novomodelo's objective cost-scale factor
 ([`modeling.cost_scale_factor`](/running/configuration/#modelingcost_scale_factor))
 is configurable per study. Cut coefficients and intercepts are computed in the
 solving study's internally scaled cost space, so policy export and load
@@ -430,7 +430,7 @@ carry it: a pool whose `cost_scale_factor` reads absent is rejected. A full-FCF
 load refuses with
 
 ```text
-policy checkpoint predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again
+policy checkpoint predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 ```
 
 A [boundary load](#boundary-cuts) refuses with its own message, quoted in item 3
@@ -445,8 +445,8 @@ from one over the in-memory policy that wrote it.
 
 ## Boundary Cuts
 
-Boundary cuts allow a Cobre study to load terminal-stage future cost function
-(FCF) approximations from a different Cobre policy checkpoint. This is the
+Boundary cuts allow a Novomodelo study to load terminal-stage future cost function
+(FCF) approximations from a different Novomodelo policy checkpoint. This is the
 mechanism for **chained studies**: a downstream study imports one cut pool of an
 upstream study's policy as its terminal boundary condition, so its
 end-of-horizon decisions account for the upstream study's future cost of water.
@@ -460,7 +460,7 @@ upstream one. For the method, see
    checkpoint in Python
    ([Read and Write Checkpoints from Python](#read-and-write-checkpoints-from-python)).
 2. **Run the downstream study** with `policy.boundary` pointing to the
-   upstream checkpoint. Cobre selects the source pool priced at the downstream
+   upstream checkpoint. Novomodelo selects the source pool priced at the downstream
    study's **terminal boundary date** — the last non-negative stage's
    `end_date` — and injects its cuts into the terminal stage's row pool as
    fixed boundary conditions. There is no stage-index knob: the pool is chosen
@@ -529,19 +529,19 @@ failure stops the run:
    terminal boundary date.
 3. **Cost scale.** The resolved pool records its `cost_scale_factor` (see
    [Cost-Scale Canonicalization](#cost-scale-canonicalization)); a pool without
-   it is refused with `boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again`.
+   it is refused with `boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
 4. **Single-node source.** The resolved pool is a single-node terminal pool, not
    one shared across several study nodes. A shared pool is refused with
    `boundary policy at {path}: a boundary source must be a single-node terminal pool; the resolved pool is shared by multiple nodes`.
-5. **Inflow-lag depth.** Before building the study, Cobre reads the deepest
+5. **Inflow-lag depth.** Before building the study, Novomodelo reads the deepest
    inflow-lag slot that any cut pool of the boundary checkpoint references and
    extends the study's inflow-lag state to at least that depth
    ([Post-Study Boundary & Chained Studies §5.2](/math/post-study-boundary#52-compatibility-conditions));
-   when the depth is above zero, `cobre run` without `--quiet` prints
+   when the depth is above zero, `novomodelo run` without `--quiet` prints
    `Boundary policy: inflow-lag depth {d}` while loading. This check confirms
    that the resolved pool references no lag deeper than the extended state, so
    a user case does not trigger it. A message starting
-   `internal:` is a Cobre defect; report it.
+   `internal:` is a Novomodelo defect; report it.
 6. **Season and PAR order.** When the study declares a season cycle, the
    source's `season_manifest` is present and agrees with the study's season
    cycle, season count, and per-hydro PAR orders.
@@ -568,12 +568,12 @@ failure stops the run:
 
 Every check except **Superset** is independent of `strict`.
 
-**Date-selection rejects.** Before any coefficient is reconciled, Cobre resolves
+**Date-selection rejects.** Before any coefficient is reconciled, Novomodelo resolves
 the source to exactly one pool priced at the study's terminal boundary date
 (list item 2). Three conditions abort the load with a named error:
 
 - **Undated source** — no pool in the source checkpoint records a priced-state
-  date: `boundary policy checkpoint at {path} carries no priced_state_date on any pool (a pool written before priced dates were recorded); re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again`.
+  date: `boundary policy checkpoint at {path} carries no priced_state_date on any pool (a pool written before priced dates were recorded); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
 - **No pool at the date** — no source pool is priced at the boundary date:
   `boundary policy at {path}: no pool is priced at the study's boundary date {date} (available: {dates})`.
 - **More than one pool at the date** — the source is ambiguous:
@@ -589,7 +589,7 @@ path — distinct from the [version gate](#version-gate) refusal. A boundary
 source is rejected when its `season_manifest`:
 
 - **is absent** — the source predates the season descriptor:
-  `boundary policy checkpoint at {path} predates the season descriptor (its manifest carries no season cycle or PAR orders); re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again`.
+  `boundary policy checkpoint at {path} predates the season descriptor (its manifest carries no season cycle or PAR orders); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
 - **disagrees on the season cycle** —
   `boundary policy at {path}: season cycle mismatch (study is {monthly|weekly|custom}, source is {…})`.
 - **disagrees on the season count** —
@@ -656,13 +656,13 @@ does not relax the subset rejects or loosen the date-selection rejects.
 per-family reconciliation is surfaced on three
 paths:
 
-- **`cobre run`** prints a **Boundary policy** block to stderr while it loads the case, before training —
+- **`novomodelo run`** prints a **Boundary policy** block to stderr while it loads the case, before training —
   `Cuts loaded: N (priced at {date})`, `Source: {path}`, and a `Reconciliation:`
   line `N copied, N fanned out, N defaulted to 0.0, N dropped`.
-- **`cobre validate --json`** emits a boundary object with `configured`,
+- **`novomodelo validate --json`** emits a boundary object with `configured`,
   `boundary_date`, and `report` fields carrying the full per-family report
   (worked example under [Configuration — boundary](/running/configuration/#policyboundary)).
-- **`cobre validate`** (human mode) prints `boundary policy priced at {date}`
+- **`novomodelo validate`** (human mode) prints `boundary policy priced at {date}`
   followed by the one-line summary
   `boundary reconciliation: N copied, N fanned out, N defaulted to 0.0, N source slots dropped`.
 
@@ -711,20 +711,20 @@ Both sets of cuts contribute to the lower bound.
 
 ## Read and Write Checkpoints from Python
 
-`cobre.results.load_policy` reads a policy checkpoint into plain Python dicts,
-and `cobre.write_policy_checkpoint` writes one from dicts of the same shape, so
+`novomodelo.results.load_policy` reads a policy checkpoint into plain Python dicts,
+and `novomodelo.write_policy_checkpoint` writes one from dicts of the same shape, so
 a loaded checkpoint round-trips: load, edit, write. The supported use is
 authoring an external boundary future-cost function, for example one derived
-analytically or produced by another tool, as a checkpoint that Cobre loads
+analytically or produced by another tool, as a checkpoint that Novomodelo loads
 through [`policy.boundary`](#boundary-cuts). The on-disk `AffinePiece` layout is
 documented in the [FlatBuffers Policy Schema](/reference/flatbuffers-schema/).
-A study loads the checkpoint only in the cobre version that wrote it
-([Version gate](#version-gate)); `cobre.results.load_policy` does not check the version.
+A study loads the checkpoint only in the novomodelo version that wrote it
+([Version gate](#version-gate)); `novomodelo.results.load_policy` does not check the version.
 
 ### Load a policy
 
 ```python
-cobre.results.load_policy(output_dir, policy_subdir="policy")
+novomodelo.results.load_policy(output_dir, policy_subdir="policy")
 ```
 
 `output_dir` is the study's output directory; `load_policy` reads the
@@ -773,7 +773,7 @@ all three fields, and so does an anticipated slot that holds no live commitment
 at the pool's stage.
 
 `load_policy` applies no load gate: it reads any checkpoint this build can parse,
-whichever cobre version wrote it, and returns the recorded software and version
+whichever novomodelo version wrote it, and returns the recorded software and version
 as `metadata["software"]` and `metadata["software_version"]`, without comparing
 them with a study. A missing directory, or one without `manifest.bin`, raises
 `FileNotFoundError` when neither `<policy_subdir>.staging` nor
@@ -784,7 +784,7 @@ lists the failure class of every load path.
 ### Write a checkpoint
 
 ```python
-cobre.write_policy_checkpoint(path, stage_cuts, metadata, stage_bases=None, stage_states=None, inflow_lag_depth=None)
+novomodelo.write_policy_checkpoint(path, stage_cuts, metadata, stage_bases=None, stage_states=None, inflow_lag_depth=None)
 ```
 
 `stage_cuts` and `metadata` mirror the `load_policy` shapes above, so a
@@ -802,7 +802,7 @@ An authored `metadata` needs `created_at`, `num_stages`, and a `producer` with
 `training_block_mode_per_stage`, `cost_scale_factor`, `lower_bound_history` (a
 list of floats, empty when omitted)) are optional.
 
-`inflow_lag_depth`, when set to `N > 0`, has Cobre reserve `N` canonical
+`inflow_lag_depth`, when set to `N > 0`, has Novomodelo reserve `N` canonical
 `HydroInflowLag` state slots per storage hydro in every stage's manifest and
 place each cut's `inflow_lag_coefficients` at their `(hydro, depth)` positions,
 so a boundary policy authored for a case with no autoregressive inflow model can
@@ -818,8 +818,8 @@ an absolute path. `load_policy` joins `policy_subdir` onto the directory it is
 given, so a checkpoint written to `<dir>/policy` is read back with `load_policy`
 on its parent directory, `<dir>`.
 
-`write_policy_checkpoint` stamps the running cobre version into the checkpoint
-and ignores `software`, `software_version` or `cobre_version` keys in `metadata`, so the checkpoint loads only in
+`write_policy_checkpoint` stamps the running novomodelo version into the checkpoint
+and ignores `software`, `software_version` or `novomodelo_version` keys in `metadata`, so the checkpoint loads only in
 that version (see [Version gate](#version-gate)). A checkpoint written without
 `stage_bases` is not subject to the [stored-basis gate](#stored-basis-gate): it
 carries no bases to check.
@@ -827,17 +827,17 @@ carries no bases to check.
 ### Round-trip example
 
 The following example is copy-runnable. To edit a trained policy, load it with
-`cobre.results.load_policy("output/")` and apply the edit step below to
+`novomodelo.results.load_policy("output/")` and apply the edit step below to
 `loaded["stage_cuts"]`; the example authors a checkpoint from scratch so it runs
 without a study. It writes the checkpoint, loads it back, appends a third cut,
 writes the edited policy back to the same path, and prints the reloaded cut
-count and the cobre version recorded in the checkpoint.
+count and the novomodelo version recorded in the checkpoint.
 
 ```python
 import tempfile
 
-import cobre
-import cobre.results
+import novomodelo
+import novomodelo.results
 
 parent = tempfile.mkdtemp()
 
@@ -890,9 +890,9 @@ metadata = {
 
 # Write to `<parent>/policy` — `load_policy` joins policy_subdir="policy" onto
 # the directory it is given, so it is loaded from `parent` below.
-cobre.write_policy_checkpoint(f"{parent}/policy", stage_cuts, metadata)
+novomodelo.write_policy_checkpoint(f"{parent}/policy", stage_cuts, metadata)
 
-loaded = cobre.results.load_policy(parent)
+loaded = novomodelo.results.load_policy(parent)
 assert loaded["metadata"]["format_version"] == 3
 assert loaded["stage_cuts"][0]["populated_count"] == 2
 
@@ -913,19 +913,19 @@ cuts.append(
 loaded["stage_cuts"][0]["populated_count"] = len(cuts)
 
 # Write back: same round-trip shape, one more cut than before.
-cobre.write_policy_checkpoint(
+novomodelo.write_policy_checkpoint(
     f"{parent}/policy", loaded["stage_cuts"], loaded["metadata"]
 )
 
-# The reloaded checkpoint holds three cuts and records the running cobre version.
-reloaded = cobre.results.load_policy(parent)
+# The reloaded checkpoint holds three cuts and records the running novomodelo version.
+reloaded = novomodelo.results.load_policy(parent)
 print(len(reloaded["stage_cuts"][0]["cuts"]), reloaded["metadata"]["software_version"])
 ```
 
 The script prints the reloaded cut count and the version that
 `write_policy_checkpoint` stamped:
 
-{/* capture: python round-trip example | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none */}
+{/* capture: python round-trip example | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none */}
 
 ```text
 3 0.18.0
@@ -943,7 +943,7 @@ inflow-lag coefficient.
 - a cut carries `inflow_lag_coefficients` without a positive `inflow_lag_depth`;
 - (under `inflow_lag_depth`) a manifest lacks a leading storage block;
 - (under `inflow_lag_depth`) an inflow-lag coefficient is unplaceable; or
-- `path` (for a link, its target) or its `.staging` or `.previous` sibling holds an entry no checkpoint writer leaves there (`cobre.errors.ValidationError`, a `ValueError`, with the `refusing to write a checkpoint: …` text; nothing on disk changes).
+- `path` (for a link, its target) or its `.staging` or `.previous` sibling holds an entry no checkpoint writer leaves there (`novomodelo.errors.ValidationError`, a `ValueError`, with the `refusing to write a checkpoint: …` text; nothing on disk changes).
 
 Each snippet below uses `metadata` from the round-trip example. The second also
 uses its `stage_cuts`; the third defines its own. Each snippet ends with the
@@ -952,7 +952,7 @@ exception text it raises.
 A cut whose `coefficients` length disagrees with its stage's
 `state_dimension`:
 
-{/* capture: python input-validation snippet 1 of 3 (ValueError text) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+{/* capture: python input-validation snippet 1 of 3 (ValueError text) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
 
 ```python
 bad_cuts = [
@@ -974,14 +974,14 @@ bad_cuts = [
     }
 ]
 
-cobre.write_policy_checkpoint("output/policy", bad_cuts, metadata)
+novomodelo.write_policy_checkpoint("output/policy", bad_cuts, metadata)
 # ValueError: stage 0 cut 1: coefficients has 2 entries, expected state_dimension=3
 ```
 
 A `stage_states` entry whose flat `data` length disagrees with
 `count * state_dimension`:
 
-{/* capture: python input-validation snippet 2 of 3 (ValueError text) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
+{/* capture: python input-validation snippet 2 of 3 (ValueError text) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
 
 ```python
 stage_states = [
@@ -993,7 +993,7 @@ stage_states = [
     }
 ]
 
-cobre.write_policy_checkpoint(
+novomodelo.write_policy_checkpoint(
     "output/policy", stage_cuts, metadata, stage_states=stage_states
 )
 # ValueError: stage 0: states data has 3 entries, expected count*state_dimension=6
@@ -1003,7 +1003,7 @@ A cut carrying `inflow_lag_coefficients` with no `inflow_lag_depth` passed to
 reserve the lag slots (keyed by **integer** hydro id; list index `0` = lag
 depth 1):
 
-{/* capture: python input-validation snippet 3 of 3 (ValueError text) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+{/* capture: python input-validation snippet 3 of 3 (ValueError text) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
 
 ```python
 stage_cuts = [
@@ -1026,7 +1026,7 @@ stage_cuts = [
     }
 ]
 
-cobre.write_policy_checkpoint("output/policy", stage_cuts, metadata)
+novomodelo.write_policy_checkpoint("output/policy", stage_cuts, metadata)
 # ValueError: stage 0 cut 1: inflow_lag_coefficients supplied without inflow_lag_depth; pass inflow_lag_depth=N to reserve the lag slots
 ```
 

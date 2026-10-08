@@ -388,6 +388,6 @@ see
   period a study's first stages complete, which §6 of this chapter seeds.
 - [PAR(p) Inflow Model](/math/par-inflow-model) — order selection; the
   pre-study lag window of the fit.
-- **Running Cobre:**
+- **Running Novomodelo:**
   [Policy Management](/running/policy-management/#boundary-cuts) — boundary
   configuration and compatibility requirements.

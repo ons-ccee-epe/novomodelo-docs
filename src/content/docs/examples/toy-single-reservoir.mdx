@@ -14,8 +14,8 @@ numbers chosen so every cut coefficient and every dual variable can be
 verified by hand. The goal is to make the abstract machinery of forward
 pass, backward pass, cut construction, and lower-bound update tangible.
 
-Cobre ships a reference case, `examples/1dtoy/` in the cobre
-repository, that `cobre init --template 1dtoy <dir>` scaffolds and the
+Novomodelo ships a reference case, `examples/1dtoy/` in the novomodelo
+repository, that `novomodelo init --template 1dtoy <dir>` scaffolds and the
 [Quickstart](/getting-started/quickstart) runs end to end. That case
 has one bus, one hydro plant, two thermal plants, four monthly stages
 (January to April 2024), ten openings per stage and an annual discount
@@ -92,7 +92,7 @@ $\zeta = 1$: turbining $q$ withdraws $q$ storage units. Each stage is one
 block of 1 h and the plant's productivity is 1, so $q$ is also the hydro
 output in MW and its energy in MWh. Demand and thermal output are in MW
 and costs are in \$: a stage's thermal output $g_{th}$ costs
-$50\, g_{th}$. A cobre case derives $\zeta$ from the stage's block
+$50\, g_{th}$. A novomodelo case derives $\zeta$ from the stage's block
 hours, in hm³ per m³/s
 ([Notation Conventions](/overview/notation-conventions#31-time-and-conversion)).
 :::
@@ -167,15 +167,15 @@ $$
 with $\mu = 30$ and $\sigma = 10$ for every stage in this walkthrough.
 The draws across stages are independent. This is the degenerate $p = 0$
 case of the [PAR(p) Inflow Model](/math/par-inflow-model): no lag
-terms, no AR coefficients, no initial-lag state. A cobre case expresses
+terms, no AR coefficients, no initial-lag state. A novomodelo case expresses
 it by supplying `scenarios/inflow_seasonal_stats.parquet` ($\mu_t$ and
 $\sigma_t$ per hydro and per stage) with neither
-`inflow_history.parquet` nor `inflow_ar_coefficients.parquet`: cobre
+`inflow_history.parquet` nor `inflow_ar_coefficients.parquet`: novomodelo
 then applies the seasonal statistics as white noise, $p_m = 0$ for
 every season, and runs no order selection (the order selection of
 [PAR(p) Inflow Model §3.6](/math/par-inflow-model#36-order-selection) needs
 an inflow history). The shipped `1dtoy` is built this way, and
-`cobre run` reports its estimation path as `user_stats_white_noise`.
+`novomodelo run` reports its estimation path as `user_stats_white_noise`.
 
 The three openings used in the backward pass correspond to
 $\varepsilon \in \{-1, 0, +1\}$ with equal probability $p = 1/3$,
@@ -570,7 +570,7 @@ exact upper bound from an enumerated forward pass (Tier 3); the percent
 form of the [optimality gap](/math/stopping-rules#optimality-gap) then
 divides the gap by the magnitude of the lower bound. The shipped `1dtoy`
 runs one sampled forward pass per iteration and stops at its iteration
-limit of 128; cobre rejects a `gap` stopping rule at setup under a
+limit of 128; novomodelo rejects a `gap` stopping rule at setup under a
 sampled forward pass (see [Stopping Rules](/math/stopping-rules)). The
 upper-bound mechanisms are compared in
 [Upper Bound Evaluation](/math/upper-bound-evaluation).

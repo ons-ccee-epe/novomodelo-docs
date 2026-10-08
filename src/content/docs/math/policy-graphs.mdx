@@ -73,7 +73,7 @@ Circles are pool-owning (non-leaf) nodes; ovals are leaves sharing the one termi
 
 A policy graph carries two probability structures that stay conceptually distinct:
 
-- **Between-node (edge) weights.** Each node's outgoing transition probabilities sum to 1 (the load-time check is in the Configure tab of [Implementation in Cobre](#implementation-in-cobre)). This axis governs *which child node* a trajectory moves to.
+- **Between-node (edge) weights.** Each node's outgoing transition probabilities sum to 1 (the load-time check is in the Configure tab of [Implementation in Novomodelo](#implementation-in-novomodelo)). This axis governs *which child node* a trajectory moves to.
 - **Within-node openings.** Independently of its outgoing edges, a node carries its own local set of openings $\Omega_n$ — the realizations $\omega \in \Omega_n$ its stage subproblem is evaluated under. This axis governs *which realization* is evaluated once the node itself has been reached; it is the same within-stage opening concept described for the chain in [SDDP Algorithm §3](/math/sddp-algorithm) and [Scenario Generation](/math/scenario-generation), scoped per node rather than per stage.
 
 The backward pass composes the two axes into one joint law. The cut of a node $n$ is built over the pairs $(n', \omega)$ of a child $n'$ and an opening $\omega \in \Omega_{n'}$ of that child, each pair weighted by the product $P(n \to n')\, p_{n'}(\omega)$ of the edge's transition probability and the opening's probability within the child, uniform over $\Omega_{n'}$. The risk measure of node $n$'s stage acts once on that joint law, not on each child's openings with the results then averaged across the children.
@@ -110,11 +110,11 @@ An explicit node graph keeps this stage-level convention: a discount override ap
 
 ## 4. Mapping onto the SDDP.jl Family
 
-The node/transition/pool structure above is the same abstraction [Dowson (2020)](/reference/bibliography/#sddp-foundations) defines as a **policy graph** and the SDDP.jl package implements ([Dowson & Kapelevich, 2021](/reference/bibliography/#software-references)): nodes each carry a local subproblem and their own cut pool, connected by probability-weighted arcs, with the backward pass aggregating successor pools into a parent's cut exactly as §1 describes. Cobre's graph is the finite, acyclic, leaf-terminated member of that family — every trajectory starts at a root and ends at a leaf after a bounded number of stages, with no cycle back to an earlier stage. §5 states the further restrictions Cobre imposes within that member.
+The node/transition/pool structure above is the same abstraction [Dowson (2020)](/reference/bibliography/#sddp-foundations) defines as a **policy graph** and the SDDP.jl package implements ([Dowson & Kapelevich, 2021](/reference/bibliography/#software-references)): nodes each carry a local subproblem and their own cut pool, connected by probability-weighted arcs, with the backward pass aggregating successor pools into a parent's cut exactly as §1 describes. Novomodelo's graph is the finite, acyclic, leaf-terminated member of that family — every trajectory starts at a root and ends at a leaf after a bounded number of stages, with no cycle back to an earlier stage. §5 states the further restrictions Novomodelo imposes within that member.
 
 ## 5. Known Limitations
 
-Cobre's policy graph carries three structural limitations beyond the finite/acyclic/leaf-terminated shape itself:
+Novomodelo's policy graph carries three structural limitations beyond the finite/acyclic/leaf-terminated shape itself:
 
 - **A single initial node.** A case supplies one initial-conditions record for the whole graph, so the incoming state that anchors the graph is shared by construction — the graph is anchored at one root even where the schema would structurally permit more than one node at stage 0.
 - **A single terminal value shared across leaves.** Every leaf, regardless of which node or path reaches it, resolves to the same shared terminal pool, to which the backward pass adds no cut. This generalises the terminal condition of [SDDP Algorithm §2](/math/sddp-algorithm): there is one terminal future-cost value for the whole graph, not one per leaf, either zero, $V_{T+1}(x) = 0$, or the fixed imported terminal function of [SDDP Algorithm §7](/math/sddp-algorithm#7-terminal-boundary-cuts).
@@ -133,9 +133,9 @@ Because the enumerated count grows multiplicatively along every root→leaf path
 
 Of the three panels in §1: the **stage chain** and the **terminal fan** are pure trees and admit an exact pass (subject to the singleton-opening restriction at each node); the **recombining hybrid** is rejected for an exact pass at its in-degree-2 join and requires a sampled pass instead.
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
-The methodology above defines nodes, transitions and their probabilities; the tab below covers how Cobre's software surface spells them and checks the probabilities at load.
+The methodology above defines nodes, transitions and their probabilities; the tab below covers how Novomodelo's software surface spells them and checks the probabilities at load.
 
 <Tabs>
   <TabItem label="Configure"><PolicyGraphConfigure /></TabItem>

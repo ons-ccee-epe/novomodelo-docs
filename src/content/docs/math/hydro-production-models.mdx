@@ -11,7 +11,7 @@ import { Content as HydroNotes } from "./_impl/_hydro.notes.mdx";
 
 ## Purpose
 
-This chapter defines the hydro generation constraint models supported by Cobre, which relate turbined flow and reservoir storage to electrical output. Two production functions shape dispatch: constant productivity and FPHA. A third model name — linearized head — is a reserved alias for constant productivity (see §3). The choice between constant productivity and FPHA trades off accuracy vs. computational cost, and can vary by stage per hydro.
+This chapter defines the hydro generation constraint models supported by Novomodelo, which relate turbined flow and reservoir storage to electrical output. Two production functions shape dispatch: constant productivity and FPHA. A third model name — linearized head — is a reserved alias for constant productivity (see §3). The choice between constant productivity and FPHA trades off accuracy vs. computational cost, and can vary by stage per hydro.
 
 All decision variables use **rate units** (MW, m³/s) — see the Variable Units Convention in [System Element Modeling Overview](/math/system-elements). For variable definitions see [Notation Conventions](/overview/notation-conventions); for LP integration see [LP Formulation](/math/lp-formulation); for hydro element descriptions see [System Element Modeling Overview](/math/system-elements).
 
@@ -42,7 +42,7 @@ with:
 
 ## 2. FPHA (Approximate Hydroelectric Production Function)
 
-For accurate modeling of hydroelectric generation, FPHA (Approximate Hydroelectric Production Function) captures the nonlinear relationship between storage, flow, spillage, and generation through a piecewise-linear approximation. The approach follows the piecewise-linear hydro production model of [Diniz & Maceira (2008)](/reference/bibliography/#hydro-production); that model is four-dimensional (forebay/head, turbined flow, and tailrace/spillage), whereas Cobre fits a reduced variant over storage and turbined flow at spillage = 0, capturing the spillage effect through the per-plane lateral-flow secant of §2.7 rather than an explicit spillage axis.
+For accurate modeling of hydroelectric generation, FPHA (Approximate Hydroelectric Production Function) captures the nonlinear relationship between storage, flow, spillage, and generation through a piecewise-linear approximation. The approach follows the piecewise-linear hydro production model of [Diniz & Maceira (2008)](/reference/bibliography/#hydro-production); that model is four-dimensional (forebay/head, turbined flow, and tailrace/spillage), whereas Novomodelo fits a reduced variant over storage and turbined flow at spillage = 0, capturing the spillage effect through the per-plane lateral-flow secant of §2.7 rather than an explicit spillage axis.
 
 ### 2.1 Notation
 
@@ -80,11 +80,11 @@ clamped to $\max(h_{net}, 0)$, where:
 - $h_{tail}(q + s)$ = tailrace (downstream channel) level as function of total outflow
 - $h_{loss}$ = hydraulic head losses (from the factor or constant model)
 
-**Why linearization is needed**: $\phi$ is nonlinear in $(v, q)$ due to the bilinear product $q \times h_{net}$, nonlinear topology functions $h_{fore}(v)$ and $h_{tail}(q_{out})$, and flow-dependent hydraulic losses. For LP formulation, Cobre approximates $\phi$ with a set of linear hyperplanes.
+**Why linearization is needed**: $\phi$ is nonlinear in $(v, q)$ due to the bilinear product $q \times h_{net}$, nonlinear topology functions $h_{fore}(v)$ and $h_{tail}(q_{out})$, and flow-dependent hydraulic losses. For LP formulation, Novomodelo approximates $\phi$ with a set of linear hyperplanes.
 
 ### 2.3 Topology Functions
 
-Cobre uses **tabular data with linear interpolation** for the forebay curve — more transparent and easier to validate against surveyed data than polynomial fits.
+Novomodelo uses **tabular data with linear interpolation** for the forebay curve — more transparent and easier to validate against surveyed data than polynomial fits.
 
 #### Forebay Level $h_{fore}(v)$
 
@@ -140,7 +140,7 @@ $$
 
 ### 2.4 Productivity
 
-The exact production function converts hydraulic power to electrical power with the factor $9.81\,\eta_h/1000$ (MW per (m³/s · m)), so $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ in MW. Cobre uses constant efficiency $\eta_h$ per plant. The **specific productivity** $\rho_{esp}$, in the same unit, is a separate plant input that the exact production function and the FPHA fit do not use.
+The exact production function converts hydraulic power to electrical power with the factor $9.81\,\eta_h/1000$ (MW per (m³/s · m)), so $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ in MW. Novomodelo uses constant efficiency $\eta_h$ per plant. The **specific productivity** $\rho_{esp}$, in the same unit, is a separate plant input that the exact production function and the FPHA fit do not use.
 
 An FPHA plant has no single scalar productivity $\rho$. The fitted planes follow from $\eta_h$ and the topology functions alone, while the equivalent productivity $\rho_{eq}$ at the reference operating point is **derived** from a specific productivity $\rho_{esp}$ supplied for the plant (overridable per stage) and the VHA geometry; the derivation is documented in section 5.1.
 
@@ -178,7 +178,7 @@ The fitter evaluates the exact production function $\phi = (9.81\,\eta_h/1000) \
 
 Each cloud point is capped at the plant's installed capacity $\bar{G}_h$. Spillage is not a cloud dimension — it is fixed at zero throughout.
 
-**Plants without turbine capacity**: when $q_{max} = 0$ the flow axis collapses onto $q = 0$, where generation is zero, so the cloud carries no production and no plane survives the hull. Such a plant is modelled with zero productivity at every stage instead of a plane set; the [implementation notes](#implementation-in-cobre) give the capacity threshold and how the plant is reported.
+**Plants without turbine capacity**: when $q_{max} = 0$ the flow axis collapses onto $q = 0$, where generation is zero, so the cloud carries no production and no plane survives the hull. Such a plant is modelled with zero productivity at every stage instead of a plane set; the [implementation notes](#implementation-in-novomodelo) give the capacity threshold and how the plant is reported.
 
 **Run-of-river plants**: when the plant has a single fitting volume ($v_{min} \approx v_{max}$, or a single volume sample requested), two nearby volume samples are synthesized to keep the 3-D hull non-degenerate (Implementation notes, "Run-of-river support"). The resulting $\gamma_v^m$ is **snapped to exactly 0** when its magnitude is negligible, enforcing the run-of-river semantics ($\gamma_v^m = 0$).
 
@@ -352,7 +352,7 @@ The production model may vary by stage or by season per hydro (Configure tab).
 
 ## 5. Energy-Conversion Quantities
 
-The three production models of sections 1–3 describe how generation depends on the operating state. For accounting purposes — natural-inflow energy (ENA), stored reservoir energy (EARM), and per-stage MW/MWh reporting — Cobre reduces each plant's production model to a small set of per-(hydro, stage) scalars produced by **two evaluators**: one evaluated at a representative reference operating point (§5.1–§5.2), and one averaged over the plant's physical storage range (§5.3). These scalars are computed once at study setup and reused on every stage of every scenario.
+The three production models of sections 1–3 describe how generation depends on the operating state. For accounting purposes — natural-inflow energy (ENA), stored reservoir energy (EARM), and per-stage MW/MWh reporting — Novomodelo reduces each plant's production model to a small set of per-(hydro, stage) scalars produced by **two evaluators**: one evaluated at a representative reference operating point (§5.1–§5.2), and one averaged over the plant's physical storage range (§5.3). These scalars are computed once at study setup and reused on every stage of every scenario.
 
 ### 5.1 Equivalent Productivity
 
@@ -472,9 +472,9 @@ These quantities do not enter the LP — they are accounting outputs derived fro
 
 The full FPHA production function (section 2) is multi-dimensional and concave; constant productivity is a scalar but per-plant. Neither can be summed across a cascade or scaled by inflow without a reference operating point. The energy-conversion scalars resolve this: each model is reduced to two numbers per (hydro, stage) — one from the reference-point evaluator, one from the useful-range mean evaluator — and those numbers are what the cascade-summation, ENA, EARM, and maximum-stored-energy formulas above can consume uniformly. The LP's production model does not use these scalars; it continues to enforce the full production model. They are accounting quantities that may also be used as coefficients of user-authored generic constraints, such as the security curve of §5.3 (see [LP Formulation §10](/math/lp-formulation#10-generic-constraints)).
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
-The methodology above defines the hydro production models; the tabs below cover how Cobre's software surface configures, feeds, and reports on them.
+The methodology above defines the hydro production models; the tabs below cover how Novomodelo's software surface configures, feeds, and reports on them.
 
 <Tabs>
   <TabItem label="Configure">

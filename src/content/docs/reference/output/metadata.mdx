@@ -1,6 +1,6 @@
 ---
 title: Metadata Files
-description: The run metadata cobre run writes for training and simulation, and the stochastic-model provenance record, field by field.
+description: The run metadata novomodelo run writes for training and simulation, and the stochastic-model provenance record, field by field.
 ---
 
 Both `training/metadata.json` and `simulation/metadata.json` use an atomic
@@ -17,7 +17,7 @@ last successfully completed write.
 `status` is `"complete"` or `"partial"`. In `training/metadata.json` it is
 `"partial"` when a shutdown request ended training and neither its stopping
 rules nor its iteration budget ended it at that iteration: a signal to
-`cobre run`, or a stop from a Python `on_iteration` callback. In
+`novomodelo run`, or a stop from a Python `on_iteration` callback. In
 `simulation/metadata.json` it is `"partial"` for a simulation skipped after a
 signal stop. Every other ending reads `"complete"`, a failed training included,
 so read `convergence.termination_reason` (`"error"` on a failure) and the exit
@@ -29,7 +29,7 @@ Both files are plain JSON, so `jq` reads them directly. For a script or CI
 check, see [Output format](/reference/cli-reference/#output-format) in the CLI
 Reference.
 
-From Python, `cobre.results.load_results(output_dir)` returns both metadata
+From Python, `novomodelo.results.load_results(output_dir)` returns both metadata
 documents in one dict, together with a per-phase `complete` flag — see the
 [Python Quickstart](/getting-started/python-quickstart/).
 
@@ -44,13 +44,13 @@ single file. The `convergence` block records how the run stopped.
 
 **Methodology:** [Determinism & Provenance](/math/determinism-guarantees) · [Stopping Rules](/math/stopping-rules)
 
-**Example (a `cobre run` of the 1dtoy template; hostname and timestamps replaced):**
+**Example (a `novomodelo run` of the 1dtoy template; hostname and timestamps replaced):**
 
-{/* capture: cobre run toy --quiet, then toy/output/training/metadata.json | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy, unchanged) */}
+{/* capture: novomodelo run toy --quiet, then toy/output/training/metadata.json | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, unchanged) */}
 
 ```json
 {
-  "software": "cobre",
+  "software": "novomodelo",
   "software_version": "0.18.0",
   "hostname": "<hostname>",
   "solver": "highs",
@@ -134,7 +134,7 @@ single file. The `convergence` block records how the run stopped.
 
 | Name                       | Type   | Nullable | Units | Description                                                                                                                                                        |
 | -------------------------- | ------ | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `software`                 | string | No       | —     | Name of the software that produced this output: `"cobre"`.                                                                                                         |
+| `software`                 | string | No       | —     | Name of the software that produced this output: `"novomodelo"`.                                                                                                         |
 | `software_version`         | string | No       | —     | Version of that software, for example `"0.18.0"`.                                                                                                                  |
 | `hostname`                 | string | No       | —     | Hostname of the machine that ran training.                                                                                                                         |
 | `solver`                   | string | No       | —     | LP solver backend: `"highs"` or `"clp"`.                                                                                                                           |
@@ -150,7 +150,7 @@ single file. The `convergence` block records how the run stopped.
 | Name                           | Type    | Nullable | Units | Description                                                                                                                   |
 | ------------------------------ | ------- | -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `configuration.seed`           | integer | Yes      | —     | The configured `training.tree_seed`; `null` when absent (the run then uses `42`).                                             |
-| `configuration.max_iterations` | integer | Yes      | —     | Maximum iterations: the `limit` of the first `iteration_limit` entry of `training.stopping_rules`; always set in a file `cobre run` writes, because the configuration must hold an `iteration_limit` rule. |
+| `configuration.max_iterations` | integer | Yes      | —     | Maximum iterations: the `limit` of the first `iteration_limit` entry of `training.stopping_rules`; always set in a file `novomodelo run` writes, because the configuration must hold an `iteration_limit` rule. |
 | `configuration.forward_passes` | integer | Yes      | —     | Number of forward-pass scenario trajectories per iteration. `null` under `enumerated` selection.                              |
 | `configuration.stopping_mode`  | string  | No       | —     | How multiple stopping rules combine: `"any"` or `"all"`.                                                                      |
 | `configuration.policy_mode`    | string  | No       | —     | Policy warm-start mode: `"fresh"`, `"warm_start"`, or `"resume"`.                                                             |
@@ -178,7 +178,7 @@ single file. The `convergence` block records how the run stopped.
 | -------------------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `convergence.achieved`           | boolean | No       | —     | `true` when the configured stopping rules ended training and a `gap` or `bound_stalling` rule triggered at that iteration, even when `termination_reason` names another rule triggered at the same iteration; `false` when only `iteration_limit` or `time_limit` triggered, when a shutdown request alone ended training, and after a failure.                                                                                                                                            |
 | `convergence.final_gap_percent`  | number  | Yes      | %     | [Optimality gap](/math/stopping-rules#optimality-gap) between lower and upper bounds at termination as a percentage. `null` when the final lower bound is not positive.                                                                                                                                                                                                                                                                                                                    |
-| `convergence.termination_reason` | string  | No       | —     | Name of the stopping rule that ended the run: `"iteration_limit"`, `"time_limit"`, `"bound_stalling"`, or `"gap"` (under `"all"`, the first rule other than `iteration_limit`, or `"iteration_limit"` when the largest limit capped the run); `"error"` when training stopped on a failure, in which case `cobre run` exits non-zero; `"graceful_shutdown"` when a shutdown request ended training and neither the stopping rules nor the iteration budget ended it at that iteration (a SIGTERM or SIGINT to `cobre run`, or an `on_iteration` callback of [`cobre.Study.train`](/reference/python-api/#cobrestudytrain) or [`cobre.run.run`](/reference/python-api/#cobrerunrun) that returns a truthy value or raises). |
+| `convergence.termination_reason` | string  | No       | —     | Name of the stopping rule that ended the run: `"iteration_limit"`, `"time_limit"`, `"bound_stalling"`, or `"gap"` (under `"all"`, the first rule other than `iteration_limit`, or `"iteration_limit"` when the largest limit capped the run); `"error"` when training stopped on a failure, in which case `novomodelo run` exits non-zero; `"graceful_shutdown"` when a shutdown request ended training and neither the stopping rules nor the iteration budget ended it at that iteration (a SIGTERM or SIGINT to `novomodelo run`, or an `on_iteration` callback of [`novomodelo.Study.train`](/reference/python-api/#novomodelostudytrain) or [`novomodelo.run.run`](/reference/python-api/#novomodelorunrun) that returns a truthy value or raises). |
 
 **`row_pool` fields:**
 
@@ -198,7 +198,7 @@ single file. The `convergence` block records how the run stopped.
 | Name                            | Type   | Nullable | Units | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ------------------------------- | ------ | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `bounds.final_lower_bound`      | number | No       | —     | Final lower bound on the objective at termination.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `bounds.final_upper_bound`      | number | Yes      | —     | Final upper-bound value; always a number in a file `cobre run` writes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `bounds.final_upper_bound`      | number | Yes      | —     | Final upper-bound value; always a number in a file `novomodelo run` writes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `bounds.final_upper_bound_std`  | number | Yes      | —     | Sample standard deviation of the last completed iteration's forward-pass scenario costs. `null` when `final_upper_bound_kind` is `"exact"`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `bounds.final_upper_bound_kind` | string | No       | —     | Upper-bound regime of the run: `"exact"` under `enumerated` selection, `"statistical"` under `sampled` selection; the same value as `upper_bound_kind` on every row of [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet). Under `"exact"`, the gap between the bounds is a valid optimality certificate only when the risk measure is the same at every stage; under a stage-varying measure `final_upper_bound` is the policy's expected cost, which can fall below `final_lower_bound` (see [Cut Management — when bounds and certificates hold](/math/cut-management#when-bounds-and-certificates-hold)). |
 
@@ -277,13 +277,13 @@ LP solver statistics, and distribution information.
 
 **Methodology:** [Determinism & Provenance](/math/determinism-guarantees)
 
-**Example (the same `cobre run` of the 1dtoy template; hostname and timestamps replaced):**
+**Example (the same `novomodelo run` of the 1dtoy template; hostname and timestamps replaced):**
 
-{/* capture: cobre run toy --quiet, then toy/output/simulation/metadata.json | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy, unchanged) */}
+{/* capture: novomodelo run toy --quiet, then toy/output/simulation/metadata.json | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, unchanged) */}
 
 ```json
 {
-  "software": "cobre",
+  "software": "novomodelo",
   "software_version": "0.18.0",
   "hostname": "<hostname>",
   "solver": "highs",
@@ -329,7 +329,7 @@ LP solver statistics, and distribution information.
 
 | Name               | Type   | Nullable | Units | Description                                                                 |
 | ------------------ | ------ | -------- | ----- | --------------------------------------------------------------------------- |
-| `software`         | string | No       | —     | Name of the software that produced this output: `"cobre"`.                  |
+| `software`         | string | No       | —     | Name of the software that produced this output: `"novomodelo"`.                  |
 | `software_version` | string | No       | —     | Version of that software, for example `"0.18.0"`.                           |
 | `hostname`         | string | No       | —     | Hostname of the machine that ran simulation.                                |
 | `solver`           | string | No       | —     | LP solver backend: `"highs"` or `"clp"`.                                    |
@@ -373,7 +373,7 @@ See the **`distribution` fields** table above.
 ## `training/model_provenance.json`
 
 Records which data sources fed the inflow and hydro-production models. Written
-on every `cobre run`, before training starts; diagnostic. Top-level object with
+on every `novomodelo run`, before training starts; diagnostic. Top-level object with
 two sub-objects, `inflow` and `hydro_production`.
 
 **Methodology:** [Determinism & Provenance](/math/determinism-guarantees) · [PAR(p) Inflow Model](/math/par-inflow-model)

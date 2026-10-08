@@ -15,7 +15,7 @@ This chapter defines the unified penalty system that ensures LP feasibility acro
 
 The LP must always be feasible. Several physical and operational constraints may be impossible to satisfy in extreme scenarios (droughts, equipment failures, etc.). The penalty system provides slack variables with graduated costs to maintain feasibility while signaling the severity of violations.
 
-Cobre's penalty cascade has three levels of specificity: a stage override on a (entity, stage, penalty) triple is most specific, an entity override defined per entity is next, and a global default at the case level is the fallback. The most specific value present wins. The [Configure tab](#implementation-in-cobre) lists the tiers each cost supports, with an example.
+Novomodelo's penalty cascade has three levels of specificity: a stage override on a (entity, stage, penalty) triple is most specific, an entity override defined per entity is next, and a global default at the case level is the fallback. The most specific value present wins. The [Configure tab](#implementation-in-novomodelo) lists the tiers each cost supports, with an example.
 
 ## 2. Penalty Categories
 
@@ -67,7 +67,7 @@ These are small costs inserted into the objective function to guide the solver t
 | Curtailment ($c^{curt}_r$) | \$/MWh | Curtailed non-controllable gen | Prioritize using available non-controllable generation over curtailing it |
 | Exchange ($c^{exch}_n$) | \$/MWh | Power flow on lines | Prefer local supply; avoid unnecessary inter-bus power flows |
 
-**Turbined cost**: the cost $c^{tc}_h$ is charged on the turbined flow of every cell of every hydro, whatever its production model. Where energy has no marginal value, turbined water produces nothing, so the LP is indifferent between turbining it and spilling it; $c^{tc}_h > c^{spill}_h$ tips it toward spilling. On an FPHA plane with $\gamma_q^m = 0$ (the installed-capacity plane, [Hydro Production Function Models §2.6](/math/hydro-production-models#26-computed-fpha-fitting-pipeline)) more turbined flow adds no generation either, but spillage lowers the plane through its coefficient $\gamma_s^m \leq 0$ ([§2.7](/math/hydro-production-models#27-lateral-flow-secant)), so where that plane binds the LP weighs the generation that spilling would lose against $c^{tc}_h - c^{spill}_h$. A hydro using FPHA requires $c^{tc}_h \geq 0$, since a negative cost would reward turbining water that generates nothing; $c^{tc}_h > c^{spill}_h$ is advised for every hydro and not enforced ([Configure tab](#implementation-in-cobre)).
+**Turbined cost**: the cost $c^{tc}_h$ is charged on the turbined flow of every cell of every hydro, whatever its production model. Where energy has no marginal value, turbined water produces nothing, so the LP is indifferent between turbining it and spilling it; $c^{tc}_h > c^{spill}_h$ tips it toward spilling. On an FPHA plane with $\gamma_q^m = 0$ (the installed-capacity plane, [Hydro Production Function Models §2.6](/math/hydro-production-models#26-computed-fpha-fitting-pipeline)) more turbined flow adds no generation either, but spillage lowers the plane through its coefficient $\gamma_s^m \leq 0$ ([§2.7](/math/hydro-production-models#27-lateral-flow-secant)), so where that plane binds the LP weighs the generation that spilling would lose against $c^{tc}_h - c^{spill}_h$. A hydro using FPHA requires $c^{tc}_h \geq 0$, since a negative cost would reward turbining water that generates nothing; $c^{tc}_h > c^{spill}_h$ is advised for every hydro and not enforced ([Configure tab](#implementation-in-novomodelo)).
 
 ### Penalty Priority Ordering
 
@@ -94,15 +94,15 @@ $$
 c^{def} \;>\; \frac{c^{fill}}{\kappa\,\bar\rho_{acum}}
 $$
 
-A commissioning fill schedule must not be defended as hard as load shedding — when nature physically cannot both serve load and keep a filling reservoir on its accumulation schedule, the solver should serve load and let the filling floor slip. The filling-target penalty's position _relative to the operational-constraint tier_ (minimum turbined flow, outflow, generation, evaporation, withdrawal) is left to study calibration: Cobre expects it below deficit and sets nothing against those operational slacks.
+A commissioning fill schedule must not be defended as hard as load shedding — when nature physically cannot both serve load and keep a filling reservoir on its accumulation schedule, the solver should serve load and let the filling floor slip. The filling-target penalty's position _relative to the operational-constraint tier_ (minimum turbined flow, outflow, generation, evaporation, withdrawal) is left to study calibration: Novomodelo expects it below deficit and sets nothing against those operational slacks.
 
 ### Penalty Ordering Validation
 
-Cobre checks the configured costs when the case loads. The checks compare the values as given, without the conversion above, so a case that passes them can still invert the energy-equivalent ordering. They warn without stopping the run, and two rules reject a case: a negative turbined cost on an FPHA hydro, and a filling schedule that cannot reach the dead volume. The [Configure tab](#implementation-in-cobre) lists them.
+Novomodelo checks the configured costs when the case loads. The checks compare the values as given, without the conversion above, so a case that passes them can still invert the energy-equivalent ordering. They warn without stopping the run, and two rules reject a case: a negative turbined cost on an FPHA hydro, and a filling schedule that cannot reach the dead volume. The [Configure tab](#implementation-in-novomodelo) lists them.
 
 ## 3. Penalty Defaults and Overrides
 
-Each cost has a case-level default and may be overridden per entity and per stage. The evaporation and withdrawal slacks are priced by directional costs whose defaults follow the symmetric costs; the [Configure tab](#implementation-in-cobre) lists the fields, the tiers and the fallback order. [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) covers the penalty method of the inflow slack.
+Each cost has a case-level default and may be overridden per entity and per stage. The evaporation and withdrawal slacks are priced by directional costs whose defaults follow the symmetric costs; the [Configure tab](#implementation-in-novomodelo) lists the fields, the tiers and the fallback order. [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) covers the penalty method of the inflow slack.
 
 ### Piecewise Deficit
 
@@ -183,19 +183,19 @@ The signed withdrawal target $r_h$, in m³/s, is positive for a removal and nega
 
 ## 6. Hydro Variable Bounds Summary
 
-The per-variable bounds and the slack each bound carries are tabulated in the [Configure tab](#implementation-in-cobre).
+The per-variable bounds and the slack each bound carries are tabulated in the [Configure tab](#implementation-in-novomodelo).
 
 ### Dead-Volume Filling Specifics
 
-During the filling period, from the filling start stage up to, not including, the entry stage, the hydro is in commissioning state: the reservoir accumulates water toward the dead volume $\underline{V}_h$ before it can begin generating. This is Cobre's own dead-volume filling model, whose per-stage accumulation schedule is specified below.
+During the filling period, from the filling start stage up to, not including, the entry stage, the hydro is in commissioning state: the reservoir accumulates water toward the dead volume $\underline{V}_h$ before it can begin generating. This is Novomodelo's own dead-volume filling model, whose per-stage accumulation schedule is specified below.
 
 :::note[Before filling — the PreFilling phase]
 These specifics govern the **filling** window, from the filling start stage up to, not including, the entry stage. Before that window — and, for a **non-filling** hydro, at any stage outside its commissioning window — the plant is **PreFilling**: it does not yet exist in the dispatch. Turbine, spillage, and diversion are all pinned to zero, so **spillage is frozen and incurs no spillage cost** (unlike during filling), storage is held constant by a frozen identity, and natural inflow is routed past the site to the first downstream plant that is not PreFilling. [LP Formulation — Lifecycle Phases](/math/lp-formulation#lifecycle-phases) tabulates every phase.
 :::
 
-Filling is governed by a **minimum accumulation rate** rather than a single end-of-period target. The rate is _not_ an applied inflow and _not_ a cap on natural inflow — it is the floor below which the reservoir is not allowed to lag the fill schedule. From it, Cobre derives a **per-stage minimum end-of-stage storage** $V^{\text{target}}_t$ that reaches the dead volume exactly at the last filling stage $L$, the stage before the entry stage.
+Filling is governed by a **minimum accumulation rate** rather than a single end-of-period target. The rate is _not_ an applied inflow and _not_ a cap on natural inflow — it is the floor below which the reservoir is not allowed to lag the fill schedule. From it, Novomodelo derives a **per-stage minimum end-of-stage storage** $V^{\text{target}}_t$ that reaches the dead volume exactly at the last filling stage $L$, the stage before the entry stage.
 
-[LP Formulation §8](/math/lp-formulation#8-variable-bounds-and-minimum-constraints) gives the floor in closed form: the dead volume at $L$ minus the accumulation the schedule still owes after stage $t$, never above the dead volume in force at stage $t$. The schedule must be able to reach the plant's declared dead volume, not a stage override of it, from the storage the plant starts filling with; Cobre rejects a case whose schedule cannot ([Configure tab](#implementation-in-cobre)).
+[LP Formulation §8](/math/lp-formulation#8-variable-bounds-and-minimum-constraints) gives the floor in closed form: the dead volume at $L$ minus the accumulation the schedule still owes after stage $t$, never above the dead volume in force at stage $t$. The schedule must be able to reach the plant's declared dead volume, not a stage override of it, from the storage the plant starts filling with; Novomodelo rejects a case whose schedule cannot ([Configure tab](#implementation-in-novomodelo)).
 
 **Operational constraints during filling**:
 
@@ -211,9 +211,9 @@ Filling is governed by a **minimum accumulation rate** rather than a single end-
 
 **Penalties during filling**: The same outflow violation cost applies, and spillage during filling still incurs its spillage cost. The storage-below-minimum slack $\sigma^{v-}_h$ is **not** active during filling — the per-stage filling slack $\sigma^{fill}_h$ is the one that fires, and storage is allowed below the dead volume by design.
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
-The methodology above defines the penalty taxonomy and priority ordering; the tabs below cover how Cobre's software surface configures and reports the penalty costs that implement it.
+The methodology above defines the penalty taxonomy and priority ordering; the tabs below cover how Novomodelo's software surface configures and reports the penalty costs that implement it.
 
 <Tabs>
   <TabItem label="Configure"><PenaltiesConfigure /></TabItem>

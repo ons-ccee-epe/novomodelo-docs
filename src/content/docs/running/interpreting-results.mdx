@@ -17,11 +17,11 @@ common problems from the output data.
 
 ## Loading Results in Python
 
-The `cobre.results` module of `cobre-python` reads a run's output directory
+The `novomodelo.results` module of `novomodelo-python` reads a run's output directory
 into Python. [Python Quickstart](/getting-started/python-quickstart/) covers
 the installation. The snippets below read the output of
-`cobre run my_study --output results`, where `my_study` is the 1dtoy template
-from `cobre init --template 1dtoy my_study`, and run from the directory that
+`novomodelo run my_study --output results`, where `my_study` is the 1dtoy template
+from `novomodelo init --template 1dtoy my_study`, and run from the directory that
 holds `my_study/` and `results/`.
 
 `load_convergence` returns one dict per iteration, keyed by the columns of
@@ -31,18 +31,18 @@ holds `my_study/` and `results/`.
 (`pyarrow` must be installed), which `polars.from_arrow` consumes.
 
 ```python
-import cobre
+import novomodelo
 import polars as pl
 
-last = cobre.results.load_convergence("results")[-1]
+last = novomodelo.results.load_convergence("results")[-1]
 for key in ("iteration", "lower_bound", "upper_bound", "gap_percent"):
     print(f"{key}: {last[key]:.6g}")
 
-conv = pl.from_arrow(cobre.results.load_convergence_arrow("results"))
+conv = pl.from_arrow(novomodelo.results.load_convergence_arrow("results"))
 print(conv.select("iteration", "upper_bound", "upper_bound_kind", "gap_percent").tail(1))
 ```
 
-{/* capture: python loading convergence (cobre.results) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on 1dtoy (cobre init --template 1dtoy) */}
+{/* capture: python loading convergence (novomodelo.results) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```text
 iteration: 128
@@ -78,7 +78,7 @@ one block per stage, so the block sum leaves the values unchanged here.
 ```python
 import json
 
-import cobre
+import novomodelo
 import polars as pl
 
 with open("my_study/system/hydros.json") as f:
@@ -87,7 +87,7 @@ with open("my_study/system/hydros.json") as f:
     )
 
 hydros = pl.from_arrow(
-    cobre.results.load_simulation_arrow("results", entity_type="hydros")
+    novomodelo.results.load_simulation_arrow("results", entity_type="hydros")
 )
 mean_generation = (
     hydros
@@ -101,7 +101,7 @@ mean_generation = (
 print(mean_generation)
 ```
 
-{/* capture: python loading simulation with plant names (cobre.results) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on 1dtoy (cobre init --template 1dtoy) */}
+{/* capture: python loading simulation with plant names (novomodelo.results) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```text
 shape: (4, 3)
@@ -137,10 +137,10 @@ plant codes is on [Converting an existing case](/running/case-conversion/).
 `training/metadata.json` is the first file to check after any run — it is the
 JSON run summary, not to be confused with the binary `policy/manifest.bin`
 checkpoint header. The key fields for convergence assessment are the
-`iterations` and `convergence` objects. The excerpt below is from a `cobre run`
+`iterations` and `convergence` objects. The excerpt below is from a `novomodelo run`
 of the 1dtoy template:
 
-{/* capture: excerpt of training/metadata.json after cobre run | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: 1dtoy (cobre init --template 1dtoy) */}
+{/* capture: excerpt of training/metadata.json after novomodelo run | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```json
 {
@@ -204,9 +204,9 @@ hold](/math/cut-management/#when-bounds-and-certificates-hold).
 
 ### Reading the `Time split` breakdown
 
-`cobre run` prints a `Time split` block in its training summary once training finishes,
+`novomodelo run` prints a `Time split` block in its training summary once training finishes,
 decomposing the total training wall time into three walls — `Forward`,
-`Backward`, and `Serial`. See the [`cobre run` Output format
+`Backward`, and `Serial`. See the [`novomodelo run` Output format
 sample](/reference/cli-reference/#output-format) for the full block this
 section reads. Each phase wall (`Forward`/`Backward`) carries a
 `solve · wait` split; the `Serial` wall carries a
@@ -300,7 +300,7 @@ final = df.filter(pl.col("iteration") == df["iteration"].max())
 print(final.select(["iteration", "lower_bound", "upper_bound", "gap_percent"]))
 ```
 
-{/* capture: python convergence snippet | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on 1dtoy */}
+{/* capture: python convergence snippet | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on 1dtoy */}
 
 ```text
 shape: (1, 4)
@@ -405,7 +405,7 @@ df = pl.read_parquet("results/simulation/costs/")
 print(df.head())
 ```
 
-{/* capture: python read-whole-table | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on 1dtoy (cobre init --template 1dtoy) */}
+{/* capture: python read-whole-table | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```text
 shape: (5, 29)
@@ -467,7 +467,7 @@ mean_gen = (
 print(mean_gen)
 ```
 
-{/* capture: python aggregating across scenarios (mean and percentiles) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on a temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python aggregating across scenarios (mean and percentiles) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 5)
@@ -531,7 +531,7 @@ costs_s0 = (
 print(costs_s0)
 ```
 
-{/* capture: python single-scenario read (scan_parquet, hive_partitioning=True) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on a temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python single-scenario read (scan_parquet, hive_partitioning=True) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 5)
@@ -588,7 +588,7 @@ expected = (
 print(expected)
 ```
 
-{/* capture: python common task (a) expected generation by hydro plant | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on a temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (a) expected generation by hydro plant | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (1, 2)
@@ -620,7 +620,7 @@ thermal_cost = (
 print(thermal_cost)
 ```
 
-{/* capture: python common task (b) expected thermal generation cost | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on a temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (b) expected thermal generation cost | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (2, 2)
@@ -680,7 +680,7 @@ deficit_prob = (
 print(deficit_prob)
 ```
 
-{/* capture: python common task (c) deficit probability per bus | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on a temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (c) deficit probability per bus | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 3)
@@ -742,7 +742,7 @@ water_value = (
 print(water_value)
 ```
 
-{/* capture: python common task (d) water value, hours-weighted | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on a temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (d) water value, hours-weighted | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 3)
@@ -791,7 +791,7 @@ per_bus = (
 print(per_bus)
 ```
 
-{/* capture: python common task (e) per-bus dispatch for a hydro plant | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on a temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (e) per-bus dispatch for a hydro plant | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 4)

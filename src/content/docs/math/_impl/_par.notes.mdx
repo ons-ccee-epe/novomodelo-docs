@@ -1,4 +1,4 @@
-Non-normative software behavior for PAR(p) estimation — what Cobre does at
+Non-normative software behavior for PAR(p) estimation — what Novomodelo does at
 runtime, beyond the equations above. This tab references the methodology
 body for the derivations rather than restating them.
 
@@ -10,7 +10,7 @@ in `inflow_seasonal_stats.parquet`) is the **stored sample standard
 deviation** of the historical series for a (hydro, season) — a fixed,
 on-disk number. `sigma_m`, the innovation standard deviation that scales the
 stochastic innovation term, is never stored; it is **derived at load** from
-`std_m3s` and the innovation scale `r_m`, which Cobre always derives from the
+`std_m3s` and the innovation scale `r_m`, which Novomodelo always derives from the
 AR coefficients via the periodic-ACF closure (methodology §4). Reading
 `std_m3s` as if it were `sigma_m` — or vice versa — silently rescales every
 noise draw.
@@ -34,19 +34,19 @@ The closure sets $r_m^2 = 1 - \sum_\ell \psi^*_{m,\ell}\rho_m(\ell)$, the standa
 
 **Supplied coefficients: the stationarity gate.** A case that supplies `inflow_ar_coefficients.parquet` is checked by the PAR stationarity gate, which rejects a season whose $r_m^2$ is at or below `1e-12` (its other checks are listed in the Inputs & Outputs tab):
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/scenarios.rs:376-380 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:376-380 at novomodelo v0.18.0 */}
 ```text
 Hydro {hydro_id} season {season}: PAR stationarity gate rejected inflow_ar_coefficients.parquet -- implied residual variance r² = {r_squared} is at or below the numerical floor
 ```
 
 **Every load path: the derivation guard.** After the model is assembled, the closure derivation of $r_m$ runs whatever the origin of the coefficients. It rejects the load when the closure system is singular, and when a derived $r_m$ is non-finite, which a negative implied variance $r_m^2$ produces:
 
-{/* quoted from source: crates/cobre-io/src/scenarios/residual_derivation.rs:141 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:141 at novomodelo v0.18.0 */}
 ```text
 residual_std_ratio closure is singular for hydro_id={hydro_id}
 ```
 
-{/* quoted from source: crates/cobre-io/src/scenarios/residual_derivation.rs:145-151 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:145-151 at novomodelo v0.18.0 */}
 ```text
 derived residual_std_ratio is non-finite for hydro_id={hydro_id} season={season}: the coefficients imply a non-stationary process (implied residual variance 1 - sum(psi*rho) is negative)
 ```
@@ -55,20 +55,20 @@ In the gate and non-finite messages `season` counts from 0: on a single-resoluti
 
 A model fitted from the history is not gated and has no floor: only the derivation guard applies to it, so a fitted season whose $r_m^2$ is small but positive is accepted.
 
-Cobre surfaces `r_squared` only inside the gate message: there is no separate CLI field or Python attribute for it, and no standalone variance signal on an accepted fit.
+Novomodelo surfaces `r_squared` only inside the gate message: there is no separate CLI field or Python attribute for it, and no standalone variance signal on an accepted fit.
 
 ### Order-selection behavior
 
 The classical PACF order-selection rule (methodology §3.6) and the
 Maceira & Damázio iterative reduction it triggers are applied automatically
-whenever Cobre estimates from `inflow_history.parquet`. Three runtime details
+whenever Novomodelo estimates from `inflow_history.parquet`. Three runtime details
 sit alongside that rule but are not part of the derivation:
 
 - **`min_observations_per_season`**: a recommended minimum that only draws a
   warning, never an error; see
   [Configuration — `estimation`](/running/configuration/#estimation) for how
   groups are counted and when the warning is drawn.
-- **A season with a single observation rejects the case.** Whenever Cobre
+- **A season with a single observation rejects the case.** Whenever Novomodelo
   estimates from `inflow_history.parquet`, it first estimates the seasonal
   statistics from the history, even when the case also supplies
   `inflow_seasonal_stats.parquet` (the supplied statistics then feed only the
@@ -112,7 +112,7 @@ the key's single home.
 
 ### Determinism guarantee
 
-PAR(p) fitting is one of the model families covered by Cobre's
+PAR(p) fitting is one of the model families covered by Novomodelo's
 order-stable parallel fitting guarantee: coefficients are fit independently
 per hydro and reassembled into a canonical per-hydro slot, so the fitted
 model is a function of the inputs alone — independent of how many threads

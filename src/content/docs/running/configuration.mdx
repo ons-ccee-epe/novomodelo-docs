@@ -3,7 +3,7 @@ title: Configuration
 description: Every `config.json` field — training, simulation, modeling, cut selection, estimation, policy, temporal resolution, and exports.
 ---
 
-All runtime parameters for `cobre run` are controlled by `config.json` in the
+All runtime parameters for `novomodelo run` are controlled by `config.json` in the
 case directory. This page documents every section and field. Every object in
 `config.json` rejects unknown keys, so a misspelled key fails the load with a
 parse error that names the key.
@@ -122,8 +122,8 @@ class reads the node's opening.
 
 On two or more MPI ranks, enumerated training admits only a policy graph
 whose branching is all at the last stage (a deterministic trunk ending in a
-terminal fan); a graph with an interior branching node stops `cobre run`
-before training, with exit code `1`. `cobre validate` does not check it, so a
+terminal fan); a graph with an interior branching node stops `novomodelo run`
+before training, with exit code `1`. `novomodelo validate` does not check it, so a
 passing validation does not rule it out. The error message is listed under
 [Communication failures](/reference/error-codes/#communication-failures).
 
@@ -133,7 +133,7 @@ policy graph and does not enumerate a node's openings. A node that pins a
 `scenario_id` carries one, and its stage declares no `num_openings`; any
 other node carries the openings its stage generates, so that stage declares
 `num_openings: 1` in `stages.json`. A case with a node carrying more is
-refused at study setup, by `cobre validate` and by `cobre run` before training, with exit code `1`.
+refused at study setup, by `novomodelo validate` and by `novomodelo run` before training, with exit code `1`.
 
 ### Optional Fields
 
@@ -286,9 +286,9 @@ compared is exact rather than a statistical estimate.
 
 At least one of `tolerance` / `relative_tolerance` must be present; a `gap`
 rule with neither field is rejected when the configuration is validated:
-`cobre validate` reports it as
+`novomodelo validate` reports it as
 [`ConfigValidationError`](/reference/error-codes/#configvalidationerror), and
-`cobre run` prints the same message and exits `1`. When both are present, the
+`novomodelo run` prints the same message and exits `1`. When both are present, the
 two arms combine by **disjunction** — training stops as soon as
 either arm is satisfied, not both. The gap itself is
 `max(0, upper_bound − lower_bound)`.
@@ -308,7 +308,7 @@ either arm is satisfied, not both. The gap itself is
 
 Under `sampled` selection, with more than one opening on any node, or with a
 **stage-varying** measure (the risk measure differs across stages), the `gap` rule is rejected at study setup,
-by `cobre validate` and by `cobre run` before training (exit `1`). The
+by `novomodelo validate` and by `novomodelo run` before training (exit `1`). The
 exact-bound comparison the rule depends on is unavailable in those cases.
 
 :::note[Type-scoped fields]
@@ -449,7 +449,7 @@ load error, and a misspelled method is rejected with the list of valid methods.
 - `"dynamic"` — a per-solve lazy loop that loads only a small resident subset of
   rows per solve while retaining the full pool. The resident set is seeded from
   the most recent iterations, and each lazy-solve round adds the most-violated
-  candidate rows. The method is refused under an enumerated [`training.selection`](#trainingselection) at study setup, by `cobre validate` and by `cobre run` (exit `1`).
+  candidate rows. The method is refused under an enumerated [`training.selection`](#trainingselection) at study setup, by `novomodelo validate` and by `novomodelo run` (exit `1`).
 
   | Field                 | Type    | Default | Description                                                                                                                                                                                                                                                                              |
   | --------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -554,7 +554,7 @@ template is built — and every rank resolves the same profile from the broadcas
 
 :::caution[`scale: "solver_scaling"` compromises single-unscaling exactness]
 Setting `scale` to `"solver_scaling"` re-enables solver-side (Curtis–Reid)
-scaling on top of Cobre's own offline prescaler. Dual and cut-coefficient
+scaling on top of Novomodelo's own offline prescaler. Dual and cut-coefficient
 unscaling (see [LP Layout and Scaling §2.3](/math/lp-layout-and-scaling#23-row-scaling-geometric-mean))
 is exact only when the solve applies no scaling beyond that prescaler —
 enabling `solver_scaling` introduces a second scaling factor the
@@ -564,7 +564,7 @@ single-unscaling identity does not account for.
 #### Validation
 
 Seven fields are range-checked; a value outside its range is rejected at
-study setup, by `cobre validate` and by `cobre run` (exit `1`), with an error naming the phase and the offending field:
+study setup, by `novomodelo validate` and by `novomodelo run` (exit `1`), with an error naming the phase and the offending field:
 
 - `primal_feasibility_tolerance` — must be finite.
 - `dual_feasibility_tolerance` — must be finite and `>= 1e-10`.
@@ -638,7 +638,7 @@ resolves to `0`, the simulation phase is skipped entirely.
 Under `enumerated`, the classes read the node's opening as in
 [`training.selection`](#trainingselection): a class that does not read it draws
 its own realization instead. The single-opening requirement of
-[`training.selection`](#trainingselection) applies here as well. When exactly one of training and simulation is `enumerated`, `cobre run` logs a setup warning naming the statistic the other phase lacks: with enumerated training and sampled simulation, the exact lower bound is available but the weighted census simulation statistics are not. The warning is advisory and the run proceeds; set both selections to `enumerated` for a census simulation.
+[`training.selection`](#trainingselection) applies here as well. When exactly one of training and simulation is `enumerated`, `novomodelo run` logs a setup warning naming the statistic the other phase lacks: with enumerated training and sampled simulation, the exact lower bound is available but the weighted census simulation statistics are not. The warning is advisory and the run proceeds; set both selections to `enumerated` for a census simulation.
 
 Example:
 
@@ -687,13 +687,13 @@ forward-pass selection of historical windows and external
 scenarios uses no seed.
 
 - `training.tree_seed` seeds the opening tree and the in-sample opening draws.
-  When it is a non-null integer, Cobre uses `|seed|` (unsigned absolute value)
+  When it is a non-null integer, Novomodelo uses `|seed|` (unsigned absolute value)
   as the base seed for deterministic SipHash-1-3 noise generation, so a negative
   seed `-n` acts as `n`. When it is absent or `null`, the seed is `42` and no
   warning is printed. Set it explicitly to make the choice intentional and
   visible to other users of the case directory.
 - `training.scenario_source.seed` is the forward seed of the out-of-sample
-  draws. Cobre applies the same absolute-value rule: it uses `|seed|`. Inflow
+  draws. Novomodelo applies the same absolute-value rule: it uses `|seed|`. Inflow
   draws from it directly; load and NCS each derive their own stream from it, so
   the three classes draw independent noise. It is required whenever any class
   is `out_of_sample` or `external`.
@@ -788,7 +788,7 @@ For the methodology, see
 ## `estimation`
 
 Controls the PAR(p) model estimation pipeline of [PAR(p) Inflow Model](/math/par-inflow-model/). When the case provides
-`inflow_history.parquet`, Cobre can automatically estimate AR coefficients
+`inflow_history.parquet`, Novomodelo can automatically estimate AR coefficients
 instead of requiring pre-computed `inflow_ar_coefficients.parquet`.
 
 | Field                         | Type    | Default  | Description                                                                                       |
@@ -848,12 +848,12 @@ Controls policy persistence (checkpoint saving and warm-start loading).
 ### `policy.boundary`
 
 Optional configuration for loading terminal-stage boundary cuts from a
-different Cobre policy checkpoint. When present, the solver loads cuts from
+different Novomodelo policy checkpoint. When present, the solver loads cuts from
 the source checkpoint and injects them as fixed boundary conditions at the
 terminal stage of the current study. The imported cuts are not updated by
 training — they remain fixed throughout.
 
-This enables Cobre-to-Cobre model coupling: an upstream study produces a
+This enables Novomodelo-to-Novomodelo model coupling: an upstream study produces a
 policy checkpoint, and a chained study imports one pool of that checkpoint as
 its fixed terminal function
 ([Post-Study Boundary & Chained Studies §5](/math/post-study-boundary#5-chained-studies)).
@@ -882,7 +882,7 @@ Example — load an upstream study's policy as the terminal boundary:
 }
 ```
 
-Running `cobre validate --json` on a case that configures a boundary emits the
+Running `novomodelo validate --json` on a case that configures a boundary emits the
 selected date and the per-family reconciliation report as one object — the
 success shape carries `configured`, `boundary_date`, and `report`:
 
@@ -1011,7 +1011,7 @@ Each recipe is a `config.json` excerpt that merges into a case: a key in the exc
 
 Train with an enumerated forward pass and stop when the exact gap closes. `relative_tolerance` is a percent: `0.01` stops at a 0.01% gap. The `iteration_limit` entry ends the run if the gap does not close first; a sampled simulation after it logs an advisory setup warning ([`simulation.selection`](#simulationselection)). The [`gap`](#gap) rule is admitted only under `enumerated` selection with the same risk measure at every stage (the default `expectation` qualifies), and every stage declares a single opening (`num_openings: 1` in `stages.json`), because enumerated selection requires it ([`training.selection`](#trainingselection)).
 
-{/* capture: cobre validate case (exit 0); cobre run case --output <dir> (exit 0) | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
+{/* capture: novomodelo validate case (exit 0); novomodelo run case --output <dir> (exit 0) | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
 
 ```json
 {
@@ -1029,7 +1029,7 @@ Train with an enumerated forward pass and stop when the exact gap closes. `relat
 
 Bound a run by wall-clock time. Under the default [`stopping_mode`](#trainingstopping_mode) (`"any"`), training stops at the first rule that is satisfied, so pair [`time_limit`](#time_limit) with an `iteration_limit` above what the time allows: training never runs past the largest `iteration_limit` in the set.
 
-{/* capture: cobre validate case (exit 0) | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
 
 ```json
 {
@@ -1046,7 +1046,7 @@ Bound a run by wall-clock time. Under the default [`stopping_mode`](#trainingsto
 
 Train with in-sample noise and simulate with out-of-sample inflow. The `simulation.scenario_source.seed` (77) drives the simulation's out-of-sample draws ([Seed resolution](#seed-resolution)). The `simulation.scenario_source` fields are listed under [`simulation.scenario_source`](#simulationscenario_source).
 
-{/* capture: cobre validate case (exit 0) | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
 
 ```json
 {
@@ -1074,7 +1074,7 @@ Train with in-sample noise and simulate with out-of-sample inflow. The `simulati
 
 ```json
 {
-  "$schema": "https://docs.cobre-rs.dev/schemas/config.schema.json",
+  "$schema": "https://docs.novomodelo.invalid/schemas/config.schema.json",
   "training": {
     "tree_seed": 42,
     "selection": { "method": "sampled", "forward_passes": 50 },

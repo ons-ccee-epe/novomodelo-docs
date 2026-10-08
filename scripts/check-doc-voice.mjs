@@ -1,7 +1,7 @@
-// Two-voice prose gate (Epic 04 ticket-015) — port of cobre's
+// Two-voice prose gate (Epic 04 ticket-015) — port of novomodelo's
 // `scripts/ci/check_doc_voice.py`.
 //
-// cobre's book is single-voiced (software prose); cobre-docs is two-voiced
+// novomodelo's book is single-voiced (software prose); novomodelo-docs is two-voiced
 // (Epic 03: methodology math vs the software-layer partials/pages). The gate
 // therefore keys every file off the shared `zoneOf()` predicate
 // (scripts/doc-zones.mjs) and runs three checks with different scope:

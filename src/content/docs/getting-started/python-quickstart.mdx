@@ -1,38 +1,38 @@
 ---
 title: Python Quickstart
-description: Install the cobre Python package, run the 1dtoy example case with cobre.run.run(), and read and plot its results.
+description: Install the novomodelo Python package, run the 1dtoy example case with novomodelo.run.run(), and read and plot its results.
 ---
 
-Install the `cobre` Python package, scaffold the 1dtoy example case, run it with `cobre.run.run()`, then read and plot the results. The remaining sections change the configuration, validate a case and handle errors.
+Install the `novomodelo` Python package, scaffold the 1dtoy example case, run it with `novomodelo.run.run()`, then read and plot the results. The remaining sections change the configuration, validate a case and handle errors.
 
 ## Install
 
 ```bash
-pip install cobre-python polars pyarrow matplotlib
+pip install novomodelo-python polars pyarrow matplotlib
 ```
 
-The package imports as `cobre`; `polars`, `pyarrow` and `matplotlib` serve the read and plot steps. [Installation](/getting-started/installation/) lists the supported Python versions and platforms.
+The package imports as `novomodelo`; `polars`, `pyarrow` and `matplotlib` serve the read and plot steps. [Installation](/getting-started/installation/) lists the supported Python versions and platforms.
 
 ## Scaffold a Case
 
-The Python package has no scaffold command. Create the 1dtoy example case with the `cobre` command-line tool from [Installation](/getting-started/installation/):
+The Python package has no scaffold command. Create the 1dtoy example case with the `novomodelo` command-line tool from [Installation](/getting-started/installation/):
 
 ```bash
-cobre init --template 1dtoy my_study
+novomodelo init --template 1dtoy my_study
 ```
 
-Alternatively, copy the repository's [examples/1dtoy](https://github.com/cobre-rs/cobre/tree/v0.18.0/examples/1dtoy) at the `v0.18.0` tag to `my_study/`. Run the snippets below, in order, from the directory that holds `my_study/`.
+Alternatively, copy the repository's [examples/1dtoy](https://github.com/ons-ccee-epe/novomodelo/tree/v0.18.0/examples/1dtoy) at the `v0.18.0` tag to `my_study/`. Run the snippets below, in order, from the directory that holds `my_study/`.
 
 ## Run the Study
 
-`cobre.run.run()` loads the case, trains an SDDP policy, simulates 100 scenarios and writes the results to `my_study/output`. It returns a dict:
+`novomodelo.run.run()` loads the case, trains an SDDP policy, simulates 100 scenarios and writes the results to `my_study/output`. It returns a dict:
 
-{/* capture: python run | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (cobre init --template 1dtoy) as my_study; snippets run in page order */}
+{/* capture: python run | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
 
 ```python
-import cobre
+import novomodelo
 
-result = cobre.run.run("my_study")
+result = novomodelo.run.run("my_study")
 print(f"converged:   {result['converged']}")
 print(f"iterations:  {result['iterations']}")
 print(f"lower_bound: {result['lower_bound']:.6g}")
@@ -52,23 +52,23 @@ simulation:  {'n_scenarios': 100, 'completed': 100}
 output_dir:  my_study/output
 ```
 
-The printed keys are part of the result dict; see [`RunResult`](/reference/python-api/#cobre_typesrunresult) for the full shape and [`cobre.run.run`](/reference/python-api/#cobrerunrun) for the parameters. `converged` is `True` when a `gap` or `bound_stalling` rule stops training. Here the 128-iteration limit stopped it, so `False` is expected. The bounds and the negative gap match the CLI quickstart, which explains them in [What You Just Ran](/getting-started/quickstart/#what-you-just-ran).
+The printed keys are part of the result dict; see [`RunResult`](/reference/python-api/#novomodelo_typesrunresult) for the full shape and [`novomodelo.run.run`](/reference/python-api/#novomodelorunrun) for the parameters. `converged` is `True` when a `gap` or `bound_stalling` rule stops training. Here the 128-iteration limit stopped it, so `False` is expected. The bounds and the negative gap match the CLI quickstart, which explains them in [What You Just Ran](/getting-started/quickstart/#what-you-just-ran).
 
 ## Read the Results
 
 Read the convergence record and the simulation costs back from the output directory:
 
-{/* capture: python read | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (cobre init --template 1dtoy) as my_study; snippets run in page order */}
+{/* capture: python read | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
 
 ```python
-import cobre
+import novomodelo
 import polars as pl
 
-conv = pl.from_arrow(cobre.results.load_convergence_arrow("my_study/output"))
+conv = pl.from_arrow(novomodelo.results.load_convergence_arrow("my_study/output"))
 print(conv.select("iteration", "lower_bound", "upper_bound", "gap_percent").tail(3))
 
 costs = pl.from_arrow(
-    cobre.results.load_simulation_arrow("my_study/output", entity_type="costs")
+    novomodelo.results.load_simulation_arrow("my_study/output", entity_type="costs")
 )
 per_scenario = costs.group_by("scenario_id").agg(
     (pl.col("discount_factor") * pl.col("immediate_cost")).sum().alias("cost")
@@ -100,22 +100,22 @@ shape: (1, 2)
 └──────────┴───────────────┘
 ```
 
-The two [`cobre.results`](/reference/python-api/#cobreresults) loaders return `pyarrow.Table`s, which `polars.from_arrow` wraps. A scenario's cost is the sum of `discount_factor * immediate_cost` over its `costs` rows, one per stage here; the mean matches the `Expected cost` line of the CLI run summary, and the median, far below the mean, shows that most scenarios are cheap.
+The two [`novomodelo.results`](/reference/python-api/#novomodeloresults) loaders return `pyarrow.Table`s, which `polars.from_arrow` wraps. A scenario's cost is the sum of `discount_factor * immediate_cost` over its `costs` rows, one per stage here; the mean matches the `Expected cost` line of the CLI run summary, and the median, far below the mean, shows that most scenarios are cheap.
 
 ## Plot the Convergence
 
 Plot both bounds against the iteration:
 
-{/* capture: python plot | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (cobre init --template 1dtoy) as my_study; snippets run in page order */}
+{/* capture: python plot | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
 
 ```python
-import cobre
+import novomodelo
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import polars as pl
 
-conv = pl.from_arrow(cobre.results.load_convergence_arrow("my_study/output"))
+conv = pl.from_arrow(novomodelo.results.load_convergence_arrow("my_study/output"))
 fig, ax = plt.subplots()
 ax.plot(conv["iteration"], conv["lower_bound"], label="lower bound")
 ax.plot(conv["iteration"], conv["upper_bound"], label="upper bound")
@@ -137,12 +137,12 @@ The saved `convergence.png` uses a log axis. The lower bound rises from about 5.
 
 `config_overrides` changes `config.json` settings for one call without editing the file. This call reruns the study with another seed:
 
-{/* capture: python seed | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (cobre init --template 1dtoy) as my_study; snippets run in page order */}
+{/* capture: python seed | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
 
 ```python
-import cobre
+import novomodelo
 
-result = cobre.run.run(
+result = novomodelo.run.run(
     "my_study",
     output_dir="my_study/output-seed7",
     config_overrides={"training.tree_seed": 7},
@@ -158,12 +158,12 @@ The keys are dotted `config.json` paths. `training.tree_seed` seeds the opening 
 
 A run with training disabled simulates the policy already in the output directory, here the one the first run wrote:
 
-{/* capture: python simonly | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (cobre init --template 1dtoy) as my_study; snippets run in page order */}
+{/* capture: python simonly | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
 
 ```python
-import cobre
+import novomodelo
 
-result = cobre.run.run("my_study", config_overrides={"training.enabled": False})
+result = novomodelo.run.run("my_study", config_overrides={"training.enabled": False})
 print(f"iterations:  {result['iterations']}")
 print(f"upper_bound: {result['upper_bound']}")
 print(f"gap_percent: {result['gap_percent']}")
@@ -175,38 +175,38 @@ upper_bound: 579592.1986224409
 gap_percent: None
 ```
 
-With training disabled and simulation enabled, `iterations` is `0`, `gap_percent` is `None`, and `upper_bound` is the last training upper bound recorded in the policy checkpoint the run loads (`None` if it records no finite one). With both phases disabled, `lower_bound` is `0.0` and `upper_bound`, `gap_percent` and `simulation` are `None`. The `threads` argument of `cobre.run.run` sets the worker count (default 1); `0` raises `ValueError`.
+With training disabled and simulation enabled, `iterations` is `0`, `gap_percent` is `None`, and `upper_bound` is the last training upper bound recorded in the policy checkpoint the run loads (`None` if it records no finite one). With both phases disabled, `lower_bound` is `0.0` and `upper_bound`, `gap_percent` and `simulation` are `None`. The `threads` argument of `novomodelo.run.run` sets the worker count (default 1); `0` raises `ValueError`.
 
 ## Validate a Case
 
-`cobre.io.validate` checks a case directory without running it:
+`novomodelo.io.validate` checks a case directory without running it:
 
-{/* capture: python validate | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (cobre init --template 1dtoy) as my_study; snippets run in page order */}
+{/* capture: python validate | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
 
 ```python
-import cobre
+import novomodelo
 
-print(cobre.io.validate("my_study"))
+print(novomodelo.io.validate("my_study"))
 ```
 
 ```text
 {'valid': True, 'errors': [], 'warnings': []}
 ```
 
-The dict has the keys `valid`, `errors` and `warnings`; each entry of `errors` is a dict with `kind` and `message`. `cobre.Study("my_study").validate()` returns a dict with the same keys.
+The dict has the keys `valid`, `errors` and `warnings`; each entry of `errors` is a dict with `kind` and `message`. `novomodelo.Study("my_study").validate()` returns a dict with the same keys.
 
 ## Error Handling
 
 A setting that fails validation raises a typed exception. This call misspells a config key:
 
-{/* capture: python errors | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (cobre init --template 1dtoy) as my_study; snippets run in page order */}
+{/* capture: python errors | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
 
 ```python
-import cobre
+import novomodelo
 
 try:
-    cobre.run.run("my_study", config_overrides={"training.tree_seeds": 7})
-except cobre.errors.CobreError as err:
+    novomodelo.run.run("my_study", config_overrides={"training.tree_seeds": 7})
+except novomodelo.errors.NovomodeloError as err:
     print(type(err).__name__, isinstance(err, ValueError))
 ```
 
@@ -214,12 +214,12 @@ except cobre.errors.CobreError as err:
 ValidationError True
 ```
 
-The typed exceptions are in `cobre.errors`. Each specific class derives from the base `CobreError` and from a builtin (`ValueError`, `OSError` or `RuntimeError`), so an existing `except ValueError` also catches this `ValidationError`. Argument checks such as `threads=0` or a missing case directory raise the builtin directly. See [`cobre.errors`](/reference/python-api/#cobreerrors) for the classes, [Error Codes](/reference/error-codes/) for the messages and [Policy-load errors](/reference/error-codes/#policy-load-errors) for which load path raises which class.
+The typed exceptions are in `novomodelo.errors`. Each specific class derives from the base `NovomodeloError` and from a builtin (`ValueError`, `OSError` or `RuntimeError`), so an existing `except ValueError` also catches this `ValidationError`. Argument checks such as `threads=0` or a missing case directory raise the builtin directly. See [`novomodelo.errors`](/reference/python-api/#novomodeloerrors) for the classes, [Error Codes](/reference/error-codes/) for the messages and [Policy-load errors](/reference/error-codes/#policy-load-errors) for which load path raises which class.
 
 ## Policy Checkpoints
 
-Load a trained policy with `cobre.results.load_policy`, edit its cuts, and write a checkpoint Cobre can load with
-`cobre.write_policy_checkpoint`. The round-trip how-to is
+Load a trained policy with `novomodelo.results.load_policy`, edit its cuts, and write a checkpoint Novomodelo can load with
+`novomodelo.write_policy_checkpoint`. The round-trip how-to is
 [Read and Write Checkpoints from Python](/running/policy-management/#read-and-write-checkpoints-from-python).
 
 ## Next Steps

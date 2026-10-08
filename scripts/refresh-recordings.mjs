@@ -1,33 +1,33 @@
 // Provenance check for the committed terminal recording.
 //
 // getting-started/quickstart.mdx embeds public/getting-started/quickstart.gif,
-// a VHS recording of the *cobre CLI*. The running pages show captured terminal
+// a VHS recording of the *novomodelo CLI*. The running pages show captured terminal
 // text instead of GIFs (ADR-033), and the GIF is rendered locally (E14
-// ticket-229), not vendored from cobre: this script never writes into public/.
+// ticket-229), not vendored from novomodelo: this script never writes into public/.
 //
 // What it does instead: scripts/recordings-provenance.json records, for each
 // GIF in MANIFEST, the sha256 of the committed file, the tape's git blob at a
-// cobre tag, and the cobre version and hostname method of the rendering run.
+// novomodelo tag, and the novomodelo version and hostname method of the rendering run.
 // --check verifies the committed GIF against that record — not byte-equality
 // with upstream, because a fresh VHS render is not byte-reproducible.
 //
 // Released-baseline rule (same discipline as refresh-schemas): the tape blob is
-// read from an immutable git TAG via `git -C <cobre> rev-parse <ref>:<path>`,
-// NEVER the `cobre` working tree.
+// read from an immutable git TAG via `git -C <novomodelo> rev-parse <ref>:<path>`,
+// NEVER the `novomodelo` working tree.
 //
 // MANIFEST is the single source of truth for which GIFs ship and from which
 // tape. reconcileRecords() fails loud if the manifest and the record file do
 // not name the same recordings.
 //
 // Usage:
-//   node scripts/refresh-recordings.mjs [--cobre <path>] [--ref <git-ref>] [--check]
-//     --cobre   path to a cobre checkout (default: $COBRE_REPO or ~/git/cobre).
+//   node scripts/refresh-recordings.mjs [--novomodelo <path>] [--ref <git-ref>] [--check]
+//     --novomodelo   path to a novomodelo checkout (default: $NOVOMODELO_REPO or ~/git/novomodelo).
 //               Only used to resolve the git object database — the ref is read
-//               via plumbing, so cobre's checked-out branch is irrelevant. When
+//               via plumbing, so novomodelo's checked-out branch is irrelevant. When
 //               no checkout resolves the ref, the tape is reported as not
-//               checked; it is never a failure (CI has no cobre source).
+//               checked; it is never a failure (CI has no novomodelo source).
 //     --ref     git ref/tag whose tape blob the report mode computes (default:
-//               DEFAULT_COBRE_REF, see scripts/cobre-ref.mjs). --check reads
+//               DEFAULT_NOVOMODELO_REF, see scripts/novomodelo-ref.mjs). --check reads
 //               each record's own tape_ref.
 //     --check   verify-only: compare each committed GIF's sha256 with its record
 //               and, when a checkout resolves it, the tape blob; exit 1 listing
@@ -41,12 +41,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_COBRE_REF } from "./cobre-ref.mjs";
+import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 
 const RECORDINGS_SUBPATH = "recordings";
 
 // The single source of truth for which GIFs ship and where. `tape` is the
-// basename under cobre `recordings/` that renders the GIF; `dest` is the path
+// basename under novomodelo `recordings/` that renders the GIF; `dest` is the path
 // under public/ (next to the page that embeds it, so the served URL is /<dest>).
 const MANIFEST = [
   { tape: "quickstart.tape", dest: "getting-started/quickstart.gif" },
@@ -103,7 +103,7 @@ export function assertGifMagic(name, buf) {
 
 // Returns the drift lines (empty when none) for one record. `gifBuf` is the
 // committed GIF's bytes, or null when public/<dest> is missing; `tapeBlob` is
-// the tape's blob at the record's tape_ref, or null when no cobre checkout
+// the tape's blob at the record's tape_ref, or null when no novomodelo checkout
 // resolves it (not a drift: the sha256 check stands alone).
 export function checkRecording(record, gifBuf, tapeBlob) {
   const { dest, sha256, tape, tape_ref: tapeRef, tape_blob: blob } = record;
@@ -127,16 +127,16 @@ export function checkRecording(record, gifBuf, tapeBlob) {
 
 // --- Git plumbing (execFileSync with an ARGS ARRAY — never a shell string) --
 
-// Returns the tape's git blob id at `ref`, or null when the checkout at `cobre`
+// Returns the tape's git blob id at `ref`, or null when the checkout at `novomodelo`
 // cannot resolve the ref (no checkout, or the tag is not fetched). `rev-parse`
 // also exits 128 for a missing tape path at a resolvable ref; that case returns
 // a marker that never equals a recorded blob, so `--check` reports it as drift.
 // Any other failure (git itself missing) is real and propagates.
-function gitTapeBlob(cobre, ref, tape) {
+function gitTapeBlob(novomodelo, ref, tape) {
   try {
     return execFileSync(
       "git",
-      ["-C", cobre, "rev-parse", "--verify", `${ref}:${tape}`],
+      ["-C", novomodelo, "rev-parse", "--verify", `${ref}:${tape}`],
       { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
     ).trim();
   } catch (error) {
@@ -144,7 +144,7 @@ function gitTapeBlob(cobre, ref, tape) {
     try {
       execFileSync(
         "git",
-        ["-C", cobre, "rev-parse", "--verify", `${ref}^{commit}`],
+        ["-C", novomodelo, "rev-parse", "--verify", `${ref}^{commit}`],
         {
           stdio: "ignore",
         },
@@ -164,15 +164,15 @@ function readGif(dest) {
 // --- Arg parsing --------------------------------------------------------------
 
 function parseArgs(argv) {
-  let cobre = process.env.COBRE_REPO ?? join(homedir(), "git", "cobre");
-  let ref = DEFAULT_COBRE_REF;
+  let novomodelo = process.env.NOVOMODELO_REPO ?? join(homedir(), "git", "novomodelo");
+  let ref = DEFAULT_NOVOMODELO_REF;
   let check = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--cobre") {
-      cobre = argv[++i];
-      if (cobre === undefined) {
-        throw new Error("refresh:recordings: --cobre needs a path");
+    if (arg === "--novomodelo") {
+      novomodelo = argv[++i];
+      if (novomodelo === undefined) {
+        throw new Error("refresh:recordings: --novomodelo needs a path");
       }
     } else if (arg === "--ref") {
       ref = argv[++i];
@@ -185,13 +185,13 @@ function parseArgs(argv) {
       throw new Error(`refresh:recordings: unrecognized argument '${arg}'`);
     }
   }
-  return { cobre, ref, check };
+  return { novomodelo, ref, check };
 }
 
 // --- Main (run only when invoked directly, not when imported by the test) ---
 
 function main() {
-  const { cobre, ref, check } = parseArgs(process.argv.slice(2));
+  const { novomodelo, ref, check } = parseArgs(process.argv.slice(2));
   const { recordings } = JSON.parse(readFileSync(provenancePath, "utf8"));
 
   reconcileRecords(MANIFEST, recordings);
@@ -200,10 +200,10 @@ function main() {
     const drifted = [];
     for (const record of recordings) {
       const { dest, tape, tape_ref: tapeRef } = record;
-      const tapeBlob = gitTapeBlob(cobre, tapeRef, tape);
+      const tapeBlob = gitTapeBlob(novomodelo, tapeRef, tape);
       if (tapeBlob === null) {
         console.log(
-          `refresh:recordings --check: ${dest}: tape not checked (no cobre checkout at ${cobre} resolves ${tapeRef}:${tape})`,
+          `refresh:recordings --check: ${dest}: tape not checked (no novomodelo checkout at ${novomodelo} resolves ${tapeRef}:${tape})`,
         );
       }
       drifted.push(...checkRecording(record, readGif(dest), tapeBlob));
@@ -223,7 +223,7 @@ function main() {
 
   for (const record of recordings) {
     const gif = readGif(record.dest);
-    const blob = gitTapeBlob(cobre, ref, record.tape);
+    const blob = gitTapeBlob(novomodelo, ref, record.tape);
     const lines = [
       record.dest,
       `  sha256     recorded ${record.sha256}`,

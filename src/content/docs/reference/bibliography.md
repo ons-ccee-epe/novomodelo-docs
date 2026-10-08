@@ -16,11 +16,11 @@ For domain terms, see [Glossary](/reference/glossary).
 
 - **Benders, J.F.** (1962). Partitioning procedures for solving mixed-variables programming problems. _Numerische Mathematik_, 4(1), 238–252. [doi:10.1007/BF01386316](https://doi.org/10.1007/BF01386316)
   The original Benders decomposition paper. Foundation for the L-shaped method and SDDP.
-  _Background reference for [SDDP Algorithm](/math/sddp-algorithm), [Cut Management](/math/cut-management), [What Cobre Solves](/overview/what-cobre-solves)._
+  _Background reference for [SDDP Algorithm](/math/sddp-algorithm), [Cut Management](/math/cut-management), [What Novomodelo Solves](/overview/what-novomodelo-solves)._
 
 - **Pereira, M.V.F. & Pinto, L.M.V.G.** (1991). Multi-stage stochastic optimization applied to energy planning. _Mathematical Programming_, 52(1–3), 359–375. [doi:10.1007/BF01582895](https://doi.org/10.1007/BF01582895)
-  The original SDDP paper. Foundational for the entire algorithm and for the hydrothermal-dispatch application that motivates Cobre.
-  _Background reference for [SDDP Algorithm](/math/sddp-algorithm), [What Cobre Solves](/overview/what-cobre-solves)._
+  The original SDDP paper. Foundational for the entire algorithm and for the hydrothermal-dispatch application that motivates Novomodelo.
+  _Background reference for [SDDP Algorithm](/math/sddp-algorithm), [What Novomodelo Solves](/overview/what-novomodelo-solves)._
 
 - **Birge, J.R.** (1985). Decomposition and partitioning methods for multistage stochastic linear programs. _Operations Research_, 33(5), 989–1007. [doi:10.1287/opre.33.5.989](https://doi.org/10.1287/opre.33.5.989)
   Multi-cut formulation for stochastic programs. Origin of the multi-cut L-shaped method that the single-cut formulation in [Cut Management](/math/cut-management) is contrasted with.
@@ -83,7 +83,7 @@ For domain terms, see [Glossary](/reference/glossary).
 ## Hydro Production
 
 - **Diniz, A.L. & Maceira, M.E.P.** (2008). A four-dimensional model of hydro generation for the short-term hydrothermal dispatch problem considering head and spillage effects. _IEEE Transactions on Power Systems_, 23(3), 1298–1308. [doi:10.1109/TPWRS.2008.922253](https://doi.org/10.1109/TPWRS.2008.922253)
-  The piecewise-linear hydro production model (FPHA) relating storage/head, turbined flow, and spillage to generation. Origin of the approach fitted in [Hydro Production Function Models](/math/hydro-production-models) §2 — Cobre fits a reduced storage-and-flow variant at spillage = 0, capturing the spillage effect through a lateral-flow secant rather than an explicit spillage axis.
+  The piecewise-linear hydro production model (FPHA) relating storage/head, turbined flow, and spillage to generation. Origin of the approach fitted in [Hydro Production Function Models](/math/hydro-production-models) §2 — Novomodelo fits a reduced storage-and-flow variant at spillage = 0, capturing the spillage effect through a lateral-flow secant rather than an explicit spillage axis.
   _Cited in [Hydro Production Function Models](/math/hydro-production-models) §2._
 
 ---
@@ -95,7 +95,7 @@ For domain terms, see [Glossary](/reference/glossary).
   _Background reference for [PAR(p) Inflow Model](/math/par-inflow-model), [Scenario Generation](/math/scenario-generation)._
 
 - **Hipel, K.W. & McLeod, A.I.** (1994). _Time Series Modelling of Water Resources and Environmental Systems_. Elsevier, Amsterdam.
-  Chapter 14 is the canonical presentation of periodic models: the PAR model definition, the periodic autocovariance/ACF conventions (the more recent observation names the season), the periodic Yule-Walker equations, the lag-0 variance identity, the periodic PACF with its $\pm 1.96/\sqrt{N_m}$ significance band, and the periodic-stationarity condition. Cobre's fitting procedure is this formulation written in correlation form over the $s_m$-standardized series.
+  Chapter 14 is the canonical presentation of periodic models: the PAR model definition, the periodic autocovariance/ACF conventions (the more recent observation names the season), the periodic Yule-Walker equations, the lag-0 variance identity, the periodic PACF with its $\pm 1.96/\sqrt{N_m}$ significance band, and the periodic-stationarity condition. Novomodelo's fitting procedure is this formulation written in correlation form over the $s_m$-standardized series.
   _Cited in [PAR(p) Inflow Model](/math/par-inflow-model) §3.5._
 
 - **Maceira, M.E.P. & Damázio, J.M.** (2006). Use of the PAR(p) model in the stochastic dual dynamic programming optimization scheme used in the operation planning of the Brazilian hydropower system. _Probability in the Engineering and Informational Sciences_, 20(1), 143–156. [doi:10.1017/S0269964806060098](https://doi.org/10.1017/S0269964806060098)
@@ -127,11 +127,11 @@ For domain terms, see [Glossary](/reference/glossary).
 ## Software References
 
 - **Dowson, O. & Kapelevich, L.** (2021). SDDP.jl: A Julia Package for Stochastic Dual Dynamic Programming. _INFORMS Journal on Computing_, 33(1), 27–33. [doi:10.1287/ijoc.2020.0987](https://doi.org/10.1287/ijoc.2020.0987). Documentation: [sddp.dev](https://sddp.dev/stable/)
-  Reference SDDP implementation in Julia. Influenced the sampling-scheme abstractions, the convex-combination risk-measure structure and the notation conventions in Cobre.
+  Reference SDDP implementation in Julia. Influenced the sampling-scheme abstractions, the convex-combination risk-measure structure and the notation conventions in Novomodelo.
   _Cited in [Notation Conventions](/overview/notation-conventions), [Scenario Generation](/math/scenario-generation) §3, [Risk Measures](/math/risk-measures) §3, [Policy Graphs](/math/policy-graphs) §4._
 
 - **Huangfu, Q. & Hall, J.A.J.** (2018). Parallelizing the dual revised simplex method. _Mathematical Programming Computation_, 10(1), 119–142. [doi:10.1007/s12532-017-0130-5](https://doi.org/10.1007/s12532-017-0130-5)
-  HiGHS dual simplex implementation. HiGHS is Cobre's default LP solver.
+  HiGHS dual simplex implementation. HiGHS is Novomodelo's default LP solver.
   _Background reference for [LP Warm-Start](/math/lp-warm-start)._
 
 ---
@@ -139,7 +139,7 @@ For domain terms, see [Glossary](/reference/glossary).
 ## Numerical Methods
 
 - **Curtis, A.R. & Reid, J.K.** (1972). On the automatic scaling of matrices for Gaussian elimination. _IMA Journal of Applied Mathematics_, 10(1), 118–124. [doi:10.1093/imamat/10.1.118](https://doi.org/10.1093/imamat/10.1.118)
-  Iterative least-squares matrix scaling for Gaussian elimination. Cobre's own prescaler is a one-pass geometric-mean row/column equilibration in the same family; the LP backend's optional `solver_scaling` profile applies the Curtis–Reid algorithm.
+  Iterative least-squares matrix scaling for Gaussian elimination. Novomodelo's own prescaler is a one-pass geometric-mean row/column equilibration in the same family; the LP backend's optional `solver_scaling` profile applies the Curtis–Reid algorithm.
   _Cited in [LP Layout and Scaling](/math/lp-layout-and-scaling) §2._
 
 - **Higham, N.J.** (2002). Computing the nearest correlation matrix — a problem from finance. _IMA Journal of Numerical Analysis_, 22(3), 329–343. [doi:10.1093/imanum/22.3.329](https://doi.org/10.1093/imanum/22.3.329)
@@ -151,5 +151,5 @@ For domain terms, see [Glossary](/reference/glossary).
 ## Brazilian Power-System Context
 
 - **CEPEL — Centro de Pesquisas de Energia Elétrica** (n.d.). _Documentação Técnica dos modelos para Planejamento da Operação do SIN – Ambiente Libs_. Online manual: [see.cepel.br/manual/libs/latest/](https://see.cepel.br/manual/libs/latest/)
-  Official documentation of the NEWAVE / DECOMP / DESSEM suite of stochastic-dispatch models operated for the Brazilian system. Cited only for practitioner terms and notation: the equivalent-terms tables of the glossary, the GEVAZP residual distribution (section _Distribuição Lognormal 3 parâmetros_) and the PAR(p) notation (section _Modelo Autorregressivo Periódico - Par(p)_). The methods those models implement are credited to their primary articles above: FPHA → Diniz & Maceira (2008); PAR(p) and iterative order reduction → Maceira & Damázio (2006); PAR(p)-A → Treistman et al. (2020); DECOMP-style scenario tree → Maceira et al. (2002). Cobre's dead-volume filling model is its own and is not attributed here.
+  Official documentation of the NEWAVE / DECOMP / DESSEM suite of stochastic-dispatch models operated for the Brazilian system. Cited only for practitioner terms and notation: the equivalent-terms tables of the glossary, the GEVAZP residual distribution (section _Distribuição Lognormal 3 parâmetros_) and the PAR(p) notation (section _Modelo Autorregressivo Periódico - Par(p)_). The methods those models implement are credited to their primary articles above: FPHA → Diniz & Maceira (2008); PAR(p) and iterative order reduction → Maceira & Damázio (2006); PAR(p)-A → Treistman et al. (2020); DECOMP-style scenario tree → Maceira et al. (2002). Novomodelo's dead-volume filling model is its own and is not attributed here.
   _Cited in [Glossary — Brazilian Power-System Ecosystem](/reference/glossary/#brazilian-power-system-ecosystem) and [Glossary — Equivalent terms in other planning tools](/reference/glossary/#equivalent-terms-in-other-planning-tools)._

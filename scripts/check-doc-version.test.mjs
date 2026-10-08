@@ -1,9 +1,9 @@
 // Unit fixture for the check:version detector (Epic 04 ticket-015).
 //
 // Pins parseAnchor() (valid/malformed/absent) and
-// detectVersionViolations(text, zone)'s behaviour: a strict-zone cobre-version
+// detectVersionViolations(text, zone)'s behaviour: a strict-zone novomodelo-version
 // token or narration phrase is a violation; a third-party version is clean; a
-// lenient-zone well-formed cobre-version string is clean; a lenient-zone
+// lenient-zone well-formed novomodelo-version string is clean; a lenient-zone
 // MALFORMED one is a violation.
 
 import test from "node:test";
@@ -14,12 +14,12 @@ import { ZONE_STRICT, ZONE_LENIENT } from "./doc-zones.mjs";
 // ---- parseAnchor -----------------------------------------------------------
 
 test("parses a valid Synced-to anchor", () => {
-  const { version } = parseAnchor("**Synced to: cobre v0.8.2 (2026-06-17).**\n");
+  const { version } = parseAnchor("**Synced to: novomodelo v0.8.2 (2026-06-17).**\n");
   assert.equal(version, "0.8.2");
 });
 
 test("parses the anchor regardless of surrounding prose", () => {
-  const text = "# Heading\n\n## Current State\n\n**Synced to: cobre v1.2.3 (today).**\n\nMore text.";
+  const text = "# Heading\n\n## Current State\n\n**Synced to: novomodelo v1.2.3 (today).**\n\nMore text.";
   assert.equal(parseAnchor(text).version, "1.2.3");
 });
 
@@ -28,24 +28,24 @@ test("throws a named error when the anchor is absent", () => {
 });
 
 test("throws a named error when the anchor is malformed (missing patch component)", () => {
-  assert.throws(() => parseAnchor("**Synced to: cobre v0.8 (today).**\n"), /Synced to/);
+  assert.throws(() => parseAnchor("**Synced to: novomodelo v0.8 (today).**\n"), /Synced to/);
 });
 
 // ---- detectVersionViolations: strict zone ----------------------------------
 
-test("flags a 'COBRE vX.Y.Z' banner token in the strict zone", () => {
-  const v = detectVersionViolations("Output shows COBRE v0.9.1 on startup.", ZONE_STRICT);
-  assert.ok(v.some((x) => x.rule === "cobre-version-banner"));
+test("flags a 'NOVOMODELO vX.Y.Z' banner token in the strict zone", () => {
+  const v = detectVersionViolations("Output shows NOVOMODELO v0.9.1 on startup.", ZONE_STRICT);
+  assert.ok(v.some((x) => x.rule === "novomodelo-version-banner"));
 });
 
-test("flags the title-case 'Cobre vX.Y.Z' banner token in the strict zone (case-insensitive)", () => {
-  const v = detectVersionViolations("This matches Cobre v0.9.0 semantics.", ZONE_STRICT);
-  assert.ok(v.some((x) => x.rule === "cobre-version-banner"));
+test("flags the title-case 'Novomodelo vX.Y.Z' banner token in the strict zone (case-insensitive)", () => {
+  const v = detectVersionViolations("This matches Novomodelo v0.9.0 semantics.", ZONE_STRICT);
+  assert.ok(v.some((x) => x.rule === "novomodelo-version-banner"));
 });
 
-test("flags a \"cobre_version\" JSON key in the strict zone", () => {
-  const v = detectVersionViolations('{"cobre_version": "0.9.0"}', ZONE_STRICT);
-  assert.ok(v.some((x) => x.rule === "cobre-version-json"));
+test("flags a \"novomodelo_version\" JSON key in the strict zone", () => {
+  const v = detectVersionViolations('{"novomodelo_version": "0.9.0"}', ZONE_STRICT);
+  assert.ok(v.some((x) => x.rule === "novomodelo-version-json"));
 });
 
 test("flags 'added in vX.Y' narration in the strict zone", () => {
@@ -80,7 +80,7 @@ test("flags 'renamed from vX.Y' narration in the strict zone", () => {
   assert.ok(v.some((x) => x.rule === "version-narration-renamed"));
 });
 
-test("does NOT flag a third-party version (no cobre token, no narration verb)", () => {
+test("does NOT flag a third-party version (no novomodelo token, no narration verb)", () => {
   const v = detectVersionViolations(
     "A more sophisticated approach used in commercial tools like PSR's SDDP (v17.3+) decomposes each stage.",
     ZONE_STRICT,
@@ -90,18 +90,18 @@ test("does NOT flag a third-party version (no cobre token, no narration verb)", 
 
 // ---- detectVersionViolations: lenient zone ---------------------------------
 
-test("a well-formed 'COBRE vX.Y.Z' banner in the LENIENT zone is clean (not required to equal the anchor)", () => {
-  const v = detectVersionViolations("Output shows COBRE v0.9.1 on startup.", ZONE_LENIENT);
+test("a well-formed 'NOVOMODELO vX.Y.Z' banner in the LENIENT zone is clean (not required to equal the anchor)", () => {
+  const v = detectVersionViolations("Output shows NOVOMODELO v0.9.1 on startup.", ZONE_LENIENT);
   assert.deepEqual(v, []);
 });
 
-test("a well-formed \"cobre_version\" JSON sample in the LENIENT zone is clean", () => {
-  const v = detectVersionViolations('{"cobre_version": "0.9.0"}', ZONE_LENIENT);
+test("a well-formed \"novomodelo_version\" JSON sample in the LENIENT zone is clean", () => {
+  const v = detectVersionViolations('{"novomodelo_version": "0.9.0"}', ZONE_LENIENT);
   assert.deepEqual(v, []);
 });
 
 test("a MALFORMED version string in the LENIENT zone is a violation (missing patch component)", () => {
-  const v = detectVersionViolations("Output shows COBRE v0.9 on startup.", ZONE_LENIENT);
+  const v = detectVersionViolations("Output shows NOVOMODELO v0.9 on startup.", ZONE_LENIENT);
   assert.ok(v.some((x) => x.rule === "malformed-version-string"));
 });
 
@@ -120,10 +120,10 @@ test("a third-party version in the lenient zone is also clean", () => {
 
 test("the gate reads raw text: a version token after a fence that never closes is still reported", () => {
   const text =
-    "# T\n\n```js\nconst x = 1;\n\nOutput shows COBRE v0.9.1 on startup.\n";
+    "# T\n\n```js\nconst x = 1;\n\nOutput shows NOVOMODELO v0.9.1 on startup.\n";
   const v = detectVersionViolations(text, ZONE_STRICT);
   assert.deepEqual(
     v.map((x) => [x.lineno, x.rule]),
-    [[6, "cobre-version-banner"]],
+    [[6, "novomodelo-version-banner"]],
   );
 });

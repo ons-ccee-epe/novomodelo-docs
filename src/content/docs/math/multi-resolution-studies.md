@@ -12,7 +12,7 @@ SDDP horizon and share one set of value-function cuts; no coupling boundary
 exists. The modelling challenge is that the PAR(p) inflow model is indexed by
 season, yet stages of different length follow one another: each stage must take
 the parameters of a season at its own resolution, and its lags must be values
-of whole season periods at that resolution. This chapter describes how Cobre
+of whole season periods at that resolution. This chapter describes how Novomodelo
 handles that challenge.
 
 **Boundary with chained studies.** A multi-resolution study is one study with

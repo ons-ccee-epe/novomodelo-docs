@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The overlay that `scripts/check-gc-examples.mjs` (`check:gc-examples`) copies over the scaffold of `cobre init --template 1dtoy` to build the case the generic-constraint examples are validated in. Every `gc-check` fence of `src/content/docs/reference/generic-constraints.mdx` is spliced into that case and run through `cobre validate` (fence meta: `docs/design/reference-conventions.md`, D-160-4). Only the files the examples need beyond the scaffold are committed here; the scaffold itself comes from `cobre init` at run time, so a template change at a cobre sync reaches the gate.
+The overlay that `scripts/check-gc-examples.mjs` (`check:gc-examples`) copies over the scaffold of `novomodelo init --template 1dtoy` to build the case the generic-constraint examples are validated in. Every `gc-check` fence of `src/content/docs/reference/generic-constraints.mdx` is spliced into that case and run through `novomodelo validate` (fence meta: `docs/design/reference-conventions.md`, D-160-4). Only the files the examples need beyond the scaffold are committed here; the scaffold itself comes from `novomodelo init` at run time, so a template change at a novomodelo sync reaches the gate.
 
 ## Files
 
@@ -15,7 +15,7 @@ Paths are relative to the case directory. `replaced` overwrites a scaffold file 
 | `initial_conditions.json` | replaced | Storage 500.0 hm³ for hydros `0`, `1`, `10` and `11` |
 | `system/hydro_production_models.json` | replaced | Hydro `0`'s entry copied for hydros `1`, `10` and `11` |
 | `scenarios/inflow_seasonal_stats.parquet` | replaced | Hydro `0`'s four stage rows copied for hydros `1`, `10` and `11` |
-| `system/hydro_geometry.parquet` | added | Hydro `0`, `(volume_hm3, height_m, area_km2)`: `(100, 300, 10)`, `(500, 320, 30)`, `(1000, 335, 50)`; `cobre validate` does not depend on it (without the file the outcome is unchanged), it feeds the `cobre run` echo of the security-curve example |
+| `system/hydro_geometry.parquet` | added | Hydro `0`, `(volume_hm3, height_m, area_km2)`: `(100, 300, 10)`, `(500, 320, 30)`, `(1000, 335, 50)`; `novomodelo validate` does not depend on it (without the file the outcome is unchanged), it feeds the `novomodelo run` echo of the security-curve example |
 | `constraints/generic_parameters.json` | added | `rho_int` (`integrated_accumulated_productivity`) and `emax` (`max_stored_energy`) on hydro `0`, the parameter file of the security-curve example |
 | `constraints/generic_constraint_bounds.parquet` | added | Constraint `1`, stages `0` to `3`, `block_id` null, `bound_lower` 0.0, `bound_upper` null |
 | `constraints/generic_constraints.json` | added | One constraint, `overlay_default`: `hydro_generation(0)`, slack disabled |
@@ -24,24 +24,24 @@ Every checked example uses constraint id `1`, so the bounds file names a constra
 
 ## Splice rule
 
-Each checked fence is spliced alone (D-179-2). A fresh copy of the base case (the scaffold with this overlay) has the file at the fence's `title` path replaced by the fence content, and `cobre validate` must then exit `0` for `gc-check="accept"` and exit `1` with an `error` object for `gc-check="reject"`. The overlay alone must validate first (`Valid case: 1 buses, 4 hydros, 2 thermals, 0 lines`), so a refusal is attributable to the fence. A fence without `gc-check` is illustrative and is not run.
+Each checked fence is spliced alone (D-179-2). A fresh copy of the base case (the scaffold with this overlay) has the file at the fence's `title` path replaced by the fence content, and `novomodelo validate` must then exit `0` for `gc-check="accept"` and exit `1` with an `error` object for `gc-check="reject"`. The overlay alone must validate first (`Valid case: 1 buses, 4 hydros, 2 thermals, 0 lines`), so a refusal is attributable to the fence. A fence without `gc-check` is illustrative and is not run.
 
 ## Provenance
 
-- Version line (`cobre version`, line 1): `cobre   v0.18.0`
-- Release archive `cobre-cli-x86_64-unknown-linux-gnu.tar.xz`: sha256 prefix `93cb7307` (the archive's hash)
-- Extracted `cobre` binary: sha256 `a7a8e16bd9006dd9194955d634a5cf8af823e786d7b661fb796e0a41f7cf84c5` (the binary's hash, not the archive's)
+- Version line (`novomodelo version`, line 1): `novomodelo   v0.18.0`
+- Release archive `novomodelo-cli-x86_64-unknown-linux-gnu.tar.xz`: sha256 prefix `93cb7307` (the archive's hash)
+- Extracted `novomodelo` binary: sha256 `a7a8e16bd9006dd9194955d634a5cf8af823e786d7b661fb796e0a41f7cf84c5` (the binary's hash, not the archive's)
 - Parquet writer: pyarrow 25.0.1, `compression="zstd"`
 - Source record: ticket-179 (overlay and per-fence results), captured 2026-10-07
 
 ## Regenerate
 
-Regenerate at each cobre sync, after `DEFAULT_COBRE_REF` in `scripts/cobre-ref.mjs` moves, then run the gate (`COBRE_BIN=<binary> node scripts/check-gc-examples.mjs`). `COBRE_BIN` is the `cobre` binary whose `cobre version` tag is `DEFAULT_COBRE_REF`; `COBRE_PY` is a Python with pyarrow. From the repository root:
+Regenerate at each novomodelo sync, after `DEFAULT_NOVOMODELO_REF` in `scripts/novomodelo-ref.mjs` moves, then run the gate (`NOVOMODELO_BIN=<binary> node scripts/check-gc-examples.mjs`). `NOVOMODELO_BIN` is the `novomodelo` binary whose `novomodelo version` tag is `DEFAULT_NOVOMODELO_REF`; `NOVOMODELO_PY` is a Python with pyarrow. From the repository root:
 
 ```sh
 d=$(mktemp -d)
-NO_COLOR=1 "$COBRE_BIN" init --template 1dtoy "$d/case"
-"$COBRE_PY" - "$d/case" <<'PY'
+NO_COLOR=1 "$NOVOMODELO_BIN" init --template 1dtoy "$d/case"
+"$NOVOMODELO_PY" - "$d/case" <<'PY'
 from __future__ import annotations
 
 import copy

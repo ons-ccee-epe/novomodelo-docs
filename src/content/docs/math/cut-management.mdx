@@ -10,7 +10,7 @@ import { Content as CutNotes } from './_impl/_cut-management.notes.mdx';
 
 ## Purpose
 
-This chapter defines the complete Benders cut lifecycle in Cobre: what cuts represent mathematically, how cut coefficients relate to LP dual variables, how per-scenario cuts are aggregated into a single cut, under what conditions cuts are valid, and what selection strategies are available to control cut pool growth.
+This chapter defines the complete Benders cut lifecycle in Novomodelo: what cuts represent mathematically, how cut coefficients relate to LP dual variables, how per-scenario cuts are aggregated into a single cut, under what conditions cuts are valid, and what selection strategies are available to control cut pool growth.
 
 ## 1. Cut Definition
 
@@ -31,7 +31,7 @@ where:
 
 The cut carries a coefficient for each **enabled** state dimension: the storage $v_h$ and the inflow lags $a_{h,\ell}$ when the stage's projection selection keeps them ([State Augmentation §7](/math/state-augmentation#7-cut-state-projection)), and the in-transit travel-time buckets and commitment-ring slots, when present, always. A cut is stored densely over the components it projects onto: every such component carries a coefficient in every cut, read from the reduced cost of its pinned column (§2), and a coefficient may be zero; the cut's LP row omits the components whose coefficient is structurally zero.
 
-Cobre adds cuts monotonically across iterations: an active cut is never removed from the lower-bound LP within a training run. Because the cut set only grows, the lower-bound estimate is non-decreasing across iterations of a training run. This is a methodology-level guarantee — the outer approximation of the value function can only become tighter iteration by iteration.
+Novomodelo adds cuts monotonically across iterations: an active cut is never removed from the lower-bound LP within a training run. Because the cut set only grows, the lower-bound estimate is non-decreasing across iterations of a training run. This is a methodology-level guarantee — the outer approximation of the value function can only become tighter iteration by iteration.
 
 ## 2. Reduced-Cost Extraction
 
@@ -59,14 +59,14 @@ where $Q_t(\hat{x}_{t-1}, \omega_t)$ is the optimal objective value of the stage
 **Storage coefficient sign**: more incoming storage lowers $Q_t$ wherever the extra water displaces thermal generation or deficit, in this stage or a later one, so the storage coefficient is non-positive there; it can turn positive where the extra water can only leave the reservoir at a cost, such as a spillage cost or an outflow-limit penalty.
 
 :::note[Design note]
-Pinning an incoming-state column to the trial value and reading its reduced cost gives the sensitivity directly. Cobre realises it through **column bounds** rather than an equality row: a bound-pinned column's reduced cost is the sensitivity, which removes the $N(1+P^{\max})$ redundant equality rows per stage, plus one per bucket and ring slot, while keeping the property that one value per state coordinate captures all downstream effects automatically. See [State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds).
+Pinning an incoming-state column to the trial value and reading its reduced cost gives the sensitivity directly. Novomodelo realises it through **column bounds** rather than an equality row: a bound-pinned column's reduced cost is the sensitivity, which removes the $N(1+P^{\max})$ redundant equality rows per stage, plus one per bucket and ring slot, while keeping the property that one value per state coordinate captures all downstream effects automatically. See [State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds).
 :::
 
 ### Cut dimension: the enabled state subset
 
 Each stage's cuts project onto the state components its selection keeps — the storage and the inflow lags as each stage selects them, the in-transit buckets and the commitment-ring slots always — as defined in [State Augmentation §7](/math/state-augmentation#7-cut-state-projection).
 
-In a multi-rank run each stage's cut synchronization derives its wire layout from that stage's own cut dimension. The Configure tab under [Implementation in Cobre](#implementation-in-cobre) lists the per-stage field.
+In a multi-rank run each stage's cut synchronization derives its wire layout from that stage's own cut dimension. The Configure tab under [Implementation in Novomodelo](#implementation-in-novomodelo) lists the per-stage field.
 
 ## 3. Single-Cut Aggregation
 
@@ -95,7 +95,7 @@ When the problem uses stage-dependent discount rates, discounting is applied to 
 :::
 
 :::note[Multi-cut formulation]
-Cobre implements the single-cut formulation above, with one future-cost variable per stage; it implements no multi-cut variant.
+Novomodelo implements the single-cut formulation above, with one future-cost variable per stage; it implements no multi-cut variant.
 :::
 
 ## 4. Cut Validity
@@ -111,7 +111,7 @@ Here $\beta_i$ is read as zero on every component the cut projects out, so the c
 **Validity conditions**: The cuts generated by SDDP are valid under:
 
 1. **Convexity of the cost-to-go in the incoming state** — the incoming state enters each stage problem affinely, through the bounds of its pinned columns; [Tier 1](#tier-1-valid-lower-bound) names what breaks it.
-2. **Relatively complete recourse** — feasibility for all states and scenarios. In Cobre, this is guaranteed by the recourse slack system (Category 1 penalties): every constraint that could be violated by exogenous uncertainty has a penalty slack variable, ensuring the LP is always feasible. See [Penalty System](/math/penalty-system).
+2. **Relatively complete recourse** — feasibility for all states and scenarios. In Novomodelo, this is guaranteed by the recourse slack system (Category 1 penalties): every constraint that could be violated by exogenous uncertainty has a penalty slack variable, ensuring the LP is always feasible. See [Penalty System](/math/penalty-system).
 3. **Correct sensitivity extraction** — the reduced costs used as cut coefficients must come from an optimal LP solution (not an infeasible or unbounded one)
 4. **Cuts span every state component the cost-to-go depends on** — the intercept absorbs the contribution of every component the cut projects out ([State Augmentation §7](/math/state-augmentation#7-cut-state-projection)), at its trial value, so the cut is guaranteed to lie below the cost-to-go only on the slice through the trial point where those components keep their trial values. When the cost-to-go depends on such a component, as it depends on the inflow lags under a PAR(p > 0) model, $\underline{z}^k$ is not guaranteed to be a lower bound and the gap is not a certificate.
 
@@ -229,7 +229,7 @@ Domination applies the Level-1 survival test with its own tolerance $\epsilon$ (
 
 ## 8. Dynamic Cut Selection
 
-Dynamic Cut Selection (DCS) is **mutually exclusive** with the periodic-pruning methods (Level-1, LML1, Domination). DCS is also **inadmissible under an enumerated forward pass**: the pairing is rejected at study setup with a named validation error, whose reason the Implementation notes tab under [Implementation in Cobre](#implementation-in-cobre) gives. Unlike the periodic-pruning methods, DCS never deactivates cuts from the pool — it keeps the pool entirely append-only and controls only **which cuts are resident in each stage LP** at solve time.
+Dynamic Cut Selection (DCS) is **mutually exclusive** with the periodic-pruning methods (Level-1, LML1, Domination). DCS is also **inadmissible under an enumerated forward pass**: the pairing is rejected at study setup with a named validation error, whose reason the Implementation notes tab under [Implementation in Novomodelo](#implementation-in-novomodelo) gives. Unlike the periodic-pruning methods, DCS never deactivates cuts from the pool — it keeps the pool entirely append-only and controls only **which cuts are resident in each stage LP** at solve time.
 
 **Motivation**: when a stage's pool is large, solving each stage LP with every active cut dominates the run time. DCS keeps the whole pool and solves each LP with a small **resident subset** of it, grown until no omitted cut is violated at the solution or a round cap is reached (§8.3), so a solve that stops on no violation returns the optimum of the solve with the whole pool when every pool cut is a candidate (§8.2). It pairs only with a sampled forward pass, as the setup check above enforces.
 
@@ -309,9 +309,9 @@ The table maps each key of the `training.cut_selection` object to its symbol on 
 | $\varepsilon_{\text{viol}}$ | `selection.violation_tolerance`  | `dynamic`                      |
 | —                           | `selection.start_iteration`      | `dynamic`                      |
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
-The methodology above defines the complete Benders cut lifecycle; the tabs below cover how Cobre's software surface configures, persists, and manages cuts at runtime.
+The methodology above defines the complete Benders cut lifecycle; the tabs below cover how Novomodelo's software surface configures, persists, and manages cuts at runtime.
 
 <Tabs>
   <TabItem label="Configure"><CutConfigure /></TabItem>
@@ -333,4 +333,4 @@ The methodology above defines the complete Benders cut lifecycle; the tabs below
 - [Risk Measures](/math/risk-measures) — Risk-averse cut generation (CVaR modifies aggregation weights)
 - [Block Formulation Variants](/math/block-formulations) — Block structure that affects how per-block duals contribute to cut coefficients
 - [Determinism & Provenance](/math/determinism-guarantees) — Bit-identical results across thread and MPI-rank counts, including DCS resident-set seeding
-- **Running Cobre:** [Policy Management](/running/policy-management/) — the software guide for persisting and reloading this cut pool across runs.
+- **Running Novomodelo:** [Policy Management](/running/policy-management/) — the software guide for persisting and reloading this cut pool across runs.

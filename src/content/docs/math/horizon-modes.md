@@ -5,14 +5,14 @@ description: Finite (acyclic) and Cyclic (infinite-periodic) policy graph topolo
 
 ## Purpose
 
-The **horizon mode** is the global topology of the policy graph for a Cobre
+The **horizon mode** is the global topology of the policy graph for a Novomodelo
 run. It determines whether the stage graph is an acyclic chain with a known
 terminal condition or a cycle whose value functions must stabilise across
 repeated traversals. Because the topology applies uniformly to every stage, a
 single mode governs the entire run; the choice is declared in the case
 configuration via the policy graph type field.
 
-Cobre supports only the finite (acyclic) mode of section 1; a **cyclic**
+Novomodelo supports only the finite (acyclic) mode of section 1; a **cyclic**
 (infinite-periodic) mode, which closes the stage graph into a cycle whose
 value functions stabilise across repeated traversals rather than terminating
 at a fixed stage, is a **reserved** design.
@@ -60,7 +60,7 @@ supported remedy for it, and the reserved cyclic design (section 2) the other.
 ## 2. Cyclic (Infinite-Periodic) Mode
 
 :::caution[Status: Reserved Design]
-Cobre supports only the finite mode of section 1. A cyclic policy graph is a
+Novomodelo supports only the finite mode of section 1. A cyclic policy graph is a
 reserved design that the case loader rejects. Sections 2 to 4 document that
 design; its mathematics is valid on its own terms.
 :::

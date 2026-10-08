@@ -65,9 +65,9 @@ const katexStrict = createKatexStrict();
 export default defineConfig({
   // Architecture B: each version build sets its own base (e.g. "/vX.Y/").
   base: process.env.DOCS_BASE ?? "/",
-  // Custom domain for absolute URLs (canonical links + sitemap). Cutover target;
-  // methodology.cobre-rs.dev 301-redirects in. Env-overridable for a versioned build.
-  site: process.env.DOCS_SITE ?? "https://docs.cobre-rs.dev",
+  // Custom domain for absolute URLs (canonical links + sitemap). Env-overridable
+  // for a versioned build.
+  site: process.env.DOCS_SITE ?? "https://docs.novomodelo.invalid",
   // D5: mdBook→Starlight URL preservation. Each key is an old mdBook (or
   // retired-site) path and each destination is a live page slug, one hop. mdBook
   // served each chapter at `/specs/<group>/<chapter>.html` (and the intro at
@@ -105,7 +105,7 @@ export default defineConfig({
   // preservation to "decide with traffic data" — the entries below are the
   // mechanically-known chapter mappings; the residual is a USER decision and is
   // intentionally NOT pre-populated here. Pull inbound-link / referrer / 404
-  // data for methodology.cobre-rs.dev, then decide:
+  // data for the old URLs, then decide:
   //   (a) Keep redirects at all? The site is young / blast radius is low, so the
   //       plan's default is to SHIP every entry below (cheap, static, no
   //       downside) — confirm or drop.
@@ -119,7 +119,7 @@ export default defineConfig({
   redirects: {
     // Part 1 — Introduction
     "/introduction.html": "/",
-    "/specs/overview/what-cobre-solves.html": "/overview/what-cobre-solves/",
+    "/specs/overview/what-novomodelo-solves.html": "/overview/what-novomodelo-solves/",
     "/specs/overview/sddp-framework-overview.html":
       "/overview/sddp-framework-overview/",
     "/specs/overview/notation-conventions.html":
@@ -160,12 +160,12 @@ export default defineConfig({
     // Part 7 — Reference
     "/specs/reference/glossary.html": "/reference/glossary/",
     "/specs/reference/bibliography.html": "/reference/bibliography/",
-    // Retired software mdBook paths (the old docs.cobre-rs.dev served the mdBook
+    // Retired software mdBook paths (the old docs.novomodelo.invalid served the mdBook
     // flat at these URLs). Map each to its unified twin; omitted chapters (crate
     // internals → GitHub READMEs, energy-variables, deterministic-suite,
     // creating-your-own) 404 by design. D5: no analytics yet — these cover the
     // mdBook SUMMARY chapters that have an unambiguous unified page.
-    "/tutorial/what-cobre-solves.html": "/overview/what-cobre-solves/",
+    "/tutorial/what-novomodelo-solves.html": "/overview/what-novomodelo-solves/",
     "/guide/installation.html": "/getting-started/installation/",
     "/tutorial/quickstart.html": "/getting-started/quickstart/",
     "/guide/python-quickstart.html": "/getting-started/python-quickstart/",
@@ -173,7 +173,7 @@ export default defineConfig({
     "/guide/performance-accelerators.html": "/running/performance/",
     "/guide/running-studies.html": "/running/running-studies/",
     "/guide/policy-management.html": "/running/policy-management/",
-    "/guide/cobre-bridge.html": "/running/case-conversion/",
+    "/guide/novomodelo-bridge.html": "/running/case-conversion/",
     "/guide/interpreting-results.html": "/running/interpreting-results/",
     "/tutorial/understanding-results.html": "/running/interpreting-results/",
     "/guide/cli-reference.html": "/reference/cli-reference/",
@@ -232,7 +232,7 @@ export default defineConfig({
       pad: 20,
     }),
     starlight({
-      title: "Cobre Documentation",
+      title: "Novomodelo Documentation",
       // Translation-status dashboard (ticket-022). @lunariajs/starlight is a
       // STARLIGHT PLUGIN (not an Astro integration): it hooks Starlight's plugin
       // API to inject the `/lunaria` route, which reads git history + the tracked
@@ -261,22 +261,6 @@ export default defineConfig({
       //     not a defect. Do not add empty/stub pt-br `.md`/`.mdx` files — they
       //     would render as broken pages and skew the dashboard's status.
       plugins: [lunaria({ configPath: "./lunaria.config.json", route: "/lunaria" })],
-      // Brand mark (ticket-011b, resolves ticket-009's deferred logo). The header
-      // slot is small (~24px), so we use the ICON — a self-contained 128×128 copper
-      // mark on a Midnight tile, the brand's "small contexts / 16px" form — NOT the
-      // wide 400×120 wordmark logos (those duplicate "Cobre" beside the title and
-      // scale to illegibility at this height). `replacesTitle: false` keeps the
-      // "Cobre Methodology" title text beside the icon. Theme-adaptive (Starlight
-      // logo:{dark,light}): the Midnight-tiled icon on dark; a light-surface-tiled
-      // variant on light (cobre-icon-light.svg — derived, copper anchored darker so
-      // it reads on the light tile). The dark-tiled icon is also the favicon.
-      logo: {
-        dark: "./src/assets/cobre-icon.svg",
-        light: "./src/assets/cobre-icon-light.svg",
-        alt: "Cobre",
-        replacesTitle: false,
-      },
-      favicon: "/favicon.svg",
       // Unified interleaved sidebar (ticket-005, docs-unification strategy §5
       // sketch). NOT `autogenerate`: the curated TOC crosses content folders
       // (System Modelling…Coupling & Boundary Conditions are all `math/…`
@@ -284,24 +268,24 @@ export default defineConfig({
       // are retired in favour of named groups that autogeneration cannot
       // reproduce. The leading Get-Started group is new (ticket-004 ported the
       // three `getting-started/*` pages); it also reclaims
-      // `overview/what-cobre-solves` from the old first Part group, leaving the
+      // `overview/what-novomodelo-solves` from the old first Part group, leaving the
       // renamed Introduction group with the remaining three overview slugs.
       // The System Modelling, Stochastic Modelling and SDDP Algorithm groups
-      // follow spec §6.3. The pure-software Running Cobre group (§5 sketch,
+      // follow spec §6.3. The pure-software Running Novomodelo group (§5 sketch,
       // ticket-013) lands between Coupling & Boundary Conditions and Worked
       // Examples: these `running/*` pages have no methodology twin, so they are
       // standalone MDX (no `<Tabs>`, no `_impl/` partials). The I/O reference
       // entries (the Case Format and Output Format groups, error-codes,
       // flatbuffers-schema) landed in the Reference group below (ticket-012);
       // `reference/cli-reference` (ticket-013) is the resolved borderline
-      // decision — CLI reference lives in Reference, not Running Cobre. The
+      // decision — CLI reference lives in Reference, not Running Novomodelo. The
       // landing page (index.mdx → `/`) is the site root and is intentionally
       // NOT a sidebar entry.
       sidebar: [
         {
           label: "Get Started",
           items: [
-            "overview/what-cobre-solves",
+            "overview/what-novomodelo-solves",
             "getting-started/installation",
             "getting-started/quickstart",
             "getting-started/python-quickstart",
@@ -359,7 +343,7 @@ export default defineConfig({
           ],
         },
         {
-          label: "Running Cobre",
+          label: "Running Novomodelo",
           items: [
             "running/running-studies",
             "running/configuration",

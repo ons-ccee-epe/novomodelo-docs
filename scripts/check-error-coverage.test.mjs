@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_COBRE_REF } from "./cobre-ref.mjs";
+import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 import {
   checkCoverage,
   parseKindSections,
@@ -25,7 +25,7 @@ import {
 const SCRIPT = fileURLToPath(
   new URL("./check-error-coverage.mjs", import.meta.url),
 );
-const REF = DEFAULT_COBRE_REF;
+const REF = DEFAULT_NOVOMODELO_REF;
 const RESERVED =
   "**Status:** Reserved. Case validation never reports this kind.";
 
@@ -80,7 +80,7 @@ test("DUPLICATE: a vendored name with two kind sections", () => {
 test("STALE-VENDOR: the vendored ref differs from the default ref", () => {
   const stale = vendored(V.enums[0].variants, [], "v0.0.1");
   assert.deepEqual(checkCoverage(stale, CLEAN, "v0.0.2"), [
-    { code: "STALE-VENDOR", name: "v0.0.1 (DEFAULT_COBRE_REF v0.0.2)" },
+    { code: "STALE-VENDOR", name: "v0.0.1 (DEFAULT_NOVOMODELO_REF v0.0.2)" },
   ]);
 });
 
@@ -94,7 +94,7 @@ test("every violation is reported, STALE-VENDOR first, then the vendored order",
   assert.deepEqual(
     checkCoverage(v, text, "v0.0.2").map(({ code, name }) => `${code} ${name}`),
     [
-      "STALE-VENDOR v0.0.1 (DEFAULT_COBRE_REF v0.0.2)",
+      "STALE-VENDOR v0.0.1 (DEFAULT_NOVOMODELO_REF v0.0.2)",
       "MISSING-SECTION Alpha",
       "NOT-RESERVED Beta",
       "DUPLICATE Gamma",
@@ -385,14 +385,14 @@ test("M1b CLI exits 2 on a page that ends inside an unclosed fence", () => {
   assert.equal(result.stdout, "");
 });
 
-test("M2 CLI reports STALE-VENDOR against DEFAULT_COBRE_REF", () => {
+test("M2 CLI reports STALE-VENDOR against DEFAULT_NOVOMODELO_REF", () => {
   const result = cli({
     "kinds.json": JSON.stringify({ ...V, ref: "v0.0.1" }),
     "page.mdx": CLEAN,
   });
   assert.equal(result.status, 1);
   assert.deepEqual(result.stdout.trimEnd().split("\n").slice(1), [
-    `check:error-coverage: STALE-VENDOR v0.0.1 (DEFAULT_COBRE_REF ${REF})`,
+    `check:error-coverage: STALE-VENDOR v0.0.1 (DEFAULT_NOVOMODELO_REF ${REF})`,
   ]);
 });
 

@@ -1,7 +1,7 @@
 // E10-completion gate (E8 ticket-029) — the cutover licensing gate.
 //
-// The cutover (ticket-030) publishes the Starlight site to the public domain
-// methodology.cobre-rs.dev, which means the build REDISTRIBUTES its runtime and
+// The cutover (ticket-030) publishes the Starlight site on its public host,
+// which means the build REDISTRIBUTES its runtime and
 // build-time third-party libraries (KaTeX, the Fontsource faces, the d2/ELK
 // toolchain, the Astro/Starlight stack). Permissive licenses
 // (MIT/ISC/Apache-2.0/OFL-1.1) require preserving THEIR notices in what ships,
@@ -15,7 +15,7 @@
 // they remain the single source of truth), and the notices drift guard mirrors
 // CI exactly (`gen:notices` then `git diff --exit-code`). The artifact-presence
 // and ship-in-build assertions (notices source non-empty, notices byte-identical
-// in dist/, the rendered footer block, LICENSE-docs present) are checked directly
+// in dist/, the rendered footer block, LICENSE present) are checked directly
 // here. This keeps the project's plain-Node ESM, zero-new-dependency convention
 // (check-d2-layout.mjs, check-spdx.mjs, check-links.mjs).
 //
@@ -27,12 +27,12 @@
 //                    absent the gate exits with a "run `npm run build:versions`
 //                    first" message (mirroring check-links.mjs), not a throw.
 //   footer-link      dist/index.html contains an href ending in
-//                    THIRD-PARTY-NOTICES.txt AND the content-license text
-//                    (CC-BY-4.0 + the LICENSE link) — i.e. Footer.astro's notices
+//                    THIRD-PARTY-NOTICES.txt AND the license text
+//                    (Apache-2.0 + the LICENSE link) — i.e. Footer.astro's notices
 //                    block rendered into the output. STABLE SUBSTRINGS are
 //                    asserted, not an exact HTML string, so Starlight markup
 //                    changes do not false-fail the gate.
-//   content-license  LICENSE-docs exists at the repo root and is non-empty.
+//   license          LICENSE exists at the repo root and is non-empty.
 //   check:d2         `npm run check:d2` exits 0 (D2 uses ELK, never TALA).
 //   check:spdx       `npm run check:spdx` exits 0 (100% FOSS).
 //   notices-drift    `npm run gen:notices` then
@@ -68,9 +68,8 @@ const distNotices = fileURLToPath(
   new URL("../dist/THIRD-PARTY-NOTICES.txt", import.meta.url),
 );
 const distIndex = fileURLToPath(new URL("../dist/index.html", import.meta.url));
-// LICENSE-docs lives at the repo root (one level above site/), resolved off
-// repoRoot per the ticket's path-resolution convention.
-const licenseDocs = join(repoRoot, "LICENSE-docs");
+// The Apache-2.0 LICENSE (code and documentation content) lives at the repo root.
+const licenseFile = join(repoRoot, "LICENSE");
 
 // ---------------------------------------------------------------------------
 // Pure helpers (exported for the node:test fixture; both are synchronous and
@@ -89,8 +88,8 @@ export function buffersIdentical(a, b) {
 // True iff the given built-page HTML carries the rendered Footer notices block:
 // (1) an href ending in THIRD-PARTY-NOTICES.txt (base-aware: matches both a root
 // build "/THIRD-PARTY-NOTICES.txt" and a versioned build
-// "/v0.8/THIRD-PARTY-NOTICES.txt"), AND (2) the content-license text — the
-// CC-BY-4.0 token AND the Apache-2.0 LICENSE link (an href ending in /LICENSE).
+// "/v0.8/THIRD-PARTY-NOTICES.txt"), AND (2) the license text — the
+// Apache-2.0 token AND the LICENSE link (an href ending in /LICENSE).
 // STABLE SUBSTRINGS only (not an exact HTML string) so Starlight markup changes
 // do not false-fail the gate. Returns { ok, missing } where `missing` lists the
 // absent substrings for a precise error message.
@@ -101,13 +100,13 @@ export function footerHasNotices(html) {
   if (!/href="[^"]*THIRD-PARTY-NOTICES\.txt"/i.test(text)) {
     missing.push("an href ending in THIRD-PARTY-NOTICES.txt");
   }
-  // (2a) the CC-BY-4.0 content-license token.
-  if (!text.includes("CC-BY-4.0")) {
-    missing.push("the CC-BY-4.0 content-license text");
+  // (2a) the Apache-2.0 license token.
+  if (!text.includes("Apache-2.0")) {
+    missing.push("the Apache-2.0 license text");
   }
-  // (2b) the Apache-2.0 code-license LICENSE link (href ending in /LICENSE).
+  // (2b) the LICENSE link (href ending in /LICENSE).
   if (!/href="[^"]*\/LICENSE"/i.test(text)) {
-    missing.push("the code-license LICENSE link (href ending in /LICENSE)");
+    missing.push("the LICENSE link (href ending in /LICENSE)");
   }
   return { ok: missing.length === 0, missing };
 }
@@ -202,14 +201,14 @@ function main() {
     );
   }
   passed.push(
-    "footer-link: dist/index.html renders the notices link + CC-BY-4.0/LICENSE content-license",
+    "footer-link: dist/index.html renders the notices link + the Apache-2.0 LICENSE link",
   );
 
-  // --- content-license: LICENSE-docs at repo root ---------------------------
-  if (!isNonEmptyFile(licenseDocs)) {
-    fail("content-license: LICENSE-docs not found or empty at repo root.");
+  // --- license: LICENSE at repo root ----------------------------------------
+  if (!isNonEmptyFile(licenseFile)) {
+    fail("license: LICENSE not found or empty at repo root.");
   }
-  passed.push("content-license: LICENSE-docs present and non-empty at repo root");
+  passed.push("license: LICENSE present and non-empty at repo root");
 
   // --- check:d2 green (shell out — do NOT reimplement the TALA check) --------
   runSubCheck("npm", ["run", "check:d2"], "check:d2");

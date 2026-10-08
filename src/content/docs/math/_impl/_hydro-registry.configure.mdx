@@ -3,7 +3,7 @@
 The sections below configure the hydro plants of
 [§5 Hydro Plants](#5-hydro-plants). The plant's `generation` block and the
 production-model selection (`system/hydro_production_models.json`) are on the
-[Hydro Production Function Models](/math/hydro-production-models#implementation-in-cobre) Configure tab.
+[Hydro Production Function Models](/math/hydro-production-models#implementation-in-novomodelo) Configure tab.
 
 ### `system/hydros.json` — Hydro Plant Registry
 
@@ -105,7 +105,7 @@ absent.
 | `downstream_id`  | integer or null | No       | Identifier of the plant that receives this plant's outflow. Absent or `null` means the plant is at the bottom of its cascade — outflow leaves the system. |
 | `operational_start_date` | string (ISO-8601 date) | Yes | Calendar date (`YYYY-MM-DD`) the plant enters the registry's operational history. Provenance and the canonical `(operational_start_date, id)` ordering key (see [Notation Conventions](/overview/notation-conventions)) — independent of `entry_stage_id`/`exit_stage_id` below, which alone gate commissioning. |
 | `entry_stage_id` | integer or null | No       | Stage index at which the plant enters service (inclusive). `null` means the plant is available from stage 0. |
-| `exit_stage_id`  | integer or null | No       | Stage index at which the plant is decommissioned. The commissioning window is **half-open** `[entry_stage_id, exit_stage_id)`: the plant is active through `exit_stage_id - 1`, and outside the window it is not in service. For a hydro the out-of-service state is **PreFilling** — turbine, spillage, and diversion pinned to zero, storage frozen, and natural inflow routed past the site (see [Hydro Production Function Models — Implementation in Cobre](/math/hydro-production-models#implementation-in-cobre) and [Not-Yet-Commissioned Hydros (PreFilling)](#not-yet-commissioned-hydros-prefilling)) — rather than a bare column zero-pin. `null` means the plant is never decommissioned. |
+| `exit_stage_id`  | integer or null | No       | Stage index at which the plant is decommissioned. The commissioning window is **half-open** `[entry_stage_id, exit_stage_id)`: the plant is active through `exit_stage_id - 1`, and outside the window it is not in service. For a hydro the out-of-service state is **PreFilling** — turbine, spillage, and diversion pinned to zero, storage frozen, and natural inflow routed past the site (see [Hydro Production Function Models — Implementation in Novomodelo](/math/hydro-production-models#implementation-in-novomodelo) and [Not-Yet-Commissioned Hydros (PreFilling)](#not-yet-commissioned-hydros-prefilling)) — rather than a bare column zero-pin. `null` means the plant is never decommissioned. |
 
 #### Reservoir
 
@@ -191,13 +191,13 @@ Each group's own turbine bounds must be internally consistent
 (`min_turbined_m3s <= max_turbined_m3s`, and likewise for generation), and
 group `id`s are unique within the plant. Across the whole plant, the sum of
 every group's `max_turbined_m3s` (and, separately, `max_generation_mw`)
-cannot exceed the plant's own declared maximum from its [`generation` block](/math/hydro-production-models#implementation-in-cobre)
+cannot exceed the plant's own declared maximum from its [`generation` block](/math/hydro-production-models#implementation-in-novomodelo)
 — a plant's own value is the envelope, so groups cannot raise it — and
 the sum of every group's minima must be able to reach the plant's own
 declared minimum.
 
 Stage-varying, optionally per-block overrides of a group's four bounds are
-supplied by `constraints/hydro_unit_group_bounds.parquet` — see the [Hydro Production Function Models](/math/hydro-production-models#implementation-in-cobre) Inputs & Outputs tab.
+supplied by `constraints/hydro_unit_group_bounds.parquet` — see the [Hydro Production Function Models](/math/hydro-production-models#implementation-in-novomodelo) Inputs & Outputs tab.
 
 #### Cascade Topology (`downstream_id`)
 
@@ -230,14 +230,14 @@ travel down the **main cascade arc** to `downstream_id`.
 | ------------------- | -------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `travel_time_hours` | number or null | No       | Travel time on the main cascade arc, in hours. When present, strictly positive, and the plant has a `downstream_id`, the part of each release that the travel time carries past the end of the release stage reaches the downstream reservoir in later stages; the rest arrives within the stage (see [Cascade Travel Time](/math/system-elements#cascade-travel-time)). Absent, `null`, or `0.0` means an instantaneous transfer. |
 
-When an arc is declared, Cobre carries the water in transit as additional
+When an arc is declared, Novomodelo carries the water in transit as additional
 Bellman state (see [State Augmentation §6](/math/state-augmentation#6-water-travel-time) and
 [Cascade Travel Time](#cascade-travel-time)). Travel time applies to the main
 cascade arc only — diversion and pumping transfers are always instantaneous.
 Declaring an arc requires seeding the pre-study releases already in transit via
 `initial_conditions.past_defluences`, and the downstream plant must have
 entered service by the first study stage — see
-[Hydro Production Function Models — Implementation in Cobre](/math/hydro-production-models#implementation-in-cobre).
+[Hydro Production Function Models — Implementation in Novomodelo](/math/hydro-production-models#implementation-in-novomodelo).
 
 #### Advanced Fields
 
@@ -315,8 +315,8 @@ input.
 
 A hydro that declares `coefficients_mm` but has no usable area-volume curve to
 convert it into a flux — see
-[Hydro Production Function Models — Implementation in Cobre](/math/hydro-production-models#implementation-in-cobre) for exactly what "no usable
-curve" means and what Cobre does about it.
+[Hydro Production Function Models — Implementation in Novomodelo](/math/hydro-production-models#implementation-in-novomodelo) for exactly what "no usable
+curve" means and what Novomodelo does about it.
 
 **Diversion channel** — the `diversion` block models a diversion that routes
 flow directly to a downstream plant's reservoir, bypassing turbines and
@@ -345,7 +345,7 @@ before the plant can generate.
 The target trajectory and its soft-floor penalty are covered in
 [Penalty System §6](/math/penalty-system#dead-volume-filling-specifics); the
 load-time filling-sufficiency check is listed in that page's
-[Configure tab](/math/penalty-system#implementation-in-cobre).
+[Configure tab](/math/penalty-system#implementation-in-novomodelo).
 
 **Penalties** — the `penalties` block overrides the global defaults from
 `penalties.json` for one plant; when absent, the plant uses the global

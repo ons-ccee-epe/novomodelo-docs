@@ -1,4 +1,4 @@
-Non-normative software behavior for the hydro production models — what Cobre
+Non-normative software behavior for the hydro production models — what Novomodelo
 does at runtime, beyond the equations above. This tab references the
 methodology body for the derivations rather than restating them.
 
@@ -57,9 +57,9 @@ to a computed plant: `tailrace`, `hydraulic_losses` and `efficiency` in `hydros.
 geometry rows in `system/hydro_geometry.parquet`; a missing one is a load-time
 error.
 
-A warning names the plant; `cobre validate` and `cobre run` both print it:
+A warning names the plant; `novomodelo validate` and `novomodelo run` both print it:
 
-{/* capture: cobre validate case 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; system/hydros.json hydro 0: generation.model fpha, generation.max_turbined_m3s and unit_groups[0].max_turbined_m3s 0.0, specific_productivity_mw_per_m3s_per_m 0.0091 added, tailrace polynomial with coefficients [5.0, 0.001] added, hydraulic_losses factor 0.03 added, efficiency constant 0.93 added; system/hydro_production_models.json: the one stage range set to model fpha with fpha_config.source computed, productivity_mw_per_m3s removed; system/hydro_geometry.parquet added with hydro_id [0, 0, 0], volume_hm3 [0, 500, 1000], height_m [100, 110, 120], area_km2 [10, 15, 20], zstd compression; run with NO_COLOR=1) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json hydro 0: generation.model fpha, generation.max_turbined_m3s and unit_groups[0].max_turbined_m3s 0.0, specific_productivity_mw_per_m3s_per_m 0.0091 added, tailrace polynomial with coefficients [5.0, 0.001] added, hydraulic_losses factor 0.03 added, efficiency constant 0.93 added; system/hydro_production_models.json: the one stage range set to model fpha with fpha_config.source computed, productivity_mw_per_m3s removed; system/hydro_geometry.parquet added with hydro_id [0, 0, 0], volume_hm3 [0, 500, 1000], height_m [100, 110, 120], area_km2 [10, 15, 20], zstd compression; run with NO_COLOR=1) */}
 
 ```text
  WARN hydro UHE1 (id=0) requests FPHA but has no turbine capacity (max_turbined_m3s = 0); modeling it with zero productivity
@@ -79,7 +79,7 @@ the `constant` count of the CLI `Production:` line. It is absent from
 
 ### Fit-quality warning
 
-After the full pipeline, Cobre compares the fitted min-envelope against the
+After the full pipeline, Novomodelo compares the fitted min-envelope against the
 exact production function on the spillage-`0` grid and computes their
 relative mean-absolute deviation. When it exceeds 5%, a warning is logged
 naming the plant and stage:
@@ -116,7 +116,7 @@ differently:
 - **Rows present but every `area_km2` is zero** is **disabled with a
   warning**. The curve exists but describes zero surface area throughout, so
   evaporative flux is identically zero regardless of the authored
-  coefficients. Cobre disables evaporation (zero flux) for that hydro and
+  coefficients. Novomodelo disables evaporation (zero flux) for that hydro and
   logs a warning naming the plant rather than failing the run.
 
 Two conditions raised while building the per-stage linearization remain hard

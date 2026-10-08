@@ -4,7 +4,7 @@ description: The FlatBuffers wire format for the policy checkpoint (`policy/*.bi
 ---
 
 The binary files under a study's `policy/` directory are
-[FlatBuffers](https://flatbuffers.dev/) buffers. Cobre's runtime writes
+[FlatBuffers](https://flatbuffers.dev/) buffers. Novomodelo's runtime writes
 and reads them through a hand-rolled, allocation-free path in Rust, but
 external consumers (Python, C++, TypeScript, Java, Go, …) can use the
 canonical schema file shipped with the source tree to generate a typed
@@ -26,8 +26,8 @@ study graph (`nodes`/`edges`), the stage count, the producer provenance, and
 the `format_version` marker.
 
 The schema lives at
-[`crates/cobre-io/schemas/policy.fbs`](https://github.com/cobre-rs/cobre/blob/v0.18.0/crates/cobre-io/schemas/policy.fbs)
-under namespace `Cobre.IO.Policy`. It declares `file_identifier "CBVF"`
+[`crates/novomodelo-io/schemas/policy.fbs`](https://github.com/ons-ccee-epe/novomodelo/blob/v0.18.0/crates/novomodelo-io/schemas/policy.fbs)
+under namespace `Novomodelo.IO.Policy`. It declares `file_identifier "CBVF"`
 and `file_extension "bin"` but no `root_type`, so `--root-type` is required
 per file to select the entry point for `flatc`. The reader refuses any buffer
 whose leading identifier is not `CBVF` before decoding it, so a buffer without
@@ -42,14 +42,14 @@ view of a policy checkpoint:
 ```bash
 flatc -t --strict-json \
     --root-type StageCuts \
-    crates/cobre-io/schemas/policy.fbs \
+    crates/novomodelo-io/schemas/policy.fbs \
     -- output/policy/cuts/000.bin
 # writes 000.json next to the .bin
 ```
 
 For the basis or states files, swap the `--root-type` argument for
 `StageBasis` or `StageStates`. `--raw-binary` forces `flatc` to read a buffer
-that carries no `CBVF` identifier. A buffer written by Cobre carries the
+that carries no `CBVF` identifier. A buffer written by Novomodelo carries the
 identifier, so `flatc -t` verifies it on its own.
 
 ## Generating a typed reader
@@ -60,12 +60,12 @@ languages. Pick the one matching your toolchain.
 ### Python
 
 ```bash
-flatc --python crates/cobre-io/schemas/policy.fbs
-# emits Cobre/IO/Policy/{AffinePiece,EntitySlot,EntityType,StageCuts,StageBasis,StageStates}.py
+flatc --python crates/novomodelo-io/schemas/policy.fbs
+# emits Novomodelo/IO/Policy/{AffinePiece,EntitySlot,EntityType,StageCuts,StageBasis,StageStates}.py
 ```
 
 ```python
-from Cobre.IO.Policy.StageCuts import StageCuts
+from Novomodelo.IO.Policy.StageCuts import StageCuts
 
 with open("output/policy/cuts/000.bin", "rb") as f:
     buf = bytearray(f.read())
@@ -78,8 +78,8 @@ for i in range(cuts.CutsLength()):
 ```
 
 :::tip[Python bindings]
-Python users on the cobre PyO3 binding can skip `flatc` entirely:
-`cobre.results.load_policy(output_dir)` returns a structured Python
+Python users on the novomodelo PyO3 binding can skip `flatc` entirely:
+`novomodelo.results.load_policy(output_dir)` returns a structured Python
 dict already. Use `flatc` only if you need partial reads on huge
 files or you are not using the Python wheel.
 :::
@@ -87,15 +87,15 @@ files or you are not using the Python wheel.
 ### C++
 
 ```bash
-flatc --cpp crates/cobre-io/schemas/policy.fbs
+flatc --cpp crates/novomodelo-io/schemas/policy.fbs
 # emits policy_generated.h
 ```
 
 ### TypeScript / JavaScript
 
 ```bash
-flatc --ts crates/cobre-io/schemas/policy.fbs
-# emits TypeScript modules under cobre/io/policy/
+flatc --ts crates/novomodelo-io/schemas/policy.fbs
+# emits TypeScript modules under novomodelo/io/policy/
 ```
 
 For other targets see `flatc --help`.
@@ -103,7 +103,7 @@ For other targets see `flatc --help`.
 ## Field-by-field reference
 
 The authoritative description of every field lives in
-[`policy.fbs`](https://github.com/cobre-rs/cobre/blob/v0.18.0/crates/cobre-io/schemas/policy.fbs)
+[`policy.fbs`](https://github.com/ons-ccee-epe/novomodelo/blob/v0.18.0/crates/novomodelo-io/schemas/policy.fbs)
 itself — every field carries an inline doc comment. The
 [Output Format](/reference/output/) page has a tabular summary suitable
 for reading on the web.
@@ -142,22 +142,22 @@ therefore rejected outright on load rather than read with graceful-absence
 defaults — see [Versioning policy](#versioning-policy) below.
 
 Generated readers emit no accessor for a `deprecated` field; generated writers
-cannot emit them. The Cobre runtime's own writer never sets them.
+cannot emit them. The Novomodelo runtime's own writer never sets them.
 
 ## How drift is prevented
 
-The schema is not consumed by Cobre's own build. Two independent
+The schema is not consumed by Novomodelo's own build. Two independent
 implementations describe the same wire format:
 
-- The **schema file** `crates/cobre-io/schemas/policy.fbs`, with
+- The **schema file** `crates/novomodelo-io/schemas/policy.fbs`, with
   explicit `(id: N)` attributes on every field.
 - The **hand-rolled writer/reader** in
-  `crates/cobre-io/src/output/policy/codec.rs`, which encodes vtable slots
+  `crates/novomodelo-io/src/output/policy/codec.rs`, which encodes vtable slots
   via the `*_FIELD_*: u16` constants. The slot offset is
   `(field_id + 2) * 2`.
 
 A conformance test, `tests/flatbuffers_schema_conformance.rs` in
-`cobre-io`, round-trips representative buffers in **both** directions:
+`novomodelo-io`, round-trips representative buffers in **both** directions:
 
 - Hand-rolled writer → `flatc -t` → JSON: catches the writer emitting
   a slot the schema does not declare, or at the wrong offset.
@@ -168,7 +168,7 @@ The test is gated behind the `flatc-conformance` cargo feature so that
 the everyday `cargo test` does not depend on `flatc`. To run it:
 
 ```bash
-cargo test -p cobre-io \
+cargo test -p novomodelo-io \
     --features flatc-conformance \
     --test flatbuffers_schema_conformance
 ```

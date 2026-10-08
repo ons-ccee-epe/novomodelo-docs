@@ -1,10 +1,10 @@
-Cobre's `penalties.json` file supplies the case-wide penalty defaults that the
+Novomodelo's `penalties.json` file supplies the case-wide penalty defaults that the
 methodology above prices into the objective. Entity-level and stage-level
 overrides layer on top of these defaults through the resolution cascade
 described in [§1 Cascade Resolution](#1-cascade-resolution) and
 [§3 Penalty Defaults and Overrides](#3-penalty-defaults-and-overrides). This
 tab covers how the defaults are supplied, how overrides resolve and the checks
-Cobre runs on the configured costs; the penalty-priority ordering itself is in
+Novomodelo runs on the configured costs; the penalty-priority ordering itself is in
 [Penalty Priority Ordering](#penalty-priority-ordering) above.
 
 ### `penalties.json` — Global Penalty Defaults
@@ -16,7 +16,7 @@ directional costs and `inflow_nonnegativity_cost`) are omitted.
 
 ```json
 {
-  "$schema": "https://docs.cobre-rs.dev/schemas/penalties.schema.json",
+  "$schema": "https://docs.novomodelo.invalid/schemas/penalties.schema.json",
   "bus": {
     "deficit_segments": [
       { "depth_mw": 500.0, "cost": 7000.0 },
@@ -55,7 +55,7 @@ and a chronological stage each block's pair over the block hours
 
 The entity-level `hydros[].penalties` block that overrides these defaults per
 plant is documented in the
-[System Element Modeling Overview](/math/system-elements#implementation-in-cobre) Configure tab;
+[System Element Modeling Overview](/math/system-elements#implementation-in-novomodelo) Configure tab;
 the directional-cost fallback is described under
 [Directional evaporation and withdrawal costs](#directional-evaporation-and-withdrawal-costs).
 
@@ -115,7 +115,7 @@ tiers differ per field, so this is a lookup table, not a single uniform rule:
 | `bus.deficit_segments`                          | not supported                                     | `buses[].deficit_segments`                                                          | `penalties.json` → `bus.deficit_segments`                     |
 | `bus.excess_cost`                                | `penalty_overrides_bus.parquet`                   | not supported                                                                       | `penalties.json` → `bus.excess_cost`                          |
 | `line.exchange_cost`                             | `penalty_overrides_line.parquet`                  | `lines[].exchange_cost`                                                             | `penalties.json` → `line.exchange_cost`                       |
-| `hydro.*`                       | `penalty_overrides_hydro.parquet`        | `hydros[].penalties` — see the [System Element Modeling Overview](/math/system-elements#implementation-in-cobre) Configure tab | `penalties.json` → `hydro.*`                                  |
+| `hydro.*`                       | `penalty_overrides_hydro.parquet`        | `hydros[].penalties` — see the [System Element Modeling Overview](/math/system-elements#implementation-in-novomodelo) Configure tab | `penalties.json` → `hydro.*`                                  |
 | `non_controllable_source.curtailment_cost`      | `penalty_overrides_ncs.parquet`                   | `non_controllable_sources[].curtailment_cost`                                                                       | `penalties.json` → `non_controllable_source.curtailment_cost` |
 
 #### Resolution example
@@ -180,7 +180,7 @@ Relationship: `outflow = turbined_flow + spillage`,
 
 ### Load-time penalty checks
 
-Cobre checks the configured costs when the case loads. The checks read each
+Novomodelo checks the configured costs when the case loads. The checks read each
 hydro's entity-level costs: the `penalties.json` defaults with the plant's
 `penalties` block applied. Stage overrides are not checked. The deficit side of
 the first comparison is the largest deficit-segment cost of any bus, and 0 when the
@@ -205,7 +205,7 @@ directional evaporation and withdrawal costs. "Resource costs" means the hydro
 These three checks read no thermal, contract, excess, exchange or curtailment
 cost, and neither `turbined_cost` nor `inflow_nonnegativity_cost`.
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/scenarios.rs:57-62, 101-107, 131-137 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:57-62, 101-107, 131-137 at novomodelo v0.18.0 */}
 
 Each warning text is fixed apart from its numbers and hydro ids, written `{…}`
 here, and begins `Penalty ordering violation:`:
@@ -226,7 +226,7 @@ numeric `id`.
 Two rules reject the case as a `BusinessRuleViolation` error (see
 [Error Codes — `BusinessRuleViolation`](/reference/error-codes/#businessruleviolation)):
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/scenarios.rs:164-167, 1138-1144 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:164-167, 1138-1144 at novomodelo v0.18.0 */}
 
 - **Negative turbined cost on an FPHA hydro.** A hydro whose `generation.model`
   is `fpha` and whose `turbined_cost` is negative is rejected on

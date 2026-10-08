@@ -90,7 +90,7 @@ Column rules:
 - **Nullable.** One of `Yes`, `No`. The value is the `nullable` flag of the writer schema field.
 - **Units.** As in section 2.
 - **Description.** What the column holds. The example is the `stage_id` column of `simulation/hydros/`, a row-prefix
-  column of every simulation table (`simulation_row_prefix`, `crates/cobre-io/src/output/schemas.rs`).
+  column of every simulation table (`simulation_row_prefix`, `crates/novomodelo-io/src/output/schemas.rs`).
 
 **Door**: one-way.
 **Revisit trigger**: none known.
@@ -101,15 +101,15 @@ Parquet columns use the Arrow type names that the loader's wrong-type message an
 
 | Name                 | Parquet physical type | pyarrow        | polars       | Read or written by                                                                                                        |
 | -------------------- | --------------------- | -------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `Int32 (nullable)`   | INT32                 | `pa.int32()`   | `pl.Int32`   | optional input column, null cells allowed; read (`extract_optional_int32`, `crates/cobre-io/src/parquet_helpers.rs`)      |
-| `Float64 (nullable)` | DOUBLE                | `pa.float64()` | `pl.Float64` | optional input column, null cells allowed; read (`extract_optional_float64`, `crates/cobre-io/src/parquet_helpers.rs`)    |
+| `Int32 (nullable)`   | INT32                 | `pa.int32()`   | `pl.Int32`   | optional input column, null cells allowed; read (`extract_optional_int32`, `crates/novomodelo-io/src/parquet_helpers.rs`)      |
+| `Float64 (nullable)` | DOUBLE                | `pa.float64()` | `pl.Float64` | optional input column, null cells allowed; read (`extract_optional_float64`, `crates/novomodelo-io/src/parquet_helpers.rs`)    |
 | `Int8`               | INT32                 | `pa.int8()`    | `pl.Int8`    | written (output schemas)                                                                                                  |
 | `Int32`              | INT32                 | `pa.int32()`   | `pl.Int32`   | read (`extract_required_int32`, `extract_optional_int32`) and written                                                     |
 | `Int64`              | INT64                 | `pa.int64()`   | `pl.Int64`   | written                                                                                                                   |
 | `UInt32`             | INT32                 | `pa.uint32()`  | `pl.UInt32`  | read (`extract_required_uint32`) and written                                                                              |
 | `UInt64`             | INT64                 | `pa.uint64()`  | `pl.UInt64`  | written                                                                                                                   |
 | `Float64`            | DOUBLE                | `pa.float64()` | `pl.Float64` | read (`extract_required_float64`, `extract_optional_float64`) and written                                                 |
-| `Utf8`               | BYTE_ARRAY (string)   | `pa.string()`  | `pl.String`  | read (`extract_required_string`, `crates/cobre-io/src/extensions/evaporation_models.rs`, the `source` column) and written |
+| `Utf8`               | BYTE_ARRAY (string)   | `pa.string()`  | `pl.String`  | read (`extract_required_string`, `crates/novomodelo-io/src/extensions/evaporation_models.rs`, the `source` column) and written |
 | `Boolean`            | BOOLEAN               | `pa.bool_()`   | `pl.Boolean` | written                                                                                                                   |
 | `Date32`             | INT32 (date)          | `pa.date32()`  | `pl.Date`    | read (`extract_required_date32`) and written                                                                              |
 
@@ -136,7 +136,7 @@ nullable form below applies to input tables only; output tables state nullabilit
 CSV columns (`training/dictionaries/*.csv`) use the JSON keywords, and `check:type-spelling` reads the three tables of this section.
 
 Checkpoint wire fields (`policy/cuts/*.bin`, `basis/`, `states/`, `manifest.bin`) are FlatBuffers. They use the
-spellings declared in `crates/cobre-io/schemas/policy.fbs`.
+spellings declared in `crates/novomodelo-io/schemas/policy.fbs`.
 
 | Name      | Meaning                                                                      |
 | --------- | ---------------------------------------------------------------------------- |
@@ -154,14 +154,14 @@ A vector is written `[T]` as in the schema (`[float64]`, `[uint8]`, `[uint32]`, 
 schema name (`EntityType`, `SeasonManifest`).
 
 The loader quotes the type it found and the type it needs. The message is, verbatim, from
-`crates/cobre-io/src/parquet_helpers.rs`:
+`crates/novomodelo-io/src/parquet_helpers.rs`:
 
 ```text
 column "{name}" has type {actual} but {expected} is required
 ```
 
 `{actual}` is the Arrow `DataType` display name. In the shared helpers `{expected}` is one of `Int32`, `Float64`,
-`UInt32`, `Date32`. The one `Utf8` reader, `extract_required_string` in `crates/cobre-io/src/extensions/evaporation_models.rs`, prints the
+`UInt32`, `Date32`. The one `Utf8` reader, `extract_required_string` in `crates/novomodelo-io/src/extensions/evaporation_models.rs`, prints the
 same message shape with `Utf8` as the expected type. A pandas default `int64` column therefore fails on an `Int32` column
 with:
 
@@ -211,7 +211,7 @@ A kind that is a variant of both enums (`ParseError`) has one kind section, `#pa
 ## 7. Generic-constraint example fences
 
 A fence that `check:gc-examples` checks carries two meta options. `title` is the case-relative path and the fence content is that
-whole file. `gc-check` is `"accept"` (`cobre validate` must exit `0` once the fence is spliced into the fixture) or
+whole file. `gc-check` is `"accept"` (`novomodelo validate` must exit `0` once the fence is spliced into the fixture) or
 `"reject"` (it must exit `1`). The fence headers, verbatim:
 
 ````text
@@ -223,7 +223,7 @@ Values use double quotes only. A `gc-check` value other than `"accept"` or `"rej
 `gc-check` with no `title` is an error. A fence without `gc-check` is illustrative and is not checked. Expressive Code 0.43.1 ignores a meta option that no
 plugin reads, and `title="…"` renders a frame title.
 
-Each checked fence is spliced alone into a fresh copy of one base case, the `cobre init --template 1dtoy` scaffold with
+Each checked fence is spliced alone into a fresh copy of one base case, the `novomodelo init --template 1dtoy` scaffold with
 the committed overlay `scripts/fixtures/gc-overlay/` copied over it, replacing the file at its `title` path.
 The overlay's files, splice rule, provenance and regeneration steps are in `scripts/fixtures/gc-overlay/README.md`.
 

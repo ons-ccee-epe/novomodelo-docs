@@ -1,24 +1,24 @@
 ---
 title: Error Codes
-description: The validation report kinds a case load collects, the load-failure kinds that stop a load, the policy-load errors a checkpoint refusal raises, and the runtime errors of `cobre run`, with causes and resolutions.
+description: The validation report kinds a case load collects, the load-failure kinds that stop a load, the policy-load errors a checkpoint refusal raises, and the runtime errors of `novomodelo run`, with causes and resolutions.
 ---
 
 Case loading reports errors in two groups: [validation report kinds](#validation-report-kinds)
 (diagnostic categories collected while the case is validated) and
 [load-failure kinds](#load-failure-kinds) (returned when a case fails to load). The page also
 lists the policy-load errors a checkpoint refusal raises and the
-[runtime errors](#runtime-errors) of a running `cobre run`.
+[runtime errors](#runtime-errors) of a running `novomodelo run`.
 
 ## How these errors reach you
 
-Cobre surfaces errors through four user-facing channels:
+Novomodelo surfaces errors through four user-facing channels:
 
-- **`cobre validate` human report** — errors print as `error:` prefixed lines; warnings (after a successful validation) print as `warning:` prefixed lines.
-- **`cobre validate --json`** — on success, one JSON object on stdout: `{ configured, boundary_date, report }`, plus `policy_load: { mode, unused_stored_bases }` when the run would load a policy (`mode` `warm_start`, `resume` or `simulation_only`), with no `error` key; `configured` is `false` when no `policy.boundary` is set. On failure, those three keys are `null` and an `error` key holds `{ phase, message }`. The **`phase`** field is the name of the failing [`LoadError` variant](#load-failure-kinds), one of the six [preparation-phase kinds](#preparation-phase-kinds), or a policy-load kind (`WarmStartIncompatible`, `ResumeIncompatible`, or `IoError` for a checkpoint the OS refuses to read); it names a `LoadError` variant, a preparation kind or a policy-load kind, never the `ErrorKind` of a collected diagnostic. A case-load failure reports [`ConstraintError`](#constrainterror) in almost every case, because every per-file read, parse and schema failure and every validation rule is collected into one report; its `message` holds one `[<ErrorKind>] <file>[ (<entity>)]: <message>` line per collected error, joined by newlines (the `[ (<entity>)]` part appears only when the error names an entity). Warnings are not in the JSON. Only a missing case directory prints no JSON object; it reports on stderr and exits `2`.
+- **`novomodelo validate` human report** — errors print as `error:` prefixed lines; warnings (after a successful validation) print as `warning:` prefixed lines.
+- **`novomodelo validate --json`** — on success, one JSON object on stdout: `{ configured, boundary_date, report }`, plus `policy_load: { mode, unused_stored_bases }` when the run would load a policy (`mode` `warm_start`, `resume` or `simulation_only`), with no `error` key; `configured` is `false` when no `policy.boundary` is set. On failure, those three keys are `null` and an `error` key holds `{ phase, message }`. The **`phase`** field is the name of the failing [`LoadError` variant](#load-failure-kinds), one of the six [preparation-phase kinds](#preparation-phase-kinds), or a policy-load kind (`WarmStartIncompatible`, `ResumeIncompatible`, or `IoError` for a checkpoint the OS refuses to read); it names a `LoadError` variant, a preparation kind or a policy-load kind, never the `ErrorKind` of a collected diagnostic. A case-load failure reports [`ConstraintError`](#constrainterror) in almost every case, because every per-file read, parse and schema failure and every validation rule is collected into one report; its `message` holds one `[<ErrorKind>] <file>[ (<entity>)]: <message>` line per collected error, joined by newlines (the `[ (<entity>)]` part appears only when the error names an entity). Warnings are not in the JSON. Only a missing case directory prints no JSON object; it reports on stderr and exits `2`.
 
   A case with no `policy.boundary` succeeds with:
 
-  {/* capture: cobre validate --json case | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy case (cobre init --template 1dtoy case; unmodified; run with NO_COLOR=1, exit code 0) */}
+  {/* capture: novomodelo validate --json case | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy case (novomodelo init --template 1dtoy case; unmodified; run with NO_COLOR=1, exit code 0) */}
 
   ```json
   {
@@ -30,7 +30,7 @@ Cobre surfaces errors through four user-facing channels:
 
   A hydro unit group that names a bus that does not exist fails with:
 
-  {/* capture: cobre validate --json badref | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; system/hydros.json: hydro 0 unit group 0 bus_id changed from 0 to 99; run with NO_COLOR=1, exit code 1) */}
+  {/* capture: novomodelo validate --json badref | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json: hydro 0 unit group 0 bus_id changed from 0 to 99; run with NO_COLOR=1, exit code 1) */}
 
   ```json
   {
@@ -44,8 +44,8 @@ Cobre surfaces errors through four user-facing channels:
   }
   ```
 
-- **`cobre.io.validate(...)` (Python)** — returns `{ valid, errors: [{ kind, message }], warnings: [{ kind, message, file, entity }] }`. `errors` holds at most one entry: none when `valid` is true, one on failure. Its `kind` is the same string as the CLI `phase`, and its `message` is the error's full text, which for a case-load failure starts `constraint violation: `. For a missing case directory, where the CLI prints no JSON object, Python still returns an `IoError` entry. Each warning's `kind` is the `ErrorKind` name.
-- **`cobre.errors` Python exception classes** — case loading raises `ValidationError` or `CaseIoError`; a policy-load refusal raises the class of its error: `PolicyIncompatibleError` for a refused checkpoint or one that is missing or cannot be decoded, `CaseIoError` for a checkpoint read the operating system refuses, and `ValidationError` for a missing policy directory or a refused boundary reconciliation (see [Policy-load errors](#policy-load-errors)). See [`cobre.errors`](/reference/python-api/#cobreerrors) for the full hierarchy and [Python Quickstart — Error Handling](/getting-started/python-quickstart/#error-handling) for catching these classes.
+- **`novomodelo.io.validate(...)` (Python)** — returns `{ valid, errors: [{ kind, message }], warnings: [{ kind, message, file, entity }] }`. `errors` holds at most one entry: none when `valid` is true, one on failure. Its `kind` is the same string as the CLI `phase`, and its `message` is the error's full text, which for a case-load failure starts `constraint violation: `. For a missing case directory, where the CLI prints no JSON object, Python still returns an `IoError` entry. Each warning's `kind` is the `ErrorKind` name.
+- **`novomodelo.errors` Python exception classes** — case loading raises `ValidationError` or `CaseIoError`; a policy-load refusal raises the class of its error: `PolicyIncompatibleError` for a refused checkpoint or one that is missing or cannot be decoded, `CaseIoError` for a checkpoint read the operating system refuses, and `ValidationError` for a missing policy directory or a refused boundary reconciliation (see [Policy-load errors](#policy-load-errors)). See [`novomodelo.errors`](/reference/python-api/#novomodeloerrors) for the full hierarchy and [Python Quickstart — Error Handling](/getting-started/python-quickstart/#error-handling) for catching these classes.
 
 Policy-load failures use different exit codes and exception classes; see [How a policy-load failure reaches you](#how-a-policy-load-failure-reaches-you). For the cause and fix of the failures a study commonly meets, see [Troubleshooting](/running/troubleshooting/).
 
@@ -53,12 +53,12 @@ Policy-load failures use different exit codes and exception classes; see [How a 
 
 ## Kind index
 
-Find the kind named on your error line (the word in square brackets, or the `phase` value of `cobre validate --json`) in the first column; its row gives how the kind is reported, its severity, and the exit code `cobre` returns for it.
+Find the kind named on your error line (the word in square brackets, or the `phase` value of `novomodelo validate --json`) in the first column; its row gives how the kind is reported, its severity, and the exit code `novomodelo` returns for it.
 
 | Kind                                                                    | Reported as                               | Severity | Exit code                                                                             |
 | ----------------------------------------------------------------------- | ----------------------------------------- | -------- | ------------------------------------------------------------------------------------- |
 | [`FileNotFound`](#filenotfound)                                         | `[FileNotFound]` report line              | Error    | `1`                                                                                   |
-| [`ParseError`](#parseerror)                                             | `[ParseError]` report line; `phase` value | Error    | `1` as a report line; as a `phase` value, `4` (`cobre validate`) or `1` (`cobre run`) |
+| [`ParseError`](#parseerror)                                             | `[ParseError]` report line; `phase` value | Error    | `1` as a report line; as a `phase` value, `4` (`novomodelo validate`) or `1` (`novomodelo run`) |
 | [`SchemaViolation`](#schemaviolation)                                   | `[SchemaViolation]` report line           | Error    | `1`                                                                                   |
 | [`InvalidReference`](#invalidreference)                                 | `[InvalidReference]` report line          | Error    | `1`                                                                                   |
 | [`DuplicateId`](#duplicateid)                                           | `[DuplicateId]` report line               | Error    | `1`                                                                                   |
@@ -73,7 +73,7 @@ Find the kind named on your error line (the word in square brackets, or the `pha
 | [`ModelQuality`](#modelquality)                                         | `warning:` line                           | Warning  | `0`                                                                                   |
 | [`SemanticAmbiguity`](#semanticambiguity)                               | `warning:` line                           | Warning  | `0`                                                                                   |
 | [`IoError`](#ioerror)                                                   | `phase` value                             | Error    | `2`, including an OS-refused policy read |
-| [`SchemaError`](#schemaerror)                                           | `phase` value                             | Error    | `1`, including a `policy.path` refusal; `4` under `cobre validate` only for the post-report AR-coefficient count mismatch (`cobre run`: `1`) |
+| [`SchemaError`](#schemaerror)                                           | `phase` value                             | Error    | `1`, including a `policy.path` refusal; `4` under `novomodelo validate` only for the post-report AR-coefficient count mismatch (`novomodelo run`: `1`) |
 | [`ConstraintError`](#constrainterror)                                   | `phase` value                             | Error    | `1`                                                                                   |
 | [`ConfigValidationError`](#configvalidationerror)                       | `phase` value                             | Error    | `1`                                                                                   |
 | [`StochasticPreparationError`](#stochasticpreparationerror)             | `phase` value                             | Error    | `1`, or `2` for a stochastic-input read such as a declared opening tree that is absent (both subcommands) |
@@ -96,16 +96,16 @@ A solver-profile rejection carries phase [`StudySetupError`](#studysetuperror), 
 Each error a case load collects prints as one report line, `[<Kind>] <file> (<entity>): <message>`. The
 `(<entity>)` part appears only when the error names an entity, and `<Kind>` is one of the values below.
 
-`cobre validate` prints each error as `error: ` followed by its report line, and exits `1` when any error is
-present. `cobre run` prints `error: constraint violation: ` followed by the same lines. After a successful
-validation, `cobre validate` prints each warning as a `warning:` line of the form `<file> (<entity>): <message>`
-after the `Valid case: ...` line, without the bracketed kind, and `cobre.io.validate` (Python) returns the
+`novomodelo validate` prints each error as `error: ` followed by its report line, and exits `1` when any error is
+present. `novomodelo run` prints `error: constraint violation: ` followed by the same lines. After a successful
+validation, `novomodelo validate` prints each warning as a `warning:` line of the form `<file> (<entity>): <message>`
+after the `Valid case: ...` line, without the bracketed kind, and `novomodelo.io.validate` (Python) returns the
 warnings, each with its kind, in its `warnings` array.
 A warning of the policy load the run would apply prints after them as
 `warning: <output dir>/<policy.path>: <message>`, names no entity, and counts in the `Validation:` line.
 
 The three warning kinds (`UnusedEntity`, `ModelQuality`,
-`SemanticAmbiguity`) never stop a run, and neither does a `BusinessRuleViolation` that `cobre validate` prints as a `warning:` line; every other report line is an error that must be resolved
+`SemanticAmbiguity`) never stop a run, and neither does a `BusinessRuleViolation` that `novomodelo validate` prints as a `warning:` line; every other report line is an error that must be resolved
 before the case loads.
 
 `WarmStartIncompatible` and `ResumeIncompatible` are not report-line kinds: each names a refused policy load,
@@ -122,7 +122,7 @@ each of them that is not found on disk.
 
 **Example:** A case directory without `system/hydros.json`:
 
-{/* capture: cobre validate fnf1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy fnf1; system/hydros.json deleted; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted, the error: prefix is not quoted and only the first of the two [FileNotFound] lines is quoted) */}
+{/* capture: novomodelo validate fnf1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy fnf1; system/hydros.json deleted; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted, the error: prefix is not quoted and only the first of the two [FileNotFound] lines is quoted) */}
 
 ```text
 [FileNotFound] system/hydros.json: required file 'system/hydros.json' not found in case directory
@@ -132,7 +132,7 @@ A case directory without `system/buses.json` gives two
 `[FileNotFound]` lines: the first reports the missing required file, the second
 the failed read of it:
 
-{/* capture: cobre validate nobus | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy nobus; system/buses.json deleted; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate nobus | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy nobus; system/buses.json deleted; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [FileNotFound] system/buses.json: required file 'system/buses.json' not found in case directory
@@ -177,7 +177,7 @@ This format reaches you only for a parse error raised after the validation repor
 
 **Example:**
 
-{/* capture: cobre validate trunc | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy trunc; stages.json cut off after the opening bracket of the stages array, leaving one line that ends in a newline; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate trunc | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy trunc; stages.json cut off after the opening bracket of the stages array, leaving one line that ends in a newline; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [ParseError] stages.json: parse error: EOF while parsing a list at line 2 column 0
@@ -185,7 +185,7 @@ This format reaches you only for a parse error raised after the validation repor
 
 A missing required field, here a constraint entry without `slack`:
 
-{/* capture: cobre validate gcnoslack | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy gcnoslack; constraints/generic_constraints.json added as a single line holding a constraints array with one constraint, id 0, name cap, expression hydro_storage(0), and no slack object; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate gcnoslack | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy gcnoslack; constraints/generic_constraints.json added as a single line holding a constraints array with one constraint, id 0, name cap, expression hydro_storage(0), and no slack object; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [ParseError] constraints/generic_constraints.json: parse error: missing field `slack` at line 1 column 69
@@ -193,7 +193,7 @@ A missing required field, here a constraint entry without `slack`:
 
 A `bound_stalling` rule that carries `seconds`, a `time_limit` field:
 
-{/* capture: cobre validate secs | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy secs; config.json re-written with 2-space indentation, training.stopping_rules gains a bound_stalling rule with iterations 5, tolerance 0.01 and seconds 3; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate secs | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy secs; config.json re-written with 2-space indentation, training.stopping_rules gains a bound_stalling rule with iterations 5, tolerance 0.01 and seconds 3; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [ParseError] config.json: parse error: unknown field `seconds`, expected `iterations` or `tolerance` at line 19 column 5
@@ -225,7 +225,7 @@ as a `ParseError` with an `unknown field` message.
 
 **Example:** A constraint object with an extra `type` key:
 
-{/* capture: cobre validate gcunk | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy gcunk; constraints/generic_constraints.json added, written with 2-space indentation, holding a constraints array with one constraint, id 0, name cap, expression hydro_storage(0), slack enabled false, plus the extra key type set to upper; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate gcunk | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy gcunk; constraints/generic_constraints.json added, written with 2-space indentation, holding a constraints array with one constraint, id 0, name cap, expression hydro_storage(0), slack enabled false, plus the extra key type set to upper; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [ParseError] constraints/generic_constraints.json: parse error: unknown field `type`, expected one of `id`, `name`, `description`, `expression`, `slack` at line 10 column 12
@@ -252,7 +252,7 @@ file are checked.
 
 A negative penalty cost:
 
-{/* capture: cobre validate negdef | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy negdef; system/buses.json: deficit segment 0 cost changed from 7500.0 to -100.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate negdef | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy negdef; system/buses.json: deficit segment 0 cost changed from 7500.0 to -100.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] system/buses.json: field buses[0].deficit_segments[0].cost: penalty value must be > 0.0, got -100
@@ -260,7 +260,7 @@ A negative penalty cost:
 
 A reservoir whose minimum storage exceeds its maximum:
 
-{/* capture: cobre validate resv | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy resv; system/hydros.json: hydro 0 reservoir min_storage_hm3 changed from 0.0 to 800.0 and max_storage_hm3 from 1000.0 to 500.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate resv | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy resv; system/hydros.json: hydro 0 reservoir min_storage_hm3 changed from 0.0 to 800.0 and max_storage_hm3 from 1000.0 to 500.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] system/hydros.json: field hydros[0].reservoir: min_storage_hm3 (800) must be <= max_storage_hm3 (500)
@@ -268,7 +268,7 @@ A reservoir whose minimum storage exceeds its maximum:
 
 A stage with no openings:
 
-{/* capture: cobre validate nop | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy nop; stages.json: stage 0 num_openings changed from 10 to 0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate nop | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy nop; stages.json: stage 0 num_openings changed from 10 to 0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] stages.json: field stages[0].num_openings: num_openings must be > 0
@@ -276,7 +276,7 @@ A stage with no openings:
 
 A `config.json` without `training.selection`:
 
-{/* capture: cobre validate nosel | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy nosel; config.json re-written with 2-space indentation, training.selection removed; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate nosel | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy nosel; config.json re-written with 2-space indentation, training.selection removed; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] config.json: field training.selection: a forward-pass count is required via training.selection
@@ -284,7 +284,7 @@ A `config.json` without `training.selection`:
 
 Two buses that share an `id` in `system/buses.json`:
 
-{/* capture: cobre validate dupbus | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy dupbus; system/buses.json: bus 0 duplicated as a second entry; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate dupbus | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy dupbus; system/buses.json: bus 0 duplicated as a second entry; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] system/buses.json: field buses[1].id: duplicate id 0 in buses array
@@ -314,7 +314,7 @@ complete.
 
 `config.json` loading refuses these values; each prints a `[SchemaViolation] config.json: field <field>: <message>` line, and both commands exit `1`.
 
-{/* quoted from source: crates/cobre-io/src/config/mod.rs:181-190 and 421-448, crates/cobre-io/src/config/policy.rs:117-126 and 241-250 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/config/mod.rs:181-190 and 421-448, crates/novomodelo-io/src/config/policy.rs:117-126 and 241-250 at novomodelo v0.18.0 */}
 
 | Rule                                                           | Field                                      | Message                                                                                                                                              |
 | -------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -328,7 +328,7 @@ complete.
 
 **When it occurs:** `policy.path` is resolved against `--output`, and a link is checked where it sits and where it points. The path is refused when it names the output directory or one of its ancestors, or names, contains or lies inside a directory a run rewrites or removes. [Configuration — `policy`](/running/configuration/#policy) states the rule. In a case that trains, the path is refused too when it (for a link, its target) or its `.staging` or `.previous` sibling is not a directory or holds an entry no checkpoint writer leaves there; the message is `refusing to write a checkpoint: …`, quoted under [Policy Management — Checkpoint Directory Contents](/running/policy-management/#checkpoint-directory-contents).
 
-{/* quoted from source: crates/cobre-io/src/config/policy.rs:241-282 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/config/policy.rs:241-282 at novomodelo v0.18.0 */}
 
 ```text
 "{value}" names the output directory or one of its ancestors, which a checkpoint write would replace; choose another directory, such as "./policy"
@@ -336,13 +336,13 @@ complete.
 "{value}" {relation} {dir}, which holds files a run writes and a checkpoint write would replace; choose a directory that neither names nor contains it, such as "./policy"
 ```
 
-`{relation}` is `names`, `contains` or `lies inside`, and `{dir}` is the output-relative directory, such as `simulation/hydros`. For a link, `{value}` reads `{path} -> {target}`. `cobre validate` reports phase `SchemaError` (exit `1`), or `IoError` (exit `2`) when the path cannot be inspected; `cobre run` prints `error: schema error in {path}, field policy.path: {message}` and exits `1`.
+`{relation}` is `names`, `contains` or `lies inside`, and `{dir}` is the output-relative directory, such as `simulation/hydros`. For a link, `{value}` reads `{path} -> {target}`. `novomodelo validate` reports phase `SchemaError` (exit `1`), or `IoError` (exit `2`) when the path cannot be inspected; `novomodelo run` prints `error: schema error in {path}, field policy.path: {message}` and exits `1`.
 
 #### Overlapping seasons in one resolution level
 
 **When it occurs:** Seasons whose spans differ by at most 7 days form one resolution level, and two seasons of one level may not share a calendar day. The load refuses an overlapping pair of `season_definitions` with `[SchemaViolation] stages.json: field season_definitions.seasons: <message>`, where `<message>` is:
 
-{/* quoted from source: crates/cobre-io/src/stages.rs:1063-1072 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/stages.rs:1063-1072 at novomodelo v0.18.0 */}
 
 ```text
 seasons {a} and {b} overlap within one resolution level; seasons whose spans differ by at most 7 days form one level and must not share a calendar day
@@ -369,7 +369,7 @@ exactly one kind of thing.
 
 **Example:**
 
-{/* capture: cobre validate nscoll | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy nscoll; constraints/generic_parameters.json added, written with 2-space indentation, holding one seasonal scalar parameter, id 1, name demanda; constraints/generic_constraints.json added, written with 2-space indentation, holding an empty constraints array and one named expression, name demanda, expression hydro_storage(0); run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate nscoll | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy nscoll; constraints/generic_parameters.json added, written with 2-space indentation, holding one seasonal scalar parameter, id 1, name demanda; constraints/generic_constraints.json added, written with 2-space indentation, holding an empty constraints array and one named expression, name demanda, expression hydro_storage(0); run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] constraints/generic_constraints.json: field expressions[0].name: name "demanda" is declared as both a scalar parameter and a named expression; the "@name" namespace is shared
@@ -396,7 +396,7 @@ rejected before any expression is inlined, even if no constraint ever uses it.
 
 **Example:**
 
-{/* capture: cobre validate ncycle | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy ncycle; constraints/generic_constraints.json added, written with 2-space indentation, holding an empty constraints array and two named expressions, fnese referencing @fnese_margin and fnese_margin referencing @fnese; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate ncycle | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy ncycle; constraints/generic_constraints.json added, written with 2-space indentation, holding an empty constraints array and two named expressions, fnese referencing @fnese_margin and fnese_margin referencing @fnese; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] constraints/generic_constraints.json: field expressions: named-expression reference cycle detected: fnese -> fnese_margin -> fnese
@@ -428,7 +428,7 @@ without referencing it is a cheap existence check, not an expansion.
 
 **Example:**
 
-{/* capture: cobre validate nbudget | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy nbudget; constraints/generic_constraints.json added, written with 2-space indentation, holding one constraint, id 0, name c0, expression @e60, slack disabled, and 61 named expressions, e0 = hydro_storage(0) and e<k> = @e<k-1> + @e<k-1> for k 1 to 60; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 0, block_id and bound_lower null, bound_upper 1e9; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate nbudget | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy nbudget; constraints/generic_constraints.json added, written with 2-space indentation, holding one constraint, id 0, name c0, expression @e60, slack disabled, and 61 named expressions, e0 = hydro_storage(0) and e<k> = @e<k-1> + @e<k-1> for k 1 to 60; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 0, block_id and bound_lower null, bound_upper 1e9; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] constraints/generic_constraints.json: field constraints[0].expression: named-expression reference "@e60" expands to more than 100000 inlined terms; this indicates an exponential reference pattern (e.g. a doubling chain "@e = @prev + @prev")
@@ -499,7 +499,7 @@ whatever other name the file carries it, is a schema failure naming the required
 
 **Example:** A `scenarios/inflow_seasonal_stats.parquet` whose `hydro_id` column is named `hydro`:
 
-{/* capture: cobre validate pqcol | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy pqcol; scenarios/inflow_seasonal_stats.parquet re-written with pyarrow (compression zstd) with the column hydro_id renamed to hydro; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate pqcol | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy pqcol; scenarios/inflow_seasonal_stats.parquet re-written with pyarrow (compression zstd) with the column hydro_id renamed to hydro; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] scenarios/inflow_seasonal_stats.parquet: field hydro_id: missing required column "hydro_id"
@@ -514,13 +514,13 @@ columns of every file.
 
 **When it occurs:** A `training.scenario_source` or `simulation.scenario_source`
 block of `config.json` breaks an admission rule. The rules are checked when
-`config.json` loads, so `cobre validate` and `cobre run` both exit `1`. In the
+`config.json` loads, so `novomodelo validate` and `novomodelo run` both exit `1`. In the
 table, `{section}` stands for `training` or `simulation`, whichever block broke
 the rule, and `{from}` and `{to}` stand for the first and last year of the range
 as the case declares them. The printed message shows those values in place of
 the placeholders.
 
-{/* quoted from source: crates/cobre-io/src/config/mod.rs:257-343 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/config/mod.rs:257-343 at novomodelo v0.18.0 */}
 
 | Rule                                            | Field                                                                             | Message                                                                                 |
 | ----------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -530,16 +530,16 @@ the placeholders.
 | Missing `seed`                                  | `{section}.scenario_source.seed`                                                  | `seed is required when any class uses out_of_sample or external scheme`                 |
 | Inverted `historical_years` range               | `{section}.scenario_source.historical_years`                                      | `range 'from' ({from}) must be <= 'to' ({to})`                                          |
 
-**Example:** `cobre validate` on a case whose `training.scenario_source` sets the
+**Example:** `novomodelo validate` on a case whose `training.scenario_source` sets the
 inflow class to `out_of_sample` and no `seed`:
 
-{/* capture: cobre validate noseed | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy noseed; config.json re-written with 2-space indentation, simulation.enabled false, training.scenario_source replaced by one inflow class with scheme out_of_sample and no seed; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate noseed | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy noseed; config.json re-written with 2-space indentation, simulation.enabled false, training.scenario_source replaced by one inflow class with scheme out_of_sample and no seed; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] config.json: field training.scenario_source.seed: seed is required when any class uses out_of_sample or external scheme
 ```
 
-`cobre validate` prints this line after an `error: ` prefix. `cobre run` prints
+`novomodelo validate` prints this line after an `error: ` prefix. `novomodelo run` prints
 it after `error: constraint violation: `.
 
 **Resolution:** [Configuration](/running/configuration/#training) lists the
@@ -570,30 +570,30 @@ line to the validation report:
 - The lead is longer than the whole study horizon and reaches no declared
   post-study stage.
 
-**Messages:** `cobre validate` prints one `error:` line for each failure. The first
+**Messages:** `novomodelo validate` prints one `error:` line for each failure. The first
 three failures stop `system/thermals.json` at its first offending entry, so a file
 with several bad leads reports only the first; the horizon rule reports every
 offending thermal. The captures follow the order of the list above.
 
-{/* capture: cobre validate <case> | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; system/thermals.json: thermal 0 given anticipated_config with lead_stages 0; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
+{/* capture: novomodelo validate <case> | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/thermals.json: thermal 0 given anticipated_config with lead_stages 0; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
 
 ```text
 error: [SchemaViolation] system/thermals.json: field thermals[0].anticipated_config.lead_stages: lead_stages must be >= 1, got 0
 ```
 
-{/* capture: cobre validate <case> | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; system/thermals.json: thermal 0 given anticipated_config with lead_time_hours -1.0; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
+{/* capture: novomodelo validate <case> | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/thermals.json: thermal 0 given anticipated_config with lead_time_hours -1.0; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
 
 ```text
 error: [SchemaViolation] system/thermals.json: field thermals[0].anticipated_config.lead_time_hours: lead_time_hours must be finite and > 0.0, got -1
 ```
 
-{/* capture: cobre validate <case> | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; system/thermals.json: thermal 0 given anticipated_config with lead_stages 1 and lead_time_hours 24.0, one key per line after cost_per_mwh; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
+{/* capture: novomodelo validate <case> | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/thermals.json: thermal 0 given anticipated_config with lead_stages 1 and lead_time_hours 24.0, one key per line after cost_per_mwh; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
 
 ```text
 error: [ParseError] system/thermals.json: parse error: data did not match any variant of untagged enum RawAnticipatedConfig at line 18 column 5
 ```
 
-{/* capture: cobre validate <case> | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy, four stages and no post_study_stages.json; system/thermals.json: thermal 0 given anticipated_config with lead_stages 9; run with NO_COLOR=1, exit code 1; the Validation summary line and the second report line, which concerns the thermal's missing past_anticipated_commitments window, are not quoted) */}
+{/* capture: novomodelo validate <case> | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, four stages and no post_study_stages.json; system/thermals.json: thermal 0 given anticipated_config with lead_stages 9; run with NO_COLOR=1, exit code 1; the Validation summary line and the second report line, which concerns the thermal's missing past_anticipated_commitments window, are not quoted) */}
 
 ```text
 error: [BusinessRuleViolation] system/thermals.json (thermals[id=0].anticipated_config.lead_stages): Thermal 0: lead_stages exceeds study horizon (lead_stages=9, n_stages=4); the plant can never deliver within the study horizon
@@ -602,7 +602,7 @@ error: [BusinessRuleViolation] system/thermals.json (thermals[id=0].anticipated_
 A `lead_time_hours` lead that fails the horizon rule produces this message
 instead of the `lead_stages` one above:
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/thermal.rs:126-130 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/thermal.rs:126-130 at novomodelo v0.18.0 */}
 
 ```text
 Thermal {thermal_id}: lead_time exceeds study horizon (lead_time={delta_hours}, total_horizon_hours={total_horizon_hours}); the plant can never deliver within the study horizon
@@ -665,7 +665,7 @@ plant's unit groups' `bus_id` references a bus that is not in
 
 **Example:**
 
-{/* capture: cobre validate badref | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy badref; system/hydros.json: hydro 0 unit group 0 bus_id changed from 0 to 99; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate badref | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy badref; system/hydros.json: hydro 0 unit group 0 bus_id changed from 0 to 99; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [InvalidReference] system/hydros.json (Hydro 0 unit group 0): Hydro 0 unit group 0 references non-existent Bus 99 via field 'bus_id'
@@ -729,7 +729,7 @@ two-buses example there.
 
 **Example:**
 
-{/* capture: cobre validate dupug | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy dupug; system/hydros.json: unit group 0 of hydro 0 duplicated, with max_generation_mw and max_turbined_m3s of both copies set to 25.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate dupug | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy dupug; system/hydros.json: unit group 0 of hydro 0 duplicated, with max_generation_mw and max_turbined_m3s of both copies set to 25.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [DuplicateId] system/hydros.json (Hydro 0): Hydro 0: unit group id 0 is declared more than once; unit group ids must be unique within a plant
@@ -744,7 +744,7 @@ the bound-override rows that set the same column twice.
 
 **Severity:** Error
 
-**When it occurs:** A value violates a domain rule that `cobre validate`
+**When it occurs:** A value violates a domain rule that `novomodelo validate`
 checks once the files have loaded. Examples: the outgoing transition
 probabilities from a stage in `stages.json` do not sum to 1.0, or a study stage
 has an empty `blocks` array. A reservoir whose `min_storage_hm3` exceeds
@@ -753,13 +753,13 @@ has an empty `blocks` array. A reservoir whose `min_storage_hm3` exceeds
 
 **Example:**
 
-{/* capture: cobre validate trans | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy trans; stages.json: policy_graph.transitions added as 0 to 1 with probability 0.5, 1 to 2 and 2 to 3 with probability 1.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate trans | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy trans; stages.json: policy_graph.transitions added as 0 to 1 with probability 0.5, 1 to 2 and 2 to 3 with probability 1.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [InvalidValue] stages.json: outgoing transition probabilities from stage 0 sum to 0.50000000 (expected 1.0 ±0.000001); probability must sum to 1.0
 ```
 
-{/* capture: cobre validate noblk | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy noblk; stages.json: stage 1 blocks replaced by an empty array; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate noblk | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy noblk; stages.json: stage 1 blocks replaced by an empty array; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [InvalidValue] stages.json: stage 1 declares no blocks; every study stage must declare at least one block
@@ -816,7 +816,7 @@ the override before it ever reaches the LP.
 
 **Example:**
 
-{/* capture: cobre validate divfloor | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy divfloor; constraints/hydro_bounds.parquet added with one row: hydro_id 0, stage_id 1, min_diversion_m3s 2.0, and the 1dtoy hydro declares no diversion channel; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate divfloor | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy divfloor; constraints/hydro_bounds.parquet added with one row: hydro_id 0, stage_id 1, min_diversion_m3s 2.0, and the 1dtoy hydro declares no diversion channel; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [InvalidValue] constraints/hydro_bounds.parquet (Hydro 0): Hydro 0: hydro_bounds row at stage_id=1 sets min_diversion_m3s=2, but the hydro declares no diversion channel; diversion is pinned [0, 0] with no channel, making a positive floor infeasible
@@ -842,7 +842,7 @@ acyclic; this check applies only when `nodes[]` is declared.
 
 **Messages:**
 
-{/* capture: cobre validate cyc | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy cyc; system/hydros.json: hydro 1 (a copy of hydro 0 named UHE2) added, hydro 0 downstream_id set to 1 and hydro 1 downstream_id set to 0; run with NO_COLOR=1, exit code 1; the command prints nine error lines, of which only the [CycleDetected] line is quoted; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate cyc | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy cyc; system/hydros.json: hydro 1 (a copy of hydro 0 named UHE2) added, hydro 0 downstream_id set to 1 and hydro 1 downstream_id set to 0; run with NO_COLOR=1, exit code 1; the command prints nine error lines, of which only the [CycleDetected] line is quoted; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [CycleDetected] system/hydros.json: hydro cascade contains a cycle involving hydro IDs: [0, 1]
@@ -850,13 +850,13 @@ acyclic; this check applies only when `nodes[]` is declared.
 
 The policy-graph nodes message:
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/stages.rs:476-481 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/stages.rs:476-481 at novomodelo v0.18.0 */}
 
 ```text
 policy-graph nodes contain a cycle; the node graph must be acyclic
 ```
 
-`cobre validate` prints it as `[CycleDetected] stages.json: <message>`, where
+`novomodelo validate` prints it as `[CycleDetected] stages.json: <message>`, where
 `<message>` is the text above.
 
 **Resolution:** Review the `downstream_id` chain for the listed plants and remove
@@ -879,7 +879,7 @@ require it.
 
 **Example:**
 
-{/* capture: cobre validate cyc | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy cyc; system/hydros.json: hydro 1 (a copy of hydro 0 named UHE2) added, hydro 0 downstream_id set to 1 and hydro 1 downstream_id set to 0; run with NO_COLOR=1, exit code 1; the command prints nine error lines, of which only the first [DimensionMismatch] line is quoted; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate cyc | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy cyc; system/hydros.json: hydro 1 (a copy of hydro 0 named UHE2) added, hydro 0 downstream_id set to 1 and hydro 1 downstream_id set to 0; run with NO_COLOR=1, exit code 1; the command prints nine error lines, of which only the first [DimensionMismatch] line is quoted; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [DimensionMismatch] scenarios/inflow_seasonal_stats.parquet (Hydro 1): Hydro 1 missing inflow seasonal stats for stage 0
@@ -901,11 +901,11 @@ on a hydro whose generation model is `fpha`, a filling schedule that cannot
 reach the dead volume before the hydro enters operation, the anticipated-thermal
 and post-study-boundary rules, a bound-override row that names an undeclared
 `stage_id`, a pumping station in service at a stage where its source or destination hydro is not Operating, or a per-block generic-constraint reference that the stage's blocks
-cannot satisfy. One check reports a `BusinessRuleViolation` as a warning: when the inflow model is estimated from `scenarios/inflow_history.parquet` and a hydro has more than one observation in one season of a year, `cobre validate` prints a `warning:` line (exit `0`) saying the observations are aggregated to season resolution.
+cannot satisfy. One check reports a `BusinessRuleViolation` as a warning: when the inflow model is estimated from `scenarios/inflow_history.parquet` and a hydro has more than one observation in one season of a year, `novomodelo validate` prints a `warning:` line (exit `0`) saying the observations are aggregated to season resolution.
 
 **Example:**
 
-{/* capture: cobre validate fpha | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy fpha; system/hydros.json: hydro 0 generation.model changed from constant_productivity to fpha, and a penalties block with turbined_cost -0.05 added to hydro 0; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
+{/* capture: novomodelo validate fpha | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy fpha; system/hydros.json: hydro 0 generation.model changed from constant_productivity to fpha, and a penalties block with turbined_cost -0.05 added to hydro 0; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
 
 ```text
 error: [BusinessRuleViolation] penalties.json (Hydro 0): Hydro 0: turbined_cost (-0.05) must be non-negative (>= 0) for FPHA hydros; negative values distort LP dispatch
@@ -913,7 +913,7 @@ error: [BusinessRuleViolation] penalties.json (Hydro 0): Hydro 0: turbined_cost 
 
 **Resolution:** Read the message carefully — it describes the specific rule that
 was violated and which entities are involved. For the two penalty rules, see
-[Load-time penalty checks](/math/penalty-system#implementation-in-cobre).
+[Load-time penalty checks](/math/penalty-system#implementation-in-novomodelo).
 
 **See also:** the entries below hold the anticipated-thermal and post-study boundary rules
 ([Commitment on a non-anticipated thermal](#commitment-on-a-non-anticipated-thermal),
@@ -980,7 +980,7 @@ rejected whatever its content; the loader never reads it, so a well-formed file 
 
 **Example:**
 
-{/* capture: cobre validate sp | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy sp; system/scalar_parameters.json added holding {"parameters": []}; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate sp | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy sp; system/scalar_parameters.json added holding {"parameters": []}; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [BusinessRuleViolation] system/scalar_parameters.json: system/scalar_parameters.json is no longer read; scalar parameters are now read from constraints/generic_parameters.json, beside the constraints that reference them by @name. Move the file (its contents are unchanged).
@@ -1031,7 +1031,7 @@ stages and for a lead given in hours alike.
 
 **Example:**
 
-{/* capture: cobre validate ac | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy ac; system/thermals.json: thermal 0 given anticipated_config with lead_stages 1; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate ac | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy ac; system/thermals.json: thermal 0 given anticipated_config with lead_stages 1; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments): Thermal 0: missing entry in initial_conditions.past_anticipated_commitments; every anticipated thermal must have at least one commitment window
@@ -1169,7 +1169,7 @@ stage's end — is at or before the study start. See
 
 **When it occurs:** A row in `constraints/{thermal,hydro,line,pumping,contract,hydro_unit_group}_bounds.parquet`
 whose `stage_id` is not a declared study stage (membership in the declared ids of
-`stages.json`, which may be gapped or start at 1) is rejected at `cobre validate`
+`stages.json`, which may be gapped or start at 1) is rejected at `novomodelo validate`
 as [`BusinessRuleViolation`](#businessruleviolation); a `constraints/ncs_bounds.parquet`
 row is rejected as [`InvalidReference`](#invalidreference) with
 `NcsBoundsRow[i] has invalid stage_id N (not a valid study stage)`. Rows in
@@ -1219,7 +1219,7 @@ The rules are stated under
 `constraints/generic_constraints.json`, and the entity `constraint[id=N]`, where
 `N` is the constraint's `id`.
 
-**Messages:** `cobre validate` prints one `error:` line per rejection. The five
+**Messages:** `novomodelo validate` prints one `error:` line per rejection. The five
 lines below show one message per template, in this order:
 
 1. An evaporation block of `K` or more.
@@ -1228,7 +1228,7 @@ lines below show one message per template, in this order:
 4. A storage block of `K` or more.
 5. An evaporation reference with no block on a chronological stage.
 
-{/* capture: cobre validate case 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: stages 0 and 1 carry two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, stage 0 block_mode parallel, stage 1 block_mode chronological; constraints/generic_constraints.json added with five constraints on hydro 0, slack disabled: id 0 evap_out_of_range hydro_evaporation(0, 5), id 1 evap_parallel_block hydro_evaporation(0, 1), id 2 storage_interior hydro_storage_final(0, 0), id 3 storage_out_of_range hydro_storage_initial(0, 5), id 4 evap_chronological_bare hydro_evaporation(0); constraints/generic_constraint_bounds.parquet added with compression zstd and one row per activation, constraints 0-3 at stage 0 and constraint 4 at stage 1, block_id and bound_lower null, bound_upper 1e9; run with NO_COLOR=1; the Validation summary line, which carries the temporary path, is not quoted) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: stages 0 and 1 carry two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, stage 0 block_mode parallel, stage 1 block_mode chronological; constraints/generic_constraints.json added with five constraints on hydro 0, slack disabled: id 0 evap_out_of_range hydro_evaporation(0, 5), id 1 evap_parallel_block hydro_evaporation(0, 1), id 2 storage_interior hydro_storage_final(0, 0), id 3 storage_out_of_range hydro_storage_initial(0, 5), id 4 evap_chronological_bare hydro_evaporation(0); constraints/generic_constraint_bounds.parquet added with compression zstd and one row per activation, constraints 0-3 at stage 0 and constraint 4 at stage 1, block_id and bound_lower null, bound_upper 1e9; run with NO_COLOR=1; the Validation summary line, which carries the temporary path, is not quoted) */}
 
 ```text
 error: [BusinessRuleViolation] constraints/generic_constraints.json (constraint[id=0]): Constraint "evap_out_of_range": per-block evaporation reference `hydro_evaporation(0, 5)` at stage 0 references block 5 which does not exist at stage 0 (K = 2)
@@ -1254,7 +1254,7 @@ chronological stage requires a named block for evaporation, as in
 
 **When it occurs:** A pumping station in `system/pumping_stations.json` is in service at a stage where its source or destination hydro is not Operating: before that hydro's `entry_stage_id`, at or after its `exit_stage_id`, or while it is Filling. One line prints for each offending endpoint and names the earliest such stage.
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/pumping.rs:63-69 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/pumping.rs:63-69 at novomodelo v0.18.0 */}
 
 ```text
 PumpingStation {id}: active at stage {stage_id} while its {side} hydro {hid} is not Operating there (before entry_stage_id, at or after exit_stage_id, or Filling); a pumping station may operate only inside both endpoints' Operating windows
@@ -1268,8 +1268,8 @@ PumpingStation {id}: active at stage {stage_id} while its {side} hydro {hid} is 
 
 ### `WarmStartIncompatible`
 
-{/* quoted from source: crates/cobre-sddp/src/policy/policy_load.rs:704-709 and 736-741 at cobre v0.18.0 */}
-`cobre validate` reports a refused warm-start or simulation-only load as its `phase`, with the message labelled
+{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:704-709 and 736-741 at novomodelo v0.18.0 */}
+`novomodelo validate` reports a refused warm-start or simulation-only load as its `phase`, with the message labelled
 `<output dir>/<policy.path>: `, and exits `1`; a checkpoint the OS refuses to read reports `IoError` and exits `2`.
 The same kind carries the load's warnings, which exit `0`: [Stored bases not used](#stored-bases-not-used),
 `entity manifest absent (source slots: {n}, current slots: {m}); slot identity could not be verified, relying on state_dimension alone`
@@ -1281,8 +1281,8 @@ and
 
 ### `ResumeIncompatible`
 
-{/* quoted from source: crates/cobre-sddp/src/policy/policy_load.rs:704-709 and 736-741 at cobre v0.18.0 */}
-`cobre validate` reports a refused resume load as its `phase`, with the message labelled
+{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:704-709 and 736-741 at novomodelo v0.18.0 */}
+`novomodelo validate` reports a refused resume load as its `phase`, with the message labelled
 `<output dir>/<policy.path>: `, and exits `1`; a checkpoint the OS refuses to read reports `IoError` and exits `2`.
 The same kind carries the load's warnings, which exit `0`: [Stored bases not used](#stored-bases-not-used),
 `entity manifest absent (source slots: {n}, current slots: {m}); slot identity could not be verified, relying on state_dimension alone`
@@ -1296,7 +1296,7 @@ A full-FCF load uses a stored LP basis only when it fits its stage LP
 ([Policy Management — Stored-basis gate](/running/policy-management/#stored-basis-gate) states the rule); the
 others are left out with one warning, and the load proceeds:
 
-{/* quoted from source: crates/cobre-sddp/src/policy/policy_load.rs:422-446 and crates/cobre-cli/src/commands/run/policy.rs:38 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:422-446 and crates/novomodelo-cli/src/commands/run/policy.rs:38 at novomodelo v0.18.0 */}
 
 ```text
 warning: stored bases not used: {n} of {m} do not fit the current LP (first: node {node}, {reason}); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, and its basic count equals its row count; the policy was trained on a different LP
@@ -1305,9 +1305,9 @@ warning: stored bases not used: {n} of {m} do not fit the current LP (first: nod
 `{reason}` is one of `{found} columns, the LP has {expected}`, `{found} rows, the LP expects {expected}` or
 `{found} basic entries for {expected} rows`.
 
-`cobre run` prints it as `warning: {message}` on stderr (`--quiet` hides it); `cobre validate` prints
+`novomodelo run` prints it as `warning: {message}` on stderr (`--quiet` hides it); `novomodelo validate` prints
 `warning: <output dir>/<policy.path>: {message}`, and `--json` gives the count as
-`policy_load.unused_stored_bases`. Python prints `cobre-python: policy validation warning: {message}`. The exit
+`policy_load.unused_stored_bases`. Python prints `novomodelo-python: policy validation warning: {message}`. The exit
 code is unaffected.
 
 ---
@@ -1326,7 +1326,7 @@ with one line for each affected downstream plant, on `system/hydros.json`.
 
 **Example:**
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/travel_time.rs:193-197 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/travel_time.rs:193-197 at novomodelo v0.18.0 */}
 
 ```text
 Hydro {downstream_id}: chronological confluence with heterogeneous travel times is unsupported in v1 — {n} declared arcs feed this downstream plant with differing travel_time_hours ({arcs}); align the arcs' travel_time_hours or keep every study stage in Parallel mode
@@ -1355,7 +1355,7 @@ the user to a possible input error.
 
 **Example:**
 
-{/* quoted from source: crates/cobre-io/src/validation/referential.rs:1160-1164 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/referential.rs:1160-1164 at novomodelo v0.18.0 */}
 
 ```text
 {label} references Contract {id} which is a stub entity with no LP effect
@@ -1386,7 +1386,7 @@ a warning.
 
 **Example:**
 
-{/* capture: cobre validate ord | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy ord; system/hydros.json: hydro 0 gains a penalties block with generation_violation_below_cost 10000.0; run with NO_COLOR=1, exit code 0; the Valid case and Validation summary lines are not quoted) */}
+{/* capture: novomodelo validate ord | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy ord; system/hydros.json: hydro 0 gains a penalties block with generation_violation_below_cost 10000.0; run with NO_COLOR=1, exit code 0; the Valid case and Validation summary lines are not quoted) */}
 
 ```text
 warning: penalties.json: Penalty ordering violation: max(deficit_segment_costs) (7500) should be > generation_violation_below_cost (10000) (both $/MWh) -- 1 hydro(s) affected, worst case: Hydro 0
@@ -1394,11 +1394,11 @@ warning: penalties.json: Penalty ordering violation: max(deficit_segment_costs) 
 
 Every penalty-ordering warning starts `Penalty ordering violation:`; the three
 messages are quoted under
-[Load-time penalty checks](/math/penalty-system#implementation-in-cobre).
+[Load-time penalty checks](/math/penalty-system#implementation-in-novomodelo).
 
 The inflow-lag message:
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/stages.rs:120-125 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/stages.rs:120-125 at novomodelo v0.18.0 */}
 
 ```text
 inflow lags are disabled on all study stages (state_variables.inflow_lags = false) despite a PAR(p>0) inflow model (AR order {max_order}), so the inflow-lag dimensions are omitted from the per-stage state. This is a valid configuration for external-solver interoperability; otherwise it is likely a misconfiguration
@@ -1410,20 +1410,20 @@ fires and what it changes:
 
 The observation-count message:
 
-{/* quoted from source: crates/cobre-io/src/validation/semantic/scenarios.rs:1048-1052 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:1048-1052 at novomodelo v0.18.0 */}
 
 ```text
 hydro {hid} season {sid} has {n} observations (minimum recommended: {min_obs}); estimation accuracy may be insufficient with so few observations
 ```
 
-`{min_obs}` is `estimation.min_observations_per_season`. `cobre validate` reports
+`{min_obs}` is `estimation.min_observations_per_season`. `novomodelo validate` reports
 the warning only when the inflow model is estimated from
 `scenarios/inflow_history.parquet` (that is, the case does not supply both
 `scenarios/inflow_seasonal_stats.parquet` and `scenarios/inflow_ar_coefficients.parquet`)
 and `stages.json` declares `season_definitions`.
 
 **Resolution:** Review the flagged input. For a penalty-ordering warning, see
-[Load-time penalty checks](/math/penalty-system#implementation-in-cobre); for the
+[Load-time penalty checks](/math/penalty-system#implementation-in-novomodelo); for the
 inflow-lag warning, see
 [`stages[].state_variables` — Cut Projection](/math/cut-management/#stagesstate_variables--cut-projection).
 Warnings of this type do not prevent the solver from running.
@@ -1448,7 +1448,7 @@ trigger it, both emitted by the business-rule check in
 
    **Example:** A generic constraint `thermal_generation(0)` on an anticipated thermal:
 
-   {/* capture: cobre validate sa1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy sa1; system/thermals.json: thermal 0 given anticipated_config with lead_stages 1; initial_conditions.json: past_anticipated_commitments gains one window for thermal 0, 2024-01-01 to 2024-02-01, value_mw 0.0; constraints/generic_constraints.json added holding one constraint, id 0, name peak_cap, expression thermal_generation(0), slack enabled false; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 1, block_id and bound_lower null, bound_upper 10.0; run with NO_COLOR=1, exit code 0; the Valid case and Validation summary lines and the first warning line, which concerns the thermal's stage-cadence transition, are not quoted) */}
+   {/* capture: novomodelo validate sa1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy sa1; system/thermals.json: thermal 0 given anticipated_config with lead_stages 1; initial_conditions.json: past_anticipated_commitments gains one window for thermal 0, 2024-01-01 to 2024-02-01, value_mw 0.0; constraints/generic_constraints.json added holding one constraint, id 0, name peak_cap, expression thermal_generation(0), slack enabled false; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 1, block_id and bound_lower null, bound_upper 10.0; run with NO_COLOR=1, exit code 0; the Valid case and Validation summary lines and the first warning line, which concerns the thermal's stage-cadence transition, are not quoted) */}
 
    ```text
    warning: constraints/generic_constraints.json (constraint[id=0]): Constraint "peak_cap": thermal_generation(0) references an anticipated thermal. thermal_generation refers to the per-block generation at the delivery stage, not the forward commitment. If you intend to constrain the commitment itself, use anticipated_decision(0) instead.
@@ -1469,7 +1469,7 @@ trigger it, both emitted by the business-rule check in
 
    **Example:** A constraint that pairs the two tags for hydro 0:
 
-   {/* capture: cobre validate sa2 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy sa2; constraints/generic_parameters.json added holding two computed parameters for hydro 0, id 1 name rho tag accumulated_productivity and id 2 name emax tag max_stored_energy; constraints/generic_constraints.json added holding one constraint, id 0, name sec_mismatch, expression @rho * hydro_useful_volume_final(0) >= 0.3 * @emax, slack enabled false; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 1, block_id, bound_lower and bound_upper null; run with NO_COLOR=1, exit code 0; the Valid case and Validation summary lines are not quoted) */}
+   {/* capture: novomodelo validate sa2 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy sa2; constraints/generic_parameters.json added holding two computed parameters for hydro 0, id 1 name rho tag accumulated_productivity and id 2 name emax tag max_stored_energy; constraints/generic_constraints.json added holding one constraint, id 0, name sec_mismatch, expression @rho * hydro_useful_volume_final(0) >= 0.3 * @emax, slack enabled false; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 1, block_id, bound_lower and bound_upper null; run with NO_COLOR=1, exit code 0; the Valid case and Validation summary lines are not quoted) */}
 
    ```text
    warning: constraints/generic_constraints.json (sec_mismatch): Constraint "sec_mismatch": pairs max_stored_energy(0) with accumulated_productivity(0) for hydro 0; the two ride different evaluators and would not cancel. The coefficient matching max_stored_energy is integrated_accumulated_productivity, not accumulated_productivity.
@@ -1479,15 +1479,15 @@ trigger it, both emitted by the business-rule check in
    that matches `max_stored_energy`; see
    [the security-curve example](/reference/generic-constraints/#worked-example-a-security-curve).
 
-The warning is printed by `cobre validate` in its human-readable output; the
+The warning is printed by `novomodelo validate` in its human-readable output; the
 `--json` success output does not carry warnings.
 
 ---
 
 ## Load-failure kinds
 
-The `phase` value of `cobre validate --json` and the `kind` of an entry in the `errors` array of
-`cobre.io.validate` (Python) name the failure that stopped the load. Almost every case-load failure reports
+The `phase` value of `novomodelo validate --json` and the `kind` of an entry in the `errors` array of
+`novomodelo.io.validate` (Python) name the failure that stopped the load. Almost every case-load failure reports
 [`ConstraintError`](#constrainterror), because the load collects its problems into one report. The kinds are
 listed below in the order of the load steps in which they typically occur: reading a file, parsing it,
 checking its fields, then validating the whole case.
@@ -1604,9 +1604,9 @@ category of each problem, and each kind section gives its resolution. A problem 
 
 ## Preparation-phase kinds
 
-The six `phase` values below appear only in `cobre validate`'s pre-solver
+The six `phase` values below appear only in `novomodelo validate`'s pre-solver
 validation checks and are **not** `LoadError` kinds. They surface in
-`cobre validate --json`'s error `phase` field when a prep-phase check fails
+`novomodelo validate --json`'s error `phase` field when a prep-phase check fails
 before the solver is initialized.
 
 ### `ConfigValidationError`
@@ -1620,7 +1620,7 @@ setup begins. File label: `config.json`.
 **Example:** A `gap` stopping rule with neither `tolerance` nor
 `relative_tolerance`:
 
-{/* capture: cobre validate gap | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy gap; config.json re-written with 2-space indentation, training.stopping_rules gains a gap rule with neither tolerance nor relative_tolerance; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate gap | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy gap; config.json re-written with 2-space indentation, training.stopping_rules gains a gap rule with neither tolerance nor relative_tolerance; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 config.json: configuration validation error: gap stopping rule requires at least one of tolerance / relative_tolerance to be present
@@ -1658,17 +1658,17 @@ use the `historical_residuals` sampling method (see
 Each message is `insufficient data: ` followed by the text below:
 
 - No year is admissible, so the pool is empty:
-  {/* quoted from source: crates/cobre-stochastic/src/sampling/window.rs:136-141 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/window.rs:136-141 at novomodelo v0.18.0 */}
   ```text
   no valid historical windows found: ensure that inflow history covers the required seasons for at least one starting year
   ```
 - A study stage has no season:
-  {/* quoted from source: crates/cobre-stochastic/src/sampling/historical.rs:258-271 at cobre v0.18.0 — reproduced with the binary of record at inflow-model order 1, so not quoted as a capture */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:258-271 at novomodelo v0.18.0 — reproduced with the binary of record at inflow-model order 1, so not quoted as a capture */}
   ```text
   V2.1: stage {stage_id} (index {index}) has season_id: None; all study stages must have a season_id assigned
   ```
 - A residual of the pool is not finite:
-  {/* quoted from source: crates/cobre-stochastic/src/sampling/historical.rs:579-598 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:579-598 at novomodelo v0.18.0 */}
   ```text
   V2.3: historical library contains non-finite eta (NEG_INFINITY or NaN) at window year {year}, stage id {stage_id}, hydro id {hydro_id} — sigma=0 with non-matching historical observation or numerical failure
   ```
@@ -1678,33 +1678,33 @@ when it declares none and the case either has no season definitions or has a
 `custom` season map that leaves the stage's start date uncovered. For example,
 with an inflow model of order 1 and a `custom` season map that covers the first
 stage and its lag season but leaves one later stage's start date uncovered,
-`cobre validate` reports V2.1.
+`novomodelo validate` reports V2.1.
 
 V2.3 names the window's year, the stage id and the hydro id.
 
-**Rendering under `cobre validate`:** the phase is `StochasticPreparationError`
+**Rendering under `novomodelo validate`:** the phase is `StochasticPreparationError`
 and the exit code is `1`. The `error:` line carries the file label and the
 `stochastic error:` prefix. This excerpt omits the `Validation:` summary line,
 which carries the case path.
 
-{/* capture: cobre validate case 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; stages.json: season_definitions added with cycle_type monthly and twelve seasons, season_id 0 to 3 on the four stages, sampling_method historical_residuals on every stage; scenarios/inflow_history.parquet added with compression zstd, hydro 0, three monthly windows 2020-01-01 to 2020-04-01, values 41, 42 and 43; scenarios/inflow_ar_coefficients.parquet added with compression zstd and zero rows; run with NO_COLOR=1; the Validation summary line, which carries the temporary path, is not quoted) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: season_definitions added with cycle_type monthly and twelve seasons, season_id 0 to 3 on the four stages, sampling_method historical_residuals on every stage; scenarios/inflow_history.parquet added with compression zstd, hydro 0, three monthly windows 2020-01-01 to 2020-04-01, values 41, 42 and 43; scenarios/inflow_ar_coefficients.parquet added with compression zstd and zero rows; run with NO_COLOR=1; the Validation summary line, which carries the temporary path, is not quoted) */}
 
 ```text
 error: scenarios/inflow_history.parquet: stochastic error: insufficient data: no valid historical windows found: ensure that inflow history covers the required seasons for at least one starting year
 ```
 
-`cobre run` on the same case exits `1`. The line has no file label, and the
+`novomodelo run` on the same case exits `1`. The line has no file label, and the
 validate hint follows it. This excerpt omits the banner, the `Execution` block and the
 `Loading case:` line.
 
-{/* capture: cobre run case 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: the same temporary 1dtoy derivative as the cobre validate capture above; run with NO_COLOR=1; the banner, the Execution block and the Loading case line, which carry the hostname and the temporary path, are not quoted */}
+{/* capture: novomodelo run case 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: the same temporary 1dtoy derivative as the novomodelo validate capture above; run with NO_COLOR=1; the banner, the Execution block and the Loading case line, which carry the hostname and the temporary path, are not quoted */}
 
 ```text
 error: stochastic error: insufficient data: no valid historical windows found: ensure that inflow history covers the required seasons for at least one starting year
-  -> run `cobre validate <CASE_DIR>` for a full diagnostic report
+  -> run `novomodelo validate <CASE_DIR>` for a full diagnostic report
 ```
 
-`cobre validate` builds the study as `cobre run` does, so it reports a refusal
+`novomodelo validate` builds the study as `novomodelo run` does, so it reports a refusal
 of the forward `historical` scheme's library too: as
 [`StudySetupError`](#studysetuperror) (`scenarios/: stochastic error: …`) without
 `policy.boundary`, and as
@@ -1722,45 +1722,45 @@ study. Two refusals carry a fixed message:
 - An autoregressive stage has a standard deviation of zero. The message names
   the hydro id and the stage id, and `ar_order` is the stage's autoregressive
   order:
-  {/* quoted from source: crates/cobre-stochastic/src/par/validation.rs:54-70 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/par/validation.rs:54-70 at novomodelo v0.18.0 */}
   ```text
   invalid PAR parameters for hydro {hydro_id} at stage {stage_id}: zero standard deviation with ar_order={ar_order}: AR model requires nonzero variance to normalize coefficients
   ```
-  This is a stochastic-model error. `cobre validate` prints it after the
+  This is a stochastic-model error. `novomodelo validate` prints it after the
   `scenarios/inflow_history.parquet: stochastic error: ` prefix and exits `1`.
-  `cobre run` prints it as `error: stochastic error: invalid PAR parameters …`
+  `novomodelo run` prints it as `error: stochastic error: invalid PAR parameters …`
   with the validate hint, and exits `1`.
 - The coefficients fitted from the history imply a non-stationary process, so a
   derived residual standard-deviation ratio is not finite. The message names the
   hydro id and the season id:
-  {/* quoted from source: crates/cobre-io/src/scenarios/residual_derivation.rs:144-152, crates/cobre-io/src/error.rs:60 and crates/cobre-sddp/src/error.rs:43-44 at cobre v0.18.0 */}
+  {/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:144-152, crates/novomodelo-io/src/error.rs:60 and crates/novomodelo-sddp/src/error.rs:43-44 at novomodelo v0.18.0 */}
   ```text
   I/O error: constraint violation: derived residual_std_ratio is non-finite for hydro_id={hydro_id} season={season}: the coefficients imply a non-stationary process (implied residual variance 1 - sum(psi*rho) is negative)
   ```
   This is a [`ConstraintError`](#constrainterror) raised while the model is
-  fitted, so it reaches the command as a load error. `cobre validate` prints it
-  with the `scenarios/` file label and exits `1`. `cobre run` prints it without
-  the `I/O error: ` prefix, followed by a hint to run `cobre validate`, and also
+  fitted, so it reaches the command as a load error. `novomodelo validate` prints it
+  with the `scenarios/` file label and exits `1`. `novomodelo run` prints it without
+  the `I/O error: ` prefix, followed by a hint to run `novomodelo validate`, and also
   exits `1`.
 
 #### Opening-tree file missing
 
 **When it occurs:** `training.scenario_source.openings` is `{"source": "file"}`
 and `scenarios/noise_openings.parquet` is absent. The stochastic preparation
-phase of `cobre validate` stops with exit `2`, as `cobre run` does, and under `--json` the error's `phase` is
+phase of `novomodelo validate` stops with exit `2`, as `novomodelo run` does, and under `--json` the error's `phase` is
 `StochasticPreparationError`. The message is:
 
-{/* quoted from source: crates/cobre-sddp/src/setup/stochastic_pipeline.rs:83-93 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/setup/stochastic_pipeline.rs:83-93 at novomodelo v0.18.0 */}
 
 ```text
 openings source is 'file' but the conventional scenarios/noise_openings.parquet is absent
 ```
 
-**Example:** `cobre validate` prints the message inside an I/O error line. The
+**Example:** `novomodelo validate` prints the message inside an I/O error line. The
 `scenarios/` label and the `I/O error:` wording are how this phase reports a
 missing file, and `<case>` stands for the path of your case directory:
 
-{/* capture: cobre validate nofile 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy nofile; config.json re-written with 2-space indentation, simulation.enabled false, training.scenario_source gains openings with source file, and no scenarios/noise_openings.parquet; run with NO_COLOR=1, exit code 2; the Validation summary line, which carries the temporary path, is not quoted; the fixture directory name nofile in the error lines is replaced by <case>) */}
+{/* capture: novomodelo validate nofile 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy nofile; config.json re-written with 2-space indentation, simulation.enabled false, training.scenario_source gains openings with source file, and no scenarios/noise_openings.parquet; run with NO_COLOR=1, exit code 2; the Validation summary line, which carries the temporary path, is not quoted; the fixture directory name nofile in the error lines is replaced by <case>) */}
 
 ```text
 error: scenarios/: I/O error: I/O error reading <case>/scenarios/noise_openings.parquet: openings source is 'file' but the conventional scenarios/noise_openings.parquet is absent
@@ -1782,11 +1782,11 @@ describes the `openings` key.
 forward `historical` scheme's included), an external-library check, a solver-profile check, or the admission
 gate of the `gap` rule and of dynamic cut selection. File label: `scenarios/` for a stochastic-model error,
 `config.json` otherwise. On a case with `policy.boundary`, the same failures report
-[`BoundaryReconciliationError`](#boundaryreconciliationerror). `cobre validate` exits `1`.
+[`BoundaryReconciliationError`](#boundaryreconciliationerror). `novomodelo validate` exits `1`.
 
 **Example:**
 
-{/* capture: cobre validate historical 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy historical; config.json re-written with 2-space indentation and training.scenario_source.inflow.scheme set to historical, with no scenarios/inflow_history.parquet; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate historical 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy historical; config.json re-written with 2-space indentation and training.scenario_source.inflow.scheme set to historical, with no scenarios/inflow_history.parquet; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 scenarios/: stochastic error: insufficient data: no valid historical windows found: ensure that inflow history covers the required seasons for at least one starting year
@@ -1804,7 +1804,7 @@ model preparation. File label: `system/hydro_production_models.json`.
 **Example:** A plant whose `generation.model` is `fpha` and that has no entry in
 `system/hydro_production_models.json`:
 
-{/* capture: cobre validate h1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy h1; system/hydros.json: hydro 0 generation.model changed from constant_productivity to fpha; system/hydro_production_models.json deleted; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate h1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy h1; system/hydros.json: hydro 0 generation.model changed from constant_productivity to fpha; system/hydro_production_models.json deleted; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 system/hydro_production_models.json: configuration validation error: hydro UHE1 (id=0) has generation_model: "fpha" in hydros.json but no entry in hydro_production_models.json. Add an entry with source: "precomputed" to specify the hyperplane source.
@@ -1822,14 +1822,14 @@ expression inlining, parameter resolution, and slack setup. File label:
 
 An **unresolved `@parameter` scalar** — a generic-constraint parameter
 declared in `constraints/generic_parameters.json` that has no value for a
-season, stage or block the study needs — fails here at `cobre validate` time.
+season, stage or block the study needs — fails here at `novomodelo validate` time.
 An `@name` that no file declares is reported at load time; see
 [`@parameter` / `@name` reference misuse](#parameter--name-reference-misuse).
 
 **Example:** A `seasonal` parameter whose only value is for season `5`, in a case with
 no season definitions:
 
-{/* capture: cobre validate sea | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy sea; constraints/generic_parameters.json added holding one seasonal parameter, id 1, name sea, values [[5, 1.0]]; constraints/generic_constraints.json added holding one constraint, id 0, name cap, expression @sea * hydro_storage(0), slack enabled false; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 0, block_id and bound_lower null, bound_upper 1e9; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate sea | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy sea; constraints/generic_parameters.json added holding one seasonal parameter, id 1, name sea, values [[5, 1.0]]; constraints/generic_constraints.json added holding one constraint, id 0, name cap, expression @sea * hydro_storage(0), slack enabled false; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 0, block_id and bound_lower null, bound_upper 1e9; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 constraints/: configuration validation error: parameter 'sea': no seasonal value for season_id=0 (needed by stage 0)
@@ -1844,7 +1844,7 @@ generation model and of whether the case declares generic constraints (see
 
 A plant whose geometry and losses leave a negative head:
 
-{/* capture: cobre validate e1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy e1; system/hydros.json: hydro 0 given specific_productivity_mw_per_m3s_per_m 0.009 and hydraulic_losses of type constant with value_m 450.0; system/hydro_geometry.parquet added with compression zstd, hydro 0, two rows at volume_hm3 0.0 and 1000.0, height_m 400.0 and area_km2 10.0 in both; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate e1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy e1; system/hydros.json: hydro 0 given specific_productivity_mw_per_m3s_per_m 0.009 and hydraulic_losses of type constant with value_m 450.0; system/hydro_geometry.parquet added with compression zstd, hydro 0, two rows at volume_hm3 0.0 and 1000.0, height_m 400.0 and area_km2 10.0 in both; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 constraints/: configuration validation error: hydro EntityId(0) has non-positive equivalent head h_eq=-50
@@ -1868,10 +1868,10 @@ the current study. File label: `policy.boundary`.
 **Example:** A boundary checkpoint written by another software or version reports the message of
 [`PolicySoftwareMismatch`](#policysoftwaremismatch) prefixed with the file label:
 
-{/* quoted from source: crates/cobre-cli/src/commands/validate.rs:168-174, crates/cobre-sddp/src/validate_phases.rs:405-414, crates/cobre-sddp/src/error.rs:103-108 and 127-134 and crates/cobre-io/src/output/software.rs:13-18 at cobre v0.18.0 — not capturable (needs a checkpoint written by another software or version) */}
+{/* quoted from source: crates/novomodelo-cli/src/commands/validate.rs:168-174, crates/novomodelo-sddp/src/validate_phases.rs:405-414, crates/novomodelo-sddp/src/error.rs:103-108 and 127-134 and crates/novomodelo-io/src/output/software.rs:13-18 at novomodelo v0.18.0 — not capturable (needs a checkpoint written by another software or version) */}
 
 ```text
-policy.boundary: policy was written by {writer}, but this is cobre {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again
+policy.boundary: policy was written by {writer}, but this is novomodelo {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 ```
 
 The phase reports a refusal from any of the boundary checks listed under
@@ -1887,8 +1887,8 @@ On a case with `policy.boundary`, every study-construction failure reports this 
 A policy load refuses a checkpoint that does not fit the study loading it. Two
 loads raise these errors: a **full-FCF load** of the checkpoint at `policy.path`
 (warm-start, resume, and simulation-only runs) and a **boundary load** of the
-checkpoint at `policy.boundary.path`. `cobre run` and the Python entry points
-raise them before training or simulation starts. `cobre validate` runs both loads the run would apply, reading the full-FCF checkpoint from `<output dir>/<policy.path>` (`--output`, default `<CASE_DIR>/output/`), and exits `1` on every refusal `cobre run` makes. These errors are not
+checkpoint at `policy.boundary.path`. `novomodelo run` and the Python entry points
+raise them before training or simulation starts. `novomodelo validate` runs both loads the run would apply, reading the full-FCF checkpoint from `<output dir>/<policy.path>` (`--output`, default `<CASE_DIR>/output/`), and exits `1` on every refusal `novomodelo run` makes. These errors are not
 `LoadError` variants, and case loading does not return them.
 
 A full-FCF load runs its checks in the order given under
@@ -1896,18 +1896,18 @@ A full-FCF load runs its checks in the order given under
 load are listed under
 [Compatibility requirements](/running/policy-management/#compatibility-requirements).
 A `manifest.bin` whose `format_version` is not `3` fails before these checks:
-`failed to read policy checkpoint: serialization error for entity checkpoint_manifest: unsupported checkpoint manifest format_version {n}; expected 3; re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again`, exit `1`.
+`failed to read policy checkpoint: serialization error for entity checkpoint_manifest: unsupported checkpoint manifest format_version {n}; expected 3; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`, exit `1`.
 
 ### How a policy-load failure reaches you
 
 | Channel | Refusal | Unreadable or missing checkpoint |
 | --- | --- | --- |
-| `cobre run`, full-FCF load | Exit 1. `error: {message}` and the validate hint on stderr. | Exit 1: `error: Policy directory not found: {path}. {requirement}` or `error: failed to read policy checkpoint: {e}`. Exit 2 for a checkpoint the OS refuses to read: `error: I/O error in {path}: {source}` and the permissions hint. |
-| `cobre validate`, full-FCF load | Exit 1. `Validation: 1 errors, 0 warnings in <case>` and `error: <output dir>/<policy.path>: {message}`; `--json` phase `WarmStartIncompatible` or `ResumeIncompatible`. | Exit 1 (phase as for a refusal), or exit 2 with phase `IoError` for a checkpoint the OS refuses to read. |
-| `cobre run` and `cobre validate`, boundary load | Exit 1. `cobre run` prints `error: {message}` and a hint line. `cobre validate` labels the message `policy.boundary: `; under `--json` it reports phase `BoundaryReconciliationError`. | Exit 1. `error: failed to read boundary policy checkpoint at {path}: {e}` and a hint line on stderr. Under `cobre validate --json`, phase `BoundaryReconciliationError`. |
-| Python, full-FCF load (`cobre.run.run`, `Study.train`, `Study.load_policy`) | `PolicyIncompatibleError`. The message starts `policy validation error: `. | `ValidationError` for a missing directory, `PolicyIncompatibleError` for a read or decode failure, `CaseIoError` for a read the operating system refuses. The message is `Policy directory not found: {path}. {requirement}` or `failed to read policy checkpoint: {e}`, with no prefix. |
-| Python, boundary load (`cobre.run.run`, `Study`, `Study.train`) | `cobre.run.run` and `Study.train` raise `PolicyIncompatibleError` for a version mismatch, with the message prefix `policy validation error: `, and `ValidationError` for every other refusal, with the message prefix `boundary cut error: `. `Study(...)` constructs without error on a checkpoint it can read. | `ValidationError`. The message starts `setup validation error: `. It is raised when the study is built, before training. |
-| `cobre.results.load_policy` | No refusal: it reads a checkpoint of any cobre version without comparing it with a study. | `FileNotFoundError` for a missing directory or a missing `manifest.bin`. `OutputError` for a file whose content cannot be decoded. |
+| `novomodelo run`, full-FCF load | Exit 1. `error: {message}` and the validate hint on stderr. | Exit 1: `error: Policy directory not found: {path}. {requirement}` or `error: failed to read policy checkpoint: {e}`. Exit 2 for a checkpoint the OS refuses to read: `error: I/O error in {path}: {source}` and the permissions hint. |
+| `novomodelo validate`, full-FCF load | Exit 1. `Validation: 1 errors, 0 warnings in <case>` and `error: <output dir>/<policy.path>: {message}`; `--json` phase `WarmStartIncompatible` or `ResumeIncompatible`. | Exit 1 (phase as for a refusal), or exit 2 with phase `IoError` for a checkpoint the OS refuses to read. |
+| `novomodelo run` and `novomodelo validate`, boundary load | Exit 1. `novomodelo run` prints `error: {message}` and a hint line. `novomodelo validate` labels the message `policy.boundary: `; under `--json` it reports phase `BoundaryReconciliationError`. | Exit 1. `error: failed to read boundary policy checkpoint at {path}: {e}` and a hint line on stderr. Under `novomodelo validate --json`, phase `BoundaryReconciliationError`. |
+| Python, full-FCF load (`novomodelo.run.run`, `Study.train`, `Study.load_policy`) | `PolicyIncompatibleError`. The message starts `policy validation error: `. | `ValidationError` for a missing directory, `PolicyIncompatibleError` for a read or decode failure, `CaseIoError` for a read the operating system refuses. The message is `Policy directory not found: {path}. {requirement}` or `failed to read policy checkpoint: {e}`, with no prefix. |
+| Python, boundary load (`novomodelo.run.run`, `Study`, `Study.train`) | `novomodelo.run.run` and `Study.train` raise `PolicyIncompatibleError` for a version mismatch, with the message prefix `policy validation error: `, and `ValidationError` for every other refusal, with the message prefix `boundary cut error: `. `Study(...)` constructs without error on a checkpoint it can read. | `ValidationError`. The message starts `setup validation error: `. It is raised when the study is built, before training. |
+| `novomodelo.results.load_policy` | No refusal: it reads a checkpoint of any novomodelo version without comparing it with a study. | `FileNotFoundError` for a missing directory or a missing `manifest.bin`. `OutputError` for a file whose content cannot be decoded. |
 
 `{requirement}` names the run mode: `Cannot warm-start without a prior policy.`,
 `Cannot resume without a prior checkpoint.`, or
@@ -1916,9 +1916,9 @@ A `manifest.bin` whose `format_version` is not `3` fails before these checks:
 :::note
 Some messages carry the extra prefix `configuration validation error: ` after the channel prefix:
 
-- In Python and in the `cobre validate` boundary phase, the structural, cost-scale and boundary messages carry it, as in `policy validation error: configuration validation error: policy num_stages mismatch: policy has 4, current system has 3`.
-- In the `cobre validate` full-FCF channel, the structural and cost-scale refusals carry it, as `<output dir>/<policy.path>: configuration validation error: {message}`; `Policy directory not found`, `failed to read policy checkpoint` and the software gate carry none.
-- `cobre run` prints it on no message.
+- In Python and in the `novomodelo validate` boundary phase, the structural, cost-scale and boundary messages carry it, as in `policy validation error: configuration validation error: policy num_stages mismatch: policy has 4, current system has 3`.
+- In the `novomodelo validate` full-FCF channel, the structural and cost-scale refusals carry it, as `<output dir>/<policy.path>: configuration validation error: {message}`; `Policy directory not found`, `failed to read policy checkpoint` and the software gate carry none.
+- `novomodelo run` prints it on no message.
 :::
 
 ### `PolicySoftwareMismatch`
@@ -1935,23 +1935,23 @@ pre-release build is refused as well. A checkpoint whose `format_version` is not
 
 **Message:**
 
-{/* quoted from source: crates/cobre-sddp/src/error.rs:103-108 and 127-134 and crates/cobre-io/src/output/software.rs:13-18 at cobre v0.18.0 — not capturable (needs a checkpoint written by another software or version) */}
+{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 and 127-134 and crates/novomodelo-io/src/output/software.rs:13-18 at novomodelo v0.18.0 — not capturable (needs a checkpoint written by another software or version) */}
 
 ```text
-policy was written by {writer}, but this is cobre {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again
+policy was written by {writer}, but this is novomodelo {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 ```
 
 `{writer}` is `<software> <version>`, `<software>, which recorded no version`,
 `software that recorded no name, version <version>` or `software that recorded no name or version`;
-`{running}` is the version of the cobre that loads it.
+`{running}` is the version of the novomodelo that loads it.
 
 **Python class:** Python raises
 `PolicyIncompatibleError` with the message prefix `policy validation error: `,
-for a full-FCF load and for a boundary load. Under `cobre validate --json`, a
+for a full-FCF load and for a boundary load. Under `novomodelo validate --json`, a
 boundary checkpoint written by another software or version reports phase
 `BoundaryReconciliationError` and the message prefixed `policy.boundary: `.
 
-**Resolution:** Re-run the program that produced the checkpoint with the running cobre version; for a converted
+**Resolution:** Re-run the program that produced the checkpoint with the running novomodelo version; for a converted
 boundary policy, convert it again. [Version gate](/running/policy-management/#version-gate)
 describes both routes.
 
@@ -1968,15 +1968,15 @@ carry the manifest.
 
 Cost scale (step 2):
 
-{/* quoted from source: crates/cobre-sddp/src/policy/policy_load.rs:142-156 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:142-156 at novomodelo v0.18.0 */}
 
 ```text
-policy checkpoint predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again
+policy checkpoint predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 ```
 
 State and graph (step 4):
 
-{/* quoted from source: crates/cobre-sddp/src/policy/policy_load.rs:274-294, 333-372 and 713-735 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:274-294, 333-372 and 713-735 at novomodelo v0.18.0 */}
 
 ```text
 policy state_dimension mismatch: policy has {n}, current system has {n} (a lag-state depth mismatch is a common cause)
@@ -1994,10 +1994,10 @@ graph manifest edge {i} mismatch: source ({source_id} -> {target_id}) != current
 A boundary load refuses a resolved pool without a `cost_scale_factor` with its
 own message:
 
-{/* quoted from source: crates/cobre-sddp/src/policy/policy_load.rs:810-819 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:810-819 at novomodelo v0.18.0 */}
 
 ```text
-boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with cobre {running}; for a converted boundary policy, convert it again
+boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 ```
 
 **Python class:** Python raises
@@ -2007,7 +2007,7 @@ the full-FCF messages, and `ValidationError` with the message prefix
 
 **Resolution:** Train a new policy for the changed study or restore the matching
 inputs; see [Check order](/running/policy-management/#check-order). For a cost-scale refusal, re-run the program
-that produced the checkpoint with the running cobre version, as its message states.
+that produced the checkpoint with the running novomodelo version, as its message states.
 
 ### Boundary inflow-lag mismatch
 
@@ -2017,7 +2017,7 @@ that produced the checkpoint with the running cobre version, as its message stat
 
 No coefficient for a hydro at a lag depth; `{names}` lists every missing pair as `hydro {id} at lag depth {depth}`, separated by commas:
 
-{/* quoted from source: crates/cobre-sddp/src/policy/policy_load.rs:1137-1140 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:1137-1140 at novomodelo v0.18.0 */}
 
 ```text
 boundary policy has no inflow-lag coefficient for {names}: the boundary is lag-depth-incompatible with the current study
@@ -2025,13 +2025,13 @@ boundary policy has no inflow-lag coefficient for {names}: the boundary is lag-d
 
 A coefficient that references a different past; the two dates print as `YYYY-MM-DD`:
 
-{/* quoted from source: crates/cobre-sddp/src/policy/reconcile.rs:347-356 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/policy/reconcile.rs:347-356 at novomodelo v0.18.0 */}
 
 ```text
 boundary policy's inflow-lag coefficient for hydro {id} at lag depth {depth} references a different past than the current study: boundary {date}, current {date}
 ```
 
-**Python class:** Python raises `ValidationError` with the message prefix `boundary cut error: `. `cobre validate` labels the message `policy.boundary: `.
+**Python class:** Python raises `ValidationError` with the message prefix `boundary cut error: `. `novomodelo validate` labels the message `policy.boundary: `.
 
 **Resolution:** If the checkpoint has no coefficient for a hydro at a lag depth, train the source checkpoint with `inflow_lags: true` on the stage that follows the source pool's stage. If the two dates differ, give the source pool's stage and the study's last stage the same start date, and do the same for each earlier pair of stages; [Compatibility requirements](/running/policy-management/#compatibility-requirements) describes both conditions.
 
@@ -2045,17 +2045,17 @@ compiled backend's support matrix at study setup, before any stage LP is
 built, on every MPI process; every rejection below is a configuration error with its
 own message.
 
-`cobre validate` runs these checks on every case: it reports a rejection with phase
+`novomodelo validate` runs these checks on every case: it reports a rejection with phase
 [`StudySetupError`](#studysetuperror) (`config.json: configuration validation error: …`), or
 [`BoundaryReconciliationError`](#boundaryreconciliationerror) with `policy.boundary` configured.
-`cobre run` refuses the case before training. Both exit `1`.
+`novomodelo run` refuses the case before training. Both exit `1`.
 
 ### CLP backend: every override is rejected
 
 **When it occurs:** A binary built with the CLP backend (see
 [Installation — CLP build](/getting-started/installation#clp-build))
 rejects every solver-profile override field outright — CLP's own option
-surface has not been measured against these fields, so cobre refuses to
+surface has not been measured against these fields, so novomodelo refuses to
 silently apply a HiGHS-flavored value to it. An empty `"solver": {}` block and
 an absent `solver` block are both legal; only a field that is actually *set*
 triggers the error. When a profile sets more than one field, only the first
@@ -2111,14 +2111,14 @@ signed integer; `[0.0008, 0.5]` is HiGHS's own accepted pivot-threshold range.
 
 ## Runtime errors
 
-{/* quoted from source: crates/cobre-cli/src/error.rs:121-140, 164-174 and 201-224 and crates/cobre-cli/src/commands/run/mod.rs:138-152 and 271-279 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-cli/src/error.rs:121-140, 164-174 and 201-224 and crates/novomodelo-cli/src/commands/run/mod.rs:138-152 and 271-279 at novomodelo v0.18.0 */}
 
-A failure during `cobre run` prints `error: {message}` on stderr, followed by hint lines that depend on the exit code:
+A failure during `novomodelo run` prints `error: {message}` on stderr, followed by hint lines that depend on the exit code:
 
-- Exit `1`, a refusal met during the run (for example a `--threads` mismatch), adds ``-> run `cobre validate <CASE_DIR>` for a full diagnostic report``.
+- Exit `1`, a refusal met during the run (for example a `--threads` mismatch), adds ``-> run `novomodelo validate <CASE_DIR>` for a full diagnostic report``.
 - Exit `2`, whose message is `I/O error in {context}: {source}`, adds `-> check that the path exists and you have read/write permissions`.
-- Exit `3` adds `-> check constraint bounds (hydros may have conflicting min/max storage)` and ``-> run `cobre validate <CASE_DIR>` for a full diagnostic report``.
-- Exit `4` adds `-> this may indicate a software or environment problem` and `-> report this at https://github.com/cobre-rs/cobre/issues`.
+- Exit `3` adds `-> check constraint bounds (hydros may have conflicting min/max storage)` and ``-> run `novomodelo validate <CASE_DIR>` for a full diagnostic report``.
+- Exit `4` adds `-> this may indicate a software or environment problem` and `-> report this at https://github.com/ons-ccee-epe/novomodelo/issues`.
 
 On two or more MPI processes, each failing process (an MPI rank) first prints `rank {rank}:` on its own line and then the same lines, and the job stops with that process's exit code. When rank 0 fails to write the run outputs, every rank exits with rank 0's code, and the others print `rank 0 failed to write the run outputs; failing on every rank in lockstep`. A checkpoint that does not fit the study is refused before training or simulation starts; see [Policy-load errors](#policy-load-errors).
 
@@ -2126,11 +2126,11 @@ On two or more MPI processes, each failing process (an MPI rank) first prints `r
 
 A failure inside a training iteration ends training and exits with the code of its error: `3` for an LP or solver failure, `4` for a communication failure, `1` for a refusal. A run without `--quiet` first prints `Training failed after {n} iterations. Partial outputs written to {dir}.` The run also logs `ERROR training failed after {n} iterations: {error}` on stderr, with `--quiet` as well. Under MPI, a process that fails first can abort the job before the root process prints these lines. The same LP failures in simulation exit `3`; see [Simulation failures](#simulation-failures).
 
-{/* quoted from source: crates/cobre-cli/src/commands/run/mod.rs:281-296, crates/cobre-cli/src/commands/run/training.rs:69-74, crates/cobre-cli/src/commands/run/simulation.rs:54-61, crates/cobre-cli/src/error.rs:279-286, crates/cobre-sddp/src/error.rs:28-32 and 46-61, crates/cobre-sddp/src/solve/stage_solve.rs:194-208, crates/cobre-sddp/src/training/backward_pass_state.rs:604-627 and crates/cobre-solver/src/types.rs:470-512 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-cli/src/commands/run/mod.rs:281-296, crates/novomodelo-cli/src/commands/run/training.rs:69-74, crates/novomodelo-cli/src/commands/run/simulation.rs:54-61, crates/novomodelo-cli/src/error.rs:279-286, crates/novomodelo-sddp/src/error.rs:28-32 and 46-61, crates/novomodelo-sddp/src/solve/stage_solve.rs:194-208, crates/novomodelo-sddp/src/training/backward_pass_state.rs:604-627 and crates/novomodelo-solver/src/types.rs:470-512 at novomodelo v0.18.0 */}
 
 | Message                                                                                                                                                                                                                     | Exit code                          | When it occurs                                                                                                                                                                                                                            | Resolution                                                                                                                                                                                                |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LP infeasible at stage {stage}, iteration {iteration}, scenario {scenario}`                                                                                                                                                | `3`                                | A stage LP of a training iteration has no feasible solution; `{stage}` and `{scenario}` are 0-based positions.                                                                                                                            | Check the constraint bounds at that stage, such as a generic constraint whose slack is disabled or conflicting hydro bounds; `cobre validate` does not solve the stage LPs, so it can accept such a case. |
+| `LP infeasible at stage {stage}, iteration {iteration}, scenario {scenario}`                                                                                                                                                | `3`                                | A stage LP of a training iteration has no feasible solution; `{stage}` and `{scenario}` are 0-based positions.                                                                                                                            | Check the constraint bounds at that stage, such as a generic constraint whose slack is disabled or conflicting hydro bounds; `novomodelo validate` does not solve the stage LPs, so it can accept such a case. |
 | `{solver_message}`                                                                                                                                                                                                          | `3`                                | A stage LP of a training iteration ends in a solver failure other than infeasibility; `{solver_message}` is one of the solver messages below, for example `LP is unbounded`.                                                              | Look up `{solver_message}` in the rows below.                                                                                                                                                             |
 | `LP is unbounded`                                                                                                                                                                                                           | `3`                                | The objective of the stage LP is unbounded below.                                                                                                                                                                                         | Look for a missing bound or a cost with the wrong sign in the case.                                                                                                                                       |
 | `numerical difficulty: {message}`                                                                                                                                                                                           | `3`                                | The solver reports numerical difficulties that persist through all its retries; `{message}` is the solver's description.                                                                                                                  | Report the case with the message.                                                                                                                                                                         |
@@ -2141,27 +2141,27 @@ A failure inside a training iteration ends training and exits with the code of i
 | `{solver} initialisation failed: {e}`                                                                                                                                                                                       | `3`                                | The solver backend (`HiGHS` or `CLP`) cannot create its solver instance when training starts; `{e}` is the backend's message.                                                                                                             | Report it with the full message.                                                                                                                                                                          |
 | `{solver} initialisation failed for simulation pool: {e}`                                                                                                                                                                   | `3`                                | The solver backend cannot create the solver instances of the simulation workers.                                                                                                                                                          | Report it with the full message.                                                                                                                                                                          |
 
-An infeasible stage LP in the first training iteration of a single-process run, on a case that `cobre validate` accepts, prints:
+An infeasible stage LP in the first training iteration of a single-process run, on a case that `novomodelo validate` accepts, prints:
 
-{/* capture: cobre run case --output ./out | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy case; config.json re-written with 2-space indentation, training.stopping_rules reduced to one iteration_limit rule with limit 3 and simulation disabled; constraints/generic_constraints.json added holding one constraint, id 0, name cap, expression hydro_storage(0), slack enabled false; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 0, block_id null, bound_lower 5000.0, bound_upper 1e9; cobre validate exits 0 on the case; run with NO_COLOR=1, exit code 3; the banner, the Execution block, the setup and progress lines, the training summary and the two output lines before the first quoted line are not quoted) */}
+{/* capture: novomodelo run case --output ./out | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy case; config.json re-written with 2-space indentation, training.stopping_rules reduced to one iteration_limit rule with limit 3 and simulation disabled; constraints/generic_constraints.json added holding one constraint, id 0, name cap, expression hydro_storage(0), slack enabled false; constraints/generic_constraint_bounds.parquet added with compression zstd and one row, constraint 0, stage 0, block_id null, bound_lower 5000.0, bound_upper 1e9; novomodelo validate exits 0 on the case; run with NO_COLOR=1, exit code 3; the banner, the Execution block, the setup and progress lines, the training summary and the two output lines before the first quoted line are not quoted) */}
 
 ```text
 ERROR training failed after 0 iterations: infeasible subproblem at stage 0, iteration 1, scenario 0
 Training failed after 0 iterations. Partial outputs written to ./out.
 error: LP infeasible at stage 0, iteration 1, scenario 0
   -> check constraint bounds (hydros may have conflicting min/max storage)
-  -> run `cobre validate <CASE_DIR>` for a full diagnostic report
+  -> run `novomodelo validate <CASE_DIR>` for a full diagnostic report
 ```
 
 ### Simulation failures
 
 A stage-LP failure in simulation exits `3`, and every other simulation failure exits `4`.
 
-{/* quoted from source: crates/cobre-cli/src/error.rs:331-357, crates/cobre-cli/src/commands/run/simulation.rs:123-137 and 167-172, crates/cobre-sddp/src/simulation/error.rs:11-59, crates/cobre-sddp/src/simulation/aggregation.rs:111-131 and crates/cobre-sddp/src/simulation/pipeline.rs:327-357 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-cli/src/error.rs:331-357, crates/novomodelo-cli/src/commands/run/simulation.rs:123-137 and 167-172, crates/novomodelo-sddp/src/simulation/error.rs:11-59, crates/novomodelo-sddp/src/simulation/aggregation.rs:111-131 and crates/novomodelo-sddp/src/simulation/pipeline.rs:327-357 at novomodelo v0.18.0 */}
 
 | Message                                                                               | Exit code | When it occurs                                                                                                                                                                                                                                                                   | Resolution                                                                                                                                                                    |
 | ------------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LP infeasible at scenario {scenario_id}, stage {stage_id}: {solver_message}`         | `3`       | A stage LP of a simulation scenario has no feasible solution; `{solver_message}` reads `LP infeasible`.                                                                                                                                                                          | Check the constraint bounds at that stage, such as a generic constraint whose slack is disabled; `cobre validate` does not solve the stage LPs, so it can accept such a case. |
+| `LP infeasible at scenario {scenario_id}, stage {stage_id}: {solver_message}`         | `3`       | A stage LP of a simulation scenario has no feasible solution; `{solver_message}` reads `LP infeasible`.                                                                                                                                                                          | Check the constraint bounds at that stage, such as a generic constraint whose slack is disabled; `novomodelo validate` does not solve the stage LPs, so it can accept such a case. |
 | `solver error at scenario {scenario_id}, stage {stage_id}: {solver_message}`          | `3`       | A stage LP of a simulation scenario ends in a solver failure other than infeasibility; `{solver_message}` is one of the solver messages of [Solver failures](#solver-failures).                                                                                                  | Find the solver message in those rows.                                                                                                                                        |
 | `stochastic error: {detail}`                                                          | `4`       | The scenario sampler of the simulation cannot be built or fails to sample; `{detail}` is the stochastic model's message.                                                                                                                                                         | See [Stochastic failures during a run](#stochastic-failures-during-a-run).                                                                                                    |
 | `invalid simulation configuration: {detail}`                                          | `4`       | The simulation setup fails an internal consistency check.                                                                                                                                                                                                                        | Report the case with the message.                                                                                                                                             |
@@ -2171,34 +2171,34 @@ A stage-LP failure in simulation exits `3`, and every other simulation failure e
 
 ### Communication failures
 
-{/* quoted from source: crates/cobre-cli/src/error.rs:262-268 and 287-305, crates/cobre-comm/src/types.rs:25-70 and 73-120, crates/cobre-comm/src/factory.rs:256-293, crates/cobre-comm/src/ferrompi.rs:87-93, crates/cobre-sddp/src/error.rs:34-36 and 46-49, crates/cobre-sddp/src/cut/wire.rs:176-180, crates/cobre-sddp/src/workspace/workspace.rs:235-240, crates/cobre-cli/src/commands/broadcast.rs:416-434, crates/cobre-cli/src/commands/run/mod.rs:281-296, crates/cobre-cli/src/commands/run/setup.rs:358-368, crates/cobre-cli/src/commands/run/training.rs:92-106 and 130-132, crates/cobre-cli/src/commands/run/simulation.rs:388-390 and crates/cobre-sddp/src/training/session/mod.rs:350-361 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-cli/src/error.rs:262-268 and 287-305, crates/novomodelo-comm/src/types.rs:25-70 and 73-120, crates/novomodelo-comm/src/factory.rs:256-293, crates/novomodelo-comm/src/ferrompi.rs:87-93, crates/novomodelo-sddp/src/error.rs:34-36 and 46-49, crates/novomodelo-sddp/src/cut/wire.rs:176-180, crates/novomodelo-sddp/src/workspace/workspace.rs:235-240, crates/novomodelo-cli/src/commands/broadcast.rs:416-434, crates/novomodelo-cli/src/commands/run/mod.rs:281-296, crates/novomodelo-cli/src/commands/run/setup.rs:358-368, crates/novomodelo-cli/src/commands/run/training.rs:92-106 and 130-132, crates/novomodelo-cli/src/commands/run/simulation.rs:388-390 and crates/novomodelo-sddp/src/training/session/mod.rs:350-361 at novomodelo v0.18.0 */}
 
 | Message                                                                                                                                                                                                                                                                                                                                                                                                               | Exit code | When it occurs                                                                                                                                                                                                                                                                                                                                     | Resolution                                                                                                                                            |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `communication backend error: communication backend 'mpi' is not available in this build (available: local)`                                                                                                                                                                                                                                                                                                          | `4`       | `--comm-backend mpi` is set on a binary built without MPI support, which offers only the `local` backend.                                                                                                                                                                                                                                          | Run the `cobre-mpi` build under an MPI launcher (see [HPC & Cluster Deployment](/running/hpc-deployment/)), or drop `--comm-backend mpi` to run on one process. |
+| `communication backend error: communication backend 'mpi' is not available in this build (available: local)`                                                                                                                                                                                                                                                                                                          | `4`       | `--comm-backend mpi` is set on a binary built without MPI support, which offers only the `local` backend.                                                                                                                                                                                                                                          | Run the `novomodelo-mpi` build under an MPI launcher (see [HPC & Cluster Deployment](/running/hpc-deployment/)), or drop `--comm-backend mpi` to run on one process. |
 | `communication backend error: 'mpi' backend initialization failed: {source}`                                                                                                                                                                                                                                                                                                                                          | `4`       | The MPI runtime fails to initialise in an MPI build; `{source}` carries the MPI library's message.                                                                                                                                                                                                                                                 | Check that the MPI runtime is installed and that the job starts under `mpiexec`, `mpirun` or `srun`.                                                  |
 | `collective operation '{operation}' failed with MPI error code {code}: {message}`                                                                                                                                                                                                                                                                                                                                     | `4`       | An MPI collective operation (broadcast, barrier, allreduce or allgatherv) fails during the run. The text follows a label that names the step, such as `broadcast error (data): `, `post-training barrier error: ` or `simulation path gather error: `.                                                                                             | Read the MPI library's message and the output of the other processes to find the process that failed first.                                           |
-| `cut_wire: unsupported version {version}`                                                                                                                                                                                                                                                                                                                                                                             | `1`       | In the backward pass of a training iteration, a process reads a cut record whose version byte is not the one its own binary writes, which happens when the processes of one job run builds with different cut wire-format versions. `{version}` is the byte the sending process wrote. The message adds the validate hint.                         | Restart every process with the same cobre binary.                                                                                                     |
-| `try_from_broadcast_payload: unsupported wire version {version} at stage {stage} (expected {expected})`                                                                                                                                                                                                                                                                                                               | `1`       | At the end of training, a process other than rank 0 reads the warm-start bases that rank 0 broadcasts and finds a wire-format version other than its own; `{version}` is the version rank 0 wrote and `{stage}` the 0-based node position. The `cobre validate` hint after it does not apply.    | Restart every process with the same cobre binary.                                                                                                     |
+| `cut_wire: unsupported version {version}`                                                                                                                                                                                                                                                                                                                                                                             | `1`       | In the backward pass of a training iteration, a process reads a cut record whose version byte is not the one its own binary writes, which happens when the processes of one job run builds with different cut wire-format versions. `{version}` is the byte the sending process wrote. The message adds the validate hint.                         | Restart every process with the same novomodelo binary.                                                                                                     |
+| `try_from_broadcast_payload: unsupported wire version {version} at stage {stage} (expected {expected})`                                                                                                                                                                                                                                                                                                               | `1`       | At the end of training, a process other than rank 0 reads the warm-start bases that rank 0 broadcasts and finds a wire-format version other than its own; `{version}` is the version rank 0 wrote and `{stage}` the 0-based node position. The `novomodelo validate` hint after it does not apply.    | Restart every process with the same novomodelo binary.                                                                                                     |
 | `rank 0 signaled broadcast failure (length 0)`                                                                                                                                                                                                                                                                                                                                                                        | `4`       | Rank 0 fails while loading the case, before it broadcasts the study, so the other processes receive an empty broadcast; rank 0 exits with the code of its own error.                                                                                                                                                                               | Fix the error that rank 0 prints under its `rank 0:` line.                                                                                            |
 | `hydro model preprocessing error on non-root rank: {e}`                                                                                                                                                                                                                                                                                                                                                               | `4`       | A process other than rank 0 fails to prepare the hydro models, which it rebuilds from the case directory.                                                                                                                                                                                                                                          | Give every process read access to the same case directory, and read `{e}` for the cause.                                                              |
-| `enumerated training at world >= 2 requires a graph with no interior branching (a deterministic trunk + terminal fan): node {node_id} is a non-leaf node not shared by every root→leaf path — the enumerated forward's per-rank state exchange is elided for it, so the replicated backward would cut against a zeroed incoming state on any rank that never visits it, pending the interior-node state-exchange fix` | `1`       | Enumerated training (`training.selection.method` `"enumerated"`) runs on two or more MPI processes over a policy graph with an interior branching node; the message has no prefix and is followed by ``-> run `cobre validate <CASE_DIR>` for a full diagnostic report``, although `cobre validate` does not check this and exits `0` on the case. | Keep all branching at the last stage, run on one process, or use sampled selection.                                                                   |
+| `enumerated training at world >= 2 requires a graph with no interior branching (a deterministic trunk + terminal fan): node {node_id} is a non-leaf node not shared by every root→leaf path — the enumerated forward's per-rank state exchange is elided for it, so the replicated backward would cut against a zeroed incoming state on any rank that never visits it, pending the interior-node state-exchange fix` | `1`       | Enumerated training (`training.selection.method` `"enumerated"`) runs on two or more MPI processes over a policy graph with an interior branching node; the message has no prefix and is followed by ``-> run `novomodelo validate <CASE_DIR>` for a full diagnostic report``, although `novomodelo validate` does not check this and exits `0` on the case. | Keep all branching at the last stage, run on one process, or use sampled selection.                                                                   |
 
 Requesting the MPI backend from a binary built without MPI support prints:
 
-{/* capture: cobre run case --comm-backend mpi --output ./out-mpi | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy case (cobre init --template 1dtoy case; unmodified; run with NO_COLOR=1, exit code 4; no banner is printed and nothing is written) */}
+{/* capture: novomodelo run case --comm-backend mpi --output ./out-mpi | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy case (novomodelo init --template 1dtoy case; unmodified; run with NO_COLOR=1, exit code 4; no banner is printed and nothing is written) */}
 
 ```text
 error: communication backend error: communication backend 'mpi' is not available in this build (available: local)
   -> this may indicate a software or environment problem
-  -> report this at https://github.com/cobre-rs/cobre/issues
+  -> report this at https://github.com/ons-ccee-epe/novomodelo/issues
 ```
 
 ### Output-writing failures
 
 A filesystem failure while writing the policy checkpoint or the training and simulation results exits `2`, except the write of one simulation scenario's results, which the last row describes. The `training/` files written before training starts exit `4` on any failure, so an unwritable `--output` directory ends with exit `4` unless removing a stale output fails first, which exits `2`.
 
-{/* quoted from source: crates/cobre-cli/src/error.rs:142-162, 201-206, 244-260 and 275-278, crates/cobre-sddp/src/error.rs:116-124, crates/cobre-sddp/src/training/session/mod.rs:593-619, crates/cobre-io/src/output/error.rs:28-45 and 58-82, crates/cobre-cli/src/commands/run/setup.rs:490-521, 540-549 and 557-614 and crates/cobre-cli/src/commands/run/simulation.rs:83-93 at cobre v0.18.0 */}
+{/* quoted from source: crates/novomodelo-cli/src/error.rs:142-162, 201-206, 244-260 and 275-278, crates/novomodelo-sddp/src/error.rs:116-124, crates/novomodelo-sddp/src/training/session/mod.rs:593-619, crates/novomodelo-io/src/output/error.rs:28-45 and 58-82, crates/novomodelo-cli/src/commands/run/setup.rs:490-521, 540-549 and 557-614 and crates/novomodelo-cli/src/commands/run/simulation.rs:83-93 at novomodelo v0.18.0 */}
 
 | Message                                                                                                                       | Exit code | When it occurs                                                                                                                                                                                                       | Resolution                                                                                        |
 | ----------------------------------------------------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -2207,7 +2207,7 @@ A filesystem failure while writing the policy checkpoint or the training and sim
 | `checkpoint write at iteration {n}: refusing to write a checkpoint: {entry}, found in {dir}, is not part of a checkpoint (manifest.bin, metadata.json, cuts/, basis/, states/); move it elsewhere or write the checkpoint to another directory` | `1` | The policy directory holds an entry no checkpoint writer leaves there; nothing on disk changes. | Move the entry, or set `policy.path` to another directory. |
 | `checkpoint write at iteration {n}: {e}` | `4` | Encoding a periodic checkpoint fails; `{e}` is the encoder's message. | Report the case with the message. |
 | `I/O error in {path}: {source}` | `2` | A stale output in `--output`, such as a `_SUCCESS` marker, cannot be removed before training starts; `{path}` is the entry. | Make the entry removable, or point `--output` at a directory without it. |
-| `failed to write hydro model summary: {e}`, `failed to write provenance report: {e}` or `failed to write scaling report: {e}` | `4`       | One of the `training/` files that `cobre run` writes before training starts cannot be written; `{e}` is the writer's message, for example `I/O error accessing {path}: {source}`.                                    | Point `--output` at a directory the process can create and write.                                 |
+| `failed to write hydro model summary: {e}`, `failed to write provenance report: {e}` or `failed to write scaling report: {e}` | `4`       | One of the `training/` files that `novomodelo run` writes before training starts cannot be written; `{e}` is the writer's message, for example `I/O error accessing {path}: {source}`.                                    | Point `--output` at a directory the process can create and write.                                 |
 | `rank 0 pre-training export failed; failing on every rank in lockstep`                                                        | `4`       | On MPI, rank 0 fails one of those writes or removals, and every other process prints this message.                                                                                                                               | Fix the error that rank 0 prints under its `rank 0:` line.                                        |
 | `serialization error for entity {entity}: {message}`                                                                          | `4`       | Encoding an output table fails for the named entity collection.                                                                                                                                                      | Report the case with the message.                                                                 |
 | `manifest error for {manifest_type}: {message}`                                                                               | `4`       | Building an output manifest fails.                                                                                                                                                                                   | Report the case with the message.                                                                 |

@@ -65,7 +65,7 @@ test("flags each retired figure stem", () => {
 test("does NOT flag an external URL whose path contains /images/", () => {
   // `/images/` must catch a retired ROOT ref (`](/images/…`), not a path segment
   // inside an external URL — otherwise future attribution/links would misfire CI.
-  const text = "logo at https://docs.cobre-rs.dev/images/logo.png and /math/images/x";
+  const text = "logo at https://docs.novomodelo.invalid/images/logo.png and /math/images/x";
   assert.deepEqual(detectFigureViolations(text), []);
 });
 

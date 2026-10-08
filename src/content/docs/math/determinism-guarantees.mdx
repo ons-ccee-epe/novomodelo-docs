@@ -8,9 +8,9 @@ import { Content as ProvenanceIO } from './_impl/_provenance.io.mdx';
 
 ## Purpose
 
-This chapter defines what "deterministic" means in Cobre and what a run records
+This chapter defines what "deterministic" means in Novomodelo and what a run records
 so that its results can be re-derived. The guarantee is bit-identical numerical
-results per binary: given the same inputs and the same random seed, one Cobre
+results per binary: given the same inputs and the same random seed, one Novomodelo
 binary on one platform image produces the same lower bounds, the same cuts, the
 same trial-point trajectories, the same simulation costs, and the same scenario
 tree, bit for bit, at any MPI rank count and any thread count, and on every
@@ -20,15 +20,15 @@ re-run, up to the stopping iteration under a wall-clock stopping criterion
 This property is not incidental to the implementation. It is an explicit
 methodology commitment, achieved through a set of coordinated mechanisms
 described in section 3. Section 5 defines the bookkeeping that makes this
-commitment actionable: what Cobre records so that any run can be independently
+commitment actionable: what Novomodelo records so that any run can be independently
 re-derived.
 
 ## 1. Definition
 
-Cobre guarantees **bit-identical results per binary**. A binary is one build of
-Cobre: one release asset or one local build. A platform image is the operating
+Novomodelo guarantees **bit-identical results per binary**. A binary is one build of
+Novomodelo: one release asset or one local build. A platform image is the operating
 system together with the system libraries the binary loads — the math library,
-the C++ runtime and, for the `cobre-mpi` release asset, the MPI library — and a
+the C++ runtime and, for the `novomodelo-mpi` release asset, the MPI library — and a
 multi-node job runs the same platform image on every node. Given the same inputs
 and the same random seed, one binary on one platform image produces bit-identical
 numerical results across the three axes that practitioners most often vary:
@@ -44,8 +44,8 @@ numerical results across the three axes that practitioners most often vary:
   rank, does not change them either.
 
 Two builds are two binaries, and their outputs are not promised equal. The
-single-process `cobre` release asset and the `cobre-mpi` release asset are
-different builds, so a `cobre` run is not promised to reproduce a `cobre-mpi`
+single-process `novomodelo` release asset and the `novomodelo-mpi` release asset are
+different builds, so a `novomodelo` run is not promised to reproduce a `novomodelo-mpi`
 run at any rank count; a binary built with another LP backend is likewise a
 different build. Wall-clock variation, including the stopping iteration under a
 wall-clock stopping criterion, and the other quantities outside the guarantee are
@@ -128,7 +128,7 @@ enough to change subsequent iterations bit for bit, not enough to affect a
 cut's validity or the algorithm's convergence.
 
 Bit-identity therefore requires that the sequence of bases be reproducible, and
-Cobre obtains this by making every input to a solve — the starting basis
+Novomodelo obtains this by making every input to a solve — the starting basis
 included — a function of globally known quantities rather than of scheduling.
 The order in which a trial point's openings are solved is a run-constant,
 rank-invariant permutation, fixed in advance from the openings' own identity and
@@ -176,7 +176,7 @@ See [SDDP Algorithm §3.1](/math/sddp-algorithm#31-forward-pass) for the
 projection stated in full.
 
 **Solve order pinned; completion order irrelevant.** Two orders matter in the
-backward pass, and Cobre pins each for a different reason. The first is the
+backward pass, and Novomodelo pins each for a different reason. The first is the
 order in which a trial point's openings are solved. As the preceding mechanism
 established, that order fixes the warm-start chain and therefore, at a
 degenerate optimum, which terminating basis — and hence which of several equally
@@ -198,7 +198,7 @@ first, its result is filed under its own identity and summed in the canonical
 sequence.
 
 **Total ordering on floating-point comparisons.** In all sort and selection
-paths on the hot forward and backward pass loops, Cobre compares floating-point
+paths on the hot forward and backward pass loops, Novomodelo compares floating-point
 values using a total ordering, not the IEEE 754 partial order. The IEEE 754
 partial order leaves NaN comparisons undefined; a total ordering assigns a
 deterministic position to every representable value, including NaNs. This
@@ -302,10 +302,10 @@ produce the same models, byte for byte.
 
 ## 4. Out of Scope
 
-**Wall-clock time and peak memory.** Cobre makes no claims about the time taken
+**Wall-clock time and peak memory.** Novomodelo makes no claims about the time taken
 or the memory consumed across runs, even at identical inputs. These quantities
 are functions of hardware load, OS scheduling, memory allocator behaviour, and
-MPI library implementation — none of which are under Cobre's control.
+MPI library implementation — none of which are under Novomodelo's control.
 
 **System load.** Background processes, thermal throttling, NUMA placement, and
 other system-state effects change timing, not the numerical result of any
@@ -321,7 +321,7 @@ iteration count, not elapsed time, is the reproducible bound of such a run.
 **Different builds.** A binary built with another compiler, other compiler
 flags, another LP backend, another target, or from another release is another
 binary, and the guarantee makes no promise across binaries; the single-process
-`cobre` and the `cobre-mpi` release assets are two such builds. Runs on different
+`novomodelo` and the `novomodelo-mpi` release assets are two such builds. Runs on different
 processor models are not promised equal either, nor is a multi-node job whose
 nodes differ in processor model, since the system libraries a binary loads can
 select code paths by processor features.
@@ -350,7 +350,7 @@ from its recorded inputs, not loading a stored policy in another version (see
 
 Determinism is the algorithmic property; provenance is the bookkeeping that
 makes it actionable. A guarantee that identical inputs produce identical results
-is empty if the inputs are unknown. Cobre therefore records, with every run,
+is empty if the inputs are unknown. Novomodelo therefore records, with every run,
 metadata from which anyone who holds the run's inputs can re-derive its
 numerical content — the same cuts, the same policy, and the same simulation
 costs — by re-running it within the scope of sections 1 and 4, without the
@@ -382,7 +382,7 @@ not file bytes. The files that carry the record are a software-layer concern.
   numerical results of one binary; the recorded topology lets an auditor re-run
   under the original one and check that claim.
 
-Cobre records no hash of the input files, so a study's case directory is kept
+Novomodelo records no hash of the input files, so a study's case directory is kept
 with its outputs.
 
 ### 5.2 What This Enables
@@ -390,12 +390,12 @@ with its outputs.
 **Independent re-derivation of cuts and policy.** A researcher, auditor, or
 collaborator who holds a run's inputs and its recorded metadata can reproduce
 every cut coefficient and every policy decision without any communication with
-the original operator. Cobre's methodology is open to external verification.
+the original operator. Novomodelo's methodology is open to external verification.
 
 **Audit trail for regulatory or scientific reporting.** Studies submitted to
 regulators or cited in scientific literature must be traceable. An auditor
 presented with the recorded metadata and the corresponding case directory can
-verify that the reported results follow from those inputs by re-running Cobre
+verify that the reported results follow from those inputs by re-running Novomodelo
 and comparing outputs. The audit does not depend on trust in the operator.
 
 **Diff-of-runs analysis.** When two runs produce different outputs, comparing
@@ -404,9 +404,9 @@ diverged — in the case data, the configuration, the stochastic model, the seed
 or the solver and software versions — and narrows the root cause of the
 difference to one or more of these.
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
-The methodology above defines what Cobre guarantees and what every run records;
+The methodology above defines what Novomodelo guarantees and what every run records;
 the tab below lists the output files and field names that carry that record.
 
 <Tabs>

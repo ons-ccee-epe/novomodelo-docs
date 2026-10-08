@@ -1,20 +1,20 @@
 // Vendored Python stub refresh (E14 ticket-233a, GRD-04; R98, ADR-020).
 //
 // The `.pyi` stubs under scripts/pystubs/ are the typed public surface of the
-// cobre-python package. They are written in the `cobre` repo
-// (crates/cobre-python/python/cobre/*.pyi) and vendored here byte for byte so
+// novomodelo-python package. They are written in the `novomodelo` repo
+// (crates/novomodelo-python/python/novomodelo/*.pyi) and vendored here byte for byte so
 // scripts/check-python-api.mjs can compare reference/python-api.mdx against
-// them in CI, which never checks out cobre source (ADR-020). Outside public/:
+// them in CI, which never checks out novomodelo source (ADR-020). Outside public/:
 // the stubs are gate input, not site content.
 //
 // Content is read from an immutable git TAG through plumbing
-// (`git -C <cobre> ls-tree` / `show <ref>:<path>`), never the cobre working
+// (`git -C <novomodelo> ls-tree` / `show <ref>:<path>`), never the novomodelo working
 // tree, exactly like scripts/refresh-schemas.mjs.
 //
 // Usage:
-//   node scripts/refresh-pystubs.mjs [--cobre <path>] [--ref <git-ref>] [--check]
-//     --cobre   path to a cobre checkout (default: $COBRE_REPO or ~/git/cobre)
-//     --ref     git ref/tag to vendor from (default: DEFAULT_COBRE_REF)
+//   node scripts/refresh-pystubs.mjs [--novomodelo <path>] [--ref <git-ref>] [--check]
+//     --novomodelo   path to a novomodelo checkout (default: $NOVOMODELO_REPO or ~/git/novomodelo)
+//     --ref     git ref/tag to vendor from (default: DEFAULT_NOVOMODELO_REF)
 //     --check   compare scripts/pystubs/ with <ref>, write nothing; exit 1
 //               listing every drifted, missing or extra stub, else exit 0.
 // Without --check the script writes every stub of <ref> and deletes any
@@ -32,9 +32,9 @@ import {
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { DEFAULT_COBRE_REF } from "./cobre-ref.mjs";
+import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 
-const STUBS_SUBPATH = "crates/cobre-python/python/cobre";
+const STUBS_SUBPATH = "crates/novomodelo-python/python/novomodelo";
 const vendorDir = fileURLToPath(new URL("./pystubs/", import.meta.url));
 
 // --- Pure helpers (exported for scripts/refresh-pystubs.test.mjs) -----------
@@ -74,15 +74,15 @@ export function diffStubs(released, vendored) {
 
 // --- Git plumbing (argument arrays, never a shell string) -------------------
 
-function git(cobre, args, what) {
+function git(novomodelo, args, what) {
   try {
-    return execFileSync("git", ["-C", cobre, ...args], {
+    return execFileSync("git", ["-C", novomodelo, ...args], {
       maxBuffer: 16 * 1024 * 1024,
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (error) {
     throw new Error(
-      `refresh:pystubs: cannot ${what} from ${cobre} — is the tag fetched? (${error.message})`,
+      `refresh:pystubs: cannot ${what} from ${novomodelo} — is the tag fetched? (${error.message})`,
     );
   }
 }
@@ -97,26 +97,26 @@ function readVendored() {
 }
 
 function parseArgs(argv) {
-  let cobre = process.env.COBRE_REPO ?? join(homedir(), "git", "cobre");
-  let ref = DEFAULT_COBRE_REF;
+  let novomodelo = process.env.NOVOMODELO_REPO ?? join(homedir(), "git", "novomodelo");
+  let ref = DEFAULT_NOVOMODELO_REF;
   let check = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--cobre") cobre = argv[++i];
+    if (arg === "--novomodelo") novomodelo = argv[++i];
     else if (arg === "--ref") ref = argv[++i];
     else if (arg === "--check") check = true;
     else throw new Error(`refresh:pystubs: unrecognized argument '${arg}'`);
   }
-  return { cobre, ref, check };
+  return { novomodelo, ref, check };
 }
 
 function main() {
-  const { cobre, ref, check } = parseArgs(process.argv.slice(2));
-  const listing = git(cobre, ["ls-tree", "--name-only", ref, `${STUBS_SUBPATH}/`], `list ${STUBS_SUBPATH}/ at ${ref}`);
+  const { novomodelo, ref, check } = parseArgs(process.argv.slice(2));
+  const listing = git(novomodelo, ["ls-tree", "--name-only", ref, `${STUBS_SUBPATH}/`], `list ${STUBS_SUBPATH}/ at ${ref}`);
   const names = parseStubNames(listing.toString("utf8"));
   const released = new Map();
   for (const name of names) {
-    released.set(name, git(cobre, ["show", `${ref}:${STUBS_SUBPATH}/${name}`], `read ${name} at ${ref}`));
+    released.set(name, git(novomodelo, ["show", `${ref}:${STUBS_SUBPATH}/${name}`], `read ${name} at ${ref}`));
   }
   const vendored = readVendored();
   if (check) {

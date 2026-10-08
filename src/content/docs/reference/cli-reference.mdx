@@ -1,12 +1,12 @@
 ---
 title: CLI Reference
-description: Complete reference for every `cobre` subcommand, flag, and exit code.
+description: Complete reference for every `novomodelo` subcommand, flag, and exit code.
 ---
 
 ## Synopsis
 
 ```
-cobre [--color <WHEN>] <SUBCOMMAND> [OPTIONS]
+novomodelo [--color <WHEN>] <SUBCOMMAND> [OPTIONS]
 ```
 
 ## Global Options
@@ -19,15 +19,15 @@ cobre [--color <WHEN>] <SUBCOMMAND> [OPTIONS]
 
 | Subcommand | Synopsis                           | Description                                                    |
 | ---------- | ---------------------------------- | -------------------------------------------------------------- |
-| `init`     | `cobre init [OPTIONS] [DIRECTORY]` | Scaffold a new case directory from an embedded template        |
-| `run`      | `cobre run <CASE_DIR> [OPTIONS]`   | Load, train, simulate, and write results                       |
-| `validate` | `cobre validate <CASE_DIR>`        | Validate a case directory and print a diagnostic report        |
-| `schema`   | `cobre schema <COMMAND>`           | Manage JSON Schema files for case directory input types        |
-| `version`  | `cobre version`                    | Print version, solver backend, and build information           |
+| `init`     | `novomodelo init [OPTIONS] [DIRECTORY]` | Scaffold a new case directory from an embedded template        |
+| `run`      | `novomodelo run <CASE_DIR> [OPTIONS]`   | Load, train, simulate, and write results                       |
+| `validate` | `novomodelo validate <CASE_DIR>`        | Validate a case directory and print a diagnostic report        |
+| `schema`   | `novomodelo schema <COMMAND>`           | Manage JSON Schema files for case directory input types        |
+| `version`  | `novomodelo version`                    | Print version, solver backend, and build information           |
 
 ---
 
-## `cobre init`
+## `novomodelo init`
 
 Scaffolds a new case directory from an embedded template. Creates all required
 input files (`config.json`, `penalties.json`, `stages.json`, system files, etc.)
@@ -53,18 +53,18 @@ Without `--list`, both `--template` and the directory are required.
 
 ```bash
 # List available templates
-cobre init --list
+novomodelo init --list
 
 # Scaffold the 1dtoy example in a new directory
-cobre init --template 1dtoy my_study
+novomodelo init --template 1dtoy my_study
 
 # Overwrite files in an existing directory
-cobre init --template 1dtoy --force my_study
+novomodelo init --template 1dtoy --force my_study
 ```
 
 ---
 
-## `cobre run`
+## `novomodelo run`
 
 Executes the full solve lifecycle for a case directory:
 
@@ -88,7 +88,7 @@ Stochastic artifact export is controlled by `exports.stochastic` in `config.json
 | ---------------- | ------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--output <DIR>` | Path    | `<CASE_DIR>/output/` | Output directory for results                                                                                                                                           |
 | `--threads <N>`  | integer | `1`                  | Number of worker threads per MPI rank. Each thread solves its own LP instances; scenarios are distributed across threads. Must be `1` or more. |
-| `--comm-backend <WHICH>` | `auto` \| `local` \| `mpi` | `auto` | Communication backend. `auto` selects the MPI backend when a binary built with MPI support (the `cobre-mpi` release asset) is launched under an MPI launcher (`mpiexec`/`mpirun`/`srun`), and the local backend otherwise; `local` forces a single process; `mpi` forces the MPI backend and fails with a clear message on a binary built without MPI support. |
+| `--comm-backend <WHICH>` | `auto` \| `local` \| `mpi` | `auto` | Communication backend. `auto` selects the MPI backend when a binary built with MPI support (the `novomodelo-mpi` release asset) is launched under an MPI launcher (`mpiexec`/`mpirun`/`srun`), and the local backend otherwise; `local` forces a single process; `mpi` forces the MPI backend and fails with a clear message on a binary built without MPI support. |
 | `--quiet`        | flag    | off                  | Suppress the banner and progress bars. Errors still go to stderr                                                                                                       |
 
 ### Config-First Principle
@@ -109,27 +109,27 @@ the same case produces the same results regardless of which CLI flags are used.
 
 ```bash
 # Run a study with default output location
-cobre run /data/cases/hydro_study
+novomodelo run /data/cases/hydro_study
 
 # Write results to a custom directory
-cobre run /data/cases/hydro_study --output /data/results/run_001
+novomodelo run /data/cases/hydro_study --output /data/results/run_001
 
 # Use 4 worker threads per MPI rank
-cobre run /data/cases/hydro_study --threads 4
+novomodelo run /data/cases/hydro_study --threads 4
 
 # Run without any terminal decorations (useful in scripts)
-cobre run /data/cases/hydro_study --quiet
+novomodelo run /data/cases/hydro_study --quiet
 
 # Force color output when running under mpiexec
-cobre --color always run /data/cases/hydro_study
+novomodelo --color always run /data/cases/hydro_study
 
 # Run across 4 MPI ranks (requires the MPI build; see HPC & Cluster Deployment)
-mpiexec -np 4 cobre-mpi run /data/cases/hydro_study
+mpiexec -np 4 novomodelo-mpi run /data/cases/hydro_study
 ```
 
 ### Output format
 
-`cobre run` prints this summary to stderr once the study finishes. It carries
+`novomodelo run` prints this summary to stderr once the study finishes. It carries
 the convergence, policy-rows, and LP-solve lines, plus a `Time split` block
 that decomposes the total training wall time into `Forward` / `Backward` /
 `Serial` phases (see the arithmetic notes below).
@@ -161,7 +161,7 @@ residual. The whole `Time split` block is **omitted** when per-iteration
 phase-wall timing is unavailable.
 
 This printout is for reading, not parsing. The machine-readable record of the
-same run is the metadata `cobre run` writes into the output directory —
+same run is the metadata `novomodelo run` writes into the output directory —
 `training/metadata.json` when training ran, and `simulation/metadata.json` when
 simulation ran — which you can query directly with `jq`:
 
@@ -176,13 +176,13 @@ jq -r '.convergence.termination_reason' /data/cases/hydro_study/output/training/
 [ "$(jq -r '.scenarios.failed' /data/cases/hydro_study/output/simulation/metadata.json)" = "0" ] || exit 1
 ```
 
-From Python, `cobre.results.load_results(output_dir)` returns both metadata
+From Python, `novomodelo.results.load_results(output_dir)` returns both metadata
 files as dicts. Every field is documented in
 [Metadata Files](/reference/output/metadata/).
 
 ### SLURM clusters
 
-Launching Cobre under SLURM (`srun`/`sbatch`), the hybrid MPI + threads
+Launching Novomodelo under SLURM (`srun`/`sbatch`), the hybrid MPI + threads
 mapping, the key SLURM flags, and PMI selection are covered in full on the
 [HPC & Cluster Deployment](/running/hpc-deployment/#running-under-slurm) page,
 alongside how to obtain or build the MPI-enabled binary and a worked AWS
@@ -190,10 +190,10 @@ ParallelCluster reference architecture.
 
 ---
 
-## `cobre validate`
+## `novomodelo validate`
 
 Runs the layered validation pipeline, then study construction, the policy load
-the run would apply, and the boundary reconciliation, as `cobre run` does before
+the run would apply, and the boundary reconciliation, as `novomodelo run` does before
 training, without solving. It prints a diagnostic report to stdout.
 
 On success, prints a single line of entity counts:
@@ -210,14 +210,14 @@ When `config.json` configures a boundary policy, a
 `boundary policy priced at <date>` line and a one-line reconciliation summary
 follow.
 
-On failure, cobre prints a `Validation: N errors, 0 warnings in <dir>` summary
+On failure, novomodelo prints a `Validation: N errors, 0 warnings in <dir>` summary
 followed by each error as an `error:`-prefixed line, and exits as
 [Exit Codes](#exit-codes) gives: `1` for a refused case or policy,
 `2` for a policy checkpoint the operating system refuses to read or a stochastic input it cannot read,
 which also prints the I/O error on stderr. A case directory that does not
 exist is reported on stderr without the summary.
 
-When `config.json` configures `policy.boundary`, `cobre validate` loads and
+When `config.json` configures `policy.boundary`, `novomodelo validate` loads and
 reconciles that boundary policy, including the
 [version gate](/running/policy-management/#version-gate). A refusal exits `1`,
 as does a boundary checkpoint that cannot be read. Under `--json`, a refusal
@@ -226,7 +226,7 @@ see
 [Policy-load errors](/reference/error-codes/#policy-load-errors).
 
 When the run would load a policy (`policy.mode` `warm_start` or `resume` with
-training enabled, or training disabled with simulation enabled), `cobre validate`
+training enabled, or training disabled with simulation enabled), `novomodelo validate`
 reads it from `<output dir>/<policy.path>` and applies the same checks: a refusal
 exits `1` (phase `WarmStartIncompatible` or `ResumeIncompatible`), and so does a
 case whose policy does not exist yet. `--output` names the output directory.
@@ -248,18 +248,18 @@ case whose policy does not exist yet. `--output` names the output directory.
 
 ```bash
 # Validate a case directory before running
-cobre validate /data/cases/hydro_study
+novomodelo validate /data/cases/hydro_study
 
 # Use in a script: only proceed if validation passes
-cobre validate /data/cases/hydro_study && cobre run /data/cases/hydro_study
+novomodelo validate /data/cases/hydro_study && novomodelo run /data/cases/hydro_study
 
 # Machine-readable outcome for a pipeline step
-cobre validate /data/cases/hydro_study --json
+novomodelo validate /data/cases/hydro_study --json
 ```
 
 ---
 
-## `cobre schema`
+## `novomodelo schema`
 
 Manages JSON Schema files for case directory input types. Its one subcommand is
 `export`.
@@ -268,7 +268,7 @@ Manages JSON Schema files for case directory input types. Its one subcommand is
 
 | Subcommand | Synopsis                                   | Description                                  |
 | ---------- | ------------------------------------------ | -------------------------------------------- |
-| `export`   | `cobre schema export [--output-dir <DIR>]` | Export JSON Schema files for all input types |
+| `export`   | `novomodelo schema export [--output-dir <DIR>]` | Export JSON Schema files for all input types |
 
 | Option               | Type | Default | Description                                                                                |
 | -------------------- | ---- | ------- | ------------------------------------------------------------------------------------------ |
@@ -278,25 +278,25 @@ Manages JSON Schema files for case directory input types. Its one subcommand is
 
 ```bash
 # Export schemas to the current directory
-cobre schema export
+novomodelo schema export
 
 # Export schemas to a specific directory
-cobre schema export --output-dir /data/schemas
+novomodelo schema export --output-dir /data/schemas
 ```
 
 ---
 
-## `cobre version`
+## `novomodelo version`
 
 Prints the binary version, active solver and communication backends, compression
 support, host architecture, and build profile.
 
 ### Output lines
 
-{/* capture: cobre version | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: none */}
+{/* capture: novomodelo version | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: none */}
 
 ```
-cobre   v0.18.0
+novomodelo   v0.18.0
 solver: HiGHS 1.13.1
 comm:   local
 zstd:   enabled
@@ -306,7 +306,7 @@ build:  release (lto=thin)
 
 | Line                               | Description                                                             |
 | ---------------------------------- | ----------------------------------------------------------------------- |
-| `cobre v{version}`                 | The cobre release version                                               |
+| `novomodelo v{version}`                 | The novomodelo release version                                               |
 | `solver: {name} {version}`         | Active LP solver backend and its library version — `HiGHS 1.13.1` in standard builds; a CLP build reports `CLP <version>` |
 | `comm: local` or `comm: mpi`       | Communication backend (`mpi` only when compiled with the `mpi` feature) |
 | `zstd: enabled`                    | Output compression support                                              |
@@ -329,10 +329,10 @@ None.
 | ---- | ---------- | -------------------------------------------------------------------------------------------------------------------- |
 | `0`  | Success    | The command completed without errors                                                                                 |
 | `1`  | Validation | A refused case or policy under either subcommand: an error collected into the validation report; a `config.json` rule, the `policy.path` guards included; a study-setup refusal (stochastic model, solver profile, admission gate); a refused policy (another software or version, format, state, graph, cost scale); a missing policy directory or a missing or undecodable checkpoint file; a refused or unreadable `policy.boundary` checkpoint; a refusal met while training (thread count, cut-wire version) |
-| `2`  | I/O or usage | A case directory that does not exist (both subcommands); a policy checkpoint the operating system refuses to read; a stochastic input that cannot be read, such as a declared opening-tree file that is absent; a disk-full or other filesystem failure while writing the policy checkpoint or the training or simulation results after training starts, except the write of one simulation scenario's results, which is logged and leaves the exit code `0` (`cobre run`); or a command-line usage error — an unknown subcommand or option, a missing subcommand or argument, a conflicting argument, or an invalid option value — reported by the argument parser before any file is read |
+| `2`  | I/O or usage | A case directory that does not exist (both subcommands); a policy checkpoint the operating system refuses to read; a stochastic input that cannot be read, such as a declared opening-tree file that is absent; a disk-full or other filesystem failure while writing the policy checkpoint or the training or simulation results after training starts, except the write of one simulation scenario's results, which is logged and leaves the exit code `0` (`novomodelo run`); or a command-line usage error — an unknown subcommand or option, a missing subcommand or argument, a conflicting argument, or an invalid option value — reported by the argument parser before any file is read |
 | `3`  | Solver     | An infeasible LP or a solver failure, in training or in simulation, or a solver backend that cannot be initialized |
-| `4`  | Internal   | A communication failure, an unexpected channel closure, or another internal fault; under `cobre validate` also the load error that escapes the validation report, an AR-coefficient count mismatch (`cobre run`: `1`) |
-| `5`  | Stopped    | `cobre run` only: a SIGTERM or SIGINT during training stopped the run at an iteration boundary after writing the training outputs and the checkpoint; the simulation is skipped ([Stopping Rules — Shutdown Requests](/math/stopping-rules/#shutdown-requests)) |
+| `4`  | Internal   | A communication failure, an unexpected channel closure, or another internal fault; under `novomodelo validate` also the load error that escapes the validation report, an AR-coefficient count mismatch (`novomodelo run`: `1`) |
+| `5`  | Stopped    | `novomodelo run` only: a SIGTERM or SIGINT during training stopped the run at an iteration boundary after writing the training outputs and the checkpoint; the simulation is skipped ([Stopping Rules — Shutdown Requests](/math/stopping-rules/#shutdown-requests)) |
 
 A dangling reference (an entity ID that refers to a non-existent entity) surfaces
 as an `InvalidReference` line inside a semantic-constraint violation (exit code 1).
@@ -345,7 +345,7 @@ Error messages are printed to stderr with `error:` prefix and hint lines. See
 Every load failure before the solver exits with the same code under both
 subcommands, except the load error that surfaces only after the validation
 report is complete, a scenario-assembly schema error: `4` under
-`cobre validate`, `1` under `cobre run`. Message texts and renderings are under
+`novomodelo validate`, `1` under `novomodelo run`. Message texts and renderings are under
 [`StochasticPreparationError`](/reference/error-codes/#stochasticpreparationerror).
 :::
 
@@ -353,4 +353,4 @@ report is complete, a scenario-assembly schema error: `4` under
 
 ## Environment Variables
 
-Cobre reads **no configuration** from environment variables. Every setting comes from the case's config/data files and from `cobre` CLI arguments — thread count from `--threads`, color from `--color`, and the communication backend from `--comm-backend`. Terminal width (for progress rendering under a piped stderr) and the hostname recorded in run provenance are queried directly from the terminal and the OS. Two runtime signals are the only environment inputs, and neither is a configuration channel: whether the process was launched under an MPI launcher (consulted only by `--comm-backend auto` to select a backend), and `RUST_LOG`, which sets the verbosity of the diagnostic log written to stderr. `RUST_LOG` defaults to `warn`, which surfaces deprecation and model-quality warnings; `RUST_LOG=debug` (or `trace`) adds diagnostic detail — for example the per-slot boundary-policy reconciliation lines that `cobre validate` and `cobre run` otherwise fold into a one-line summary — but never changes study results, only what is logged.
+Novomodelo reads **no configuration** from environment variables. Every setting comes from the case's config/data files and from `novomodelo` CLI arguments — thread count from `--threads`, color from `--color`, and the communication backend from `--comm-backend`. Terminal width (for progress rendering under a piped stderr) and the hostname recorded in run provenance are queried directly from the terminal and the OS. Two runtime signals are the only environment inputs, and neither is a configuration channel: whether the process was launched under an MPI launcher (consulted only by `--comm-backend auto` to select a backend), and `RUST_LOG`, which sets the verbosity of the diagnostic log written to stderr. `RUST_LOG` defaults to `warn`, which surfaces deprecation and model-quality warnings; `RUST_LOG=debug` (or `trace`) adds diagnostic detail — for example the per-slot boundary-policy reconciliation lines that `novomodelo validate` and `novomodelo run` otherwise fold into a one-line summary — but never changes study results, only what is logged.

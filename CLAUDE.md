@@ -1,13 +1,13 @@
-# Cobre Docs — Development Guidelines
+# Novomodelo Docs — Development Guidelines
 
 ## Project Overview
 
-Cobre-docs is the **single, unified documentation site** for the Cobre ecosystem
+Novomodelo-docs is the **single, unified documentation site** for the Novomodelo ecosystem
 — an Astro Starlight site that layers the SDDP methodology reference (math, worked
 examples) with the user-facing software guide (install, configure, I/O, CLI,
 examples) for hydrothermal dispatch. It is the one documentation property; the
-legacy `cobre/book/` mdBook is retired and the developer/crate-internal layer now
-lives as per-crate `README.md` files + `ARCHITECTURE.md` in the `cobre` repo.
+legacy `novomodelo/book/` mdBook is retired and the developer/crate-internal layer now
+lives as per-crate `README.md` files + `ARCHITECTURE.md` in the `novomodelo` repo.
 
 - **Dev**: `npm run dev` (Astro dev server)
 - **Build**: `npm run build`; `npm run build:versions` for multi-version assembly
@@ -21,31 +21,30 @@ lives as per-crate `README.md` files + `ARCHITECTURE.md` in the `cobre` repo.
 - **Source**: all chapters live under `src/content/docs/`; the sidebar/TOC is
   configured in `astro.config.mjs` (Starlight `sidebar`), not a flat text
   table-of-contents file.
-- **Audience & domain**: the unified site serves `docs.cobre-rs.dev`;
-  `methodology.cobre-rs.dev` 301-redirects in.
+- **Audience & domain**: the unified site serves `docs.novomodelo.invalid`.
 
-The actual Cobre code at the main org repo is the **ground truth**. When specs
+The actual Novomodelo code at the main org repo is the **ground truth**. When specs
 diverge from the code, the spec must be updated — not the other way around.
 
 ---
 
 ## Current State
 
-**Synced to: cobre v0.18.0 (2026-10-07).**
+**Synced to: novomodelo v0.18.0 (2026-10-07).**
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
 version-scoped **software layer** (Configure / I·O tabs, the I/O Reference, and
-Running Cobre), organised into the interleaved sidebar configured in
+Running Novomodelo), organised into the interleaved sidebar configured in
 `astro.config.mjs`. Only crate-internal/developer architecture lives outside this
-site, as `cobre` per-crate READMEs + `ARCHITECTURE.md` (see "Unified corpus & the
+site, as `novomodelo` per-crate READMEs + `ARCHITECTURE.md` (see "Unified corpus & the
 developer surface" below). Versioning is **build-per-version**
 (`versions.json`): `latest` is built from the working tree and served at `/`,
-and each `versions[]` entry is a frozen snapshot of one earlier cobre minor,
+and each `versions[]` entry is a frozen snapshot of one earlier novomodelo minor,
 built from its `ref` (a 40-hex commit SHA on `main`, never a tag) and served at
-`/vX.Y/`. A cobre patch release updates `latest` in place; a frozen snapshot is
+`/vX.Y/`. A novomodelo patch release updates `latest` in place; a frozen snapshot is
 never edited (a fix branches from its SHA and moves `ref`). Every frozen minor
-is kept until cobre v1.0.0, then the last two or three. README `## Versioning`
+is kept until novomodelo v1.0.0, then the last two or three. README `## Versioning`
 is the freeze runbook.
 
 ---
@@ -53,13 +52,13 @@ is the freeze runbook.
 ## Hard Rules
 
 - **Ground truth**: code > spec. When they diverge, update the spec.
-- **No cobre version numbers in the math layer.** `math/*` and the overview/
-  notation/glossary carry no cobre version annotations (no "as of vX.Y",
+- **No novomodelo version numbers in the math layer.** `math/*` and the overview/
+  notation/glossary carry no novomodelo version annotations (no "as of vX.Y",
   "added in", "earlier releases", migration notes) — the math is always-true and
   instance-agnostic. The **software layer** (`_impl/*` partials, `reference/*`,
   `running/*`) may carry version-scoped config/I·O/CLI detail: each documentation
-  version (`latest` at `/` or a frozen `/vX.Y/` snapshot) describes the cobre
-  release its `versions.json` `cobre` field names. This is the two-layer expression
+  version (`latest` at `/` or a frozen `/vX.Y/` snapshot) describes the novomodelo
+  release its `versions.json` `novomodelo` field names. This is the two-layer expression
   of the T1 versioning tension.
 - **Batched edits**: a change that touches multiple chapters must land as a single
   batch (one commit / one PR) — there is no propagation registry, so the corpus
@@ -67,19 +66,20 @@ is the freeze runbook.
   the v0.10.0 sync touched block-formulations, lp-formulation, system-elements,
   penalty-system, cut-management, par-inflow, determinism, notation, the `_impl`
   partials, and the reference pages as one batched set of commits.)
-- **Serialization (cobre code fact)**: `postcard` for MPI broadcast,
+- **Serialization (novomodelo code fact)**: `postcard` for MPI broadcast,
   `FlatBuffers` for policy persistence. Never `bincode`.
-- **No `Box<dyn Trait>` (cobre code fact)**: cobre uses enum dispatch for
+- **No `Box<dyn Trait>` (novomodelo code fact)**: novomodelo uses enum dispatch for
   closed variant sets (e.g. `CommBackend`, `LocalCommKind`). The solver
   `Profile` is an associated type of `SolverInterface`, resolved at compile
   time (a generic, not an enum). Reflect this if a chapter describes the solver
   interface.
-- **Brand colours**: the site identity is **Copper** (`#B87333`), not blue — see
-  [`docs/design/brand.md`](docs/design/brand.md) before any theming. **Never infer
-  brand colour from the diagram palette** (`--dgm-*` in `src/styles/palette.css`;
-  its `--dgm-hydro` is Flow Blue for hydro/water marks only, not the UI accent).
+- **Site colours**: the accent is **Copper** (`#B87333`), not blue — read
+  `src/styles/` (`brand.css`, `neutrals.css`, `palette.css`) before any theming.
+  **Never infer the accent from the diagram palette** (`--dgm-*` in
+  `src/styles/palette.css`; its `--dgm-hydro` is Flow Blue for hydro/water marks
+  only, not the UI accent).
 - **Current-state voice, both layers.** Every page in both layers states what
-  cobre does now, with no change narration (no "now", "no longer", "previously",
+  novomodelo does now, with no change narration (no "now", "no longer", "previously",
   "used to", "formerly", "fixed in", "was broken", "BREAKING", "new in",
   "as of vX", "this release", migration notes, Before/After examples,
   removed-key lists, or "Earlier documentation…" / "Known discrepancy" boxes).
@@ -120,7 +120,7 @@ content (configuration, I/O files, output schemas, CLI, examples, results) now
   per-release config churn out of the annotation-free math file.
 - **Developer / crate internals stay OUT of the site.** Crate responsibilities,
   the dependency graph, `SolverError` classification internals, the GIL/MPI
-  safety contract, and other implementation architecture live as **`cobre`
+  safety contract, and other implementation architecture live as **`novomodelo`
   per-crate `README.md` + `ARCHITECTURE.md`** on GitHub. Reference them from a
   chapter only via a trailing cross-link, never by reintroducing the content.
 - **Two-way backlink contract**: a software-layer partial links up to the math
@@ -169,8 +169,8 @@ The software layer (`_impl/*` partials, `reference/*`, `running/*`) is the
 **version-scoped, user-facing** counterpart. It **may** carry concrete config
 keys, JSON field tables, output-schema columns, CLI flags, and example values —
 the things the math layer forbids. It still follows _code > spec_ (verify every
-field/flag against the current cobre code, not stale prose), stays user-facing
-(no crate internals — those are cobre READMEs), and keeps its `_`-prefixed
+field/flag against the current novomodelo code, not stale prose), stays user-facing
+(no crate internals — those are novomodelo READMEs), and keeps its `_`-prefixed
 partial filenames so the render split holds.
 
 ---
@@ -178,7 +178,7 @@ partial filenames so the render split holds.
 ## Quality Gates
 
 ```bash
-# export COBRE_BIN=~/.local/opt/cobre-v0.18.0/cobre-cli-x86_64-unknown-linux-gnu/cobre
+# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.18.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:python-api \
@@ -190,10 +190,10 @@ npm run check:figures && npm run check:voice && npm run check:counts \
 
 - **d2 v0.7.1** on `PATH`: without it `npm run build` and `npm run dev` abort with
   "Could not find D2".
-- **cobre v0.18.0** for `check:gc-examples`: `COBRE_BIN`, else `cobre` on `PATH`.
+- **novomodelo v0.18.0** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
   The gate exits 2 when the binary is missing, lies under a cargo
   `target/release/` or `target/debug/` directory, or reports a version other
-  than `DEFAULT_COBRE_REF` in `scripts/cobre-ref.mjs`.
+  than `DEFAULT_NOVOMODELO_REF` in `scripts/novomodelo-ref.mjs`.
 - **KaTeX strict**: `npm run build` fails on any KaTeX strict-mode violation or
   parse error (`scripts/rehype-katex-strict.mjs`); `npm run dev` does not run
   this check.
@@ -213,16 +213,16 @@ When **updating the LP / SDDP / cut / warm-start cluster** (`lp-formulation.md`,
 `sddp-algorithm.mdx`, `lp-warm-start.mdx`, `determinism-guarantees.mdx`):
 
 → Verify column/row layout against `StateSpace` in
-`crates/cobre-sddp/src/lp/indexer/state_space.rs` (the
+`crates/novomodelo-sddp/src/lp/indexer/state_space.rs` (the
 `state_to_lp_incoming_column` resolver). LP construction lives in
-`crates/cobre-sddp/src/lp/builder/` (`build_inputs.rs`, `columns.rs`,
+`crates/novomodelo-sddp/src/lp/builder/` (`build_inputs.rs`, `columns.rs`,
 `delivery_ring.rs`, `entries.rs`, `fpha_cursor.rs`, `generic_constraints.rs`,
 `hydro_state.rs`, `layout.rs`, `patch.rs`, `rows.rs`, `scaling.rs`,
 `state_box.rs`, `template.rs`); `StageGeometry` is at
 `lp/builder/layout.rs:1707`. Other owners: `lp/indexer/entity_positions.rs`,
 `lp/indexer/anticipated_plants.rs`, `lp/indexer/block_row_family.rs`, the
 crate-root `block_clock.rs`, `time_value.rs` and `bucket_topology.rs`, and
-`setup/lp_build_inputs.rs`. The normative contract is cobre's
+`setup/lp_build_inputs.rs`. The normative contract is novomodelo's
 `docs/design/lp-builder-contract.md`.
 → **State pinning**: incoming state (storage, AR lags, in-transit buckets,
 anticipated-thermal slots) is pinned by **column bounds** on the incoming-state
@@ -258,7 +258,7 @@ count equals the row count); a record that fails is left out with one
 aggregated warning (`UnusedStoredBases`), never a refusal, so a checkpoint
 loads across a changed block mode or count and the affected nodes start
 without a stored basis. Boundary injection uses no stored basis.
-→ **LP scaling**: Cobre applies its own offline geometric-mean row/col prescaler
+→ **LP scaling**: Novomodelo applies its own offline geometric-mean row/col prescaler
 plus a configurable cost-scale factor (`modeling.cost_scale_factor`, default
 `1_000_000.0` = `DEFAULT_COST_SCALE_FACTOR` in `setup/params.rs`); the LP
 backend's internal simplex scaler is **disabled by default** (HiGHS:
@@ -281,7 +281,7 @@ LP is append-only (rows never removed, bound stays monotone). The only
 Benders cut (`cut/row.rs`), present on every active row — **not** a deactivation
 sentinel. Periodic-pruning methods (`level1`/`lml1`/`domination`) deactivate;
 **DCS** keeps the pool whole and loads a bounded resident subset per solve
-(`crates/cobre-sddp/src/cut/dcs.rs`), and is inadmissible under enumerated
+(`crates/novomodelo-sddp/src/cut/dcs.rs`), and is inadmissible under enumerated
 forward traversal.
 → **Checkpoint format (self-describing)**: `policy/manifest.bin` (a
 `FlatBuffers` `CheckpointManifest` root: study graph, stage count, producer
@@ -291,7 +291,7 @@ own `cost_scale_factor` + graph identity. `FORMAT_VERSION` is `3`; every load ki
 checks in `validate_policy_load`, before any state check, that the checkpoint
 was written by exactly this build (`SoftwareIdentity::THIS_BUILD`: the same
 `SOFTWARE_NAME` at the same `SOFTWARE_VERSION`,
-`crates/cobre-io/src/output/software.rs`) and refuses any other with
+`crates/novomodelo-io/src/output/software.rs`) and refuses any other with
 `PolicySoftwareMismatch`; Python
 `write_policy_checkpoint` stamps `THIS_BUILD`. A full-FCF load never fails over
 a stored basis: one that does not fit its LP is left out with one warning
@@ -304,9 +304,9 @@ the inflow-lag depth the boundary's cuts reference widens the current lag
 state; a source slot for an entity the study does not model is dropped and
 tallied per family (`policy.boundary.strict` rejects the load instead).
 Warm-start/resume still require an exact state-dimension match
-(`crates/cobre-io/src/output/policy/records.rs`,
-`crates/cobre-sddp/src/policy/policy_load.rs`,
-`crates/cobre-sddp/src/policy/reconcile.rs`).
+(`crates/novomodelo-io/src/output/policy/records.rs`,
+`crates/novomodelo-sddp/src/policy/policy_load.rs`,
+`crates/novomodelo-sddp/src/policy/reconcile.rs`).
 
 When **updating hydro production / FPHA** (`hydro-production-models.mdx`):
 
@@ -321,8 +321,8 @@ whose FPHA source is computed, or precomputed with no hyperplane rows, resolves
 to constant productivity `0.0` with provenance
 `ProductionModelSource::NoTurbineCapacity`, no export rows, and a
 `no_turbine_capacity` entry in `training/hydro_models.json`. Verify against
-`crates/cobre-sddp/src/production/fpha_fitting/` and
-`crates/cobre-sddp/src/production/hydro_models/production.rs`.
+`crates/novomodelo-sddp/src/production/fpha_fitting/` and
+`crates/novomodelo-sddp/src/production/hydro_models/production.rs`.
 
 When **updating water travel time / cascade** (`state-augmentation.md §6`,
 `system-elements.mdx`, `_impl/_hydro.*`):
@@ -331,7 +331,7 @@ When **updating water travel time / cascade** (`state-augmentation.md §6`,
 **augmented Benders state** — in-transit buckets, one slot per downstream plant
 per maturity lag, pinned by column bounds like all state (`state_space.rs`,
 shared `delivery_ring.rs`; declared arcs in
-`crates/cobre-sddp/src/bucket_topology.rs`, `TransitBucketTopology::arcs`).
+`crates/novomodelo-sddp/src/bucket_topology.rs`, `TransitBucketTopology::arcs`).
 `InitialConditions.past_defluences` seeds stage-0 buckets; validation requires
 history ≥ the arc travel time. Output: `simulation/in_transit/`. A release
 maturing into a plant that is PreFilling at maturity lands on the water-balance
@@ -354,7 +354,7 @@ resolved on the stage calendar) — `AnticipatedConfig::{LeadStages,LeadTime}`
 commissioning-gated at its delivery stage** `t+K` (`columns.rs`,
 `lead_time/mod.rs`); a sub-stage lead → ordinary thermal; fan-out
 (`max_fanout() > 1`) is rejected at study setup with `SddpError::Validation`
-(`setup/mod.rs`; `cobre-io` has no fan-out check). A lead past the horizon is
+(`setup/mod.rs`; `novomodelo-io` has no fan-out check). A lead past the horizon is
 rejected at case load only when it exceeds the whole study horizon
 (`lead_stages` > stage count, or `lead_time_hours` > summed study hours) and the
 plant reaches no declared `post_study_stages.json` post-study stage
@@ -388,7 +388,7 @@ When **updating filling / commissioning** (`penalty-system.mdx`,
 which sits below deficit in the energy-equivalent hierarchy
 (`penalty-system.mdx`) with no load-time check of it. **Commissioning**: half-open
 `[entry_stage_id, exit_stage_id)` via `commissioning_active`
-(`crates/cobre-core/src/commissioning.rs`);
+(`crates/novomodelo-core/src/commissioning.rs`);
 for thermals/lines/NCS/pumping/contracts, outside-window columns pin to `[0,0]`;
 a pumping station in service where its source or destination hydro is not
 Operating (Filling counts as not Operating) is rejected at case load by
@@ -400,7 +400,7 @@ frozen identity, inflow and maturing transit water passed downstream to its
 short-circuit target. **Spillage** is frozen to 0 in
 PreFilling only, free during Filling and Operating (`columns.rs`; the phase is
 `hydro_phase` in `lp/builder/hydro_state.rs`, over `filling_phase` in
-`crates/cobre-core/src/commissioning.rs`).
+`crates/novomodelo-core/src/commissioning.rs`).
 → **Required `operational_start_date`** (ISO) on every `system/*` entity; canonical
 entity order is `(operational_start_date, id)` — rename-invariant, id-renumber
 moves LP/cut/output order (`system/builder.rs` `sort_canonical`).
@@ -410,31 +410,31 @@ When **updating stochastic sampling** (`scenario-generation.mdx` §2.5 and §3.2
 `_impl/_scenario.notes.mdx`):
 
 → For the forward `historical` scheme, window discovery
-(`discover_historical_windows`, `crates/cobre-stochastic/src/sampling/window.rs`)
+(`discover_historical_windows`, `crates/novomodelo-stochastic/src/sampling/window.rs`)
 builds the window pool and refuses an empty one (`no valid historical windows
 found`), which pre-empts every later check; `check_historical_structure`,
 `standardize_historical_windows` and `validate_historical_library`
-(`crates/cobre-stochastic/src/sampling/historical.rs`) then run in that order:
+(`crates/novomodelo-stochastic/src/sampling/historical.rs`) then run in that order:
 `check_historical_structure` runs V2.1 and V2.9 (errors) and returns the
 `HistoricalStructureProof` that standardization requires, standardization
 standardizes each window, and the library check runs V2.3 (an error) and V2.6
 (a warning); its V2.5 is unreachable behind the empty-pool refusal. V2.2, V2.4 and V2.7
 are construction invariants with no release-build check (only V2.7 is
 re-asserted, by a `debug_assert!`). Lag seasons come from the calendar walk in
-`crates/cobre-stochastic/src/season_cast/mod.rs` (`season_period_window`,
+`crates/novomodelo-stochastic/src/season_cast/mod.rs` (`season_period_window`,
 `previous_occurrence`, `nth_previous_occurrence`,
 `StageCalendar::season_occurrences`) over the per-level cycles of `SeasonCycles`
-(`crates/cobre-core/src/model/temporal.rs`; an `overlapping_pair` is refused in
-`crates/cobre-io/src/stages.rs`), never from arithmetic on declared season ids.
+(`crates/novomodelo-core/src/model/temporal.rs`; an `overlapping_pair` is refused in
+`crates/novomodelo-io/src/stages.rs`), never from arithmetic on declared season ids.
 Pre-study lag seasons for precompute and fitting come from `StitchedSeasonMap`
 (`season_cast/stitched.rs`), history keys from `observation_occurrence_year`,
 and fitting and correlation relabel to calendar positions on single-level maps
 only (`par/fitting/cycle_positions.rs`). The `historical_residuals` noise method
-(`crates/cobre-io/src/stages.rs`) builds the opening tree from the same library
+(`crates/novomodelo-io/src/stages.rs`) builds the opening tree from the same library
 (`build_opening_tree_library` in
-`crates/cobre-sddp/src/setup/stochastic_pipeline.rs`). `cobre validate` builds the
+`crates/novomodelo-sddp/src/setup/stochastic_pipeline.rs`). `novomodelo validate` builds the
 opening-tree library and constructs `StudySetup` for every deck (`validate_study`,
-`crates/cobre-sddp/src/validate_phases.rs`), so it also builds the forward
+`crates/novomodelo-sddp/src/validate_phases.rs`), so it also builds the forward
 scheme's library and reports the refusals `run` reports for it.
 
 When **updating the generic-constraint `hydro_inflow` term**
@@ -442,8 +442,8 @@ When **updating the generic-constraint `hydro_inflow` term**
 §10, Hydro Inflow):
 
 → `hydro_inflow` parses as a block-capable variable
-(`crates/cobre-io/src/constraints/generic.rs`) and `resolve_hydro_inflow`
-(`crates/cobre-sddp/src/lp/builder/generic_constraints.rs`) resolves it to a
+(`crates/novomodelo-io/src/constraints/generic.rs`) and `resolve_hydro_inflow`
+(`crates/novomodelo-sddp/src/lp/builder/generic_constraints.rs`) resolves it to a
 **rate** identity (m³/s), not the `−τ`-weighted storage-balance row: the plant's
 local `z_inflow` column, inflow diverted into the plant, upstream releases
 weighted by the share the downstream balance row credits to the block, and
@@ -460,27 +460,27 @@ When **updating policy reuse and its gates** (`running/policy-management.mdx`,
 `### Check order`, `### Version gate`, `### Stored-basis gate`) and
 `error-codes.mdx` owns the error messages. The code is `validate_policy_load`,
 `build_basis_cache_from_checkpoint` and `admit_stored_basis`
-(`crates/cobre-sddp/src/policy/policy_load.rs`), `check_full_fcf_load` (the
+(`crates/novomodelo-sddp/src/policy/policy_load.rs`), `check_full_fcf_load` (the
 full-FCF load shared by the CLI and Python,
-`crates/cobre-sddp/src/policy/full_fcf_load.rs`), the software identity that
+`crates/novomodelo-sddp/src/policy/full_fcf_load.rs`), the software identity that
 `validate_policy_load` compares (`SoftwareIdentity`,
-`crates/cobre-io/src/output/software.rs`),
-`crates/cobre-sddp/src/policy/reconcile.rs`,
-`crates/cobre-sddp/src/validate_phases.rs` (`cobre validate` runs the
-configured load) and `crates/cobre-cli/src/commands/run/policy.rs`. The gate facts are in the
+`crates/novomodelo-io/src/output/software.rs`),
+`crates/novomodelo-sddp/src/policy/reconcile.rs`,
+`crates/novomodelo-sddp/src/validate_phases.rs` (`novomodelo validate` runs the
+configured load) and `crates/novomodelo-cli/src/commands/run/policy.rs`. The gate facts are in the
 **Checkpoint format** bullet of the LP cluster above.
 
 When **updating discounting** (`discount-rate.mdx`,
 `_impl/_discount.configure.mdx`, `post-study-boundary.md`):
 
-→ `compute_per_stage_discount_factors` (`crates/cobre-sddp/src/time_value.rs`)
+→ `compute_per_stage_discount_factors` (`crates/novomodelo-sddp/src/time_value.rs`)
 gives each stage the one-step factor `d_t = 1/(1+r_t)^(Δt/365.25)`, `Δt` the stage
 duration in days. `r_t` is the stage's `annual_discount_rate_override`
-(`crates/cobre-io/src/stages.rs`; in the chain dialect a stage without one takes
+(`crates/novomodelo-io/src/stages.rs`; in the chain dialect a stage without one takes
 its departing transition's override, a per-edge spelling `nodes[]` rejects), else
 the global `policy_graph.annual_discount_rate`. The θ objective coefficient is
 `discount_factors()[stage]`, not divided by the cost scale factor that divides
-every other objective coefficient (`crates/cobre-sddp/src/lp/builder/template.rs`).
+every other objective coefficient (`crates/novomodelo-sddp/src/lp/builder/template.rs`).
 `relative_delivery_discount` (same `time_value.rs`) is `D(delivery)/D(decision)`,
 the cumulative-factor ratio that discounts an anticipated commitment's cost.
 
@@ -491,15 +491,15 @@ Plot island under `src/figures/` + `src/components/`):
 **Two tools only** on the site: **d2** draws every diagram (build-time SVG, one
 themable keystone in `src/styles/diagrams.css`); **Observable Plot** draws every
 computed math plot. **Mermaid was retired (2026-07)** on the site — never add a
-` ```mermaid ` fence here (it is fine in the `cobre` READMEs/ARCHITECTURE.md, which
+` ```mermaid ` fence here (it is fine in the `novomodelo` READMEs/ARCHITECTURE.md, which
 GitHub renders). Semantic node colours (hydro→Flow Blue, thermal→Spark Amber,
 NCS→Patina, deficit→Signal Red, generic→copper) come from the `classes` vocabulary
 in diagram-authoring.md §4.2, not ad-hoc hex.
 
-**JSON schemas**: the 18 input schemas are generated in `cobre` from `cobre-io`
+**JSON schemas**: the 18 input schemas are generated in `novomodelo` from `novomodelo-io`
 types; this site **vendors** a committed copy (`public/schemas/`) refreshed by
-`npm run refresh:schemas -- --ref <tag>` (reads a git ref, never the cobre working
-tree). Refresh on each cobre release; the freshness gate stays in `cobre`.
+`npm run refresh:schemas -- --ref <tag>` (reads a git ref, never the novomodelo working
+tree). Refresh on each novomodelo release; the freshness gate stays in `novomodelo`.
 
 ---
 
@@ -507,9 +507,8 @@ tree). Refresh on each cobre release; the freshness gate stays in `cobre`.
 
 | Resource                  | Location                                                        | Purpose                                                      |
 | ------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------- |
-| Cobre code (ground truth) | `https://github.com/cobre-rs/cobre/`                           | Actual implementation                                       |
-| Unified docs site         | `https://docs.cobre-rs.dev/`                                   | This site (methodology + software layer)                    |
-| Crate READMEs + ARCHITECTURE | `https://github.com/cobre-rs/cobre/` (`crates/*/README.md`, `ARCHITECTURE.md`) | Developer/crate-internal surface (not on the site) |
-| CHANGELOG                 | `https://github.com/cobre-rs/cobre/CHANGELOG.md`               | Per-release feature list (sync source)                      |
+| Novomodelo code (ground truth) | `https://github.com/ons-ccee-epe/novomodelo/`                           | Actual implementation                                       |
+| Unified docs site         | `https://docs.novomodelo.invalid/`                                   | This site (methodology + software layer)                    |
+| Crate READMEs + ARCHITECTURE | `https://github.com/ons-ccee-epe/novomodelo/` (`crates/*/README.md`, `ARCHITECTURE.md`) | Developer/crate-internal surface (not on the site) |
+| CHANGELOG                 | `https://github.com/ons-ccee-epe/novomodelo/CHANGELOG.md`               | Per-release feature list (sync source)                      |
 | Diagram authoring guide   | [`docs/design/diagram-authoring.md`](docs/design/diagram-authoring.md) | Tool selection + design system for diagrams        |
-| Brand & colour            | [`docs/design/brand.md`](docs/design/brand.md)                 | Site colour/identity — **Copper** primary, Flow Blue for links/hydro only |

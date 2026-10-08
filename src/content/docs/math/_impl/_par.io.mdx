@@ -31,13 +31,13 @@ the Reference corpus.
 
 ### Externally-fitted PAR models
 
-Cobre accepts fully user-supplied parameters — you may fit a PAR($p$) model with
-**any** method outside Cobre and hand it the two parquet files (the
+Novomodelo accepts fully user-supplied parameters — you may fit a PAR($p$) model with
+**any** method outside Novomodelo and hand it the two parquet files (the
 `UserProvidedNoHistory` and `UserProvidedAll` paths on the Configure tab).
-Cobre then skips fitting, validates the inputs, and derives the innovation
+Novomodelo then skips fitting, validates the inputs, and derives the innovation
 scale $r_m$ from your supplied $\psi^*$ via the periodic-ACF closure (see
 [Deriving the innovation scale](/math/par-inflow-model#41-deriving-the-innovation-scale)). The fields do **not**
-encode Cobre's fitting method — they encode the [two-plane
+encode Novomodelo's fitting method — they encode the [two-plane
 representation](/math/par-inflow-model) — so any fit maps onto them by the table
 below. Let $s_m$ be your series' seasonal sample std and $\psi_{m,\ell}$ your
 original-unit AR coefficients.
@@ -48,23 +48,23 @@ original-unit AR coefficients.
 | `std_m3s` (`inflow_seasonal_stats`)             | $s_m$                                       | Seasonal **sample** std of the series (m³/s)              |
 | `coefficient` (`inflow_ar_coefficients`)        | $\psi^*_{m,\ell} = \psi_{m,\ell}\,s_{m-\ell}/s_m$ | AR coefficient **standardized by the seasonal std**       |
 
-There is no column for your model's own innovation std $\sigma_m$: Cobre
+There is no column for your model's own innovation std $\sigma_m$: Novomodelo
 always **derives** $r_m = \sigma_m/s_m$ from the $\psi^*_{m,\ell}$ you supply,
 the same way it derives $r_m$ for an internally-fitted model (see
 [Deriving the innovation scale](/math/par-inflow-model#41-deriving-the-innovation-scale)). If your own fit's
 $\hat\sigma_m$ is not exactly consistent with your supplied $\psi^*$ under the
-periodic-ACF closure, Cobre's derived $\sigma_m$ differs from your original
+periodic-ACF closure, Novomodelo's derived $\sigma_m$ differs from your original
 fit's — the closure derives the noise scale so the seasonal std $s_m$ you
 supply is honored exactly.
 
-Rules Cobre enforces (or that silently mis-scale the model if broken):
+Rules Novomodelo enforces (or that silently mis-scale the model if broken):
 
 - **Standardize by the seasonal std, consistently.** The coefficients are those
   of the series standardized by its seasonal sample std — the classical
   standardization — and the $s_m$ you divide by must be exactly the `std_m3s`
-  you store: Cobre reconstructs $\psi_{m,\ell}$ and $\sigma_m$ from the stored `std_m3s`,
+  you store: Novomodelo reconstructs $\psi_{m,\ell}$ and $\sigma_m$ from the stored `std_m3s`,
   so a mismatch is silent.
-- **Cobre hard-rejects a coefficient set that fails its stationarity gate.**
+- **Novomodelo hard-rejects a coefficient set that fails its stationarity gate.**
   The gate runs the [periodic-ACF closure](/math/par-inflow-model) on your
   supplied $\psi^*$ and rejects the whole load when the closure system is
   singular, the implied innovation variance is at or below a numerical floor for any
@@ -99,7 +99,7 @@ The entire `output/stochastic/` directory is written **only when the case sets `
 | `output/stochastic/inflow_seasonal_stats.parquet` | The seasonal statistics the run used, fitted or read from `scenarios/`, same schema as the input file — written on every stochastic export. |
 | `output/stochastic/inflow_ar_coefficients.parquet` | The AR coefficients the run used, fitted or read from `scenarios/`, same schema as the input file — written on every stochastic export. |
 | `output/stochastic/inflow_annual_component.parquet` | The PAR(p)-A annual triple the run used, fitted or read from `scenarios/` — written on every stochastic export; it carries rows only for the stage models with an annual term (a classical PAR(p) model has none), so it can hold no rows. |
-| `output/stochastic/fitting_report.json` | Per-hydro summary of the selected AR order and coefficients, a human-readable complement to the parquet outputs above — written only when Cobre estimated part or all of the inflow model (its seasonal statistics, its AR coefficients or both) from `inflow_history.parquet`. |
+| `output/stochastic/fitting_report.json` | Per-hydro summary of the selected AR order and coefficients, a human-readable complement to the parquet outputs above — written only when Novomodelo estimated part or all of the inflow model (its seasonal statistics, its AR coefficients or both) from `inflow_history.parquet`. |
 | `output/stochastic/correlation.json` | Round-trip export of the resolved correlation model, in the same schema as the `scenarios/correlation.json` input. |
 | `output/stochastic/noise_openings.parquet` | The backward-pass opening tree actually used during training, exported when `exports.stochastic: true`. To replay it on a subsequent run, follow [Running Studies — Round-trip workflow](/running/running-studies/#round-trip-workflow), which covers the copy into `scenarios/noise_openings.parquet` and the `openings` declaration; the copy loads only when the case's declared stage ids are 0, 1, 2, … (the export numbers stages by 0-based position, and the load refuses other ids) — see [Scenario Generation](/math/scenario-generation) for the opening-tree mechanics themselves (out of scope here). |
 

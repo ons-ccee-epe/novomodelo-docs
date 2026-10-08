@@ -8,7 +8,7 @@ import { Content as WarmStartNotes } from './_impl/_warm-start.notes.mdx';
 
 ## Purpose
 
-This chapter describes how Cobre reuses an LP basis to accelerate solves. Two
+This chapter describes how Novomodelo reuses an LP basis to accelerate solves. Two
 related mechanisms are covered. The **per-(scenario, node) basis store** holds
 at most one basis per trial point per policy-graph node, and the forward and
 backward passes hand bases to one another through it, so that a basis found by
@@ -46,7 +46,7 @@ solves at the same stage are very similar.
 
 ## 2. Per-(Scenario, Node) Basis Store
 
-Cobre keeps a basis store keyed by `(scenario, node)`: the scenario identifies a
+Novomodelo keeps a basis store keyed by `(scenario, node)`: the scenario identifies a
 trial point, and the node is a node of the [policy graph](/math/policy-graphs);
 on a stage chain (one node per stage) a node is a stage. The store holds at most
 one captured basis — the partition of variables and constraints into basic and
@@ -144,7 +144,7 @@ statuses were replayed by row position, a churned cut set of the same length
 would misalign — and the solver would warm-start from a corrupted basis or fall
 back to a cold start.
 
-Cobre avoids this by reconciling on **slot identity**, not position. The cut
+Novomodelo avoids this by reconciling on **slot identity**, not position. The cut
 pool assigns every cut a stable slot index (see [Cut Management §5](/math/cut-management)),
 and a stored basis carries, for each cut row it held, the pool slot that
 generated it. To reconstruct a basis for the current LP:
@@ -196,10 +196,10 @@ apply, and what status should cut rows new to this LP take?" The store provides
 the starting point; reconstruction reconciles it to the current cut set by slot
 identity, defaulting cut rows with no stored slot to BASIC.
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
 The methodology above defines the basis store, its hand-off and its
-reconstruction; the tab below covers how Cobre's training and simulation passes
+reconstruction; the tab below covers how Novomodelo's training and simulation passes
 use the store at runtime.
 
 <Tabs>

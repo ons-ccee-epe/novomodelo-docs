@@ -7,11 +7,11 @@
 // which keeps unit marginal variance in every season. Seasons are 0-based in
 // code (1-based on the page); `psiStar[m]` is the lag-1 coefficient of season m.
 //
-// The sample estimator follows cobre's periodic autocorrelation in these
+// The sample estimator follows novomodelo's periodic autocorrelation in these
 // respects: per-season mean and population standard deviation, year-aligned
 // pairs, population divisor (number of pairs), 0 when either season's std is
 // below machine epsilon or no pair exists, clamped to [−1, 1], lag 0 equal to 1.
-// Year-alignment is calendar-exact at every lag, as in cobre. The PACF is the
+// Year-alignment is calendar-exact at every lag, as in novomodelo. The PACF is the
 // last coefficient of the progressive periodic Yule-Walker solves (Gaussian
 // elimination with partial pivoting; a singular order ends the sequence).
 
