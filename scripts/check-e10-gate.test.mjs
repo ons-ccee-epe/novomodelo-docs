@@ -53,7 +53,7 @@ test("buffersIdentical: a non-Buffer argument is rejected (not silently equal)",
 // --- footerHasNotices -------------------------------------------------------
 
 // The rendered Footer.astro notices block: a root build emits
-// href="/THIRD-PARTY-NOTICES.txt", the CC-BY-4.0 token, and an Apache-2.0
+// href="/THIRD-PARTY-NOTICES.txt", the Apache-2.0 token, and an
 // href="…/LICENSE" link. Mirrors the substrings the gate greps in dist/index.html.
 const ROOT_FOOTER = [
   '<div class="sl-footer-notices">',
@@ -61,8 +61,7 @@ const ROOT_FOOTER = [
   '<p class="sl-footer-notice">© 2026 Operador Nacional do Sistema Elétrico - ONS, Câmara de Comercialização ',
   "de Energia Elétrica - CCEE, Empresa de Pesquisa Energética - EPE and Contributors, adapted from the ",
   '<a href="https://github.com/cobre-rs/cobre-docs">Cobre Methodology Documentation</a> ',
-  "© 2026 Rogerio J. M. Alves and Cobre Contributors — text &amp; figures ",
-  '<a href="https://creativecommons.org/licenses/by/4.0/">CC-BY-4.0</a>, code ',
+  "© 2026 Rogerio J. M. Alves and Cobre Contributors — licensed under ",
   '<a href="https://github.com/ons-ccee-epe/novomodelo-docs/blob/main/LICENSE">Apache-2.0</a></p>',
   "</div>",
 ].join("");
@@ -99,13 +98,13 @@ test("footerHasNotices: a missing notices link is reported", () => {
   );
 });
 
-test("footerHasNotices: a missing CC-BY-4.0 token is reported", () => {
-  const noCc = ROOT_FOOTER.replace("CC-BY-4.0", "some-other-license");
-  const r = footerHasNotices(noCc);
+test("footerHasNotices: a missing Apache-2.0 token is reported", () => {
+  const noToken = ROOT_FOOTER.replace("Apache-2.0", "some-other-license");
+  const r = footerHasNotices(noToken);
   assert.equal(r.ok, false);
   assert.ok(
-    r.missing.some((m) => /CC-BY-4\.0/.test(m)),
-    "expected the missing CC-BY-4.0 cause",
+    r.missing.some((m) => /Apache-2\.0/.test(m)),
+    "expected the missing Apache-2.0 cause",
   );
 });
 
@@ -136,7 +135,7 @@ test("footerHasNotices: the bare filename in prose (no href attr) does NOT satis
   // mentions the file in prose is correctly reported as missing the link.
   const prose =
     "See THIRD-PARTY-NOTICES.txt for details. " +
-    '<a href="/x/LICENSE">CC-BY-4.0</a>';
+    '<a href="/x/LICENSE">Apache-2.0</a>';
   const r = footerHasNotices(prose);
   assert.equal(r.ok, false);
   assert.ok(r.missing.some((m) => /href ending in THIRD-PARTY-NOTICES\.txt/.test(m)));

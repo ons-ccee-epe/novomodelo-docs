@@ -253,13 +253,13 @@ function main() {
   // (c) Content license pointer
   lines.push("Documentation content license");
   lines.push(
-    "The documentation text and diagrams authored by the Novomodelo project are licensed",
+    "The documentation text, figures and code authored by the Novomodelo project are",
   );
   lines.push(
-    "separately under the terms in the LICENSE-docs file at the site root",
+    "licensed under the Apache License 2.0 (the LICENSE file of the novomodelo-docs",
   );
   lines.push(
-    "(ticket-034). This file covers only the third-party software components.",
+    "repository). This file covers only the third-party software components.",
   );
   lines.push("");
 
