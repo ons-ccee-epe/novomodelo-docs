@@ -4,8 +4,9 @@
 ecosystem — the mathematics, algorithm, and worked examples behind its
 SDDP-based hydrothermal dispatch, together with how the software implements them.
 
-Published at **[docs.novomodelo.invalid](https://docs.novomodelo.invalid)**, built
-with [Astro Starlight](https://starlight.astro.build/).
+Built with [Astro Starlight](https://starlight.astro.build/). The site is not
+published yet: it goes live at the fork's documentation domain, for which
+`docs.novomodelo.invalid` stands in (see **Deployment**).
 
 > **Scope.** This is the **single, unified** docs site: an annotation-free math
 > layer (formulation, algorithm, worked examples) interleaved per topic with a
@@ -95,7 +96,8 @@ npm run check:e10     # third-party-notices / content-licensing completeness
 
 A push to `main` triggers `.github/workflows/starlight-deploy.yml`, which builds the
 site, runs the build checks, and publishes it to GitHub Pages at
-`docs.novomodelo.invalid`. The full gate
+`docs.novomodelo.invalid`. The workflow stays disabled in this repository until the
+fork's documentation domain exists, so nothing is published yet. The full gate
 suite, including the doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on
 pull requests to `main`.
 
@@ -162,12 +164,25 @@ on a squash, because the fix commit is then not an ancestor of HEAD.
 builds them all). The first bump that breaks one switches the snapshot builds to
 a per-snapshot `npm ci`.
 
+## Origin and credits
+
+novomodelo-docs is developed by Operador Nacional do Sistema Elétrico - ONS,
+Câmara de Comercialização de Energia Elétrica - CCEE and Empresa de Pesquisa
+Energética - EPE, with other contributors, as a fork of
+[cobre-docs](https://github.com/cobre-rs/cobre-docs), the documentation of
+[Cobre](https://github.com/cobre-rs/cobre). The fork was created from
+cobre-docs's documentation of the Cobre v0.18.0 release (commit `71f0cb9`,
+tagged `fork-point` in this repository); every commit up to and including it is
+cobre-docs's and is preserved unchanged here.
+
 ## License
 
 Dual-licensed:
 
 - **Code** (build scripts, Astro components, configuration) — [Apache-2.0](LICENSE).
-- **Content** (prose, equations, figures) — [CC-BY-4.0](LICENSE-docs).
+- **Content** (prose, equations, figures) — [CC-BY-4.0](LICENSE-docs), adapted
+  from the Cobre Methodology Documentation; [`NOTICE`](NOTICE) carries the
+  attribution.
 
 See [`LICENSE-docs`](LICENSE-docs) for how the two compose, and
 [`public/THIRD-PARTY-NOTICES.txt`](public/THIRD-PARTY-NOTICES.txt) for the bundled
