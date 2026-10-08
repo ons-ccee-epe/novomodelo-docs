@@ -96,10 +96,10 @@ npm run check:e10     # third-party-notices / content-licensing completeness
 
 A push to `main` triggers `.github/workflows/starlight-deploy.yml`, which builds the
 site, runs the build checks, and publishes it to GitHub Pages at
-`docs.novomodelo.invalid`. The workflow stays disabled in this repository until the
-fork's documentation domain exists, so nothing is published yet. The full gate
-suite, including the doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on
-pull requests to `main`.
+`docs.novomodelo.invalid`. Nothing is published yet: GitHub Pages is not enabled for
+this repository, and `docs.novomodelo.invalid` stands in for the fork's documentation
+domain. The full gate suite, including the doc-lint gates, runs in
+`.github/workflows/starlight-ci.yml` on pull requests to `main`.
 
 ## Versioning
 
