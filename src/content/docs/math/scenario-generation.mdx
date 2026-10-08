@@ -9,7 +9,7 @@ import { Content as ScenarioNotes } from './_impl/_scenario.notes.mdx';
 
 ## Purpose
 
-This chapter defines the Cobre scenario generation methodology. It covers
+This chapter defines the Novomodelo scenario generation methodology. It covers
 reproducible noise generation, correlated noise generation, the opening tree
 concept, the sampling scheme abstraction that governs how scenarios are selected
 in forward and backward passes, external scenario integration, load and
@@ -44,7 +44,7 @@ The generation process:
    eigenvalues are clipped to zero, which gives the nearest
    positive-semidefinite matrix in the Frobenius norm; its diagonal can exceed
    one (see [PAR(p) Inflow Model](/math/par-inflow-model#6-spatial-correlation-factorisation)).
-   Spectral factorisation is the only method Cobre implements, and the same
+   Spectral factorisation is the only method Novomodelo implements, and the same
    section gives the rationale.
 3. **Entity assignment** — Each entity in the group receives its own
    correlated noise value $\varepsilon_i$ from the transformed vector.
@@ -91,7 +91,7 @@ broadcast format.
 
 Each seed is a hash of a fixed-width tuple of integers, encoded little-endian so
 that the result is identical on every platform. The Implementation notes tab
-under [Implementation in Cobre](#implementation-in-cobre) gives the tuple
+under [Implementation in Novomodelo](#implementation-in-novomodelo) gives the tuple
 layouts.
 
 ### 2.3 Opening Tree
@@ -100,7 +100,7 @@ The backward pass in SDDP evaluates an aggregated cut at a node by solving
 **all** of that node's openings — the within-node opening set $\Omega_n$
 defined in [Policy Graphs](/math/policy-graphs) section 2. These openings must
 be identical across all iterations — the backward pass always "sees the same
-tree" at every node. Cobre fixes each node's opening set before training and
+tree" at every node. Novomodelo fixes each node's opening set before training and
 visits all of it in every backward pass. This fixed, per-node structure is the
 **opening tree**. On the implicit stage chain — one (unnamed) node per stage,
 the case the rest of this chapter documents — $\Omega_n$ collapses to the
@@ -201,7 +201,7 @@ source the forward pass uses. The methods are:
   each coordinate on its own prime base, with random digit scrambling, mapped
   by $\Phi^{-1}$.
 - **Selective** — The openings are supplied as a pre-built tree, which provides
-  the openings of every stage, whatever method the stage selects. Cobre
+  the openings of every stage, whatever method the stage selects. Novomodelo
   generates none, and a stage selecting this method without a supplied tree is
   rejected.
 - **Historical residuals** — Each opening carries the standardized inflow noise
@@ -286,7 +286,7 @@ same inflow.
 ### 3.1 Three Orthogonal Concerns
 
 The SDDP algorithm has three concerns that govern
-how scenarios are handled during training. Cobre formalizes these as distinct
+how scenarios are handled during training. Novomodelo formalizes these as distinct
 abstractions, following the design established by SDDP.jl ([Dowson & Kapelevich, 2021](/reference/bibliography/#software-references)):
 
 | Concern                                              | Abstraction            | What It Controls                 | Default    |
@@ -319,7 +319,7 @@ and need not close or stay non-negative.
 ### 3.2 Forward Sampling Schemes
 
 The sampling scheme determines how the forward pass selects a scenario
-realization at each stage. Cobre supports four sampling schemes, chosen
+realization at each stage. Novomodelo supports four sampling schemes, chosen
 independently for each stochastic class (inflow, load, NCS); the Historical
 scheme applies to the inflow class only:
 
@@ -469,7 +469,7 @@ For every hydro, each window must cover the season occurrence of every study sta
 ### 3.3 Forward Pass Model
 
 The forward pass model determines which LP is solved at each stage during the
-forward pass. Cobre implements one model:
+forward pass. Novomodelo implements one model:
 
 - **Default** — Solve the training LP (the convex LP used for cut generation)
   with the scenario realization from the sampling scheme. This is the standard
@@ -478,7 +478,7 @@ forward pass. Cobre implements one model:
 ### 3.4 Backward Sampling
 
 The backward sampling scheme determines which noise terms are evaluated at each
-stage during the backward pass. Cobre implements one scheme:
+stage during the backward pass. Novomodelo implements one scheme:
 
 - **Complete** — Evaluate **all** $N_{\text{openings}}$ noise vectors from the
   fixed opening tree. This is the standard SDDP backward pass that guarantees
@@ -492,7 +492,7 @@ replacement.
 
 ### 4.1 External Scenario Sources
 
-Cobre supports external scenarios — pre-generated realizations indexed by
+Novomodelo supports external scenarios — pre-generated realizations indexed by
 scenario, of which each forward trajectory replays one (§3.2) — as an
 alternative forward-pass noise source. External scenarios can drive the
 forward pass in **both training and simulation**. For each class that is
@@ -556,7 +556,7 @@ branchings.
 
 ### 4.3 Noise Inversion for External and Historical Scenarios
 
-When using external or historical scenarios, Cobre must compute the **implied
+When using external or historical scenarios, Novomodelo must compute the **implied
 noise values** that would have generated those inflows under the PAR model.
 This is required because the backward pass needs noise values to construct the
 appropriate RHS perturbations for cut generation, and the lower bound and
@@ -607,7 +607,7 @@ lag buffer for the next):
 
 A class's external column may be **constant** — every realization identical,
 standard deviation zero. Because the class statistics are derived from the
-samples themselves (§4.1), Cobre reads that as a genuinely deterministic series
+samples themselves (§4.1), Novomodelo reads that as a genuinely deterministic series
 rather than a malformed one, and **accepts** it for load, for non-controllable
 sources, and for an inflow with an **order-0** model (no autoregressive lag and
 no annual component): the deterministic base is exactly that constant value.
@@ -785,9 +785,9 @@ the product of the per-stage branching counts, so it grows exponentially with
 the number of branching stages. Enumeration suits short horizons and trees that
 branch at few stages.
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
-The methodology above defines how scenarios are generated and sampled; the tabs below cover how Cobre's software surface configures the schemes, seeds and inputs, and how it implements seed derivation, the inversion lag chain and its warnings.
+The methodology above defines how scenarios are generated and sampled; the tabs below cover how Novomodelo's software surface configures the schemes, seeds and inputs, and how it implements seed derivation, the inversion lag chain and its warnings.
 
 <Tabs>
   <TabItem label="Configure"><ScenarioConfigure /></TabItem>

@@ -27,7 +27,7 @@ every computed math plot.
 Observable Plot covers the math-plot role (it _computes_ the curve from tested
 code — d2 cannot). D2 covers everything else. There are no other diagram tools
 on the site, and **no Mermaid**: flowcharts are d2, so every diagram renders at
-build time with one themable keystone. (Mermaid stays fine in the `cobre`
+build time with one themable keystone. (Mermaid stays fine in the `novomodelo`
 READMEs and `ARCHITECTURE.md`, which GitHub renders.)
 
 ### 1.2 Decision tree

@@ -8,7 +8,7 @@ built-in `1dtoy` template. The template models a single-bus hydrothermal system 
 one hydro plant and two thermal units over a 4-stage finite planning horizon — small
 enough to run in seconds, complete enough to demonstrate every stage of the workflow.
 
-If you have not installed Cobre yet, start with [Installation](/getting-started/installation).
+If you have not installed Novomodelo yet, start with [Installation](/getting-started/installation).
 
 ![Quick Start Demo](/getting-started/quickstart.gif)
 
@@ -17,17 +17,17 @@ If you have not installed Cobre yet, start with [Installation](/getting-started/
 ## Step 1: Scaffold a Case Directory
 
 ```bash
-cobre init --template 1dtoy my_first_study
+novomodelo init --template 1dtoy my_first_study
 ```
 
-Cobre writes 11 input files into a new `my_first_study/` directory and prints a
+Novomodelo writes 11 input files into a new `my_first_study/` directory and prints a
 summary to stderr:
 
-{/* capture: cobre init --template 1dtoy my_first_study 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: none; run from an empty working directory with a relative case path, so no absolute path appears */}
+{/* capture: novomodelo init --template 1dtoy my_first_study 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: none; run from an empty working directory with a relative case path, so no absolute path appears */}
 
 ```
  ╺━━━━━━━━━╻●
- ╺━━━━━━━━━╻●⚡  COBRE v0.18.0
+ ╺━━━━━━━━━╻●⚡  NOVOMODELO v0.18.0
  ╺━━━━━━━━━╻●   Power systems in Rust
 
 Created my_first_study case directory from template '1dtoy':
@@ -45,8 +45,8 @@ Created my_first_study case directory from template '1dtoy':
   ✔ scenarios/load_seasonal_stats.parquet  Seasonal PAR(p) statistics for electrical load scenario generation (mean, std, lag correlations)
 
 Next steps:
-  -> cobre validate my_first_study
-  -> cobre run my_first_study --output my_first_study/results
+  -> novomodelo validate my_first_study
+  -> novomodelo run my_first_study --output my_first_study/results
 ```
 
 The directory structure is:
@@ -73,15 +73,15 @@ my_first_study/
 ## Step 2: Validate the Case
 
 ```bash
-cobre validate my_first_study
+novomodelo validate my_first_study
 ```
 
 The validation pipeline checks every layer — schema, references, physical
 feasibility and stochastic consistency — then
-builds the study as `cobre run` does and checks any policy the run would load,
+builds the study as `novomodelo run` does and checks any policy the run would load,
 without solving an LP, and prints a single line of entity counts on success:
 
-{/* capture: cobre validate my_first_study | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: 1dtoy (cobre init --template 1dtoy) */}
+{/* capture: novomodelo validate my_first_study | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -89,7 +89,7 @@ Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
 
 That is the whole output for a warning-free case; a case that raises warnings
 adds a `Validation: 0 errors, N warnings in <dir>` summary and one `warning:`
-line per finding. If any layer fails, Cobre prints a
+line per finding. If any layer fails, Novomodelo prints a
 `Validation: N errors, 0 warnings in <dir>` summary followed by each error
 prefixed with `error:`, and exits non-zero: `1` for a refused case, `2` for a declared opening-tree file that is absent
 (see [CLI Reference — Exit Codes](/reference/cli-reference/#exit-codes)). The 1dtoy template always passes
@@ -100,15 +100,15 @@ validation.
 ## Step 3: Run the Study
 
 ```bash
-cobre run my_first_study --output my_first_study/results
+novomodelo run my_first_study --output my_first_study/results
 ```
 
-Cobre runs the SDDP training loop (128 iterations, 1 forward pass each) followed by
+Novomodelo runs the SDDP training loop (128 iterations, 1 forward pass each) followed by
 a simulation pass (100 scenarios). Output is written to `my_first_study/results/`.
 The banner, an execution/setup header, and progress bars are printed to stderr;
 once the progress bars finish, the rest of stderr is the post-run summary:
 
-{/* capture: cobre run my_first_study --output my_first_study/results 2>&1, post-run summary excerpt | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: 1dtoy (cobre init --template 1dtoy); timings vary run to run */}
+{/* capture: novomodelo run my_first_study --output my_first_study/results 2>&1, post-run summary excerpt | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy (novomodelo init --template 1dtoy); timings vary run to run */}
 
 ```
 Training complete in 0.4s (128 iterations, iteration_limit)
@@ -248,7 +248,7 @@ The convergence history and the simulation costs are plain Parquet files. Instal
 `training/convergence.parquet` and summarises the per-scenario costs in
 `simulation/costs/`:
 
-{/* capture: python read results (polars) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on 1dtoy (cobre init --template 1dtoy) */}
+{/* capture: python read results (polars) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```python
 import polars as pl
@@ -297,7 +297,7 @@ also carries the future-cost estimate, so summing it does not reproduce the expe
 The second snippet plots both bounds against the iteration number. It writes
 `convergence.png` to the working directory, so it runs without a display:
 
-{/* capture: python plot convergence (matplotlib) | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of cobre run (cobre-cli sha256 93cb7307) on 1dtoy (cobre init --template 1dtoy) */}
+{/* capture: python plot convergence (matplotlib) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```python
 import matplotlib
@@ -351,12 +351,12 @@ Run the study again into a second output directory, so that the Step 3 results s
 available for comparison. The 2000-scenario simulation writes about 10,000 files, roughly 70 MB:
 
 ```bash
-cobre run my_first_study --output my_first_study/results-more
+novomodelo run my_first_study --output my_first_study/results-more
 ```
 
 The post-run summary, as an excerpt (the timings vary with the machine):
 
-{/* capture: cobre run my_first_study --output my_first_study/results-more 2>&1, excerpt | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: 1dtoy (cobre init --template 1dtoy) + config.json training.selection.forward_passes 10, simulation.selection.num_scenarios 2000; timings vary */}
+{/* capture: novomodelo run my_first_study --output my_first_study/results-more 2>&1, excerpt | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy (novomodelo init --template 1dtoy) + config.json training.selection.forward_passes 10, simulation.selection.num_scenarios 2000; timings vary */}
 
 ```text
 Training complete in 17.4s (128 iterations, iteration_limit)

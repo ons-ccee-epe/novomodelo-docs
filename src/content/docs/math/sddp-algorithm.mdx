@@ -9,13 +9,13 @@ import { Content as SddpConfigure } from './_impl/_sddp.configure.mdx';
 
 ## Purpose
 
-This chapter describes the Stochastic Dual Dynamic Programming (SDDP) algorithm as implemented in Cobre: the multistage stochastic formulation, the iterative forward/backward pass structure, convergence monitoring, policy graph topologies, state variable requirements, and the single-cut formulation. It serves as the algorithmic foundation referenced by the other methodology chapters.
+This chapter describes the Stochastic Dual Dynamic Programming (SDDP) algorithm as implemented in Novomodelo: the multistage stochastic formulation, the iterative forward/backward pass structure, convergence monitoring, policy graph topologies, state variable requirements, and the single-cut formulation. It serves as the algorithmic foundation referenced by the other methodology chapters.
 
 For notation conventions (index sets, parameters, decision variables, dual variables), see [Notation Conventions](/overview/notation-conventions).
 
 ## 1. Problem Context
 
-Cobre solves the **hydrothermal dispatch problem**: determining optimal generation schedules for hydro and thermal plants over a planning horizon under inflow uncertainty. Key characteristics:
+Novomodelo solves the **hydrothermal dispatch problem**: determining optimal generation schedules for hydro and thermal plants over a planning horizon under inflow uncertainty. Key characteristics:
 
 - **Flexible for short or long horizons**: daily, weekly or monthly stages, over horizons from short to long
 - **Large state space**: the state dimension grows with the number of reservoirs and the AR orders of their inflow models
@@ -95,7 +95,7 @@ Under an enumerated forward pass, every root-to-leaf path of the [policy graph](
 
 The forward pass produces: (a) trial points $\{\hat{x}_t\}$ at each stage for each trajectory, and (b) stage costs for upper bound estimation.
 
-**Parallelization**: Forward trajectories are independent — Cobre distributes $M$ trajectories across MPI ranks, with threads solving individual stage LPs within each rank.
+**Parallelization**: Forward trajectories are independent — Novomodelo distributes $M$ trajectories across MPI ranks, with threads solving individual stage LPs within each rank.
 
 **Warm-starting**: The forward pass LP solution at stage $t$ provides a near-optimal basis for the backward pass solves at the same stage, significantly reducing solve times.
 
@@ -114,7 +114,7 @@ At each stage $t$, for each trial point $\hat{x}_{t-1}$ collected during the for
 5. Add the aggregated cut to stage $t-1$'s cut pool
 
 :::note[Backward branching]
-"Every scenario $\omega \in \Omega_t$" refers to all $N_{\text{openings}}$ noise vectors in the **fixed opening tree** for stage $t$. This is the **Complete** backward sampling scheme — the backward pass evaluates ALL openings (the same set across all iterations), regardless of the forward pass noise source. An alternative variant would sample $n_{\text{sample}}$ openings instead of the full tree; Cobre uses the Complete scheme because it guarantees that cut coefficients average over the full scenario distribution at each stage. On a policy graph, the backward pass evaluates every opening of every child of the node, and the aggregation weights $P(n \to n')\, p_{n'}(\omega)$ of [Cut Management §3](/math/cut-management#3-single-cut-aggregation) are uniform within each child's openings; on the stage chain they are the uniform probabilities $p(\omega) = 1/N_{\text{openings}}$ of these openings. See [Scenario Generation](/math/scenario-generation).
+"Every scenario $\omega \in \Omega_t$" refers to all $N_{\text{openings}}$ noise vectors in the **fixed opening tree** for stage $t$. This is the **Complete** backward sampling scheme — the backward pass evaluates ALL openings (the same set across all iterations), regardless of the forward pass noise source. An alternative variant would sample $n_{\text{sample}}$ openings instead of the full tree; Novomodelo uses the Complete scheme because it guarantees that cut coefficients average over the full scenario distribution at each stage. On a policy graph, the backward pass evaluates every opening of every child of the node, and the aggregation weights $P(n \to n')\, p_{n'}(\omega)$ of [Cut Management §3](/math/cut-management#3-single-cut-aggregation) are uniform within each child's openings; on the stage chain they are the uniform probabilities $p(\omega) = 1/N_{\text{openings}}$ of these openings. See [Scenario Generation](/math/scenario-generation).
 :::
 
 The backward pass produces one new cut per stage per trial point per iteration.
@@ -201,19 +201,19 @@ The SDDP iteration structure has specific properties that guide the parallelizat
 
 Each forward and backward stage solve loads the stage's LP template, which holds the cuts active when the template was built, and appends the cuts added since; under dynamic cut selection, once it is active, these solves load a bounded resident subset of the pool instead ([Cut Management §8](/math/cut-management#8-dynamic-cut-selection)). Work is distributed across ranks and threads as [Performance Accelerators](/running/performance/#parallel-execution-model) describes.
 
-The software architecture that realises these constraints is described in the [`cobre-sddp` README](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-sddp/README.md).
+The software architecture that realises these constraints is described in the [`novomodelo-sddp` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md).
 
 ## 4. Policy Graph Structure
 
 The stage chain used throughout this chapter — one node per stage $t \in \{1, \ldots, T\}$, connected by transitions of probability $1$, terminating at $V_{T+1}(x) = 0$ or an imported terminal function (§7) — is the special case of a more general **policy graph**: a structure of nodes, probability-weighted transitions, and per-node future-cost pools. See [Policy Graphs](/math/policy-graphs) for the full node/transition/pool structure, the two probability axes (between-node edge weights versus within-node openings), the discount-separate convention, and the mapping onto the SDDP.jl family.
 
-Cobre's policy graph is **finite-horizon only**: an acyclic, leaf-terminated graph in which every trajectory starts at a root and reaches a leaf after a bounded number of stages. A **cyclic** graph shape — a later stage transitioning back to an earlier one, for infinite-periodic-horizon planning — is **reserved** and rejected when the case is loaded. See [Horizon Modes](/math/horizon-modes) for the cyclic target design this reservation anticipates, and [Policy Graphs](/math/policy-graphs) for the complete list of structural limitations.
+Novomodelo's policy graph is **finite-horizon only**: an acyclic, leaf-terminated graph in which every trajectory starts at a root and reaches a leaf after a bounded number of stages. A **cyclic** graph shape — a later stage transitioning back to an earlier one, for infinite-periodic-horizon planning — is **reserved** and rejected when the case is loaded. See [Horizon Modes](/math/horizon-modes) for the cyclic target design this reservation anticipates, and [Policy Graphs](/math/policy-graphs) for the complete list of structural limitations.
 
 ## 5. State Variables and the Markov Property
 
 For SDDP to generate valid cuts, the subproblem must satisfy the **Markov property**: future costs depend only on the current state, not on the path by which the current state was reached.
 
-**State variables in Cobre**:
+**State variables in Novomodelo**:
 
 | Component                 | Variable               | Count        | Description                                                                                         |
 | ------------------------- | ---------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
@@ -279,7 +279,7 @@ where $\bar{Q}_t$ and $\bar{\beta}$ aggregate the per-scenario terms $Q_t(\hat{x
 - **Pros**: Fewer cuts, a smaller LP and faster solves than a multi-cut formulation, which keeps one cut per opening at each trial point
 - **Cons**: May require more iterations to converge than a multi-cut formulation
 
-Cobre implements the single-cut formulation ([Cut Management §3](/math/cut-management#3-single-cut-aggregation)).
+Novomodelo implements the single-cut formulation ([Cut Management §3](/math/cut-management#3-single-cut-aggregation)).
 
 ## 7. Terminal Boundary Cuts
 
@@ -289,9 +289,9 @@ The imported cuts are valid for the upstream model's cost-to-go, so the study's 
 
 The source pool, the compatibility conditions, the carried state and the calendar reconciliation are owned by [Post-Study Boundary & Chained Studies](/math/post-study-boundary).
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
-The methodology above defines the forward/backward pass structure and the execution-model constraints that shape it; the tab below covers how Cobre's software surface configures backward-pass work scheduling.
+The methodology above defines the forward/backward pass structure and the execution-model constraints that shape it; the tab below covers how Novomodelo's software surface configures backward-pass work scheduling.
 
 <Tabs>
   <TabItem label="Configure"><SddpConfigure /></TabItem>
@@ -314,4 +314,4 @@ The methodology above defines the forward/backward pass structure and the execut
 - [Penalty System](/math/penalty-system) — Recourse slacks guaranteeing feasibility (relatively complete recourse)
 - [Equipment-Specific Formulations](/math/equipment-formulations) — Thermal equipment modelling
 - [Scenario Generation](/math/scenario-generation) — Fixed opening tree, sampling scheme abstraction, enumerated scenario trees
-- **Running Cobre:** [Running Studies](/running/running-studies/) — the software workflow that trains and runs this algorithm.
+- **Running Novomodelo:** [Running Studies](/running/running-studies/) — the software workflow that trains and runs this algorithm.

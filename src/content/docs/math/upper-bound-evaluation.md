@@ -5,7 +5,7 @@ description: The statistical Monte-Carlo and exact deterministic upper-bound mec
 
 ## Purpose
 
-This chapter defines Cobre's upper-bound mechanisms: an overview of the bounds of a training iteration (section 1), the exact deterministic upper bound of an enumerated forward pass and its nested form under a uniform CVaR (section 2), the gap computation that compares the iteration's upper bound against the lower bound from cuts (section 3), and the estimators of the sampled forward schemes and of the post-training sampled and census simulation, with what each estimates (section 4). The appendix describes the reserved vertex-based inner approximation (SIDP) design. It complements the outer approximation (cuts) described in [SDDP Algorithm](/math/sddp-algorithm) by providing the convergence-certificate half of the bound pair.
+This chapter defines Novomodelo's upper-bound mechanisms: an overview of the bounds of a training iteration (section 1), the exact deterministic upper bound of an enumerated forward pass and its nested form under a uniform CVaR (section 2), the gap computation that compares the iteration's upper bound against the lower bound from cuts (section 3), and the estimators of the sampled forward schemes and of the post-training sampled and census simulation, with what each estimates (section 4). The appendix describes the reserved vertex-based inner approximation (SIDP) design. It complements the outer approximation (cuts) described in [SDDP Algorithm](/math/sddp-algorithm) by providing the convergence-certificate half of the bound pair.
 
 For notation conventions (index sets, parameters, decision variables, dual variables), see [Notation Conventions](/overview/notation-conventions).
 
@@ -17,7 +17,7 @@ This chapter uses $d$ for the discount factor. See [Discount Rate Formulation](/
 
 Standard SDDP produces only a **lower bound** $\underline{z}$ on the optimal cost, through the outer (cut) approximation. A convergence certificate additionally requires an **upper bound** $\bar{z}$ that closes the [optimality gap](/math/stopping-rules#optimality-gap) between the two bounds.
 
-Cobre computes this per-iteration upper bound via one of two forward-pass mechanisms, selected by the forward pass's sampling mode:
+Novomodelo computes this per-iteration upper bound via one of two forward-pass mechanisms, selected by the forward pass's sampling mode:
 
 - **Statistical Monte-Carlo upper bound.** Under a sampled forward pass, the sample mean of the scenario costs gathered that iteration, together with a 95% confidence-interval half-width, estimates the expected cost under the policy. This is a **statistical** estimate: it carries genuine sampling error that narrows only as more scenarios are drawn. Section 4 states what it estimates under each forward scheme.
 - **Exact deterministic upper bound.** Under an enumerated forward pass, the probability-weighted expectation over every enumerated leaf path is the _exact_ expected cost under the policy, with no sampling error at all. See section 2.
@@ -30,7 +30,7 @@ The **statistical** Monte-Carlo estimator is defined for the **expectation** obj
 
 After training, the post-training **simulation** reruns the trained policy on scenarios drawn under each class's simulation scheme, in a **sampled** and a **census** variant (section 4.5). That estimator is a diagnostic on the finished policy — it is not part of the per-iteration training loop the mechanisms above feed, and it is not consumed by any stopping rule.
 
-The appendix describes a reserved design that Cobre does not compute, a vertex-based inner approximation of the cost-to-go function (SIDP).
+The appendix describes a reserved design that Novomodelo does not compute, a vertex-based inner approximation of the cost-to-go function (SIDP).
 
 ## 2 Exact Deterministic Upper Bound
 
@@ -52,7 +52,7 @@ With an imported terminal boundary ([Post-Study Boundary & Chained Studies](/mat
 
 The bound $\bar{z}_{\text{exact}} = \sum_{\ell} P(\ell)\, C(\ell)$ above is the exact upper bound under an **expectation** objective. Under a CVaR measure held uniform across every stage, the same exhaustive enumeration yields an exact bound of a different shape — a nested risk recursion — developed in section 2.1; see [Risk Measures](/math/risk-measures) for the risk-measure background.
 
-Under a **stage-varying** measure — one whose risk-aversion weight or tail fraction differs across stages, a stage with zero risk-aversion weight counting as the expectation — Cobre computes no bound on the risk-averse objective: the enumerated pass reports the probability-weighted path sum $\sum_{\ell} P(\ell)\, C(\ell)$ above, the policy's expected cost, and a gap rule is not supported (it is rejected at setup).
+Under a **stage-varying** measure — one whose risk-aversion weight or tail fraction differs across stages, a stage with zero risk-aversion weight counting as the expectation — Novomodelo computes no bound on the risk-averse objective: the enumerated pass reports the probability-weighted path sum $\sum_{\ell} P(\ell)\, C(\ell)$ above, the policy's expected cost, and a gap rule is not supported (it is rejected at setup).
 
 Contrast with the statistical mechanism (section 1): a sampled forward pass computes the same weighted-sum _form_ — sample weight $1/M$ per scenario — but that sum is a Monte Carlo estimator of the expectation, carrying genuine sampling error. Only the enumerated forward pass's weights (the true leaf-path probabilities) make the sum exact rather than an estimate.
 
@@ -142,7 +142,7 @@ The historical scheme replays one window of the historical window pool over all 
 
 ### 4.5 Simulation After Training
 
-Cobre can also estimate an upper bound on expected total cost by running the trained policy on scenarios drawn independently of the training forward passes — a separate, post-training procedure distinct from the per-iteration training-phase mechanisms in sections 1–2. It supports two variants: a **sampled** estimator (Monte Carlo; sections 4.5.2–4.5.3) over an independently drawn scenario sample, and a **census** estimator (section 4.5.4) over an exhaustively enumerated population of scenarios.
+Novomodelo can also estimate an upper bound on expected total cost by running the trained policy on scenarios drawn independently of the training forward passes — a separate, post-training procedure distinct from the per-iteration training-phase mechanisms in sections 1–2. It supports two variants: a **sampled** estimator (Monte Carlo; sections 4.5.2–4.5.3) over an independently drawn scenario sample, and a **census** estimator (section 4.5.4) over an exhaustively enumerated population of scenarios.
 
 #### 4.5.1 Independence from Training
 
@@ -232,7 +232,7 @@ This chapter owns the methodology of both the training-phase forward-pass bound 
 
 ## Appendix: Inner Approximation (Reserved)
 
-This appendix describes a reserved design that Cobre does not compute: a vertex-based inner approximation of the cost-to-go function (SIDP), which would evaluate the upper bound independently of the forward pass's sampling mode.
+This appendix describes a reserved design that Novomodelo does not compute: a vertex-based inner approximation of the cost-to-go function (SIDP), which would evaluate the upper bound independently of the forward pass's sampling mode.
 
 ### Vertex-Based Inner Approximation
 
@@ -359,7 +359,7 @@ Both approximations bound their future-cost variable from below in the LP: the c
 
 :::caution[Reserved policy-graph shape]
 The cyclic policy-graph shape this subsection describes is **reserved**
-independently of the inner approximation: Cobre's
+independently of the inner approximation: Novomodelo's
 policy graph is finite-horizon only, and supplying `cyclic` as the policy
 graph type is rejected at load with a named error. See
 [Horizon Modes](/math/horizon-modes) for the reserved cyclic target design.
@@ -385,4 +385,4 @@ The convergence guarantee would still hold: with $d_{\text{cycle}} < 1$, both th
 - [Stopping Rules](/math/stopping-rules) — The gap-based stopping rule, which compares this chapter's training-phase upper bound (sections 1–2) against the lower bound (section 3)
 - [Risk Measures](/math/risk-measures) — The nested risk-adjusted lower bound and why only the exact nested bound certifies a risk-averse policy
 - [Scenario Generation](/math/scenario-generation) — The opening tree and the forward sampling schemes whose estimates section 4 interprets, in training and in the post-training simulation (section 4.5)
-- **Running Cobre:** [Convergence & Diagnostics](/running/interpreting-results/) — the software guide for reading and assessing this estimator's output.
+- **Running Novomodelo:** [Convergence & Diagnostics](/running/interpreting-results/) — the software guide for reading and assessing this estimator's output.

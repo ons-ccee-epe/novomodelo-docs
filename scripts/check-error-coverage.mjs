@@ -1,10 +1,10 @@
 // Error-kind coverage gate (E13 ticket-214, GRD-08; R63, R65, R88, ADR-018, ADR-020).
 //
-// reference/error-codes.mdx documents the variants of cobre's `ErrorKind` and
+// reference/error-codes.mdx documents the variants of novomodelo's `ErrorKind` and
 // `LoadError` enums, one kind section per name. This gate keeps the page in step
 // with the vendored copy of those variants in scripts/error-kinds.json
 // (refresh:error-kinds), which records whether the code ever constructs each
-// one, so CI needs no cobre checkout.
+// one, so CI needs no novomodelo checkout.
 //
 // A kind section is a `###` heading whose text is exactly one backticked
 // identifier, outside fenced code; its body runs to the next `#`, `##` or `###`
@@ -18,7 +18,7 @@
 //                    (an undocumented non-emitted variant is not a violation);
 //   STALE-RESERVED   an emitted variant whose section carries the status line;
 //   DUPLICATE        a vendored name with more than one kind section;
-//   STALE-VENDOR     the vendored `ref` differs from DEFAULT_COBRE_REF.
+//   STALE-VENDOR     the vendored `ref` differs from DEFAULT_NOVOMODELO_REF.
 // Kind sections that name no vendored variant are outside the check.
 //
 // Usage: node scripts/check-error-coverage.mjs [--vendored <file>] [--page <file>]
@@ -28,7 +28,7 @@
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { DEFAULT_COBRE_REF } from "./cobre-ref.mjs";
+import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 
 const DEFAULT_VENDORED = fileURLToPath(
   new URL("./error-kinds.json", import.meta.url),
@@ -116,7 +116,7 @@ export function checkCoverage(vendored, pageText, defaultRef) {
   if (vendored.ref !== defaultRef) {
     violations.push({
       code: "STALE-VENDOR",
-      name: `${vendored.ref} (DEFAULT_COBRE_REF ${defaultRef})`,
+      name: `${vendored.ref} (DEFAULT_NOVOMODELO_REF ${defaultRef})`,
     });
   }
   for (const [name, emitted] of names) {
@@ -170,7 +170,7 @@ function run(argv) {
   const violations = checkCoverage(
     vendored,
     readText(pagePath),
-    DEFAULT_COBRE_REF,
+    DEFAULT_NOVOMODELO_REF,
   );
   if (violations.length > 0) {
     console.log(

@@ -1,30 +1,30 @@
-// Version-reference gate (Epic 04 ticket-015) — reframe of cobre's
+// Version-reference gate (Epic 04 ticket-015) — reframe of novomodelo's
 // `scripts/ci/check_book_version.py`.
 //
-// cobre's book compares every version STRING it finds against the workspace
-// `Cargo.toml` version — cobre-docs has no Cargo.toml, so this gate is
+// novomodelo's book compares every version STRING it finds against the workspace
+// `Cargo.toml` version — novomodelo-docs has no Cargo.toml, so this gate is
 // reframed around the "No version numbers in the corpus" hard rule
-// (CLAUDE.md): the single anchor is the `**Synced to: cobre vX.Y.Z …**` line.
+// (CLAUDE.md): the single anchor is the `**Synced to: novomodelo vX.Y.Z …**` line.
 //
-//   - STRICT zones (math/*.mdx excluding _impl/, overview/*, reference/glossary.md): ZERO cobre-
+//   - STRICT zones (math/*.mdx excluding _impl/, overview/*, reference/glossary.md): ZERO novomodelo-
 //     version strings/tokens AND zero version-annotation narration
 //     ("added in v0.8.1", "as of v0.8.0", "Keys renamed from v0.8.1", "earlier
 //     releases", ...) are tolerated — this enforces the hard rule directly.
 //     Third-party versions ("PSR's SDDP (v17.3+)") are NOT flagged: the
-//     token patterns require a literal `cobre`/`COBRE`/`cobre_version` marker
+//     token patterns require a literal `novomodelo`/`NOVOMODELO`/`novomodelo_version` marker
 //     immediately adjacent, and the narration patterns require a
 //     version-change verb, neither of which a bare third-party `vN.N` token
 //     satisfies.
 //   - LENIENT zones (math/_impl/*, reference/* (except reference/glossary.md), running/*, getting-started/*,
-//     examples/*): a cobre-version string MAY appear (real CLI output like
-//     `COBRE v0.9.1`, sample JSON like `"cobre_version": "0.9.0"`) but must be
+//     examples/*): a novomodelo-version string MAY appear (real CLI output like
+//     `NOVOMODELO v0.9.1`, sample JSON like `"novomodelo_version": "0.9.0"`) but must be
 //     a well-formed `X.Y.Z` — it is deliberately NOT required to equal the
 //     anchor (lenient content shows the actual binary/artifact version, which
 //     need not match the methodology sync tag; see CLAUDE.md's own recorded
 //     `getting-started/quickstart.mdx` vs "Synced to" mismatch).
 //
 // Unlike check-doc-voice.mjs, this gate does NOT blank fenced code / inline
-// code before matching: a raw cobre-version token appearing anywhere in the
+// code before matching: a raw novomodelo-version token appearing anywhere in the
 // file — including inside a CLI-transcript or JSON-sample code fence — is
 // exactly what it must catch (mirrors check_book_version.py, which has no
 // fence-tracking at all).
@@ -66,12 +66,12 @@ const claudeMdPath = join(repoRoot, "CLAUDE.md");
 const allowlistPath = join(scriptDir, "doc-lint-allow.txt");
 
 // ---------------------------------------------------------------------------
-// The single version anchor: `**Synced to: cobre vX.Y.Z …**` in CLAUDE.md.
+// The single version anchor: `**Synced to: novomodelo vX.Y.Z …**` in CLAUDE.md.
 // ---------------------------------------------------------------------------
-const ANCHOR_RE = /\*\*Synced to:\s*cobre\s+v(\d+\.\d+\.\d+)\b[^*]*\*\*/i;
+const ANCHOR_RE = /\*\*Synced to:\s*novomodelo\s+v(\d+\.\d+\.\d+)\b[^*]*\*\*/i;
 
 /**
- * Parse the `**Synced to: cobre vX.Y.Z …**` anchor out of CLAUDE.md's text.
+ * Parse the `**Synced to: novomodelo vX.Y.Z …**` anchor out of CLAUDE.md's text.
  * Throws a descriptive Error if the line is absent or malformed — this is
  * the single version anchor and its absence is a hard failure, not a warning.
  *
@@ -82,7 +82,7 @@ export function parseAnchor(text) {
   const m = ANCHOR_RE.exec(text);
   if (!m) {
     throw new Error(
-      "no '**Synced to: cobre vX.Y.Z …**' anchor line found in CLAUDE.md " +
+      "no '**Synced to: novomodelo vX.Y.Z …**' anchor line found in CLAUDE.md " +
         "(or it is malformed) — this is the single version anchor and must be present.",
     );
   }
@@ -103,7 +103,7 @@ const NARRATION_PATTERNS = [
   ["version-narration-since", /since\s+v\d/gi],
   ["version-narration-removed", /removed\s+(?:entirely\s+)?in\s+(?:the\s+)?v\d/gi],
   ["version-narration-as-of", /as\s+of\s+v\d/gi],
-  ["version-narration-earlier-releases", /earlier\s+(?:cobre\s+)?releases?\b/gi],
+  ["version-narration-earlier-releases", /earlier\s+(?:novomodelo\s+)?releases?\b/gi],
   ["version-narration-deprecated", /\bdeprecated\b/gi],
   ["version-narration-migration", /\bmigration\b/gi],
   [
@@ -113,25 +113,25 @@ const NARRATION_PATTERNS = [
 ];
 
 // ---------------------------------------------------------------------------
-// cobre-version TOKEN patterns, checked in BOTH zones (with a different
+// novomodelo-version TOKEN patterns, checked in BOTH zones (with a different
 // verdict per zone — see detectVersionViolations). The captured group is
 // deliberately loose (`[0-9][0-9.]*` / `[^"]*`) rather than a strict
 // `\d+\.\d+\.\d+`, so a MALFORMED lenient-zone version string (e.g.
-// "COBRE v0.9") is still caught by the pattern and can be validated for
+// "NOVOMODELO v0.9") is still caught by the pattern and can be validated for
 // well-formedness, rather than silently failing to match at all.
 // ---------------------------------------------------------------------------
 const VERSION_TOKEN_PATTERNS = [
   [
-    // Case-insensitive: the title-case prose spelling "Cobre v0.9.0" is the
+    // Case-insensitive: the title-case prose spelling "Novomodelo v0.9.0" is the
     // dominant form in the corpus and must be caught in strict zones, alongside
-    // lowercase `cobre` (JSON/CLI context) and uppercase `COBRE` (CLI banner).
-    "cobre-version-banner",
-    /\bcobre\s+v([0-9][0-9.]*)/gi,
+    // lowercase `novomodelo` (JSON/CLI context) and uppercase `NOVOMODELO` (CLI banner).
+    "novomodelo-version-banner",
+    /\bnovomodelo\s+v([0-9][0-9.]*)/gi,
     (m) => m[1].replace(/\.$/, ""),
   ],
   [
-    "cobre-version-json",
-    /"cobre_version"\s*:\s*"([^"]*)"/g,
+    "novomodelo-version-json",
+    /"novomodelo_version"\s*:\s*"([^"]*)"/g,
     (m) => m[1],
   ],
 ];
@@ -259,8 +259,8 @@ function main() {
 
   if (failing.length === 0 && stale.length === 0) {
     console.log(
-      `OK: ${relFiles.length} files scanned; anchor is cobre v${anchor.version}; ` +
-        `no NEW cobre-version violations found` +
+      `OK: ${relFiles.length} files scanned; anchor is novomodelo v${anchor.version}; ` +
+        `no NEW novomodelo-version violations found` +
         (grandfathered.length > 0
           ? ` (${grandfathered.length} pre-existing hit(s) grandfathered via scripts/doc-lint-allow.txt).`
           : "."),
@@ -278,7 +278,7 @@ function main() {
   }
   console.log(
     `FAIL: ${failing.length} version violation(s), ${stale.length} stale allowlist entry(ies). The methodology corpus carries no ` +
-      `cobre-version numbers/annotations outside the CLAUDE.md "Synced to" anchor (v${anchor.version}); ` +
+      `novomodelo-version numbers/annotations outside the CLAUDE.md "Synced to" anchor (v${anchor.version}); ` +
       `a lenient-zone version string must be a well-formed X.Y.Z. Add a rationale to ` +
       `scripts/doc-lint-allow.txt for a pre-existing hit under editorial review; delete or re-key a stale entry there.`,
   );

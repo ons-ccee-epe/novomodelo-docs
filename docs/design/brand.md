@@ -1,7 +1,7 @@
-# Cobre-docs — Brand & Colour Application
+# Novomodelo-docs — Brand & Colour Application
 
-> **Authority:** `~/git/cobre/docs/internal/BRAND-GUIDELINES.md` (main `cobre` repo).
-> Brand assets: `~/git/cobre/assets/` (`cobre-logo-{dark,light}.svg`, `cobre-icon.svg`).
+> **Authority:** `~/git/novomodelo/docs/internal/BRAND-GUIDELINES.md` (main `novomodelo` repo).
+> Brand assets: `~/git/novomodelo/assets/` (`novomodelo-logo-{dark,light}.svg`, `cobre-icon.svg`).
 > This document records **how the docs site applies the brand**; the main-repo
 > guidelines are the **source of truth** — when they diverge, the guidelines win.
 >
@@ -50,14 +50,14 @@
   re-keys d2's palette classes onto these tokens and the warm neutrals, so d2 diagrams
   and Observable Plot figures share one palette (see
   [`diagram-authoring.md`](diagram-authoring.md) §4.2).
-- **Logo + favicon:** the **icon mark beside the "Cobre Documentation" title**,
+- **Logo + favicon:** the **icon mark beside the "Novomodelo Documentation" title**,
   **theme-adaptive** via Starlight `logo:{dark,light}` — `cobre-icon.svg` (Midnight
   tile) on dark, `cobre-icon-light.svg` (light brand-surface tile; a **derived**
   variant with copper anchored on the readable `#B87333`..`#8B5E3C` range, since the
   original's lighter gradient stops wash out on a light tile) on light. `cobre-icon.svg`
-  is also the favicon. The wide `cobre-logo-{dark,light}.svg` **wordmark** logos are
+  is also the favicon. The wide `novomodelo-logo-{dark,light}.svg` **wordmark** logos are
   for README-scale headers, **not** the small (~40px) site header — they scale to
-  illegibility and duplicate "Cobre" beside the title.
+  illegibility and duplicate "Novomodelo" beside the title.
 
 ## Design principles that constrain styling (§2.4)
 

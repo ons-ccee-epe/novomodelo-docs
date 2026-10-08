@@ -63,7 +63,7 @@ test("flags a previously-qualified change ('was previously documented')", () => 
 });
 
 test("flags a narrative 'used to' (narration-used-to)", () => {
-  assert.deepEqual(rules("Cobre used to write a metadata file."), [
+  assert.deepEqual(rules("Novomodelo used to write a metadata file."), [
     "narration-used-to",
   ]);
 });
@@ -145,7 +145,7 @@ test("flags a status 'currently' and 'as implemented today' (narration-currently
     "The load check currently accepts one file per hydro.",
     "The option does not currently accept a list.",
     "Only the acyclic shape is currently accepted.",
-    "Cobre does not currently support a cyclic graph.",
+    "Novomodelo does not currently support a cyclic graph.",
     "The backend currently supports one solver.",
     "Currently supports one solver.",
     "Only a currently supported combination loads.",
@@ -226,7 +226,7 @@ test("class 5: 'migration' inside a link fragment is not prose", () => {
 
 test("class 6: the sentence stating the no-annotations rule is not narration", () => {
   const text =
-    "The methodology describes current Cobre as fact; it does not carry version annotations, deprecation notices, or migration notes. Readers who find a discrepancy should treat the observed behaviour as authoritative.";
+    "The methodology describes current Novomodelo as fact; it does not carry version annotations, deprecation notices, or migration notes. Readers who find a discrepancy should treat the observed behaviour as authoritative.";
   assert.deepEqual(rules(text), []);
 });
 

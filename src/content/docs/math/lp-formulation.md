@@ -5,7 +5,7 @@ description: Complete stage subproblem LP — objective taxonomy, all constraint
 
 ## Purpose
 
-This chapter presents the complete stage subproblem LP for the Cobre SDDP solver: the objective function with its cost taxonomy, all constraint families, slack/penalty variables, and the Benders cut interface to the future cost function. It uses the **parallel blocks** formulation by default.
+This chapter presents the complete stage subproblem LP for the Novomodelo SDDP solver: the objective function with its cost taxonomy, all constraint families, slack/penalty variables, and the Benders cut interface to the future cost function. It uses the **parallel blocks** formulation by default.
 
 **Reading order**: [System Element Modeling Overview](/math/system-elements) → [Equipment-Specific Formulations](/math/equipment-formulations) → **this chapter** → [State Augmentation](/math/state-augmentation)
 
@@ -272,7 +272,7 @@ The z-inflow columns sit between the leading state columns and the incoming stor
 
 ## 6. Hydro Generation Constraints
 
-Cobre supports two production models, in increasing order of complexity. A third model name, linearized head, is a reserved alias that resolves to constant productivity in every phase — see [Hydro Production Function Models §3](/math/hydro-production-models). The model can vary by stage or season per hydro.
+Novomodelo supports two production models, in increasing order of complexity. A third model name, linearized head, is a reserved alias that resolves to constant productivity in every phase — see [Hydro Production Function Models §3](/math/hydro-production-models). The model can vary by stage or season per hydro.
 
 Both models are evaluated **per cell** $(h, b)$ (§3) rather than per plant; for a single-cell plant the per-cell constraint is the plant-level constraint.
 
@@ -362,7 +362,7 @@ v_h + \sigma^{fill}_h \geq V^{\text{target}}_t,
 V^{\text{target}}_t = \min\!\Big( \underline{V}_{h,L} - \sum_{t'=t+1}^{L} \zeta_{t'} \, \text{rate}_{t'},\ \underline{V}_{h,t} \Big)
 $$
 
-$\underline{V}_{h,t}$ is the dead volume in force at stage $t$ (a stage may override it), $L$ is the last filling stage, the stage before the entry stage, and $\text{rate}_{t'}$ the minimum accumulation rate of stage $t'$, which $\zeta_{t'}$ converts into hm³. The floor at stage $t$ is the dead volume of stage $L$ minus the accumulation the schedule still owes after $t$, never above the dead volume of stage $t$ itself; it reaches $\underline{V}_{h,L}$ at $L$. Every filling stage carries its floor. The slack $\sigma^{fill}_h$ is priced at $c^{fill}_h$, which Cobre expects **below deficit** ([Penalty System — Penalty Ordering Validation](/math/penalty-system#penalty-ordering-validation) checks it as given). See [Penalty System §6](/math/penalty-system#dead-volume-filling-specifics).
+$\underline{V}_{h,t}$ is the dead volume in force at stage $t$ (a stage may override it), $L$ is the last filling stage, the stage before the entry stage, and $\text{rate}_{t'}$ the minimum accumulation rate of stage $t'$, which $\zeta_{t'}$ converts into hm³. The floor at stage $t$ is the dead volume of stage $L$ minus the accumulation the schedule still owes after $t$, never above the dead volume of stage $t$ itself; it reaches $\underline{V}_{h,L}$ at $L$. Every filling stage carries its floor. The slack $\sigma^{fill}_h$ is priced at $c^{fill}_h$, which Novomodelo expects **below deficit** ([Penalty System — Penalty Ordering Validation](/math/penalty-system#penalty-ordering-validation) checks it as given). See [Penalty System §6](/math/penalty-system#dead-volume-filling-specifics).
 
 ### Turbined Flow Bounds (per cell $(h, b)$, block $k$)
 

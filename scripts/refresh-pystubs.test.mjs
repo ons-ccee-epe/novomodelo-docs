@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { diffStubs, parseStubNames } from "./refresh-pystubs.mjs";
 
-const DIR = "crates/cobre-python/python/cobre";
+const DIR = "crates/novomodelo-python/python/novomodelo";
 
 test("parseStubNames keeps sorted .pyi basenames and drops other files", () => {
   const stdout =

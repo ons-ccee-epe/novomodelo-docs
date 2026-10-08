@@ -1,5 +1,5 @@
 // Column/field-count drift gate (Epic 04 ticket-015) — near-verbatim port of
-// cobre's `scripts/ci/check_doc_counts.py`, retargeted to the cobre-docs I/O
+// novomodelo's `scripts/ci/check_doc_counts.py`, retargeted to the novomodelo-docs I/O
 // Reference pages.
 //
 // Several Reference pages introduce a schema table with a sentence like
@@ -57,7 +57,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const contentRoot = join(scriptDir, "..", "src", "content", "docs");
 
 // Reference pages that use the "N columns/fields" + adjacent-table
-// convention — the cobre-docs analogs of cobre's `output-format.md` /
+// convention — the novomodelo-docs analogs of novomodelo's `output-format.md` /
 // `case-format.md`.
 const TARGET_FILES = [
   "reference/output/index.mdx",

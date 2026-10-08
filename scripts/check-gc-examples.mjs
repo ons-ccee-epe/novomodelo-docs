@@ -1,14 +1,14 @@
 // Generic-constraint example gate (E15 ticket-242, GRD-05; R63, R65, R102, ADR-021).
 //
 // Every `gc-check` fence of reference/generic-constraints.mdx must behave under the
-// real `cobre validate` as its meta says (D-160-4, docs/design/reference-conventions.md
+// real `novomodelo validate` as its meta says (D-160-4, docs/design/reference-conventions.md
 // section 7): `title="<case-relative path>"` names the file the fence content IS,
 // `gc-check="accept"` requires exit 0 and `gc-check="reject"` requires exit 1 with an
 // `error` object. A fence without `gc-check` is illustrative and is not run.
 //
 // Case assembly follows the G3 decision (design/g3-ci-binary.md, B1 + F1): the binary
-// comes from COBRE_BIN or `cobre` on PATH (CI installs the pinned release asset,
-// ticket-243); `cobre init --template 1dtoy` writes the scaffold into a path that does
+// comes from NOVOMODELO_BIN or `novomodelo` on PATH (CI installs the pinned release asset,
+// ticket-243); `novomodelo init --template 1dtoy` writes the scaffold into a path that does
 // not exist yet (a non-empty target exits 2); the committed overlay
 // scripts/fixtures/gc-overlay/ (ticket-242a, root README.md excluded) is copied over it
 // and must validate on its own; then each fence is spliced ALONE into a fresh copy of
@@ -20,9 +20,9 @@
 // `validate --json` stdout: the success object has no `error` key, and `phase` alone
 // cannot attribute a refusal to the spliced fence (it is the same for a malformed
 // hydros.json), which is why the overlay is validated first. The refusal's kind and
-// message are not compared. The pinned binary is identified by `cobre version` line 1,
-// which must carry the tag in scripts/cobre-ref.mjs DEFAULT_COBRE_REF. A development
-// build prints the same line, so a binary whose real path (a bare `cobre` resolved
+// message are not compared. The pinned binary is identified by `novomodelo version` line 1,
+// which must carry the tag in scripts/novomodelo-ref.mjs DEFAULT_NOVOMODELO_REF. A development
+// build prints the same line, so a binary whose real path (a bare `novomodelo` resolved
 // through PATH, symlinks followed) lies inside `/target/release/` or `/target/debug/`
 // is refused before it is run.
 //
@@ -48,7 +48,7 @@ import {
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { DEFAULT_COBRE_REF } from "./cobre-ref.mjs";
+import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 
 const PAGE_LABEL = "src/content/docs/reference/generic-constraints.mdx";
 const PAGE = fileURLToPath(new URL(`../${PAGE_LABEL}`, import.meta.url));
@@ -174,7 +174,7 @@ export function classifyOutcome(check, { status, stdout }) {
   if (status === 0) {
     return {
       code: "UNEXPECTED-ACCEPT",
-      detail: "cobre validate accepted the fence (exit status 0)",
+      detail: "novomodelo validate accepted the fence (exit status 0)",
     };
   }
   if (status === 1 && refused) return null;
@@ -206,13 +206,13 @@ function resolveBinary(bin, env) {
   return null;
 }
 
-// null when line 1 of `cobre version` names `defaultRef`, else the setup-error message.
-export function checkCobreVersion(versionStdout, defaultRef) {
-  const match = /^cobre\s+(v\S+)/.exec(versionStdout.split(/\r?\n/, 1)[0]);
-  if (match === null) return "unreadable cobre version output";
+// null when line 1 of `novomodelo version` names `defaultRef`, else the setup-error message.
+export function checkNovomodeloVersion(versionStdout, defaultRef) {
+  const match = /^novomodelo\s+(v\S+)/.exec(versionStdout.split(/\r?\n/, 1)[0]);
+  if (match === null) return "unreadable novomodelo version output";
   return match[1] === defaultRef
     ? null
-    : `cobre version ${match[1]} differs from DEFAULT_COBRE_REF ${defaultRef}`;
+    : `novomodelo version ${match[1]} differs from DEFAULT_NOVOMODELO_REF ${defaultRef}`;
 }
 
 // Runs the whole check. `setupError` (a message, else null) stops the run before any
@@ -223,14 +223,14 @@ export function runGcExamples({
   pageText,
   pageLabel,
   fixtureDir,
-  cobreBin,
+  novomodeloBin,
   defaultRef,
   env = process.env,
 }) {
   const childEnv = { ...env, NO_COLOR: "1" };
-  const cobre = (args) =>
-    spawnSync(cobreBin, args, { encoding: "utf8", env: childEnv });
-  const verdict = (caseDir) => cobre(["validate", "--json", caseDir]);
+  const novomodelo = (args) =>
+    spawnSync(novomodeloBin, args, { encoding: "utf8", env: childEnv });
+  const verdict = (caseDir) => novomodelo(["validate", "--json", caseDir]);
   const locate = ({ code, line = null, detail }) => ({
     code,
     line,
@@ -239,21 +239,21 @@ export function runGcExamples({
   });
   const result = { setupError: null, problems: [], accepted: 0, rejected: 0 };
 
-  const real = resolveBinary(cobreBin, childEnv);
+  const real = resolveBinary(novomodeloBin, childEnv);
   if (real !== null && CARGO_BUILD_TREE.test(real)) {
-    result.setupError = `cobre binary ${real} lies inside a cargo build tree (/target/release/ or /target/debug/); set COBRE_BIN or PATH to the pinned release binary`;
+    result.setupError = `novomodelo binary ${real} lies inside a cargo build tree (/target/release/ or /target/debug/); set NOVOMODELO_BIN or PATH to the pinned release binary`;
     return result;
   }
 
-  const version = cobre(["version"]);
+  const version = novomodelo(["version"]);
   if (version.error) {
     result.setupError =
       version.error.code === "ENOENT"
-        ? `cobre binary not found: ${cobreBin}; set COBRE_BIN or put cobre on PATH`
-        : `cannot run cobre binary ${cobreBin}: ${version.error.message}`;
+        ? `novomodelo binary not found: ${novomodeloBin}; set NOVOMODELO_BIN or put novomodelo on PATH`
+        : `cannot run novomodelo binary ${novomodeloBin}: ${version.error.message}`;
     return result;
   }
-  const mismatch = checkCobreVersion(version.stdout, defaultRef);
+  const mismatch = checkNovomodeloVersion(version.stdout, defaultRef);
   if (mismatch !== null) {
     result.setupError = mismatch;
     return result;
@@ -280,9 +280,9 @@ export function runGcExamples({
   const tmp = mkdtempSync(join(tmpdir(), "gc-examples-"));
   try {
     const base = join(tmp, "base");
-    const init = cobre(["init", "--template", "1dtoy", base]);
+    const init = novomodelo(["init", "--template", "1dtoy", base]);
     if (init.status !== 0) {
-      result.setupError = `cobre init failed (exit status ${init.status}): ${init.stderr.trim()}`;
+      result.setupError = `novomodelo init failed (exit status ${init.status}): ${init.stderr.trim()}`;
       return result;
     }
     const readme = resolve(fixtureDir, "README.md");
@@ -347,8 +347,8 @@ function main() {
     pageText,
     pageLabel: PAGE_LABEL,
     fixtureDir: FIXTURE_DIR,
-    cobreBin: process.env.COBRE_BIN || "cobre",
-    defaultRef: DEFAULT_COBRE_REF,
+    novomodeloBin: process.env.NOVOMODELO_BIN || "novomodelo",
+    defaultRef: DEFAULT_NOVOMODELO_REF,
   });
   if (setupError !== null) {
     console.error(`check:gc-examples: ${setupError}`);
@@ -364,7 +364,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    `OK: ${accepted + rejected} generic-constraint examples behave as marked under cobre ${DEFAULT_COBRE_REF} (${accepted} accepted, ${rejected} rejected)`,
+    `OK: ${accepted + rejected} generic-constraint examples behave as marked under novomodelo ${DEFAULT_NOVOMODELO_REF} (${accepted} accepted, ${rejected} rejected)`,
   );
   process.exit(0);
 }

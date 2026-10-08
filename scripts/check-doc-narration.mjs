@@ -1,6 +1,6 @@
 // Change-narration gate (ticket-009; GRD-01, ADR-007, ADR-034).
 //
-// CLAUDE.md "Current-state voice, both layers": every page states what cobre
+// CLAUDE.md "Current-state voice, both layers": every page states what novomodelo
 // does now, with no change narration ("no longer", "previously", "formerly",
 // "fixed in", "this release", migration notes, Before/After examples, ...). This
 // gate is zone-independent — every rule applies on every page the voice-family
@@ -8,7 +8,7 @@
 //
 // Before matching, fenced code, inline code (also when wrapped across lines),
 // HTML comments, MDX comments, markdown link targets and bare URLs are blanked
-// with line numbers preserved: verbatim cobre messages, JSON keys and anchor
+// with line numbers preserved: verbatim novomodelo messages, JSON keys and anchor
 // fragments are not prose. Matching then runs per paragraph block (a phrase
 // split by a hard wrap is still found) through the shared helpers in
 // scripts/doc-text.mjs, and a hit inside the corpus's own statement of the
@@ -83,7 +83,7 @@ const NARRATION_PATTERNS = [
   ],
   [
     "narration-used-to",
-    /\b(?:cobre|it|this|that|they|which)\s+used\s+to\b|\bused\s+to\s+be\b/gi,
+    /\b(?:novomodelo|it|this|that|they|which)\s+used\s+to\b|\bused\s+to\s+be\b/gi,
   ],
   ["narration-formerly", /\bformerly\b/gi],
   [
@@ -100,7 +100,7 @@ const NARRATION_PATTERNS = [
   ["narration-was-fixed", /\b(?:was|were)\s+(?:fixed|broken)\b/gi],
   [
     "narration-fixed-in",
-    /\bfixed\s+in\s+(?:(?:\w+\s+){0,3}(?:releases?|versions?)\b|(?:cobre\s+)?v\d|\d+\.\d+)/gi,
+    /\bfixed\s+in\s+(?:(?:\w+\s+){0,3}(?:releases?|versions?)\b|(?:novomodelo\s+)?v\d|\d+\.\d+)/gi,
   ],
   ["narration-new-in", /\bnew\s+in\b(?!-)/gi],
   ["narration-pre-version", /\bpre-v\d/gi],
@@ -282,7 +282,7 @@ function main() {
   for (const u of unclosed) console.log(`UNCLOSED-FENCE ${u.rel}:${u.lineno}`);
   console.log(
     `FAIL: ${failing.length} narration violation(s), ${stale.length} stale allowlist entry(ies), ${unclosed.length} unclosed fence(s). Every page in both layers ` +
-      `states what cobre does now, with no change narration (CLAUDE.md "Current-state voice, both layers"): ` +
+      `states what novomodelo does now, with no change narration (CLAUDE.md "Current-state voice, both layers"): ` +
       `reword a hit as a neutral statement of current behaviour. Delete or re-key a stale entry in scripts/doc-lint-allow.txt.`,
   );
   process.exit(1);

@@ -1,8 +1,8 @@
 // Shared two-voice zone predicate (Epic 04 ticket-015).
 //
-// cobre-docs is two-voiced: methodology math (`math/*.mdx`, excluding the
+// novomodelo-docs is two-voiced: methodology math (`math/*.mdx`, excluding the
 // `_impl/` software-layer partials) plus the conceptual `overview/*` chapters
-// describe CURRENT cobre as instance-agnostic fact — no cobre-version
+// describe CURRENT novomodelo as instance-agnostic fact — no novomodelo-version
 // annotations, no hedged "typical"/"about N" magnitudes (per the Methodology
 // Authoring Standards + the "No version numbers in the corpus" hard rule in
 // CLAUDE.md). `reference/glossary.md` is the one strict page under

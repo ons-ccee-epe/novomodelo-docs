@@ -1,17 +1,17 @@
-# cobre-docs
+# novomodelo-docs
 
-**Cobre Documentation** for the [Cobre](https://github.com/cobre-rs/cobre)
+**Novomodelo Documentation** for the [Novomodelo](https://github.com/ons-ccee-epe/novomodelo)
 ecosystem — the mathematics, algorithm, and worked examples behind its
 SDDP-based hydrothermal dispatch, together with how the software implements them.
 
-Published at **[docs.cobre-rs.dev](https://docs.cobre-rs.dev)**, built
+Published at **[docs.novomodelo.invalid](https://docs.novomodelo.invalid)**, built
 with [Astro Starlight](https://starlight.astro.build/).
 
 > **Scope.** This is the **single, unified** docs site: an annotation-free math
 > layer (formulation, algorithm, worked examples) interleaved per topic with a
 > version-scoped software layer (configure / I·O tabs, the I/O reference, and
-> running Cobre). Only developer/crate internals live outside it, as `cobre`
-> per-crate READMEs + `ARCHITECTURE.md`. The Cobre code is the ground truth —
+> running Novomodelo). Only developer/crate internals live outside it, as `novomodelo`
+> per-crate READMEs + `ARCHITECTURE.md`. The Novomodelo code is the ground truth —
 > when a spec diverges from the code, the spec is updated.
 
 ## Local development
@@ -37,7 +37,7 @@ npm run build:versions # multi-version assembly (versions.json) → dist/
 | Diagrams       | inline [D2](https://d2lang.com/) (ELK engine) for every diagram — schematics, flowcharts, network one-lines (build-time SVG) |
 | Math plots     | [Observable Plot](https://observablehq.com/plot/) islands backed by a unit-tested TypeScript compute layer                   |
 | i18n           | Starlight-native (`en` + `pt-br`) + [Lunaria](https://lunaria.dev/) translation dashboard                                    |
-| Versioning     | latest at `/`, one frozen snapshot per cobre minor at `/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json`       |
+| Versioning     | latest at `/`, one frozen snapshot per novomodelo minor at `/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json`       |
 
 ## Structure
 
@@ -47,10 +47,10 @@ src/
 │   └── docs/             # the unified corpus — math layer + interleaved software layer
 │       ├── index.mdx     #   landing page
 │       ├── getting-started/ #   Get Started — installation, quickstart, Python quickstart
-│       ├── overview/     #   Get Started (what Cobre solves) and Introduction
+│       ├── overview/     #   Get Started (what Novomodelo solves) and Introduction
 │       ├── math/         #   System Modelling, Stochastic Modelling, The SDDP Algorithm, Coupling & Boundary Conditions
 │       │   └── _impl/    #   software-layer Configure / I·O / Notes partials, rendered as tabs on the math pages
-│       ├── running/      #   Running Cobre
+│       ├── running/      #   Running Novomodelo
 │       ├── examples/     #   Worked Examples
 │       ├── reference/    #   Reference — CLI, error codes, schemas, Python API, glossary, bibliography
 │       │   ├── case-format/ #   Reference > Case Format
@@ -78,15 +78,15 @@ npm run check:links   # internal link integrity across every version (reads dist
 npm run check:figures # no retired-figure reference, the figure scope assertions hold, and every Plot island imports a tested src/figures module with an aria-label
 npm run check:voice   # hype phrases, unpinned "typical" numbers, instance magnitudes (two-voice methodology)
 npm run check:counts  # stated counts match their tables and files: column/field counts, the generic-constraint variable catalog, the vendored schema count (public/schemas)
-npm run check:version # cobre-version references vs the Synced-to anchor
+npm run check:version # novomodelo-version references vs the Synced-to anchor
 npm run check:narration # change narration, both zones (ratchet: scripts/doc-lint-allow.txt)
 npm run check:glossary # glossary: no file/path/config tokens, A–Z index complete (ratchet: scripts/doc-lint-allow.txt)
 npm run check:error-coverage # every emitted ErrorKind/LoadError variant has an error-codes section; unemitted ones are reserved
 npm run check:input-schemas # vendored input schemas match the case-format tables: names both ways, required flags, enums
-npm run check:python-api # every public cobre-python stub symbol has an anchor in reference/python-api (stubs: scripts/pystubs/)
+npm run check:python-api # every public novomodelo-python stub symbol has an anchor in reference/python-api (stubs: scripts/pystubs/)
 npm run check:d2      # D2 uses the ELK engine, never TALA
 npm run check:spdx    # 100% FOSS dependency audit
-npm run check:gc-examples # every gc-check fence behaves as marked under cobre v0.18.0 (COBRE_BIN or cobre on PATH)
+npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.18.0 (NOVOMODELO_BIN or novomodelo on PATH)
 npm run refresh:recordings -- --check # quickstart.gif matches scripts/recordings-provenance.json (check only)
 npm run check:type-spelling # reference Type cells use the reference-conventions §4 vocabulary
 npm run check:e10     # third-party-notices / content-licensing completeness
@@ -96,7 +96,7 @@ npm run check:e10     # third-party-notices / content-licensing completeness
 
 A push to `main` triggers `.github/workflows/starlight-deploy.yml`, which builds the
 site, runs the build checks, and publishes it to GitHub Pages at
-`docs.cobre-rs.dev` (`methodology.cobre-rs.dev` 301-redirects in). The full gate
+`docs.novomodelo.invalid` (`methodology.cobre-rs.dev` 301-redirects in). The full gate
 suite, including the doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on
 pull requests to `main`.
 
@@ -104,49 +104,49 @@ pull requests to `main`.
 
 `versions.json` lists the documentation versions. `latest` is built from the
 working tree and served at `/`. Each `versions` entry is a frozen snapshot of one
-cobre minor, built from its `ref` (a 40-hex commit SHA on `main`) and served at
+novomodelo minor, built from its `ref` (a 40-hex commit SHA on `main`) and served at
 its `base` (`/vX.Y/`). The version picker lists `latest`, then `versions` in file
-order, newest first. A cobre patch release updates `latest` in place. A frozen
+order, newest first. A novomodelo patch release updates `latest` in place. A frozen
 snapshot is never edited: a fix branches from its `ref`, and `ref` moves to the
 fix commit (see **Fixing a frozen version**). Every frozen minor is kept until
-cobre v1.0.0; from then on, only the last two or three minors.
+novomodelo v1.0.0; from then on, only the last two or three minors.
 
-**Freezing vX.Y in the docs sync for cobre vX.(Y+1).0**
+**Freezing vX.Y in the docs sync for novomodelo vX.(Y+1).0**
 
-1. Read the SHA of the last `main` commit documenting cobre vX.Y.z with
+1. Read the SHA of the last `main` commit documenting novomodelo vX.Y.z with
    `git ls-remote origin refs/heads/main` (normally the merge commit of the last
    vX.Y sync PR).
 2. Insert the new entry at the top of `versions`:
-   `{ "slug": "vX.Y", "label": "vX.Y", "base": "/vX.Y/", "ref": "<40-hex SHA>", "cobre": "vX.Y.z" }`.
-   `cobre` is the value `latest.cobre` holds before the bump.
-3. Once the cobre vX.(Y+1).0 tag exists, make one commit that:
-   - sets `DEFAULT_COBRE_REF` (`scripts/cobre-ref.mjs`) and `latest.cobre` to
+   `{ "slug": "vX.Y", "label": "vX.Y", "base": "/vX.Y/", "ref": "<40-hex SHA>", "novomodelo": "vX.Y.z" }`.
+   `novomodelo` is the value `latest.novomodelo` holds before the bump.
+3. Once the novomodelo vX.(Y+1).0 tag exists, make one commit that:
+   - sets `DEFAULT_NOVOMODELO_REF` (`scripts/novomodelo-ref.mjs`) and `latest.novomodelo` to
      vX.(Y+1).0;
    - re-vendors `scripts/error-kinds.json` with `npm run refresh:error-kinds`
      and removes the `**Status:** Reserved.` lines of the kinds the new release
      emits (`src/content/docs/reference/error-codes.mdx`);
-   - moves the CI cobre pin (the step name, URL and archive sha256 in
+   - moves the CI novomodelo pin (the step name, URL and archive sha256 in
      `.github/workflows/starlight-ci.yml`) and the `check:gc-examples` line of
      this README;
    - regenerates `scripts/fixtures/gc-overlay/` per its README;
    - moves every `vX.Y.z` page pin (census:
      `/usr/bin/grep -rnE 'v[0-9]+\.[0-9]+\.[0-9]+' src/content/docs`; the frozen
-     `versions` entries keep their `cobre` values). A `capture:` marker moves
+     `versions` entries keep their `novomodelo` values). A `capture:` marker moves
      only when its block is re-captured with the new release binary, a
-     `quoted from source: … at cobre vX.Y.z` marker only when it is re-checked
-     at the new tag, and third-party versions and cobre-bridge links are not
+     `quoted from source: … at novomodelo vX.Y.z` marker only when it is re-checked
+     at the new tag, and third-party versions and novomodelo-bridge links are not
      pins;
    - re-vendors the schemas and the Python stubs
      (`npm run refresh:schemas -- --ref vX.(Y+1).0`,
      `npm run refresh:pystubs -- --ref vX.(Y+1).0`) and updates the recording
      record `scripts/recordings-provenance.json`, then checks it with
      `npm run refresh:recordings -- --check`.
-4. From cobre v1.0.0 on, delete every entry but those of the last two or three
+4. From novomodelo v1.0.0 on, delete every entry but those of the last two or three
    minors; a deleted entry's `/vX.Y/` URLs then 404.
 5. Run `npm run build:versions` (it logs `=== building vX.Y  (base=/vX.Y/) ===`),
    then `npm run check:links`, then `npm test`, and record `du -sh dist`.
 6. Serve `dist/` (`python3 -m http.server -d dist 8080`) and check the picker on
-   `/` and on `/vX.Y/`: it lists every version, `/vX.Y/` shows "documents cobre
+   `/` and on `/vX.Y/`: it lists every version, `/vX.Y/` shows "documents novomodelo
    vX.Y.z", and selecting `latest` returns to `/`.
 7. Before merging, run `git fetch origin main`; then `git log <SHA>..origin/main`
    lists no commit outside the sync, and `git ls-remote origin refs/heads/main`

@@ -1,18 +1,18 @@
 // Python API coverage gate (E14 ticket-233, GRD-04; R87, R98, ADR-025).
 //
 // reference/python-api.mdx is hand-written (ADR-025); this gate keeps it in step
-// with the vendored cobre-python stubs in scripts/pystubs/ (refresh:pystubs) in
+// with the vendored novomodelo-python stubs in scripts/pystubs/ (refresh:pystubs) in
 // both directions:
 //   - every public stub symbol has an identifier heading on the page, written as
-//     its qualified name in backticks (`### \`cobre.results.load_convergence\``);
+//     its qualified name in backticks (`### \`novomodelo.results.load_convergence\``);
 //     the heading's slug is the symbol's anchor;
 //   - every such heading names a symbol the stubs declare (no phantom anchor);
 //   - every annotated field of a stub class (model attributes, TypedDict keys,
 //     SolverError attributes) is a row of a table under that class heading,
 //     first cell the backticked field name, and every such row names a field
 //     (checked only for classes that declare fields, so a constructor or
-//     parameter table under a field-less class such as cobre.Study is free).
-// Symbols: one per stub module (`cobre` for __init__.pyi, else `cobre.<stem>`),
+//     parameter table under a field-less class such as novomodelo.Study is free).
+// Symbols: one per stub module (`novomodelo` for __init__.pyi, else `novomodelo.<stem>`),
 // per module-level def, class and annotated name, and per method or property of
 // a module-level class. A name is public unless it starts with `_`; dunder names
 // such as `__version__` are public, and `__init__` is documented by its class
@@ -41,7 +41,7 @@ export function isPublic(name) {
 
 export function moduleName(fileName) {
   const stem = basename(fileName).replace(/\.pyi$/, "");
-  return stem === "__init__" ? "cobre" : `cobre.${stem}`;
+  return stem === "__init__" ? "novomodelo" : `novomodelo.${stem}`;
 }
 
 // One stub's text -> { headings: [qualified names], fields: Map<class, [field]> }.
@@ -114,7 +114,7 @@ export function parsePage(text) {
       return;
     }
     if (fence !== null) return;
-    const heading = line.match(/^(#{2,6})\s+`(cobre(?:\.[A-Za-z_]\w*)*)`\s*$/);
+    const heading = line.match(/^(#{2,6})\s+`(novomodelo(?:\.[A-Za-z_]\w*)*)`\s*$/);
     if (heading) {
       current = heading[2];
       headings.push({ name: current, line: index + 1 });

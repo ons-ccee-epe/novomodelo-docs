@@ -1,6 +1,6 @@
 ---
 title: System Element Modeling Overview
-description: Physical components of a hydrothermal power system as modeled by Cobre — buses, hydro plants, thermal units, transmission lines, contracts, and pumping stations.
+description: Physical components of a hydrothermal power system as modeled by Novomodelo — buses, hydro plants, thermal units, transmission lines, contracts, and pumping stations.
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -10,7 +10,7 @@ import { Content as HydroRegistryConfigure } from './_impl/_hydro-registry.confi
 
 ## Purpose
 
-This chapter describes the physical components of a hydrothermal power system as modeled by Cobre: what each element represents, its decision variables, how it connects to other elements, and its role in the optimization objective. It is the conceptual foundation for the equipment formulations and the stage LP — the reader should understand _what_ is being optimized before seeing _how_ the constraints are assembled.
+This chapter describes the physical components of a hydrothermal power system as modeled by Novomodelo: what each element represents, its decision variables, how it connects to other elements, and its role in the optimization objective. It is the conceptual foundation for the equipment formulations and the stage LP — the reader should understand _what_ is being optimized before seeing _how_ the constraints are assembled.
 
 **Reading order**: **this chapter** → [Equipment-Specific Formulations](/math/equipment-formulations) → [LP Formulation](/math/lp-formulation)
 
@@ -18,7 +18,7 @@ For variable naming conventions and index sets, see [Notation Conventions](/over
 
 ## Variable Units Convention
 
-All decision variables in Cobre use **rate units**: electrical quantities in MW, hydraulic flows in m³/s. Storage (hm³) is inherently an absolute quantity. The block duration $\tau_k$ [hours] enters the LP as an **external multiplier** — it appears in the objective function coefficients and in the coefficients that convert a rate to a volume or an energy, such as the water balance conversion factor.
+All decision variables in Novomodelo use **rate units**: electrical quantities in MW, hydraulic flows in m³/s. Storage (hm³) is inherently an absolute quantity. The block duration $\tau_k$ [hours] enters the LP as an **external multiplier** — it appears in the objective function coefficients and in the coefficients that convert a rate to a volume or an energy, such as the water balance conversion factor.
 
 Rate units keep every variable bound and the load-balance and production-function coefficients independent of the block durations, and the FPHA hyperplanes relate these rates to storage. The convention has these consequences across the formulation:
 
@@ -38,7 +38,7 @@ All output reports and user-facing marginal costs must apply the $\div \tau_k$ c
 
 ## 1. System Architecture Overview
 
-A hydrothermal power system in Cobre consists of interconnected physical elements that work together to meet electricity demand at minimum cost under inflow uncertainty:
+A hydrothermal power system in Novomodelo consists of interconnected physical elements that work together to meet electricity demand at minimum cost under inflow uncertainty:
 
 System element overview — buses, a hydro plant with its reservoir (inflow in),
 a thermal plant, an NCS (wind/solar) source, a transmission line between buses, a
@@ -167,7 +167,7 @@ A **transmission line** represents the interconnection between two buses, allowi
 | $f^-_{n,k}$ | MW    | Reverse flow on line $n$ (target → source), block $k$ |
 
 :::note[Modeling note]
-Cobre uses two non-negative variables ($f^+$, $f^-$) rather than a single signed variable. This simplifies bound handling and naturally prevents simultaneous bidirectional flow through regularization costs.
+Novomodelo uses two non-negative variables ($f^+$, $f^-$) rather than a single signed variable. This simplifies bound handling and naturally prevents simultaneous bidirectional flow through regularization costs.
 :::
 
 ### Connections to Other Elements
@@ -264,7 +264,7 @@ A delivery past the horizon can be decided in the study only when the case decla
 
 #### Commitments decided before the study
 
-Every delivery the plant decided before the study is declared with its committed rate, a zero rate included. The in-study ones seed their slots at the first stage, each matched to its delivery stage by date, and are then carried and delivered like any other commitment. Those past the horizon are fixed commitments: they hold no ring slot and are priced only through the terminal boundary (see [Post-Study Boundary & Chained Studies](/math/post-study-boundary)). The declaration shape lives in the Configure tab of [Equipment-Specific Formulations](/math/equipment-formulations#implementation-in-cobre).
+Every delivery the plant decided before the study is declared with its committed rate, a zero rate included. The in-study ones seed their slots at the first stage, each matched to its delivery stage by date, and are then carried and delivered like any other commitment. Those past the horizon are fixed commitments: they hold no ring slot and are priced only through the terminal boundary (see [Post-Study Boundary & Chained Studies](/math/post-study-boundary)). The declaration shape lives in the Configure tab of [Equipment-Specific Formulations](/math/equipment-formulations#implementation-in-novomodelo).
 
 #### Commitment cost
 
@@ -294,7 +294,7 @@ A plant whose groups all share one bus has exactly one cell and reduces to the s
 
 ### Operating Status
 
-Cobre names two hydro plant subsets by their lifecycle phase at a stage; a PreFilling hydro belongs to neither:
+Novomodelo names two hydro plant subsets by their lifecycle phase at a stage; a PreFilling hydro belongs to neither:
 
 | Subset        | Symbol               | Description                                                             |
 | ------------- | -------------------- | ----------------------------------------------------------------------- |
@@ -426,7 +426,7 @@ Outflow $o_h = q_h + s_h$ is the water released to the downstream channel (affec
 
 In a cascade, an upstream plant's outflow ($q + s$) becomes a downstream plant's inflow. By default this transfer is **instantaneous** — water released this stage reaches the downstream reservoir within the same stage. When the reach between two plants is long enough that travel is not negligible, a plant $h'$ may declare a **water travel time** on its main cascade arc: a release made during stage $t$ delivers the share $\nu_{h',t,0} = (H_t - \Delta^{tt}_{h'})^+ / H_t$ to the downstream reservoir within the stage, with $\Delta^{tt}_{h'}$ the travel time and $H_t$ the stage duration, both in hours, and the rest reaches it in later stages.
 
-Cobre carries the water in transit on such an arc as additional **in-transit state** through the Bellman recursion, discretized into maturity lags — one aggregated in-transit bucket per receiving plant per lag. The bucket maturing at a given stage enters the receiving plant's water balance as a delayed inflow; the remaining in-transit volume is carried forward to later stages. Under the [chronological-blocks formulation](/math/block-formulations) the delayed arrival is spread across the arrival stage's blocks by a fixed density; under parallel blocks it is a single stage-level inflow. Because this is a genuine state augmentation — its in-transit buckets join the state vector and every cut — it is formulated in [State Augmentation §6](/math/state-augmentation#6-water-travel-time). Confluent arcs feeding one plant are summed into that plant's single in-transit block.
+Novomodelo carries the water in transit on such an arc as additional **in-transit state** through the Bellman recursion, discretized into maturity lags — one aggregated in-transit bucket per receiving plant per lag. The bucket maturing at a given stage enters the receiving plant's water balance as a delayed inflow; the remaining in-transit volume is carried forward to later stages. Under the [chronological-blocks formulation](/math/block-formulations) the delayed arrival is spread across the arrival stage's blocks by a fixed density; under parallel blocks it is a single stage-level inflow. Because this is a genuine state augmentation — its in-transit buckets join the state vector and every cut — it is formulated in [State Augmentation §6](/math/state-augmentation#6-water-travel-time). Confluent arcs feeding one plant are summed into that plant's single in-transit block.
 
 **Scope.** Travel time applies to the **main cascade arc only** — the arc from a plant to its downstream plant. Diversion and pumping transfers are instantaneous. A travel time that is absent or zero is treated as an instantaneous transfer, adding no state.
 
@@ -436,7 +436,7 @@ Cobre carries the water in transit on such an arc as additional **in-transit sta
 
 ### Production Function (Water to Power)
 
-Cobre supports three production-model names for converting turbined flow to electrical generation:
+Novomodelo supports three production-model names for converting turbined flow to electrical generation:
 
 1. **Constant Productivity**: $g_{h,b,k} = \rho_h \cdot q_{h,b,k}$ (per cell $(h,b)$) — simple linear relationship with fixed $\rho_h$ [MW/(m³/s)], suitable for plants with stable head.
 
@@ -479,13 +479,13 @@ The defining contrast with the filling phase below is **spillage**: it is frozen
 
 ### Dead-Volume Filling
 
-Cobre models the commissioning of new hydro plants with a **filling period** (from the plant's filling start stage up to, not including, its entry stage) during which the reservoir accumulates water to reach the dead volume ($\underline{V}_h$). During this period:
+Novomodelo models the commissioning of new hydro plants with a **filling period** (from the plant's filling start stage up to, not including, its entry stage) during which the reservoir accumulates water to reach the dead volume ($\underline{V}_h$). During this period:
 
 - The hydro has **no generation**: $q_{h,k} = 0$, $g_{h,k} = 0$ (hard constraint)
 - Natural inflow flows freely through the ordinary water balance — there is no retention or impound cap diverting inflow to storage
 - Storage is allowed below $\underline{V}_h$ (the operating min-storage slack is absent)
 - Outflow is limited to spillage (turbines not operational), with the minimum-outflow slack $\sigma^{o-}_{h,k}$ if environmental flow cannot be met. Spillage is a **free** decision during filling — a real impounding reservoir can shed inflow it cannot yet hold — in contrast to the PreFilling state, where spillage is frozen to zero
-- A **per-stage filling floor** $v_h \geq V^{\text{target}}_t$ requires the reservoir to stay on a minimum-accumulation schedule set by its minimum filling rate. The floor reaches the dead volume exactly at the last filling stage; Cobre expects its slack $\sigma^{fill}_h$ to be priced **below** deficit (a fill schedule is not defended as hard as load serving)
+- A **per-stage filling floor** $v_h \geq V^{\text{target}}_t$ requires the reservoir to stay on a minimum-accumulation schedule set by its minimum filling rate. The floor reaches the dead volume exactly at the last filling stage; Novomodelo expects its slack $\sigma^{fill}_h$ to be priced **below** deficit (a fill schedule is not defended as hard as load serving)
 
 When the plant enters service at its entry stage, its dead volume returns as a soft floor with slack $\sigma^{v-}_h$. For the per-stage floor trajectory and the penalty ordering, see [Penalty System](/math/penalty-system).
 
@@ -640,9 +640,9 @@ The following table maps each physical system element to its LP representation:
 
 **Key insight**: The hydro storage, the inflow lags, the in-transit buckets of the cascade arcs that declare a water travel time and the commitment-ring slots of the anticipated thermals are the four **state** families that link stages through the Bellman recursion ([State Augmentation §1](/math/state-augmentation#1-state-vector)). All other elements contribute control variables that are determined within each stage. This structure enables SDDP's decomposition: the stage subproblem optimizes all control variables given the incoming state, and Benders cuts approximate the future cost as a function of the outgoing state.
 
-## Implementation in Cobre
+## Implementation in Novomodelo
 
-The methodology above defines every system element; the tabs below cover how Cobre's software surface configures and reports the **network layer** — buses and transmission lines — and how the Configure tab sets up the **hydro plant registry**. The remaining elements (thermals, non-controllable sources, pumping stations, contracts), the hydro files and outputs, and the hydro production-model selection are covered by their own chapters' Implementation tabs ([Equipment-Specific Formulations](/math/equipment-formulations#implementation-in-cobre), [Hydro Production Function Models](/math/hydro-production-models#implementation-in-cobre)).
+The methodology above defines every system element; the tabs below cover how Novomodelo's software surface configures and reports the **network layer** — buses and transmission lines — and how the Configure tab sets up the **hydro plant registry**. The remaining elements (thermals, non-controllable sources, pumping stations, contracts), the hydro files and outputs, and the hydro production-model selection are covered by their own chapters' Implementation tabs ([Equipment-Specific Formulations](/math/equipment-formulations#implementation-in-novomodelo), [Hydro Production Function Models](/math/hydro-production-models#implementation-in-novomodelo)).
 
 <Tabs>
   <TabItem label="Configure">

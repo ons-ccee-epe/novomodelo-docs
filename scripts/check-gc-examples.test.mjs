@@ -1,7 +1,7 @@
 // Unit fixture for the check:gc-examples detector (E15 ticket-242, GRD-05).
 //
-// Pure functions are tested directly; runGcExamples is driven against a STUB `cobre`
-// (a node script in a temp dir), so the suite needs no cobre binary and is CI-safe
+// Pure functions are tested directly; runGcExamples is driven against a STUB `novomodelo`
+// (a node script in a temp dir), so the suite needs no novomodelo binary and is CI-safe
 // before the install step exists. Each violation class is seeded once.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -23,12 +23,12 @@ import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  checkCobreVersion,
+  checkNovomodeloVersion,
   classifyOutcome,
   extractGcFences,
   runGcExamples,
 } from "./check-gc-examples.mjs";
-import { DEFAULT_COBRE_REF } from "./cobre-ref.mjs";
+import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 
 const T = "```";
 const SCRIPT = fileURLToPath(
@@ -250,35 +250,35 @@ test("classifyOutcome: stdout that is not a JSON object is BAD-OUTPUT for either
   }
 });
 
-// --- checkCobreVersion ------------------------------------------------------
+// --- checkNovomodeloVersion ------------------------------------------------------
 
-test("checkCobreVersion: match, mismatch and unreadable", () => {
+test("checkNovomodeloVersion: match, mismatch and unreadable", () => {
   assert.equal(
-    checkCobreVersion("cobre   v0.17.0\nsolver: HiGHS\n", "v0.17.0"),
+    checkNovomodeloVersion("novomodelo   v0.17.0\nsolver: HiGHS\n", "v0.17.0"),
     null,
   );
   assert.equal(
-    checkCobreVersion("cobre   v0.17.0\r\nsolver: HiGHS", "v0.17.0"),
+    checkNovomodeloVersion("novomodelo   v0.17.0\r\nsolver: HiGHS", "v0.17.0"),
     null,
   );
   assert.equal(
-    checkCobreVersion("cobre   v0.16.0\n", "v0.17.0"),
-    "cobre version v0.16.0 differs from DEFAULT_COBRE_REF v0.17.0",
+    checkNovomodeloVersion("novomodelo   v0.16.0\n", "v0.17.0"),
+    "novomodelo version v0.16.0 differs from DEFAULT_NOVOMODELO_REF v0.17.0",
   );
   assert.equal(
-    checkCobreVersion("cobre   v0.17.0-rc1\n", "v0.17.0"),
-    "cobre version v0.17.0-rc1 differs from DEFAULT_COBRE_REF v0.17.0",
+    checkNovomodeloVersion("novomodelo   v0.17.0-rc1\n", "v0.17.0"),
+    "novomodelo version v0.17.0-rc1 differs from DEFAULT_NOVOMODELO_REF v0.17.0",
   );
   for (const text of [
     "",
     "garbage\n",
-    "cobre\n",
-    "banner\ncobre   v0.17.0\n",
-    "cobre   0.17.0\n",
+    "novomodelo\n",
+    "banner\nnovomodelo   v0.17.0\n",
+    "novomodelo   0.17.0\n",
   ]) {
     assert.equal(
-      checkCobreVersion(text, "v0.17.0"),
-      "unreadable cobre version output",
+      checkNovomodeloVersion(text, "v0.17.0"),
+      "unreadable novomodelo version output",
       JSON.stringify(text),
     );
   }
@@ -300,7 +300,7 @@ const ok = { configured: false, boundary_date: null, report: null };
 if (process.env.NO_COLOR !== "1") {
   fail(65, "NO_COLOR is not set to 1");
 } else if (command === "version") {
-  process.stdout.write((process.env.STUB_VERSION || "cobre   v0.17.0") + "\\nsolver: stub\\n");
+  process.stdout.write((process.env.STUB_VERSION || "novomodelo   v0.17.0") + "\\nsolver: stub\\n");
 } else if (command === "init" && args.length === 3 && args[0] === "--template" && args[1] === "1dtoy") {
   const dir = args[2];
   if (process.env.STUB_INIT_FAIL) {
@@ -350,7 +350,7 @@ const OVERLAY = { [GC]: "{}\n", [GP]: "{}\n" };
 
 function workspace(overlay = OVERLAY) {
   const root = mkdtempSync(join(tmpdir(), "check-gc-examples-test-"));
-  const bin = join(root, "cobre");
+  const bin = join(root, "novomodelo");
   writeFileSync(bin, STUB);
   chmodSync(bin, 0o755);
   const fixtureDir = join(root, "overlay");
@@ -378,7 +378,7 @@ const run = (ws, pageText, env = {}, overrides = {}) =>
     pageText,
     pageLabel: "page.mdx",
     fixtureDir: ws.fixtureDir,
-    cobreBin: ws.bin,
+    novomodeloBin: ws.bin,
     defaultRef: "v0.17.0",
     env: { ...withoutColorFlag(), ...env },
     ...overrides,
@@ -488,7 +488,7 @@ test("a title naming a scaffold file or an overlay file of the assembled case is
   }
 });
 
-test("UNEXPECTED-REJECT: an accept fence that cobre refuses, with its line and message", () => {
+test("UNEXPECTED-REJECT: an accept fence that novomodelo refuses, with its line and message", () => {
   const ws = workspace();
   try {
     const result = run(ws, page(fence("accept", "BAD")));
@@ -564,16 +564,16 @@ test("BAD-META reaches the result with its line, and the valid fence still runs"
 test("setupError: a missing binary names the path and the remedy", () => {
   const ws = workspace();
   try {
-    const missing = join(ws.root, "nope", "cobre");
+    const missing = join(ws.root, "nope", "novomodelo");
     const result = run(
       ws,
       page(fence("accept", "{}")),
       {},
-      { cobreBin: missing },
+      { novomodeloBin: missing },
     );
     assert.equal(
       result.setupError,
-      `cobre binary not found: ${missing}; set COBRE_BIN or put cobre on PATH`,
+      `novomodelo binary not found: ${missing}; set NOVOMODELO_BIN or put novomodelo on PATH`,
     );
     assert.deepEqual(result.problems, []);
   } finally {
@@ -587,7 +587,7 @@ test("setupError: a binary that cannot be executed names the path and the cause"
     chmodSync(ws.bin, 0o644);
     const result = run(ws, page(fence("accept", "{}")));
     assert.ok(
-      result.setupError?.startsWith(`cannot run cobre binary ${ws.bin}: `),
+      result.setupError?.startsWith(`cannot run novomodelo binary ${ws.bin}: `),
       result.setupError,
     );
     assert.match(result.setupError, /EACCES/);
@@ -597,11 +597,11 @@ test("setupError: a binary that cannot be executed names the path and the cause"
   }
 });
 
-// A copy of the stub under `<ws.root>/<dir>/cobre`; `ran` is written by any run of it.
+// A copy of the stub under `<ws.root>/<dir>/novomodelo`; `ran` is written by any run of it.
 function stubAt(ws, dir) {
   const folder = join(ws.root, dir);
   mkdirSync(folder, { recursive: true });
-  const bin = join(folder, "cobre");
+  const bin = join(folder, "novomodelo");
   writeFileSync(
     bin,
     STUB.replace(
@@ -624,13 +624,13 @@ test("setupError: a binary inside a cargo build tree is refused, named by its re
         page(fence("accept", "{}")),
         { STUB_RAN: ran },
         {
-          cobreBin: bin,
+          novomodeloBin: bin,
         },
       );
       const real = realpathSync(bin);
       assert.equal(
         result.setupError,
-        `cobre binary ${real} lies inside a cargo build tree (/target/release/ or /target/debug/); set COBRE_BIN or PATH to the pinned release binary`,
+        `novomodelo binary ${real} lies inside a cargo build tree (/target/release/ or /target/debug/); set NOVOMODELO_BIN or PATH to the pinned release binary`,
         dir,
       );
       assert.deepEqual(result.problems, [], dir);
@@ -641,7 +641,7 @@ test("setupError: a binary inside a cargo build tree is refused, named by its re
   }
 });
 
-test("setupError: a bare cobre that PATH resolves into a cargo build tree is refused", () => {
+test("setupError: a bare novomodelo that PATH resolves into a cargo build tree is refused", () => {
   const ws = workspace();
   const ran = join(ws.root, "ran");
   try {
@@ -650,12 +650,12 @@ test("setupError: a bare cobre that PATH resolves into a cargo build tree is ref
       ws,
       page(fence("accept", "{}")),
       { STUB_RAN: ran, PATH: `${dirname(bin)}${delimiter}${process.env.PATH}` },
-      { cobreBin: "cobre" },
+      { novomodeloBin: "novomodelo" },
     );
     assert.match(
       result.setupError,
       new RegExp(
-        `^cobre binary ${realpathSync(bin)} lies inside a cargo build tree`,
+        `^novomodelo binary ${realpathSync(bin)} lies inside a cargo build tree`,
       ),
     );
     assert.equal(existsSync(ran), false);
@@ -670,20 +670,20 @@ test("setupError: a symlink whose real path is inside a cargo build tree is refu
   try {
     const bin = stubAt(ws, "target/release");
     mkdirSync(join(ws.root, "bin"));
-    const link = join(ws.root, "bin", "cobre");
+    const link = join(ws.root, "bin", "novomodelo");
     symlinkSync(bin, link);
     const result = run(
       ws,
       page(fence("accept", "{}")),
       { STUB_RAN: ran },
       {
-        cobreBin: link,
+        novomodeloBin: link,
       },
     );
     assert.match(
       result.setupError,
       new RegExp(
-        `^cobre binary ${realpathSync(bin)} lies inside a cargo build tree`,
+        `^novomodelo binary ${realpathSync(bin)} lies inside a cargo build tree`,
       ),
     );
     assert.equal(existsSync(ran), false);
@@ -692,14 +692,14 @@ test("setupError: a symlink whose real path is inside a cargo build tree is refu
   }
 });
 
-test("a binary outside any cargo build tree runs, by path and as a bare cobre on PATH", () => {
+test("a binary outside any cargo build tree runs, by path and as a bare novomodelo on PATH", () => {
   const ws = workspace();
   const ran = join(ws.root, "ran");
   try {
     for (const dir of ["bin", "mytarget/release", "target/release-notes"]) {
       const bin = stubAt(ws, dir);
       const text = page(fence("accept", "{}"), fence("reject", "BAD"));
-      const byPath = run(ws, text, { STUB_RAN: ran }, { cobreBin: bin });
+      const byPath = run(ws, text, { STUB_RAN: ran }, { novomodeloBin: bin });
       assert.deepEqual(
         byPath,
         { setupError: null, problems: [], accepted: 1, rejected: 1 },
@@ -714,7 +714,7 @@ test("a binary outside any cargo build tree runs, by path and as a bare cobre on
           STUB_RAN: ran,
           PATH: `${dirname(bin)}${delimiter}${process.env.PATH}`,
         },
-        { cobreBin: "cobre" },
+        { novomodeloBin: "novomodelo" },
       );
       assert.deepEqual(bare, byPath, dir);
       assert.equal(existsSync(ran), true, dir);
@@ -725,13 +725,13 @@ test("a binary outside any cargo build tree runs, by path and as a bare cobre on
   }
 });
 
-test("setupError: unreadable cobre version output", () => {
+test("setupError: unreadable novomodelo version output", () => {
   const ws = workspace();
   try {
     const result = run(ws, page(fence("accept", "{}")), {
       STUB_VERSION: "garbage",
     });
-    assert.equal(result.setupError, "unreadable cobre version output");
+    assert.equal(result.setupError, "unreadable novomodelo version output");
     assert.deepEqual(result.problems, []);
   } finally {
     ws.cleanup();
@@ -742,11 +742,11 @@ test("setupError: a binary of another version", () => {
   const ws = workspace();
   try {
     const result = run(ws, page(fence("accept", "{}")), {
-      STUB_VERSION: "cobre   v0.16.0",
+      STUB_VERSION: "novomodelo   v0.16.0",
     });
     assert.equal(
       result.setupError,
-      "cobre version v0.16.0 differs from DEFAULT_COBRE_REF v0.17.0",
+      "novomodelo version v0.16.0 differs from DEFAULT_NOVOMODELO_REF v0.17.0",
     );
     assert.deepEqual(result.problems, []);
   } finally {
@@ -768,7 +768,7 @@ test("setupError: a missing fixture directory", () => {
   }
 });
 
-test("setupError: cobre init failing carries its stderr", () => {
+test("setupError: novomodelo init failing carries its stderr", () => {
   const ws = workspace();
   try {
     const result = run(ws, page(fence("accept", "{}")), {
@@ -776,7 +776,7 @@ test("setupError: cobre init failing carries its stderr", () => {
     });
     assert.equal(
       result.setupError,
-      "cobre init failed (exit status 2): init boom",
+      "novomodelo init failed (exit status 2): init boom",
     );
     assert.deepEqual(result.problems, []);
   } finally {
@@ -804,7 +804,7 @@ test("NO-FENCES: an empty page and a page with only illustrative fences", () => 
   }
 });
 
-test("FIXTURE-INVALID: an overlay cobre refuses, and no fence runs", () => {
+test("FIXTURE-INVALID: an overlay novomodelo refuses, and no fence runs", () => {
   const ws = workspace({ [GC]: "BAD\n" });
   try {
     const result = run(ws, page(fence("accept", "{}"), fence("reject", "BAD")));
@@ -916,7 +916,7 @@ test("the temp directory is created under TMPDIR and removed, on success and on 
     }
     assert.equal(
       run(ws, text, { STUB_INIT_FAIL: "1" }).setupError?.startsWith(
-        "cobre init failed",
+        "novomodelo init failed",
       ),
       true,
     );
@@ -940,7 +940,7 @@ const PAGE_REL = "src/content/docs/reference/generic-constraints.mdx";
 function cliWorkspace({ pageText, overlay }) {
   const root = mkdtempSync(join(tmpdir(), "check-gc-examples-cli-"));
   mkdirSync(join(root, "scripts"));
-  for (const name of ["check-gc-examples.mjs", "cobre-ref.mjs"]) {
+  for (const name of ["check-gc-examples.mjs", "novomodelo-ref.mjs"]) {
     copyFileSync(join(dirname(SCRIPT), name), join(root, "scripts", name));
   }
   if (pageText !== undefined) {
@@ -955,7 +955,7 @@ function cliWorkspace({ pageText, overlay }) {
       writeFileSync(join(dir, rel), content);
     }
   }
-  const bin = join(root, "cobre");
+  const bin = join(root, "novomodelo");
   writeFileSync(bin, STUB);
   chmodSync(bin, 0o755);
   const exec = (env = {}) =>
@@ -966,8 +966,8 @@ function cliWorkspace({ pageText, overlay }) {
         encoding: "utf8",
         env: {
           ...withoutColorFlag(),
-          COBRE_BIN: bin,
-          STUB_VERSION: `cobre   ${DEFAULT_COBRE_REF}`,
+          NOVOMODELO_BIN: bin,
+          STUB_VERSION: `novomodelo   ${DEFAULT_NOVOMODELO_REF}`,
           ...env,
         },
       },
@@ -993,7 +993,7 @@ test("CLI: every example behaves as marked -> one OK line, exit 0", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.equal(
       result.stdout,
-      `OK: 3 generic-constraint examples behave as marked under cobre ${DEFAULT_COBRE_REF} (2 accepted, 1 rejected)\n`,
+      `OK: 3 generic-constraint examples behave as marked under novomodelo ${DEFAULT_NOVOMODELO_REF} (2 accepted, 1 rejected)\n`,
     );
     assert.equal(result.stderr, "");
   } finally {
@@ -1019,7 +1019,7 @@ test("CLI: problems -> FAIL count, one line per problem, exit 1", () => {
     );
     assert.equal(
       lines[2],
-      `check:gc-examples: UNEXPECTED-ACCEPT ${PAGE_REL}:7 cobre validate accepted the fence (exit status 0)`,
+      `check:gc-examples: UNEXPECTED-ACCEPT ${PAGE_REL}:7 novomodelo validate accepted the fence (exit status 0)`,
     );
     assert.equal(lines.length, 3);
   } finally {
@@ -1033,11 +1033,11 @@ test("CLI: a missing binary prints one setup line and exits 2", () => {
     overlay: OVERLAY,
   });
   try {
-    const result = cw.exec({ COBRE_BIN: "/nonexistent/cobre" });
+    const result = cw.exec({ NOVOMODELO_BIN: "/nonexistent/novomodelo" });
     assert.equal(result.status, 2);
     assert.equal(
       result.stderr,
-      "check:gc-examples: cobre binary not found: /nonexistent/cobre; set COBRE_BIN or put cobre on PATH\n",
+      "check:gc-examples: novomodelo binary not found: /nonexistent/novomodelo; set NOVOMODELO_BIN or put novomodelo on PATH\n",
     );
     assert.equal(result.stdout, "");
   } finally {
@@ -1045,17 +1045,17 @@ test("CLI: a missing binary prints one setup line and exits 2", () => {
   }
 });
 
-test("CLI: a binary of another version exits 2 naming DEFAULT_COBRE_REF", () => {
+test("CLI: a binary of another version exits 2 naming DEFAULT_NOVOMODELO_REF", () => {
   const cw = cliWorkspace({
     pageText: page(fence("accept", "{}")),
     overlay: OVERLAY,
   });
   try {
-    const result = cw.exec({ STUB_VERSION: "cobre   v0.0.1" });
+    const result = cw.exec({ STUB_VERSION: "novomodelo   v0.0.1" });
     assert.equal(result.status, 2);
     assert.equal(
       result.stderr,
-      `check:gc-examples: cobre version v0.0.1 differs from DEFAULT_COBRE_REF ${DEFAULT_COBRE_REF}\n`,
+      `check:gc-examples: novomodelo version v0.0.1 differs from DEFAULT_NOVOMODELO_REF ${DEFAULT_NOVOMODELO_REF}\n`,
     );
   } finally {
     cw.cleanup();
@@ -1090,7 +1090,7 @@ test("CLI: an unreadable page exits 2", () => {
   }
 });
 
-test("CLI: COBRE_BIN inside target/release exits 2 naming the real path, and a bare cobre on PATH does too", () => {
+test("CLI: NOVOMODELO_BIN inside target/release exits 2 naming the real path, and a bare novomodelo on PATH does too", () => {
   const cw = cliWorkspace({
     pageText: page(fence("accept", "{}")),
     overlay: OVERLAY,
@@ -1098,16 +1098,16 @@ test("CLI: COBRE_BIN inside target/release exits 2 naming the real path, and a b
   try {
     const dir = join(cw.root, "target", "release");
     mkdirSync(dir, { recursive: true });
-    const bin = join(dir, "cobre");
-    copyFileSync(join(cw.root, "cobre"), bin);
+    const bin = join(dir, "novomodelo");
+    copyFileSync(join(cw.root, "novomodelo"), bin);
     chmodSync(bin, 0o755);
-    const message = `check:gc-examples: cobre binary ${realpathSync(bin)} lies inside a cargo build tree (/target/release/ or /target/debug/); set COBRE_BIN or PATH to the pinned release binary\n`;
-    const byPath = cw.exec({ COBRE_BIN: bin });
+    const message = `check:gc-examples: novomodelo binary ${realpathSync(bin)} lies inside a cargo build tree (/target/release/ or /target/debug/); set NOVOMODELO_BIN or PATH to the pinned release binary\n`;
+    const byPath = cw.exec({ NOVOMODELO_BIN: bin });
     assert.equal(byPath.status, 2);
     assert.equal(byPath.stderr, message);
     assert.equal(byPath.stdout, "");
     const bare = cw.exec({
-      COBRE_BIN: "",
+      NOVOMODELO_BIN: "",
       PATH: `${dir}${delimiter}${process.env.PATH}`,
     });
     assert.equal(bare.status, 2);

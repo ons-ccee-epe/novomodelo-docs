@@ -35,7 +35,7 @@ const RECORD = {
   tape: "recordings/quickstart.tape",
   tape_ref: "v0.17.0",
   tape_blob: "e2fd31bf86e02e35f56f5807ce2449957861d9c4",
-  cobre_version: null,
+  novomodelo_version: null,
   hostname_method: null,
   note: "fixture",
 };
@@ -146,8 +146,8 @@ test("assertGifMagic throws a named error on non-GIF bytes (error page / LFS poi
 // ---- CLI: `--check` on a scratch copy ---------------------------------------
 // The script resolves public/ and recordings-provenance.json from its own
 // location, so each run copies it, its ref module, the record and the GIF into
-// a temporary root. `--cobre` names a path that is not a checkout, so the tape
-// blob is never resolved and the run never depends on the developer's cobre.
+// a temporary root. `--novomodelo` names a path that is not a checkout, so the tape
+// blob is never resolved and the run never depends on the developer's novomodelo.
 
 const SCRIPTS = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC = fileURLToPath(new URL("../public/", import.meta.url));
@@ -161,7 +161,7 @@ function checkOnCopy(tamper) {
   const dirs = [join(root, "scripts"), join(root, "public"), dirname(gif)];
   const files = [
     ["refresh-recordings.mjs", "scripts/refresh-recordings.mjs"],
-    ["cobre-ref.mjs", "scripts/cobre-ref.mjs"],
+    ["novomodelo-ref.mjs", "scripts/novomodelo-ref.mjs"],
     ["recordings-provenance.json", "scripts/recordings-provenance.json"],
   ].map(([from, to]) => [join(SCRIPTS, from), join(root, to)]);
   files.push([join(PUBLIC, GIF_DEST), gif]);
@@ -178,8 +178,8 @@ function checkOnCopy(tamper) {
       [
         join(root, "scripts/refresh-recordings.mjs"),
         "--check",
-        "--cobre",
-        join(root, "no-cobre"),
+        "--novomodelo",
+        join(root, "no-novomodelo"),
       ],
       { encoding: "utf8", cwd: tmpdir() },
     );

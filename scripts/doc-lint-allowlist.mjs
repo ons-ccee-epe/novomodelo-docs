@@ -5,7 +5,7 @@
 // strict-zone hits (each with a rationale) so the voice-family gates
 // (`check-doc-voice.mjs`, `check-doc-version.mjs`) land green on the current
 // corpus while still failing on any NEW violation with no matching entry. This
-// mirrors cobre's own `scripts/ci/allow-rationale-allowlist.txt` convention.
+// mirrors novomodelo's own `scripts/ci/allow-rationale-allowlist.txt` convention.
 //
 // Format: one entry per grandfathered hit, one per line:
 //   <relpath>:<line>  <rule-id>[,<rule-id>...]  # rationale

@@ -1,15 +1,15 @@
 ---
 title: Performance Accelerators
-description: The performance behaviours of Cobre's SDDP solver that a user configures or observes — solver safeguards, LP scaling, cut management, and parallel execution.
+description: The performance behaviours of Novomodelo's SDDP solver that a user configures or observes — solver safeguards, LP scaling, cut management, and parallel execution.
 ---
 
-This chapter documents the performance behaviours of Cobre's SDDP solver that a
+This chapter documents the performance behaviours of Novomodelo's SDDP solver that a
 user configures or observes: what to tune and what to read back from the output.
 Each accelerator addresses a specific cost driver in the training loop and is
 active by default unless noted otherwise. Understanding them helps users
 interpret timing statistics, configure cut management strategies, and diagnose
 performance regressions. The crate-internal data structures and allocation
-discipline that back these behaviours are documented in the cobre developer
+discipline that back these behaviours are documented in the novomodelo developer
 surface — see [See Also](#see-also).
 
 ---
@@ -49,13 +49,13 @@ output column (values `0`–`11`) and written to
 `training/solver/retry_histogram.parquet` for post-run analysis; a solve that
 never retries adds no histogram row; level `0` is the first retry level. The escalation strategy itself — which options
 each level applies — is a solver-internal detail documented in the
-[`cobre-solver` README](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-solver/README.md).
+[`novomodelo-solver` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-solver/README.md).
 
 ---
 
 ## LP Scaling
 
-Before each stage's LP template is built, Cobre applies its own geometric-mean
+Before each stage's LP template is built, Novomodelo applies its own geometric-mean
 row/column prescaler that normalizes the constraint-matrix coefficients toward
 1.0, improving numerical conditioning. The prescaling mechanism and its
 exact-unscaling guarantee are documented in the math layer under
@@ -85,7 +85,7 @@ scaling for each stage.
 ## Cut Management Pipeline
 
 As training progresses, the row pool grows and LP solve times increase.
-Cobre provides a two-stage row management pipeline (Stage 1, the selection pass,
+Novomodelo provides a two-stage row management pipeline (Stage 1, the selection pass,
 then Stage 2, the budget pass) to control this growth while preserving convergence guarantees.
 
 The pipeline runs after each iteration's backward pass and cut
@@ -170,7 +170,7 @@ The `Execution` block of the run banner reports both levels. The excerpt below
 shows an example two-rank run with two threads per rank on one host; it omits the
 `Solver` line and writes the hostname as `<host>`:
 
-{/* quoted from source: crates/cobre-cli/src/summary.rs:94-96, 116-151 at cobre v0.18.0 | format only; the values are an example (never run under mpiexec, D9) */}
+{/* quoted from source: crates/novomodelo-cli/src/summary.rs:94-96, 116-151 at novomodelo v0.18.0 | format only; the values are an example (never run under mpiexec, D9) */}
 
 ```text
 Execution
@@ -216,7 +216,7 @@ points solve in variable time. Either way the produced cut set and lower bound
 are independent of worker and thread count. See
 [`parallelism.backward_scheduler`](/running/configuration/#trainingparallelism) for the
 configuration, and the
-[`cobre-sddp` README](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-sddp/README.md)
+[`novomodelo-sddp` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md)
 for the scheduler and inter-rank communication internals.
 
 #### By-Node Scheduling
@@ -311,7 +311,7 @@ Under a sampled forward pass the backward pass adds:
 The enumerated backward pass has neither the state exchange nor the cut
 exchange; it uses an allgatherv of the successor outcomes of each node instead
 (see [Work Partition](#work-partition)). The communicator backends are documented in
-the [`cobre-comm` README](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-comm/README.md).
+the [`novomodelo-comm` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-comm/README.md).
 
 Each LP solve runs on one thread: the bundled HiGHS is built without its
 default threads, so during the forward pass, the sampled backward pass and
@@ -346,7 +346,7 @@ checkpoint on every rank, from the output directory.
 
 - [Configuration](/running/configuration/#trainingcut_selection) — row-selection and row management configuration
 - [Output Format](/reference/output/) — timing, solver statistics, and row-selection output schemas
-- [cobre-solver](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-solver/README.md) — solver interface and retry-escalation internals (cobre developer guide)
-- [cobre-sddp](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-sddp/README.md) — training-loop architecture, scheduling, and data structures (cobre developer guide)
-- [cobre-comm](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-comm/README.md) — communicator backends and collectives (cobre developer guide)
-- [ARCHITECTURE.md](https://github.com/cobre-rs/cobre/blob/main/ARCHITECTURE.md) — cobre crate topology and dependency graph (cobre developer guide)
+- [novomodelo-solver](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-solver/README.md) — solver interface and retry-escalation internals (novomodelo developer guide)
+- [novomodelo-sddp](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md) — training-loop architecture, scheduling, and data structures (novomodelo developer guide)
+- [novomodelo-comm](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-comm/README.md) — communicator backends and collectives (novomodelo developer guide)
+- [ARCHITECTURE.md](https://github.com/ons-ccee-epe/novomodelo/blob/main/ARCHITECTURE.md) — novomodelo crate topology and dependency graph (novomodelo developer guide)

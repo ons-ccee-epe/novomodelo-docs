@@ -1,7 +1,7 @@
 // Contract test for versions.json (ticket-006). Each frozen entry pins `ref`
 // to a 40-hex commit SHA on HEAD's history: a branch or tag ref would build and
-// silently move a published /vX.Y/ snapshot. latest.cobre is deliberately not
-// compared with the frozen minors (cobre-ref.test.mjs owns latest.cobre).
+// silently move a published /vX.Y/ snapshot. latest.novomodelo is deliberately not
+// compared with the frozen minors (novomodelo-ref.test.mjs owns latest.novomodelo).
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -65,9 +65,9 @@ function entryProblems(v, i, isAncestor) {
   if (v.base !== `/${v.slug}/`) {
     problems.push(`${at}: base ${JSON.stringify(v.base)} is not "/${v.slug}/"`);
   }
-  if (/^(v\d+\.\d+)\.\d+$/.exec(v.cobre)?.[1] !== v.slug) {
+  if (/^(v\d+\.\d+)\.\d+$/.exec(v.novomodelo)?.[1] !== v.slug) {
     problems.push(
-      `${at}: cobre ${JSON.stringify(v.cobre)} is not a ${v.slug}.N release`,
+      `${at}: novomodelo ${JSON.stringify(v.novomodelo)} is not a ${v.slug}.N release`,
     );
   }
   if (!SHA.test(v.ref)) {
@@ -178,11 +178,11 @@ const entry = (slug, ref) => ({
   label: slug,
   base: `/${slug}/`,
   ref,
-  cobre: `${slug}.0`,
+  novomodelo: `${slug}.0`,
 });
 
 const config = (...versions) => ({
-  latest: { label: "latest", base: "/", cobre: "v0.17.0" },
+  latest: { label: "latest", base: "/", novomodelo: "v0.17.0" },
   versions,
 });
 

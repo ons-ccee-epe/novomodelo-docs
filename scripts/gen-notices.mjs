@@ -200,7 +200,7 @@ function main() {
     "This file lists the open-source software components redistributed by the",
   );
   lines.push(
-    "Cobre Methodology documentation site (https://methodology.cobre-rs.dev).",
+    "Novomodelo Methodology documentation site (https://methodology.cobre-rs.dev).",
   );
   lines.push(
     "Regenerate this file with: npm run gen:notices (from the site/ directory).",
@@ -253,7 +253,7 @@ function main() {
   // (c) Content license pointer
   lines.push("Documentation content license");
   lines.push(
-    "The documentation text and diagrams authored by the Cobre project are licensed",
+    "The documentation text and diagrams authored by the Novomodelo project are licensed",
   );
   lines.push(
     "separately under the terms in the LICENSE-docs file at the site root",

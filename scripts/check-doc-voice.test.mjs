@@ -28,7 +28,7 @@ import {
 import { ZONE_STRICT, ZONE_LENIENT, zoneOf } from "./doc-zones.mjs";
 
 test("flags a hype superlative in the strict zone", () => {
-  const v = detectVoiceViolations("Cobre is blazing-fast at solving LPs.", ZONE_STRICT);
+  const v = detectVoiceViolations("Novomodelo is blazing-fast at solving LPs.", ZONE_STRICT);
   assert.ok(v.some((x) => x.rule === "hype-superlative"));
 });
 

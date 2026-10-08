@@ -972,10 +972,10 @@ fn check(ctx: &mut ValidationContext) {
 // --- Clause (c) end to end: a scratch script copy on a temp git repo ----------
 
 const SCRIPTS_DIR = fileURLToPath(new URL(".", import.meta.url));
-const MOD_RS = "crates/cobre-io/src/validation/mod.rs";
-const RULES_RS = "crates/cobre-io/src/validation/rules.rs";
-const ERROR_RS = "crates/cobre-io/src/error.rs";
-const CHECK_RS = "crates/cobre-io/src/validation/check.rs";
+const MOD_RS = "crates/novomodelo-io/src/validation/mod.rs";
+const RULES_RS = "crates/novomodelo-io/src/validation/rules.rs";
+const ERROR_RS = "crates/novomodelo-io/src/error.rs";
+const CHECK_RS = "crates/novomodelo-io/src/validation/check.rs";
 
 const ROWS = [
   'ROW_A = "fixture.1", Semantic, A, Error, "Referenced by live code";',
@@ -1058,11 +1058,11 @@ function git(cwd, ...args) {
 }
 
 // Commits `files` (path to text) to a temp git repo and copies the script with
-// cobre-ref.mjs to a scratch directory, where it writes its error-kinds.json.
+// novomodelo-ref.mjs to a scratch directory, where it writes its error-kinds.json.
 function withFixture(files, fn) {
   const root = mkdtempSync(join(tmpdir(), "refresh-error-kinds-"));
   try {
-    const repo = join(root, "cobre");
+    const repo = join(root, "novomodelo");
     const bin = join(root, "bin");
     for (const [path, text] of Object.entries(files)) {
       mkdirSync(dirname(join(repo, path)), { recursive: true });
@@ -1072,7 +1072,7 @@ function withFixture(files, fn) {
     git(repo, "add", ".");
     git(repo, "commit", "-q", "-m", "fixture");
     mkdirSync(bin);
-    for (const name of ["refresh-error-kinds.mjs", "cobre-ref.mjs"]) {
+    for (const name of ["refresh-error-kinds.mjs", "novomodelo-ref.mjs"]) {
       copyFileSync(join(SCRIPTS_DIR, name), join(bin, name));
     }
     const run = (...args) =>
@@ -1080,7 +1080,7 @@ function withFixture(files, fn) {
         process.execPath,
         [
           join(bin, "refresh-error-kinds.mjs"),
-          "--cobre",
+          "--novomodelo",
           repo,
           "--ref",
           "HEAD",
@@ -1172,8 +1172,8 @@ test("declare_rules CLI: --check exits 0 on a matching file, then 1 naming Error
 });
 
 test("declare_rules CLI: the emitter is the first site in path, then line, order whichever clause found it", () => {
-  const REPORT_RS = "crates/cobre-io/src/report.rs";
-  const LATER_RS = "crates/cobre-io/src/validation/semantic.rs";
+  const REPORT_RS = "crates/novomodelo-io/src/report.rs";
+  const LATER_RS = "crates/novomodelo-io/src/validation/semantic.rs";
   const files = {
     ...fixture(),
     [REPORT_RS]: rust`

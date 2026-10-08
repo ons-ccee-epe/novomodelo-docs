@@ -1,20 +1,20 @@
 ---
 title: Python API
-description: Reference for the cobre Python package - Study, Policy, run, io, results, model, errors and schema - with signatures, defaults, return shapes and raised exception classes.
+description: Reference for the novomodelo Python package - Study, Policy, run, io, results, model, errors and schema - with signatures, defaults, return shapes and raised exception classes.
 ---
 
-The `cobre` package is the Python binding of the Cobre solver (`import cobre`). This page lists the signature, behaviour, return shape and raised exception classes of each public name in the `cobre` package, `cobre.run`, `cobre.io`, `cobre.results`, `cobre.errors` and `cobre.schema`, and the fields of the data classes in `cobre.model` and the typed result dicts in `cobre._types`. To install the package, see [Installation](/getting-started/installation/); for a guided first session, see the [Python Quickstart](/getting-started/python-quickstart/).
+The `novomodelo` package is the Python binding of the Novomodelo solver (`import novomodelo`). This page lists the signature, behaviour, return shape and raised exception classes of each public name in the `novomodelo` package, `novomodelo.run`, `novomodelo.io`, `novomodelo.results`, `novomodelo.errors` and `novomodelo.schema`, and the fields of the data classes in `novomodelo.model` and the typed result dicts in `novomodelo._types`. To install the package, see [Installation](/getting-started/installation/); for a guided first session, see the [Python Quickstart](/getting-started/python-quickstart/).
 
 Conventions used by every entry:
 
 - Paths accept `str` or `pathlib.Path`.
 - The package runs in a single process. It never initialises MPI, and it releases the GIL (Python's global interpreter lock) while the solver computes.
 - Warning diagnostics are written to file descriptor 2. `contextlib.redirect_stderr` does not capture them.
-- Each heading is the qualified name of a symbol and is the anchor of that entry (`#cobrestudytrain` for `cobre.Study.train`).
+- Each heading is the qualified name of a symbol and is the anchor of that entry (`#novomodelostudytrain` for `novomodelo.Study.train`).
 
-## `cobre`
+## `novomodelo`
 
-### `cobre.__version__`
+### `novomodelo.__version__`
 
 ```python
 __version__: str
@@ -22,29 +22,29 @@ __version__: str
 
 The package version string, for example `0.18.0`.
 
-### `cobre.version_info`
+### `novomodelo.version_info`
 
 ```python
 def version_info() -> dict[str, Any]: ...
 ```
 
-Describes the running build. The dict has the keys `version` (equal to `cobre.__version__`), `solver` (the LP backend and its version), `comm` (always `local`, because the package is single-process), `zstd` (`enabled`), `arch` (target architecture and operating system) and `build` (`debug` or `release`).
+Describes the running build. The dict has the keys `version` (equal to `novomodelo.__version__`), `solver` (the LP backend and its version), `comm` (always `local`, because the package is single-process), `zstd` (`enabled`), `arch` (target architecture and operating system) and `build` (`debug` or `release`).
 
 **Returns**: the build description dict.
 
-{/* capture: python t231-version-info | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none */}
+{/* capture: python t231-version-info | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none */}
 
 ```python
-import cobre
+import novomodelo
 
-print(cobre.version_info())
+print(novomodelo.version_info())
 ```
 
 ```text
 {'version': '0.18.0', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
 ```
 
-### `cobre.Study`
+### `novomodelo.Study`
 
 ```python
 class Study:
@@ -70,11 +70,11 @@ A loaded, reusable study. Construction loads the case, resolves the configuratio
 
 - `OSError` (builtin) when `case_dir` does not exist, before any work.
 - `ValueError` (builtin) when `threads` is `0`, or when `config_overrides` has a non-`str` key or an unsupported value type.
-- `cobre.errors.ValidationError` for a configuration override, parse or read failure, for a missing or unreadable case file, and for a schema, parse or constraint failure in the case data, for a refused `policy.path`, and for an invalid-input setup failure such as an unsupported stochastic model (`no valid historical windows found`).
-- `cobre.errors.CaseIoError` when writing one of those files fails, such as under an unwritable `output_dir`.
-- `cobre.errors.SolverError` for a solver or internal failure during preprocessing or construction.
+- `novomodelo.errors.ValidationError` for a configuration override, parse or read failure, for a missing or unreadable case file, and for a schema, parse or constraint failure in the case data, for a refused `policy.path`, and for an invalid-input setup failure such as an unsupported stochastic model (`no valid historical windows found`).
+- `novomodelo.errors.CaseIoError` when writing one of those files fails, such as under an unwritable `output_dir`.
+- `novomodelo.errors.SolverError` for a solver or internal failure during preprocessing or construction.
 
-#### `cobre.Study.output_dir`
+#### `novomodelo.Study.output_dir`
 
 ```python
 @property
@@ -83,43 +83,43 @@ def output_dir(self) -> str: ...
 
 The resolved output directory as a string.
 
-#### `cobre.Study.system`
+#### `novomodelo.Study.system`
 
 ```python
 @property
 def system(self) -> System: ...
 ```
 
-The loaded [`cobre.model.System`](#cobremodelsystem). The property shares the study's system; it does not copy it.
+The loaded [`novomodelo.model.System`](#novomodelomodelsystem). The property shares the study's system; it does not copy it.
 
-#### `cobre.Study.stochastic`
+#### `novomodelo.Study.stochastic`
 
 ```python
 @property
 def stochastic(self) -> StochasticSummary: ...
 ```
 
-The structural stochastic summary, a dict fixed at construction. Its shape is [`cobre._types.StochasticSummary`](#cobre_typesstochasticsummary).
+The structural stochastic summary, a dict fixed at construction. Its shape is [`novomodelo._types.StochasticSummary`](#novomodelo_typesstochasticsummary).
 
-#### `cobre.Study.hydro_models`
+#### `novomodelo.Study.hydro_models`
 
 ```python
 @property
 def hydro_models(self) -> HydroModelsSummary: ...
 ```
 
-The structural hydro-model summary, a dict fixed at construction. Its shape is [`cobre._types.HydroModelsSummary`](#cobre_typeshydromodelssummary); for the 1dtoy scaffold it reads `{'n_constant': 1, 'n_fpha': 0, 'total_planes': 0, 'n_evaporation': 0, 'n_no_evaporation': 1}`.
+The structural hydro-model summary, a dict fixed at construction. Its shape is [`novomodelo._types.HydroModelsSummary`](#novomodelo_typeshydromodelssummary); for the 1dtoy scaffold it reads `{'n_constant': 1, 'n_fpha': 0, 'total_planes': 0, 'n_evaporation': 0, 'n_no_evaporation': 1}`.
 
-#### `cobre.Study.provenance`
+#### `novomodelo.Study.provenance`
 
 ```python
 @property
 def provenance(self) -> ProvenanceReport: ...
 ```
 
-The model-provenance report, a dict fixed at construction. Its shape is [`cobre._types.ProvenanceReport`](#cobre_typesprovenancereport).
+The model-provenance report, a dict fixed at construction. Its shape is [`novomodelo._types.ProvenanceReport`](#novomodelo_typesprovenancereport).
 
-#### `cobre.Study.validate`
+#### `novomodelo.Study.validate`
 
 ```python
 def validate(self) -> dict[str, Any]: ...
@@ -127,9 +127,9 @@ def validate(self) -> dict[str, Any]: ...
 
 Reports the warnings captured during construction and checks the configured policy load against the study's `output_dir`, without re-reading the case.
 
-**Returns**: `{"valid": True, "errors": [], "warnings": [...]}`. The result has the same shape as [`cobre.io.validate`](#cobreiovalidate). `valid` is `False`, with the error `cobre.io.validate` reports for that directory, when the configured policy load fails; policy-load warnings join `warnings`.
+**Returns**: `{"valid": True, "errors": [], "warnings": [...]}`. The result has the same shape as [`novomodelo.io.validate`](#novomodeloiovalidate). `valid` is `False`, with the error `novomodelo.io.validate` reports for that directory, when the configured policy load fails; policy-load warnings join `warnings`.
 
-#### `cobre.Study.train`
+#### `novomodelo.Study.train`
 
 ```python
 def train(
@@ -138,7 +138,7 @@ def train(
 ) -> "Policy": ...
 ```
 
-Trains an SDDP policy against the study's in-memory setup and returns a [`cobre.Policy`](#cobrepolicy). The call writes the policy to `<output_dir>/<policy.path>` (default `policy/`) and the training artifacts under `training/`. The GIL is released while the solver computes; the callback runs on a separate thread that takes the GIL only at iteration boundaries.
+Trains an SDDP policy against the study's in-memory setup and returns a [`novomodelo.Policy`](#novomodelopolicy). The call writes the policy to `<output_dir>/<policy.path>` (default `policy/`) and the training artifacts under `training/`. The GIL is released while the solver computes; the callback runs on a separate thread that takes the GIL only at iteration boundaries.
 
 **Parameters**
 
@@ -146,20 +146,20 @@ Trains an SDDP policy against the study's in-memory setup and returns a [`cobre.
 
 A stop requested by the callback, or an exception raised by it, ends the run with `convergence.termination_reason` set to `"graceful_shutdown"` and `status` set to `"partial"` in `training/metadata.json` unless the stopping rules or the iteration budget also ended it at that iteration; see [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson).
 
-**Returns**: a [`cobre.Policy`](#cobrepolicy). With `training.enabled` set to `false`, `train` returns a zero-iteration policy that holds no cuts; `simulate` rejects it. Load a trained policy with `load_policy` instead.
+**Returns**: a [`novomodelo.Policy`](#novomodelopolicy). With `training.enabled` set to `false`, `train` returns a zero-iteration policy that holds no cuts; `simulate` rejects it. Load a trained policy with `load_policy` instead.
 
 A second `train` call on the same `Study` runs against a setup that already carries the first call's cuts, so it is not a fresh training. On the 1dtoy scaffold the second call raises `SolverError` (`basis row count mismatch`).
 
 **Raises**
 
-- `cobre.errors.SolverError` for a solver initialisation failure or a training failure the solver classifies.
-- `cobre.errors.ValidationError` for a missing prior policy directory under warm start or resume (`Policy directory not found: ...`), and for a refused boundary or training input.
-- `cobre.errors.PolicyIncompatibleError` when the warm-start or resume checkpoint at `policy.path` fails the [Policy Load Contract](/running/policy-management/#policy-load-contract), a `policy.boundary` checkpoint was written by another software or version, or a checkpoint's `manifest.bin` is missing or cannot be decoded.
-- `cobre.errors.CaseIoError` when writing the policy or a training artifact fails; a periodic-checkpoint write failure raises `FileNotFoundError`, `CaseIoError`, `cobre.errors.OutputError` or `ValidationError` by its cause.
-- `cobre.errors.InternalError` when the callback thread panics.
+- `novomodelo.errors.SolverError` for a solver initialisation failure or a training failure the solver classifies.
+- `novomodelo.errors.ValidationError` for a missing prior policy directory under warm start or resume (`Policy directory not found: ...`), and for a refused boundary or training input.
+- `novomodelo.errors.PolicyIncompatibleError` when the warm-start or resume checkpoint at `policy.path` fails the [Policy Load Contract](/running/policy-management/#policy-load-contract), a `policy.boundary` checkpoint was written by another software or version, or a checkpoint's `manifest.bin` is missing or cannot be decoded.
+- `novomodelo.errors.CaseIoError` when writing the policy or a training artifact fails; a periodic-checkpoint write failure raises `FileNotFoundError`, `CaseIoError`, `novomodelo.errors.OutputError` or `ValidationError` by its cause.
+- `novomodelo.errors.InternalError` when the callback thread panics.
 - Any exception raised by the callback, and `KeyboardInterrupt`, re-raised after the artifacts are written.
 
-#### `cobre.Study.load_policy`
+#### `novomodelo.Study.load_policy`
 
 ```python
 def load_policy(
@@ -168,21 +168,21 @@ def load_policy(
 ) -> "Policy": ...
 ```
 
-Reads a policy checkpoint from `<output_dir>/<policy.path>/` and returns a [`cobre.Policy`](#cobrepolicy) that `simulate` accepts in the same way as a trained one. The checkpoint is always checked against the study's state dimension, stage count and terminal entity manifest.
+Reads a policy checkpoint from `<output_dir>/<policy.path>/` and returns a [`novomodelo.Policy`](#novomodelopolicy) that `simulate` accepts in the same way as a trained one. The checkpoint is always checked against the study's state dimension, stage count and terminal entity manifest.
 
 **Parameters**
 
 - `output_dir`: the directory that holds the policy. Defaults to the study's `output_dir`.
 
-**Returns**: the loaded [`cobre.Policy`](#cobrepolicy).
+**Returns**: the loaded [`novomodelo.Policy`](#novomodelopolicy).
 
 **Raises**
 
-- `cobre.errors.ValidationError` when the policy directory is missing (`Policy directory not found: ...`).
-- `cobre.errors.PolicyIncompatibleError` when the checkpoint cannot be read, decoded or reconstructed, or policy validation rejects it.
-- `cobre.errors.CaseIoError` when a checkpoint file cannot be opened.
+- `novomodelo.errors.ValidationError` when the policy directory is missing (`Policy directory not found: ...`).
+- `novomodelo.errors.PolicyIncompatibleError` when the checkpoint cannot be read, decoded or reconstructed, or policy validation rejects it.
+- `novomodelo.errors.CaseIoError` when a checkpoint file cannot be opened.
 
-#### `cobre.Study.simulate`
+#### `novomodelo.Study.simulate`
 
 ```python
 def simulate(
@@ -196,31 +196,31 @@ Runs the simulation phase with `policy` and writes the `simulation/` artifacts. 
 
 **Parameters**
 
-- `policy`: a [`cobre.Policy`](#cobrepolicy) from `train` or `load_policy`.
+- `policy`: a [`novomodelo.Policy`](#novomodelopolicy) from `train` or `load_policy`.
 - `output_dir`: where the `simulation/` directory is written. Defaults to the study's `output_dir`.
 
 **Returns**: `{"n_scenarios": int, "completed": int}`, for example `{'n_scenarios': 10, 'completed': 10}`.
 
 **Raises**
 
-- `cobre.errors.SolverError` when the policy holds no cuts (`Policy has no cuts to simulate; when training is disabled, call Study.load_policy() to load a trained policy before simulate()`), or on a simulation workspace initialisation failure.
-- `cobre.errors.SimulationError` for a simulation failure.
-- `cobre.errors.CaseIoError` for a writer failure.
-- `cobre.errors.InternalError` when the worker thread panics.
+- `novomodelo.errors.SolverError` when the policy holds no cuts (`Policy has no cuts to simulate; when training is disabled, call Study.load_policy() to load a trained policy before simulate()`), or on a simulation workspace initialisation failure.
+- `novomodelo.errors.SimulationError` for a simulation failure.
+- `novomodelo.errors.CaseIoError` for a writer failure.
+- `novomodelo.errors.InternalError` when the worker thread panics.
 
-### `cobre.Policy`
+### `novomodelo.Policy`
 
 ```python
 class Policy: ...
 ```
 
-A trained or loaded policy: the Benders cuts that approximate the future cost of each stage, together with the data `cobre.Study.simulate` needs. The class has no Python constructor; `cobre.Policy()` raises `TypeError` (`cannot create 'builtins.Policy' instances`). Obtain a handle from [`cobre.Study.train`](#cobrestudytrain) or [`cobre.Study.load_policy`](#cobrestudyload_policy).
+A trained or loaded policy: the Benders cuts that approximate the future cost of each stage, together with the data `novomodelo.Study.simulate` needs. The class has no Python constructor; `novomodelo.Policy()` raises `TypeError` (`cannot create 'builtins.Policy' instances`). Obtain a handle from [`novomodelo.Study.train`](#novomodelostudytrain) or [`novomodelo.Study.load_policy`](#novomodelostudyload_policy).
 
 Every `stage` argument is 0-based: stage `t` of the 1-based numbering used in the methodology is `stage = t - 1`.
 
-`evaluate` and `cut_matrix` read the in-memory cut pool, which holds intercepts and coefficients in the solver's cost scale: the checkpoint's currency-unit values divided by the pool's `cost_scale_factor` (`modeling.cost_scale_factor`, `1000000.0` by default). Multiply by `cost_scale_factor` to get currency units. `final_lower_bound`, `final_upper_bound` and the values returned by [`cobre.results.load_policy`](#cobreresultsload_policy) are in currency units. For the conversion, see [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization).
+`evaluate` and `cut_matrix` read the in-memory cut pool, which holds intercepts and coefficients in the solver's cost scale: the checkpoint's currency-unit values divided by the pool's `cost_scale_factor` (`modeling.cost_scale_factor`, `1000000.0` by default). Multiply by `cost_scale_factor` to get currency units. `final_lower_bound`, `final_upper_bound` and the values returned by [`novomodelo.results.load_policy`](#novomodeloresultsload_policy) are in currency units. For the conversion, see [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization).
 
-#### `cobre.Policy.iterations`
+#### `novomodelo.Policy.iterations`
 
 ```python
 @property
@@ -229,7 +229,7 @@ def iterations(self) -> int: ...
 
 The number of completed training iterations. A policy from `load_policy` reports the checkpoint's `completed_iterations`; a training-disabled policy reports `0`.
 
-#### `cobre.Policy.final_lower_bound`
+#### `novomodelo.Policy.final_lower_bound`
 
 ```python
 @property
@@ -238,7 +238,7 @@ def final_lower_bound(self) -> float: ...
 
 The final lower bound, in currency units. A policy from `load_policy` reports the checkpoint's recorded final lower bound; a training-disabled policy reports `0.0`.
 
-#### `cobre.Policy.final_upper_bound`
+#### `novomodelo.Policy.final_upper_bound`
 
 ```python
 @property
@@ -247,13 +247,13 @@ def final_upper_bound(self) -> float: ...
 
 The final mean [upper bound](/math/upper-bound-evaluation/), in currency units. A policy from `load_policy` reports the checkpoint's recorded upper bound (the last training iteration's value, not a running best), or `inf` when the checkpoint records none; a training-disabled policy reports `inf`.
 
-#### `cobre.Policy.evaluate`
+#### `novomodelo.Policy.evaluate`
 
 ```python
 def evaluate(self, stage: int, state: Sequence[float]) -> float: ...
 ```
 
-Evaluates the future-cost function at `state`: the maximum over the stage's active cuts of `intercept + coeffs · state`. The value is in the solver's cost scale, not in currency (see [`cobre.Policy`](#cobrepolicy)). A stage with no active cut returns `float('-inf')`; the last stage of the 1dtoy case holds none.
+Evaluates the future-cost function at `state`: the maximum over the stage's active cuts of `intercept + coeffs · state`. The value is in the solver's cost scale, not in currency (see [`novomodelo.Policy`](#novomodelopolicy)). A stage with no active cut returns `float('-inf')`; the last stage of the 1dtoy case holds none.
 
 **Parameters**
 
@@ -268,13 +268,13 @@ Evaluates the future-cost function at `state`: the maximum over the stage's acti
 - `ValueError` (builtin) when `state` has the wrong length (`state has length 2, expected 1 (policy state dimension)`).
 - `OverflowError` (builtin) when `stage` is negative.
 
-#### `cobre.Policy.cut_matrix`
+#### `novomodelo.Policy.cut_matrix`
 
 ```python
 def cut_matrix(self, stage: int) -> tuple[Any, Any]: ...
 ```
 
-Returns the active cuts of one stage as two NumPy arrays, in ascending slot order. Read cut `k` as `θ ≥ intercepts[k] + coeffs[k] · state`. The coefficients are the stored values, not negated. The values are in the solver's cost scale, not in currency (see [`cobre.Policy`](#cobrepolicy)).
+Returns the active cuts of one stage as two NumPy arrays, in ascending slot order. Read cut `k` as `θ ≥ intercepts[k] + coeffs[k] · state`. The coefficients are the stored values, not negated. The values are in the solver's cost scale, not in currency (see [`novomodelo.Policy`](#novomodelopolicy)).
 
 **Parameters**
 
@@ -288,20 +288,20 @@ Returns the active cuts of one stage as two NumPy arrays, in ascending slot orde
 - `OverflowError` (builtin) when `stage` is negative.
 - `ImportError` (builtin) when NumPy is not installed.
 
-{/* capture: python t232-policy-units | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t232-policy-units | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
-import cobre
-import cobre.results
+import novomodelo
+import novomodelo.results
 
-study = cobre.Study("case", output_dir="output")
+study = novomodelo.Study("case", output_dir="output")
 policy = study.train()
 
 intercepts, coeffs = policy.cut_matrix(0)
 print(intercepts.shape, coeffs.shape)
 print(policy.evaluate(0, [50.0]))
 
-saved = cobre.results.load_policy("output")
+saved = novomodelo.results.load_policy("output")
 stage0 = saved["stage_cuts"][0]
 print(intercepts[0], stage0["cuts"][0]["intercept"])
 print(stage0["cost_scale_factor"])
@@ -318,7 +318,7 @@ print(round(stage0["cuts"][0]["intercept"] / intercepts[0]))
 
 The saved intercept is `cost_scale_factor` times the in-memory one. The `evaluate` result of about `21.65` is therefore about `21650084` in currency units.
 
-### `cobre.write_policy_checkpoint`
+### `novomodelo.write_policy_checkpoint`
 
 ```python
 def write_policy_checkpoint(
@@ -331,7 +331,7 @@ def write_policy_checkpoint(
 ) -> None: ...
 ```
 
-Writes a policy checkpoint to `path` from plain Python dicts. `stage_cuts` and `metadata` mirror the `"stage_cuts"` and `"metadata"` keys that [`cobre.results.load_policy`](#cobreresultsload_policy) returns, so a loaded checkpoint round-trips. `stage_bases` and `stage_states` default to empty. The checkpoint always records the running cobre version; `software`, `software_version` or `cobre_version` keys in `metadata` are ignored. For the dict shapes, see [Write a checkpoint](/running/policy-management/#write-a-checkpoint), [Round-trip example](/running/policy-management/#round-trip-example) and [Input validation](/running/policy-management/#input-validation).
+Writes a policy checkpoint to `path` from plain Python dicts. `stage_cuts` and `metadata` mirror the `"stage_cuts"` and `"metadata"` keys that [`novomodelo.results.load_policy`](#novomodeloresultsload_policy) returns, so a loaded checkpoint round-trips. `stage_bases` and `stage_states` default to empty. The checkpoint always records the running novomodelo version; `software`, `software_version` or `novomodelo_version` keys in `metadata` are ignored. For the dict shapes, see [Write a checkpoint](/running/policy-management/#write-a-checkpoint), [Round-trip example](/running/policy-management/#round-trip-example) and [Input validation](/running/policy-management/#input-validation).
 
 `inflow_lag_depth = N` with `N > 0` reserves `N` inflow-lag state slots per storage hydro in every stage and places each cut's `inflow_lag_coefficients` at their `(hydro, depth)` positions. Use it to author a boundary policy for a converted case with no PAR model to infer the depth from. Absent or `0`, the checkpoint is identical to one written without the argument.
 
@@ -340,12 +340,12 @@ Writes a policy checkpoint to `path` from plain Python dicts. `stage_cuts` and `
 **Raises**
 
 - `ValueError` (builtin) when a cut's `coefficients` length differs from its stage's `state_dimension`, when a stage's state data length differs from `count * state_dimension`, when a cut carries `inflow_lag_coefficients` without a positive `inflow_lag_depth`, or, with `inflow_lag_depth` set, when a stage manifest lacks a leading storage block or an inflow-lag coefficient has no slot to be placed in.
-- [`cobre.errors.ValidationError`](#cobreerrorsvalidationerror) (a `ValueError`) when `path` (for a link, its target) or its `.staging` or `.previous` sibling holds an entry no checkpoint writer leaves there (`refusing to write a checkpoint: ...`); nothing on disk changes.
-- A [`cobre.errors`](#cobreerrors) class mapped from the underlying write failure for any other error, such as [`cobre.errors.OutputError`](#cobreerrorsoutputerror).
+- [`novomodelo.errors.ValidationError`](#novomodeloerrorsvalidationerror) (a `ValueError`) when `path` (for a link, its target) or its `.staging` or `.previous` sibling holds an entry no checkpoint writer leaves there (`refusing to write a checkpoint: ...`); nothing on disk changes.
+- A [`novomodelo.errors`](#novomodeloerrors) class mapped from the underlying write failure for any other error, such as [`novomodelo.errors.OutputError`](#novomodeloerrorsoutputerror).
 
-## `cobre.run`
+## `novomodelo.run`
 
-### `cobre.run.run`
+### `novomodelo.run.run`
 
 ```python
 def run(
@@ -357,14 +357,14 @@ def run(
 ) -> RunResult: ...
 ```
 
-Loads a case, trains, simulates when the configuration enables it, and writes the results. One `cobre.Study` drives the call. The phases that run follow the configuration, in three branches.
+Loads a case, trains, simulates when the configuration enables it, and writes the results. One `novomodelo.Study` drives the call. The phases that run follow the configuration, in three branches.
 
 **Parameters**
 
-- `case_dir`, `output_dir`, `threads`, `config_overrides`: as for [`cobre.Study`](#cobrestudy).
-- `on_iteration`: as for [`cobre.Study.train`](#cobrestudytrain).
+- `case_dir`, `output_dir`, `threads`, `config_overrides`: as for [`novomodelo.Study`](#novomodelostudy).
+- `on_iteration`: as for [`novomodelo.Study.train`](#novomodelostudytrain).
 
-**Returns**: a dict of shape [`cobre._types.RunResult`](#cobre_typesrunresult). All keys are present on every branch; the values below differ by branch.
+**Returns**: a dict of shape [`novomodelo._types.RunResult`](#novomodelo_typesrunresult). All keys are present on every branch; the values below differ by branch.
 
 | Branch                                                 | `converged`                 | `iterations`     | `lower_bound`                  | `upper_bound`                                  | `gap_percent`               | `simulation`                                      |
 | ------------------------------------------------------ | --------------------------- | ---------------- | ------------------------------ | ---------------------------------------------- | --------------------------- | ------------------------------------------------- |
@@ -382,13 +382,13 @@ A stop requested by `on_iteration` records `convergence.termination_reason` as `
 
 - `OSError` (builtin) when `case_dir` does not exist.
 - `ValueError` (builtin) when `threads` is `0`, or when `config_overrides` is malformed.
-- The classes listed for [`cobre.Study`](#cobrestudy), [`cobre.Study.train`](#cobrestudytrain) and [`cobre.Study.simulate`](#cobrestudysimulate), according to the phase that fails.
+- The classes listed for [`novomodelo.Study`](#novomodelostudy), [`novomodelo.Study.train`](#novomodelostudytrain) and [`novomodelo.Study.simulate`](#novomodelostudysimulate), according to the phase that fails.
 - Any exception raised by the callback, re-raised verbatim after the artifacts are written.
 
-{/* capture: python t231-run-on-iteration | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-run-on-iteration | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
-import cobre.run
+import novomodelo.run
 
 
 def on_iteration(info):
@@ -396,7 +396,7 @@ def on_iteration(info):
     return info["iteration"] >= 3  # a truthy return requests a stop
 
 
-cobre.run.run("case", output_dir="output", on_iteration=on_iteration)
+novomodelo.run.run("case", output_dir="output", on_iteration=on_iteration)
 ```
 
 ```text
@@ -407,28 +407,28 @@ cobre.run.run("case", output_dir="output", on_iteration=on_iteration)
 
 `wall_time_ms` varies between runs. The stop requested at iteration 3 takes effect at a later iteration boundary, so the run can finish after more than three iterations.
 
-## `cobre.io`
+## `novomodelo.io`
 
-### `cobre.io.load_case`
+### `novomodelo.io.load_case`
 
 ```python
 def load_case(path: Union[str, Path]) -> model.System: ...
 ```
 
-Loads and validates a case directory through the full validation pipeline and returns a [`cobre.model.System`](#cobremodelsystem). A relative path resolves from the process working directory.
+Loads and validates a case directory through the full validation pipeline and returns a [`novomodelo.model.System`](#novomodelomodelsystem). A relative path resolves from the process working directory.
 
 **Parameters**
 
 - `path`: the case directory.
 
-**Returns**: the validated [`cobre.model.System`](#cobremodelsystem).
+**Returns**: the validated [`novomodelo.model.System`](#novomodelomodelsystem).
 
 **Raises**
 
 - `OSError` (builtin) when the directory does not exist.
-- `cobre.errors.ValidationError` for a missing or unreadable case file (reported as a `[FileNotFound]` constraint violation) and for a parse, schema or constraint failure.
+- `novomodelo.errors.ValidationError` for a missing or unreadable case file (reported as a `[FileNotFound]` constraint violation) and for a parse, schema or constraint failure.
 
-### `cobre.io.validate`
+### `novomodelo.io.validate`
 
 ```python
 def validate(
@@ -444,7 +444,7 @@ Runs the full validation pipeline (case structure, schema, configuration, stocha
 **Parameters**
 
 - `path`: the case directory. A missing directory yields a failure entry of kind `IoError`.
-- `config_overrides`: as for [`cobre.Study`](#cobrestudy).
+- `config_overrides`: as for [`novomodelo.Study`](#novomodelostudy).
 - `output_dir`: keyword-only; the directory the policy load reads from. Defaults to `<path>/output`; a relative path resolves from the working directory. Nothing is written, and an absent directory is not created.
 
 **Returns**: a dict with `valid` (`bool`), `errors` (a list of `{"kind", "message"}` dicts; empty when `valid` is `True`) and `warnings` (a list of `{"kind", "message", "file", "entity"}` dicts). Warnings do not change `valid`.
@@ -453,12 +453,12 @@ Runs the full validation pipeline (case structure, schema, configuration, stocha
 
 - `ValueError` (builtin) only when `config_overrides` is malformed.
 
-{/* capture: python t231-io-validate | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-io-validate | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
-import cobre.io
+import novomodelo.io
 
-report = cobre.io.validate("case")
+report = novomodelo.io.validate("case")
 print(report)
 ```
 
@@ -466,11 +466,11 @@ print(report)
 {'valid': True, 'errors': [], 'warnings': []}
 ```
 
-## `cobre.results`
+## `novomodelo.results`
 
 Loaders for the artifacts a run writes under its output directory. Every function takes `output_dir`, the directory that holds `training/`, `simulation/`, `policy/` and `stochastic/`. A relative path resolves from the process working directory, and a missing `output_dir` raises `FileNotFoundError`. NumPy and pyarrow are optional dependencies, imported only by the functions that return their types. To read the numbers, see [Convergence & Diagnostics](/running/interpreting-results/).
 
-### `cobre.results.load_results`
+### `novomodelo.results.load_results`
 
 ```python
 def load_results(output_dir: Union[str, Path]) -> dict[str, Any]: ...
@@ -495,7 +495,7 @@ Both `"complete"` values are `_SUCCESS` marker flags, not a verdict on the run. 
 - `ValueError` (builtin) when a metadata file is not valid JSON.
 - `OSError` (builtin) for other read failures.
 
-### `cobre.results.load_convergence`
+### `novomodelo.results.load_convergence`
 
 ```python
 def load_convergence(output_dir: Union[str, Path]) -> Any: ...
@@ -514,15 +514,15 @@ Reads `training/convergence.parquet`; for the columns, see [`training/convergenc
 - `FileNotFoundError` (builtin) when `output_dir` or `training/convergence.parquet` is missing.
 - `OSError` (builtin) for other I/O failures and Parquet decoding failures.
 
-{/* capture: python t232-load-convergence | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t232-load-convergence | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
-import cobre.results
-import cobre.run
+import novomodelo.results
+import novomodelo.run
 
-cobre.run.run("case", output_dir="output")
+novomodelo.run.run("case", output_dir="output")
 
-rows = cobre.results.load_convergence("output")
+rows = novomodelo.results.load_convergence("output")
 print(len(rows))
 print(sorted(rows[0]))
 ```
@@ -532,13 +532,13 @@ print(sorted(rows[0]))
 ['cuts_active', 'cuts_added', 'cuts_removed', 'forward_passes', 'gap_percent', 'iteration', 'lower_bound', 'lp_solves', 'mean_rows_in_lp', 'time_backward_ms', 'time_forward_ms', 'time_total_ms', 'upper_bound', 'upper_bound_kind', 'upper_bound_std']
 ```
 
-### `cobre.results.load_convergence_arrow`
+### `novomodelo.results.load_convergence_arrow`
 
 ```python
 def load_convergence_arrow(output_dir: Union[str, Path]) -> Any: ...
 ```
 
-Reads the same file as [`cobre.results.load_convergence`](#cobreresultsload_convergence) without building Python objects per value.
+Reads the same file as [`novomodelo.results.load_convergence`](#novomodeloresultsload_convergence) without building Python objects per value.
 
 **Parameters**
 
@@ -552,7 +552,7 @@ Reads the same file as [`cobre.results.load_convergence`](#cobreresultsload_conv
 - `OSError` (builtin) for Parquet decoding failures or Arrow serialisation errors.
 - `ImportError` (builtin) when pyarrow is not installed.
 
-### `cobre.results.load_simulation`
+### `novomodelo.results.load_simulation`
 
 ```python
 def load_simulation(
@@ -575,7 +575,7 @@ Reads the Hive-partitioned Parquet files under `simulation/`; see [Simulation Ou
 - `FileNotFoundError` (builtin) when `output_dir`, `simulation/` or the named entity directory is missing.
 - `OSError` (builtin) for corrupt Parquet files and other I/O failures.
 
-### `cobre.results.load_simulation_arrow`
+### `novomodelo.results.load_simulation_arrow`
 
 ```python
 def load_simulation_arrow(
@@ -584,7 +584,7 @@ def load_simulation_arrow(
 ) -> Any: ...
 ```
 
-Reads the same files as [`cobre.results.load_simulation`](#cobreresultsload_simulation) as Arrow tables, with all scenarios concatenated in ascending `scenario_id` order.
+Reads the same files as [`novomodelo.results.load_simulation`](#novomodeloresultsload_simulation) as Arrow tables, with all scenarios concatenated in ascending `scenario_id` order.
 
 **Parameters**
 
@@ -598,7 +598,7 @@ Reads the same files as [`cobre.results.load_simulation`](#cobreresultsload_simu
 - `OSError` (builtin) for corrupt Parquet files or Arrow serialisation errors.
 - `ImportError` (builtin) when pyarrow is not installed.
 
-### `cobre.results.load_policy`
+### `novomodelo.results.load_policy`
 
 ```python
 def load_policy(
@@ -607,21 +607,21 @@ def load_policy(
 ) -> Any: ...
 ```
 
-Reads the policy checkpoint from `<output_dir>/<policy_subdir>` into plain dicts; see [Policy Checkpoint](/reference/output/policy/). The function does not check the cobre version that wrote the checkpoint. For the key tables, see [Load a policy](/running/policy-management/#load-a-policy).
+Reads the policy checkpoint from `<output_dir>/<policy_subdir>` into plain dicts; see [Policy Checkpoint](/reference/output/policy/). The function does not check the novomodelo version that wrote the checkpoint. For the key tables, see [Load a policy](/running/policy-management/#load-a-policy).
 
 **Parameters**
 
 - `output_dir`: the output directory.
 - `policy_subdir`: the checkpoint directory under `output_dir`. Pass the configured `policy.path` when it is not `policy`.
 
-**Returns**: a dict with the keys `metadata`, `stage_cuts` and `stage_bases`. `stage_cuts` holds one entry per cut pool, one per stage on a stage chain (four for the 1dtoy case). Intercepts and coefficients are in currency units; see [`cobre.Policy`](#cobrepolicy) for the scaled values of `cut_matrix`.
+**Returns**: a dict with the keys `metadata`, `stage_cuts` and `stage_bases`. `stage_cuts` holds one entry per cut pool, one per stage on a stage chain (four for the 1dtoy case). Intercepts and coefficients are in currency units; see [`novomodelo.Policy`](#novomodelopolicy) for the scaled values of `cut_matrix`.
 
 **Raises**
 
 - `FileNotFoundError` (builtin) when `output_dir` is missing, or the policy directory (for a link, its target) is missing and neither `<policy>.staging` nor `<policy>.previous` holds a `manifest.bin`.
-- `cobre.errors.OutputError` (an `OSError`) when a checkpoint buffer cannot be read.
+- `novomodelo.errors.OutputError` (an `OSError`) when a checkpoint buffer cannot be read.
 
-### `cobre.results.load_stochastic`
+### `novomodelo.results.load_stochastic`
 
 ```python
 def load_stochastic(output_dir: Union[str, Path]) -> Stochastic: ...
@@ -633,22 +633,22 @@ Reads the fitted stochastic model from `stochastic/inflow_ar_coefficients.parque
 
 - `output_dir`: the output directory.
 
-**Returns**: a [`cobre.results.Stochastic`](#cobreresultsstochastic) handle.
+**Returns**: a [`novomodelo.results.Stochastic`](#novomodeloresultsstochastic) handle.
 
 **Raises**
 
 - `FileNotFoundError` (builtin) when `output_dir` or a required file is missing. Without the exports the message reads `.../stochastic/inflow_ar_coefficients.parquet not found — stochastic artifacts are written only when exports.stochastic is enabled in config.json`.
 - `OSError` (builtin) when a Parquet file cannot be decoded.
 
-### `cobre.results.Stochastic`
+### `novomodelo.results.Stochastic`
 
 ```python
 class Stochastic: ...
 ```
 
-A read-only view of a run's fitted stochastic model. The class has no Python constructor; `cobre.results.Stochastic()` raises `TypeError`. Obtain a handle from [`cobre.results.load_stochastic`](#cobreresultsload_stochastic).
+A read-only view of a run's fitted stochastic model. The class has no Python constructor; `novomodelo.results.Stochastic()` raises `TypeError`. Obtain a handle from [`novomodelo.results.load_stochastic`](#novomodeloresultsload_stochastic).
 
-#### `cobre.results.Stochastic.par_coefficients`
+#### `novomodelo.results.Stochastic.par_coefficients`
 
 ```python
 def par_coefficients(self) -> Any: ...
@@ -662,7 +662,7 @@ Returns the fitted PAR(p) coefficients, in the row order of `stochastic/inflow_a
 
 - `ImportError` (builtin) when NumPy is not installed.
 
-#### `cobre.results.Stochastic.opening_tree`
+#### `novomodelo.results.Stochastic.opening_tree`
 
 ```python
 def opening_tree(self, stage: int) -> Any: ...
@@ -682,13 +682,13 @@ Returns the noise openings of one stage from `stochastic/noise_openings.parquet`
 - `OverflowError` (builtin) when `stage` is negative.
 - `ImportError` (builtin) when NumPy is not installed.
 
-## `cobre.model`
+## `novomodelo.model`
 
-The classes in `cobre.model` are frozen, read-only views that `cobre.io.load_case` and `cobre.Study.system` return; a `System` cannot be constructed from Python, and assigning to a field raises `AttributeError`. Each entity list holds its items in canonical `(operational_start_date, id)` order, and the field meanings follow the case files, whose JSON Schemas are listed in [JSON Schemas](/reference/json-schemas/).
+The classes in `novomodelo.model` are frozen, read-only views that `novomodelo.io.load_case` and `novomodelo.Study.system` return; a `System` cannot be constructed from Python, and assigning to a field raises `AttributeError`. Each entity list holds its items in canonical `(operational_start_date, id)` order, and the field meanings follow the case files, whose JSON Schemas are listed in [JSON Schemas](/reference/json-schemas/).
 
-Each class reports `__module__` as `builtins`; reach it as `cobre.model.<Name>`. Two reads of the same list can return different Python objects for the same entity, so compare entities by field values, not by identity (`is`).
+Each class reports `__module__` as `builtins`; reach it as `novomodelo.model.<Name>`. Two reads of the same list can return different Python objects for the same entity, so compare entities by field values, not by identity (`is`).
 
-### `cobre.model.System`
+### `novomodelo.model.System`
 
 The loaded system: entity counts and one list per entity class.
 
@@ -707,12 +707,12 @@ The loaded system: entity counts and one list per entity class.
 | `pumping_stations` | `list[PumpingStation]` | The pumping stations, in canonical order. Empty when the case has none. |
 | `non_controllable_sources` | `list[NonControllableSource]` | The non-controllable sources, in canonical order. Empty when the case has none. |
 
-{/* capture: python t231a-load-case | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231a-load-case | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
-import cobre.io
+import novomodelo.io
 
-system = cobre.io.load_case("case")
+system = novomodelo.io.load_case("case")
 print(system.n_hydros)
 print([h.name for h in system.hydros])
 print(system.hydros[0].max_storage_hm3)
@@ -724,7 +724,7 @@ print(system.hydros[0].max_storage_hm3)
 1000.0
 ```
 
-### `cobre.model.Bus`
+### `novomodelo.model.Bus`
 
 An electrical network node where energy balance is maintained.
 
@@ -735,7 +735,7 @@ An electrical network node where energy balance is maintained.
 | `deficit_segments` | `list[dict]` | The piecewise-linear deficit cost segments, one dict per segment with the keys `depth_mw` (`float`, or `None` for the final unbounded segment) and `cost_per_mwh` (`float`, $/MWh). |
 | `excess_cost` | `float` | The cost of absorbing surplus generation, in $/MWh. |
 
-### `cobre.model.Line`
+### `novomodelo.model.Line`
 
 A transmission interconnection that carries power in both directions between two buses.
 
@@ -750,7 +750,7 @@ A transmission interconnection that carries power in both directions between two
 | `losses_percent` | `float` | The transmission losses as a percentage; `2.5` means 2.5%. |
 | `exchange_cost` | `float` | The regularization cost per MWh exchanged, in $/MWh. |
 
-### `cobre.model.Thermal`
+### `novomodelo.model.Thermal`
 
 A thermal power plant with a scalar marginal cost.
 
@@ -763,7 +763,7 @@ A thermal power plant with a scalar marginal cost.
 | `max_generation_mw` | `float` | The maximum electrical generation (installed capacity), in MW. |
 | `cost_per_mwh` | `float` | The marginal cost of generation, in $/MWh. |
 
-### `cobre.model.Hydro`
+### `novomodelo.model.Hydro`
 
 A hydroelectric plant with reservoir storage. Plants form a cascade through `downstream_id`.
 
@@ -778,7 +778,7 @@ A hydroelectric plant with reservoir storage. Plants form a cascade through `dow
 | `max_turbined_m3s` | `float` | The maximum turbined flow (installed turbine capacity), in m³/s. |
 | `productivity_mw_per_m3s` | `Optional[float]` | Always `None`. The productivity is resolved per stage from the production-model files. |
 
-### `cobre.model.EnergyContract`
+### `novomodelo.model.EnergyContract`
 
 A bilateral energy contract with an external system.
 
@@ -795,7 +795,7 @@ A bilateral energy contract with an external system.
 | `min_mw` | `float` | The minimum contracted power, in MW. |
 | `max_mw` | `float` | The maximum contracted power, in MW. |
 
-### `cobre.model.PumpingStation`
+### `novomodelo.model.PumpingStation`
 
 A pumping station that transfers water between hydro reservoirs.
 
@@ -813,7 +813,7 @@ A pumping station that transfers water between hydro reservoirs.
 | `min_flow_m3s` | `float` | The minimum pumped flow, in m³/s. |
 | `max_flow_m3s` | `float` | The maximum pumped flow (installed pump capacity), in m³/s. |
 
-### `cobre.model.NonControllableSource`
+### `novomodelo.model.NonControllableSource`
 
 An intermittent generation source that is not dispatched.
 
@@ -829,54 +829,54 @@ An intermittent generation source that is not dispatched.
 | `allow_curtailment` | `bool` | Whether the LP may curtail the source. `False` is the must-run regime. |
 | `curtailment_cost` | `float` | The resolved cost of curtailed generation, in $/MWh. Unused when `allow_curtailment` is `False`. |
 
-## `cobre.errors`
+## `novomodelo.errors`
 
-Every leaf class subclasses `cobre.errors.CobreError` and one builtin exception, and its `__module__` is `cobre.errors`. `CobreError` itself subclasses `Exception` directly and reports `__module__` as `errors`. For the per-kind messages and exit codes, see [Error Codes](/reference/error-codes/); for which policy-load path raises which class, see [Policy-load errors](/reference/error-codes/#policy-load-errors).
+Every leaf class subclasses `novomodelo.errors.NovomodeloError` and one builtin exception, and its `__module__` is `novomodelo.errors`. `NovomodeloError` itself subclasses `Exception` directly and reports `__module__` as `errors`. For the per-kind messages and exit codes, see [Error Codes](/reference/error-codes/); for which policy-load path raises which class, see [Policy-load errors](/reference/error-codes/#policy-load-errors).
 
-### `cobre.errors.CobreError`
+### `novomodelo.errors.NovomodeloError`
 
 ```python
-class CobreError(Exception): ...
+class NovomodeloError(Exception): ...
 ```
 
-The base class of every Cobre exception. Catch the typed class for one failure kind, the builtin base (`ValueError`, `OSError`, `RuntimeError`) to keep builtin-style handling, or `CobreError` for all of them.
+The base class of every Novomodelo exception. Catch the typed class for one failure kind, the builtin base (`ValueError`, `OSError`, `RuntimeError`) to keep builtin-style handling, or `NovomodeloError` for all of them.
 
-### `cobre.errors.ValidationError`
+### `novomodelo.errors.ValidationError`
 
 ```python
-class ValidationError(CobreError, ValueError): ...
+class ValidationError(NovomodeloError, ValueError): ...
 ```
 
 Case data or configuration failed validation. Raised for an error of the invalid-input class, whatever its message prefix (a refused `policy.path`, a missing prior policy directory, and a checkpoint write refused for its manifest or a foreign entry included), and for message prefixes `config override error`, `config parse error`, `config read error` and `setup validation error`, and for parse, schema and constraint failures in the case data. It also covers a missing or unreadable case file.
 
-### `cobre.errors.PolicyIncompatibleError`
+### `novomodelo.errors.PolicyIncompatibleError`
 
 ```python
-class PolicyIncompatibleError(CobreError, ValueError): ...
+class PolicyIncompatibleError(NovomodeloError, ValueError): ...
 ```
 
 A policy is incompatible with the current system or build. Raised for an error of the incompatible-policy class: a warm-start, resume or simulation-only checkpoint refused for its software, version or a failed contract check, a boundary checkpoint refused for its software or version, a warm-start, resume or simulation-only checkpoint file that is missing or cannot be decoded, and an FCF construction failure.
 
-### `cobre.errors.CaseIoError`
+### `novomodelo.errors.CaseIoError`
 
 ```python
-class CaseIoError(CobreError, OSError): ...
+class CaseIoError(NovomodeloError, OSError): ...
 ```
 
 A filesystem read or write failure while loading or writing a case. Raised for message prefixes `output write error` and `policy checkpoint error`. It also covers a policy checkpoint read that the operating system refuses.
 
-### `cobre.errors.OutputError`
+### `novomodelo.errors.OutputError`
 
 ```python
-class OutputError(CobreError, OSError): ...
+class OutputError(NovomodeloError, OSError): ...
 ```
 
-An output serialization or schema failure, raised by `cobre.write_policy_checkpoint`, `cobre.results.load_policy` and a periodic checkpoint write during training. A not-found I/O error raises the builtin `FileNotFoundError` and other I/O errors raise `CaseIoError`. A manifest failure or a foreign entry raises `ValidationError`, not `OutputError`.
+An output serialization or schema failure, raised by `novomodelo.write_policy_checkpoint`, `novomodelo.results.load_policy` and a periodic checkpoint write during training. A not-found I/O error raises the builtin `FileNotFoundError` and other I/O errors raise `CaseIoError`. A manifest failure or a foreign entry raises `ValidationError`, not `OutputError`.
 
-### `cobre.errors.SolverError`
+### `novomodelo.errors.SolverError`
 
 ```python
-class SolverError(CobreError, RuntimeError):
+class SolverError(NovomodeloError, RuntimeError):
     stage: int | None
     iteration: int | None
     scenario: int | None
@@ -890,32 +890,32 @@ A training or solver failure. An error of the solver or internal class raises `S
 | `iteration` | `int \| None` | The training iteration of the infeasible subproblem. |
 | `scenario` | `int \| None` | The scenario of the infeasible subproblem. |
 
-### `cobre.errors.SimulationError`
+### `novomodelo.errors.SimulationError`
 
 ```python
-class SimulationError(CobreError, RuntimeError): ...
+class SimulationError(NovomodeloError, RuntimeError): ...
 ```
 
 A simulation-phase failure. Raised for the message prefix `simulation error`.
 
-### `cobre.errors.InternalError`
+### `novomodelo.errors.InternalError`
 
 ```python
-class InternalError(CobreError, RuntimeError): ...
+class InternalError(NovomodeloError, RuntimeError): ...
 ```
 
 An internal software or environment fault, such as a worker-thread panic. Raised for the message prefix `internal error`.
 
-Some failures raise a builtin exception that is not a `CobreError`: a missing case directory (`OSError`), `threads=0` and a malformed `config_overrides` mapping (`ValueError`), and a callback's own exception.
+Some failures raise a builtin exception that is not a `NovomodeloError`: a missing case directory (`OSError`), `threads=0` and a malformed `config_overrides` mapping (`ValueError`), and a callback's own exception.
 
-{/* capture: python t231-validation-error | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-validation-error | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
-import cobre
-from cobre.errors import ValidationError
+import novomodelo
+from novomodelo.errors import ValidationError
 
 try:
-    cobre.Study("case", config_overrides={"trainning.enabled": False})
+    novomodelo.Study("case", config_overrides={"trainning.enabled": False})
 except ValidationError as err:
     print(isinstance(err, ValueError))
     print(err)
@@ -926,9 +926,9 @@ True
 config override error: schema error in <config_overrides>, field trainning: unknown field `trainning`, expected one of `$schema`, `modeling`, `training`, `upper_bound_evaluation`, `policy`, `simulation`, `exports`, `estimation`
 ```
 
-## `cobre.schema`
+## `novomodelo.schema`
 
-### `cobre.schema.export`
+### `novomodelo.schema.export`
 
 ```python
 def export(output_dir: Union[str, Path] = ".") -> int: ...
@@ -947,21 +947,21 @@ Writes the JSON Schema file of every case-directory input type into `output_dir`
 - `ValueError` (builtin) when schema generation or serialisation fails.
 - `OSError` (builtin) when the directory cannot be created or a file cannot be written.
 
-{/* capture: python t232-schema-export | cobre-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none */}
+{/* capture: python t232-schema-export | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none */}
 
 ```python
-import cobre.schema
+import novomodelo.schema
 
-print(cobre.schema.export("schemas"))
+print(novomodelo.schema.export("schemas"))
 ```
 
 ```text
 18
 ```
 
-## `cobre._types`
+## `novomodelo._types`
 
-The names in `cobre._types` are typing-only `TypedDict` classes for the dicts that `cobre.run.run` and the `cobre.Study` properties return; a type checker reads them from the package stubs. `import cobre._types` raises `ModuleNotFoundError` at runtime, and `cobre.StochasticSummary`, `cobre.HydroModelsSummary`, `cobre.ProvenanceReport` and `cobre.System` are likewise stub-only re-exports that are absent at runtime. Import the names under `typing.TYPE_CHECKING` and reach the runtime system class as [`cobre.model.System`](#cobremodelsystem).
+The names in `novomodelo._types` are typing-only `TypedDict` classes for the dicts that `novomodelo.run.run` and the `novomodelo.Study` properties return; a type checker reads them from the package stubs. `import novomodelo._types` raises `ModuleNotFoundError` at runtime, and `novomodelo.StochasticSummary`, `novomodelo.HydroModelsSummary`, `novomodelo.ProvenanceReport` and `novomodelo.System` are likewise stub-only re-exports that are absent at runtime. Import the names under `typing.TYPE_CHECKING` and reach the runtime system class as [`novomodelo.model.System`](#novomodelomodelsystem).
 
 ```python
 from __future__ import annotations
@@ -969,7 +969,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cobre._types import RunResult
+    from novomodelo._types import RunResult
 
 
 def final_lower_bound(result: RunResult) -> float:
@@ -978,9 +978,9 @@ def final_lower_bound(result: RunResult) -> float:
 
 `StochasticSummary`, `HydroModelsSummary` and `ProvenanceReport` are declared `total=False`; the dicts the package returns carry every key listed.
 
-### `cobre._types.RunResult`
+### `novomodelo._types.RunResult`
 
-The dict `cobre.run.run` returns.
+The dict `novomodelo.run.run` returns.
 
 | Key | Type | Description |
 | --- | --- | --- |
@@ -992,13 +992,13 @@ The dict `cobre.run.run` returns.
 | `total_time_ms` | `int` | The training time in milliseconds. `0` when training did not run. |
 | `output_dir` | `str` | The output directory the run wrote to. |
 | `simulation` | `Optional[SimulationSummary]` | The simulation summary. `None` when simulation did not run. |
-| `stochastic` | `Optional[StochasticSummary]` | The same summary as `cobre.Study.stochastic`. `cobre.run.run` always sets it. |
-| `hydro_models` | `Optional[HydroModelsSummary]` | The same summary as `cobre.Study.hydro_models`. `cobre.run.run` always sets it. |
-| `provenance` | `Optional[ProvenanceReport]` | The same summary as `cobre.Study.provenance`. `cobre.run.run` always sets it. |
+| `stochastic` | `Optional[StochasticSummary]` | The same summary as `novomodelo.Study.stochastic`. `novomodelo.run.run` always sets it. |
+| `hydro_models` | `Optional[HydroModelsSummary]` | The same summary as `novomodelo.Study.hydro_models`. `novomodelo.run.run` always sets it. |
+| `provenance` | `Optional[ProvenanceReport]` | The same summary as `novomodelo.Study.provenance`. `novomodelo.run.run` always sets it. |
 
 Every key is present on every branch. After training, `upper_bound` and `gap_percent` are set. On a simulation-only run (training disabled, simulation enabled), `iterations` is `0`, `gap_percent` is `None`, and `upper_bound` is the loaded checkpoint's recorded upper bound (the last training iteration's value) when it is finite, otherwise `None`. With both phases disabled, `lower_bound` is `0.0` and `upper_bound`, `gap_percent` and `simulation` are `None`.
 
-### `cobre._types.TrainingSummary`
+### `novomodelo._types.TrainingSummary`
 
 The six training headline keys that `RunResult` carries at its top level. No function returns a `TrainingSummary`; use it to annotate those keys in isolation.
 
@@ -1011,18 +1011,18 @@ The six training headline keys that `RunResult` carries at its top level. No fun
 | `gap_percent` | `Optional[float]` | The relative optimality gap times 100. `None` when training did not run. |
 | `total_time_ms` | `int` | The training time in milliseconds. `0` when training did not run. |
 
-### `cobre._types.SimulationSummary`
+### `novomodelo._types.SimulationSummary`
 
-The dict under `RunResult["simulation"]`, and the return value of `cobre.Study.simulate`.
+The dict under `RunResult["simulation"]`, and the return value of `novomodelo.Study.simulate`.
 
 | Key | Type | Description |
 | --- | --- | --- |
 | `n_scenarios` | `int` | The number of simulation scenarios. |
 | `completed` | `int` | The number of scenarios that completed. |
 
-### `cobre._types.StochasticSummary`
+### `novomodelo._types.StochasticSummary`
 
-The dict `cobre.Study.stochastic` returns.
+The dict `novomodelo.Study.stochastic` returns.
 
 | Key | Type | Description |
 | --- | --- | --- |
@@ -1038,9 +1038,9 @@ The dict `cobre.Study.stochastic` returns.
 | `n_load_buses` | `int` | The number of buses with stochastic load noise. |
 | `seed` | `int` | The random seed used for noise generation. |
 
-### `cobre._types.HydroModelsSummary`
+### `novomodelo._types.HydroModelsSummary`
 
-The dict `cobre.Study.hydro_models` returns.
+The dict `novomodelo.Study.hydro_models` returns.
 
 | Key | Type | Description |
 | --- | --- | --- |
@@ -1050,9 +1050,9 @@ The dict `cobre.Study.hydro_models` returns.
 | `n_evaporation` | `int` | The number of hydros with linearized evaporation. |
 | `n_no_evaporation` | `int` | The number of hydros with no evaporation model. |
 
-### `cobre._types.ProvenanceReport`
+### `novomodelo._types.ProvenanceReport`
 
-The dict `cobre.Study.provenance` returns.
+The dict `novomodelo.Study.provenance` returns.
 
 | Key | Type | Description |
 | --- | --- | --- |

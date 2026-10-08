@@ -1,9 +1,9 @@
 ---
 title: HPC & Cluster Deployment
-description: Run Cobre across nodes with MPI — obtain or build the MPI-enabled binary, build MPICH from source, launch under SLURM, and deploy on AWS ParallelCluster.
+description: Run Novomodelo across nodes with MPI — obtain or build the MPI-enabled binary, build MPICH from source, launch under SLURM, and deploy on AWS ParallelCluster.
 ---
 
-This page is the end-to-end path for running Cobre on a multi-node cluster: how
+This page is the end-to-end path for running Novomodelo on a multi-node cluster: how
 to get an MPI-enabled binary, how to build the MPICH your cluster loads at
 runtime, how to launch under SLURM, and a worked AWS ParallelCluster reference
 architecture.
@@ -16,7 +16,7 @@ and skip to [Next Steps](#see-also).
 
 ## When you need MPI
 
-Cobre parallelises on two levels, and they compose:
+Novomodelo parallelises on two levels, and they compose:
 
 - **MPI across ranks** — distributes the forward-pass scenario batch and the
   backward-pass trial points across processes, typically one rank per node. This
@@ -29,18 +29,18 @@ collectives tie the ranks together, the thread rules, and memory and case
 access — is summarised in
 [Performance Accelerators — Parallel Execution Model](/running/performance/#parallel-execution-model);
 the scheduler and communication internals live in the
-[`cobre-sddp` README](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-sddp/README.md).
+[`novomodelo-sddp` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md).
 This page is the operational counterpart: how to build and launch it.
 
-A single `cobre run` uses the local (single-process) backend. Launching under an
-MPI launcher (`srun`, `mpiexec`, or `mpirun`) switches Cobre to the MPI backend.
+A single `novomodelo run` uses the local (single-process) backend. Launching under an
+MPI launcher (`srun`, `mpiexec`, or `mpirun`) switches Novomodelo to the MPI backend.
 By default `--comm-backend auto` detects the launcher, so no flag is needed —
 see [Communication Backend](/running/running-studies/#communication-backend).
 
 :::note[MPI is a build-time feature]
 The MPI backend is compiled in via the `mpi` Cargo feature and is **off by
-default**. The standard `cobre` binary (from the [installer or crates.io](/getting-started/installation/))
-is single-process only; its `cobre version` banner reads `comm: local`. For
+default**. The standard `novomodelo` binary (from the [installer or crates.io](/getting-started/installation/))
+is single-process only; its `novomodelo version` banner reads `comm: local`. For
 multi-node runs you need the MPI-enabled binary described below, whose banner
 reads `comm: mpi`.
 :::
@@ -49,18 +49,18 @@ reads `comm: mpi`.
 
 ## Getting an MPI-enabled binary
 
-### Option 1 — Pre-built `cobre-mpi` archive (recommended)
+### Option 1 — Pre-built `novomodelo-mpi` archive (recommended)
 
-Each Cobre release attaches a separate MPI archive alongside the standard
+Each Novomodelo release attaches a separate MPI archive alongside the standard
 binaries, named:
 
 ```
-cobre-mpi-<version>-<target>.tar.gz
+novomodelo-mpi-<version>-<target>.tar.gz
 ```
 
-Download it from the [GitHub Releases page](https://github.com/cobre-rs/cobre/releases/latest).
-The archive contains the binary (named `cobre-mpi` to distinguish it from the
-single-process `cobre` in the same release), the license/notice files, and a
+Download it from the [GitHub Releases page](https://github.com/ons-ccee-epe/novomodelo/releases/latest).
+The archive contains the binary (named `novomodelo-mpi` to distinguish it from the
+single-process `novomodelo` in the same release), the license/notice files, and a
 `README.txt`. The README gives its SLURM launch lines with `srun --mpi=pmi2`;
 its section on stopping before a SLURM time limit and its troubleshooting notes
 use `srun --mpi=pmix`. With
@@ -76,7 +76,7 @@ an MPICH built for PMIx, as on this page, launch with `srun --mpi=pmix` (see
 Windows and Intel macOS have no pre-built MPI archive — build from source
 (Option 2) on those platforms.
 
-The x86-64 Linux `cobre-mpi` uses AVX2 and FMA instructions and needs a
+The x86-64 Linux `novomodelo-mpi` uses AVX2 and FMA instructions and needs a
 processor that supports them.
 
 The Linux binaries are dynamically linked against `libmpi.so.12` (the MPICH 4.x
@@ -104,10 +104,10 @@ specific MPI, build the CLI with the `mpi` feature:
 ```bash
 # MPICH (mpicc) must be on PATH and discoverable via pkg-config first —
 # see "Building MPICH from source" below.
-cargo build --release --features mpi -p cobre-cli
+cargo build --release --features mpi -p novomodelo-cli
 ```
 
-The binary is written to `target/release/cobre`. The build reads the MPI
+The binary is written to `target/release/novomodelo`. The build reads the MPI
 headers and link flags through `pkg-config`, so ensure `PKG_CONFIG_PATH`
 includes your MPICH `lib/pkgconfig` directory.
 
@@ -116,19 +116,19 @@ the build, so the binary needs a processor that supports them, as the pre-built
 archive does, unless a `RUSTFLAGS` environment variable replaces that setting.
 
 :::note[NUMA topology]
-`cobre-cli` has no `numa` feature of its own; the ferrompi NUMA extension is a
-feature of the `cobre-comm` crate (`numa = ["mpi", "ferrompi/numa"]`). Enable it
+`novomodelo-cli` has no `numa` feature of its own; the ferrompi NUMA extension is a
+feature of the `novomodelo-comm` crate (`numa = ["mpi", "ferrompi/numa"]`). Enable it
 through the dependency:
 
 ```bash
-cargo build --release --features mpi,cobre-comm/numa -p cobre-cli
+cargo build --release --features mpi,novomodelo-comm/numa -p novomodelo-cli
 ```
 
 With it on, the topology also carries the SLURM job metadata (job ID, node
 list, CPUs per task): the `Execution` block of the run banner prints a `SLURM:` line and
 `distribution.slurm_job_id` in `training/metadata.json` /
 `simulation/metadata.json` is populated. It is optional and off by default. The
-pre-built `cobre-mpi` archive is built without this feature, so its runs print
+pre-built `novomodelo-mpi` archive is built without this feature, so its runs print
 no `SLURM:` line and write no `distribution.slurm_job_id`.
 :::
 
@@ -144,7 +144,7 @@ uses; it is pinned to the same MPICH version the release binaries are compiled
 against.
 
 :::tip[Why a from-source runtime works with the pre-built binary]
-The pre-built `cobre-mpi` was **compiled** against a generic MPICH (device
+The pre-built `novomodelo-mpi` was **compiled** against a generic MPICH (device
 `ch3:nemesis`, headers only). At **run time** it loads a completely different
 MPICH — the fabric-optimised `ch4:ofi` build below — and this is fine because
 MPICH keeps a stable `libmpi.so.12` ABI regardless of the device layer. You
@@ -232,14 +232,14 @@ ParallelCluster; adjust them to your environment.
 If you cannot write to `/opt`, install into a prefix on a filesystem every node
 can see, for example `--prefix="$HOME/mpich-4.2.3"`. Then use that prefix in the
 `PATH`/`LD_LIBRARY_PATH` exports and in the batch script. Replacing the MPICH
-runtime does not require rebuilding `cobre-mpi`, because the binary only
+runtime does not require rebuilding `novomodelo-mpi`, because the binary only
 depends on the stable `libmpi.so.12` ABI.
 
 Optional build flags:
 
-- **Trims.** Cobre uses no Fortran, C++, or MPI-IO bindings, so
+- **Trims.** Novomodelo uses no Fortran, C++, or MPI-IO bindings, so
   `--disable-fortran --disable-cxx --disable-romio --disable-doc` shorten the
-  build without affecting Cobre.
+  build without affecting Novomodelo.
 - **Faster runtime.** `--enable-fast=O3,ndebug` builds an optimised MPICH
   without internal assertions.
 
@@ -256,23 +256,23 @@ MPICH **4.3.0** introduced a PMI2 client regression that deadlocks multi-node
 
 On a SLURM cluster, `srun` is the launcher: it places the ranks, binds them to
 cores, and (via PMIx) initialises MPI. Because `--comm-backend` defaults to
-`auto`, Cobre detects the `srun` launch and selects the MPI backend
+`auto`, Novomodelo detects the `srun` launch and selects the MPI backend
 automatically.
 
 The commands below use three placeholders. `<partition>` is the SLURM partition,
-`<shared-path>` is a directory every node can read that holds `cobre-mpi` and the
+`<shared-path>` is a directory every node can read that holds `novomodelo-mpi` and the
 batch script, and `<case-dir>` is the case directory on a shared filesystem, at
 the same path on every node because every rank reads it.
 
 ### Hybrid MPI + threads
 
-Cobre uses MPI for inter-node communication and rayon threads for intra-node LP
+Novomodelo uses MPI for inter-node communication and rayon threads for intra-node LP
 solves. The launch below runs one rank per node, with the thread pool sized as
 set out in [Sizing and scaling](#sizing-and-scaling):
 
 ```bash
 srun --mpi=pmix --nodes=4 --ntasks-per-node=1 --cpus-per-task=96 --exclusive \
-    ./cobre-mpi run <case-dir> --threads 96
+    ./novomodelo-mpi run <case-dir> --threads 96
 ```
 
 In this command `--threads 96` matches `--cpus-per-task=96`, so each rank's
@@ -289,34 +289,34 @@ workload:
 
 ```bash
 #!/bin/bash
-#SBATCH --job-name=cobre-mpi
+#SBATCH --job-name=novomodelo-mpi
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=96
 #SBATCH --exclusive
-#SBATCH --output=cobre_%j.out
-#SBATCH --error=cobre_%j.err
+#SBATCH --output=novomodelo_%j.out
+#SBATCH --error=novomodelo_%j.err
 #SBATCH --partition=<partition>
 #SBATCH --time=0-08:00:00
 
 MPICH_PREFIX=/opt/mpich
-COBRE_MPI="<shared-path>/cobre-mpi"
+NOVOMODELO_MPI="<shared-path>/novomodelo-mpi"
 
 export PATH="$MPICH_PREFIX/bin:$PATH"
 export LD_LIBRARY_PATH="$MPICH_PREFIX/lib:${LD_LIBRARY_PATH:-}"
 
-srun --mpi=pmix "$COBRE_MPI" run "$1" --threads "$SLURM_CPUS_PER_TASK"
+srun --mpi=pmix "$NOVOMODELO_MPI" run "$1" --threads "$SLURM_CPUS_PER_TASK"
 ```
 
 Refer to the binary by an **absolute path**. `sbatch` runs the script in the
-directory you submitted from, so `./cobre-mpi` works only if you happen to run
+directory you submitted from, so `./novomodelo-mpi` works only if you happen to run
 `sbatch` from the directory that holds the binary.
 
-Save the script as `run-cobre.sh` in `<shared-path>`, next to `cobre-mpi`. Submit
+Save the script as `run-novomodelo.sh` in `<shared-path>`, next to `novomodelo-mpi`. Submit
 it with the case directory as its argument:
 
 ```bash
-sbatch <shared-path>/run-cobre.sh <case-dir>
+sbatch <shared-path>/run-novomodelo.sh <case-dir>
 ```
 
 ### Key SLURM flags
@@ -398,14 +398,14 @@ on the same `<case-dir>`. The batch script passes no `--output`, so every slice 
 filesystem, and every rank loads the previous checkpoint from it:
 
 ```bash
-sbatch <shared-path>/run-cobre.sh <case-dir>
+sbatch <shared-path>/run-novomodelo.sh <case-dir>
 ```
 
 ---
 
 ## AWS ParallelCluster reference architecture
 
-Cobre's production deployment runs on AWS ParallelCluster: a lightweight,
+Novomodelo's production deployment runs on AWS ParallelCluster: a lightweight,
 always-on head node for submission plus one or more compute queues whose nodes
 are provisioned on demand and torn down when idle. Each queue is an independent
 SLURM partition that scales on its own.
@@ -438,7 +438,7 @@ The moving parts:
   [`ch4:ofi` + EFA recipe](#building-mpich-from-source) above. Baking it into the
   image means every dynamically-launched compute node already has the runtime —
   no per-job install step.
-- **The binary.** The pre-built `cobre-mpi` archive is downloaded from the
+- **The binary.** The pre-built `novomodelo-mpi` archive is downloaded from the
   release page to `<shared-path>`. It is the
   same binary produced by the release CI, and the custom image's system
   libraries are kept compatible with that build.
@@ -450,14 +450,14 @@ The moving parts:
   the one-rank-per-node × `--threads=$SLURM_CPUS_PER_TASK` mapping; smaller
   compute-optimised instances work the same way.
 - **Storage (FSx).** The case directory, checkpoints, and exported results live
-  on the shared FSx filesystem. Cobre's per-solve hot path holds its working set
+  on the shared FSx filesystem. Novomodelo's per-solve hot path holds its working set
   in memory (its allocation discipline is documented in the
-  [`cobre-sddp` README](https://github.com/cobre-rs/cobre/blob/main/crates/cobre-sddp/README.md)); it
+  [`novomodelo-sddp` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md)); it
   touches the shared filesystem heavily only at **checkpointing** and **result
   export**, so FSx throughput is sized for those phases rather than the solve
   loop.
 
-Submission is the same `sbatch <shared-path>/run-cobre.sh <case-dir>` shown above:
+Submission is the same `sbatch <shared-path>/run-novomodelo.sh <case-dir>` shown above:
 the head node queues the job, ParallelCluster powers up the compute nodes in the
 target partition, `srun --mpi=pmix` launches one rank per node, and the nodes
 scale back down when the queue drains.
@@ -471,7 +471,7 @@ not on the loader path. Export `LD_LIBRARY_PATH=/opt/mpich/lib:$LD_LIBRARY_PATH`
 (or `module load mpich`) before launching, as the batch script does.
 
 **`comm: local` when you expected `comm: mpi`** — either the binary was built
-without the `mpi` feature (check `cobre version`), or the process was not
+without the `mpi` feature (check `novomodelo version`), or the process was not
 launched under a recognised launcher. Force the backend with
 `--comm-backend mpi`; it fails with a clear message on a non-MPI binary rather
 than silently running single-process.
@@ -483,7 +483,7 @@ each copy reads `Layout: 1 rank on <host>`. The simulation reports
 directory with write errors. `MPI_Init` fell back to a singleton: every
 process launched by `srun` became its own one-rank `MPI_COMM_WORLD`.
 
-`cobre-mpi version` still reports `comm: mpi` and the banner still shows
+`novomodelo-mpi version` still reports `comm: mpi` and the banner still shows
 `Backend: MPI`, because the binary is fine. The fault is in the MPICH runtime:
 it was built without `--with-pmix`, or against a different PMIx than SLURM's
 plugin, so the PMIx handshake failed silently.
@@ -494,7 +494,7 @@ To fix it:
    Seeing no line, or a path outside the cluster's PMIx, confirms it.
 2. Rebuild MPICH with `--with-pmix` pointing at the PMIx that SLURM uses (see
    [Building MPICH from source](#building-mpich-from-source)).
-3. Point the batch script's exports at the new build. `cobre-mpi` itself needs
+3. Point the batch script's exports at the new build. `novomodelo-mpi` itself needs
    no rebuild.
 
 Switching to `--mpi=pmi2` does not fix this.
@@ -513,14 +513,14 @@ regression described above. Downgrade to MPICH 4.2.x.
 
 ## Verifying your setup
 
-For one `cobre-mpi` binary, with every node running the same system image on one
+For one `novomodelo-mpi` binary, with every node running the same system image on one
 processor model (the same libm, libstdc++ and MPI library), the numerical content
 of the output files is bit-identical at any rank count and at any thread count
 (the same `--threads` on every rank); timestamps, wall-clock timing columns and
 the recorded execution topology differ. The guarantee
 holds for a stopping-rule set without `time_limit`: a wall-clock or signal stop depends on timing
 ([`time_limit`](/running/configuration/#time_limit)). Validate on one rank with
-`cobre-mpi` itself, because the single-process `cobre` is a different build
+`novomodelo-mpi` itself, because the single-process `novomodelo` is a different build
 whose results are not promised equal. The full statement is in
 [Determinism & Provenance](/math/determinism-guarantees/).
 
@@ -530,7 +530,7 @@ Check your setup in three steps. Each step catches a different failure.
    wiring:
 
    ```bash
-   <shared-path>/cobre-mpi version   # → comm: mpi
+   <shared-path>/novomodelo-mpi version   # → comm: mpi
    ```
 
 2. **MPICH links the cluster's PMIx.** Run the `ldd … | grep libpmix` check from
@@ -541,7 +541,7 @@ Check your setup in three steps. Each step catches a different failure.
 
    ```bash
    srun --mpi=pmix --nodes=2 --ntasks-per-node=1 \
-       <shared-path>/cobre-mpi run <case-dir> --threads 2
+       <shared-path>/novomodelo-mpi run <case-dir> --threads 2
    ```
 
    Only rank 0 prints the `Execution` banner, so it must appear **once**. Its

@@ -1,10 +1,10 @@
 ---
 title: Running Studies
-description: End-to-end workflow for running an SDDP study with `cobre run` — preparing a case, terminal output, checking results, reusing a saved policy, and common workflows.
+description: End-to-end workflow for running an SDDP study with `novomodelo run` — preparing a case, terminal output, checking results, reusing a saved policy, and common workflows.
 ---
 
 Take a study from case to results: scaffold or prepare the case, validate it,
-run it with `cobre run`, and read what the run wrote.
+run it with `novomodelo run`, and read what the run wrote.
 
 ---
 
@@ -13,7 +13,7 @@ run it with `cobre run`, and read what the run wrote.
 To start from a working example, scaffold the `1dtoy` template:
 
 ```bash
-cobre init --template 1dtoy my_study
+novomodelo init --template 1dtoy my_study
 ```
 
 It writes eleven files: the eight required files in the structure shown below,
@@ -21,7 +21,7 @@ It writes eleven files: the eight required files in the structure shown below,
 `scenarios/*_seasonal_stats.parquet` files. A non-empty target directory is
 refused unless `--force` is given.
 
-A case directory is a folder containing all input data files required by Cobre.
+A case directory is a folder containing all input data files required by Novomodelo.
 The minimum required structure is:
 
 ```
@@ -40,12 +40,12 @@ my_study/
 All eight files are required. Before running, validate the input:
 
 ```bash
-cobre validate /path/to/my_study
+novomodelo validate /path/to/my_study
 ```
 
 Successful validation prints entity counts and exits with code 0:
 
-{/* capture: cobre validate my_study | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: cobre init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path; exit 0, stderr empty */}
+{/* capture: novomodelo validate my_study | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path; exit 0, stderr empty */}
 
 ```text
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -59,7 +59,7 @@ shows only the missing field, because the read of `system/hydros.json` stops
 there before any value is checked. The negative value is reported once the
 field is restored:
 
-{/* capture: cobre validate my_study 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; system/hydros.json edited with jq: .hydros[0] |= del(.reservoir), then .hydros[0].generation.max_turbined_m3s = -5.0); run from an empty working directory with a relative case path; exit 1, stderr empty */}
+{/* capture: novomodelo validate my_study 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json edited with jq: .hydros[0] |= del(.reservoir), then .hydros[0].generation.max_turbined_m3s = -5.0); run from an empty working directory with a relative case path; exit 1, stderr empty */}
 
 ```text
 Validation: 1 errors, 0 warnings in my_study
@@ -71,20 +71,20 @@ Fix any reported errors before proceeding. See
 
 ---
 
-## Running `cobre run`
+## Running `novomodelo run`
 
 ```bash
-cobre run /path/to/my_study
+novomodelo run /path/to/my_study
 ```
 
 By default, results are written to `<CASE_DIR>/output/`. To specify a different
 location:
 
 ```bash
-cobre run /path/to/my_study --output /path/to/results
+novomodelo run /path/to/my_study --output /path/to/results
 ```
 
-Before it writes a phase's outputs, `cobre run`
+Before it writes a phase's outputs, `novomodelo run`
 removes the earlier run's outputs of that phase, as listed under
 [Output Format — Success markers](/reference/output/#success-markers); every
 other file stays until a run rewrites it, so the `stochastic/` export of an
@@ -101,8 +101,8 @@ The figure follows one study from its case directory to its outputs; the three a
 direction: down
 
 case: "Case directory" {shape: parallelogram}
-validate: "cobre validate\noptional check, no solve"
-load: "cobre run: load\nchecks and sets up the case"
+validate: "novomodelo validate\noptional check, no solve"
+load: "novomodelo run: load\nchecks and sets up the case"
 train: "Train\nbuilds the policy"
 simulate: "Simulate\nwhen enabled"
 ckpt: "Policy checkpoint\npolicy.path" {shape: cylinder}
@@ -123,9 +123,9 @@ ckpt -> simulate2: "training.enabled = false"
 ckpt -> other: "policy.boundary.path"
 ```
 
-`cobre run` loads the case, trains unless `training.enabled` is `false`, writes its policy
+`novomodelo run` loads the case, trains unless `training.enabled` is `false`, writes its policy
 checkpoint to `policy.path` when training ends, simulates when simulation is enabled,
-and writes its outputs. `cobre validate` checks the case beforehand without solving.
+and writes its outputs. `novomodelo validate` checks the case beforehand without solving.
 A later run of the same study can warm-start from or resume the checkpoint, or simulate
 it without training ([Reusing a Saved Policy](#reusing-a-saved-policy)), and another
 study can import it as its terminal boundary
@@ -146,15 +146,15 @@ Errors are always written to stderr regardless of `--quiet`.
 
 On a terminal, training shows a live progress bar with the current iteration, the
 bounds, the gap, and the forward and backward times. When stderr is redirected or
-piped, cobre prints one line per iteration instead, and simulation reports its
+piped, novomodelo prints one line per iteration instead, and simulation reports its
 scenario count the same way. In `--quiet` mode, no progress is printed.
 
 ### Summary
 
-An excerpt of the output of `cobre run my_study` on the scaffolded case. It omits the
+An excerpt of the output of `novomodelo run my_study` on the scaffolded case. It omits the
 banner, the `Host` line, and the progress lines between the first and the last of each phase:
 
-{/* capture: cobre run my_study 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: cobre init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path and stderr redirected to a file; excerpt: the banner, the Host line and the progress lines between the first and the last of each phase are not quoted */}
+{/* capture: novomodelo run my_study 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path and stderr redirected to a file; excerpt: the banner, the Host line and the progress lines between the first and the last of each phase are not quoted */}
 
 ```text
 Execution
@@ -220,7 +220,7 @@ a single sampled trajectory and the gap can read below zero.
 
 ## Checking Results
 
-Alongside the result tables, `cobre run` writes a machine-readable record of
+Alongside the result tables, `novomodelo run` writes a machine-readable record of
 each phase that ran: `training/metadata.json` when training ran, and
 `simulation/metadata.json` when simulation ran. Query them directly with `jq`:
 
@@ -230,7 +230,7 @@ jq '{status, bounds}' /path/to/my_study/output/training/metadata.json
 
 `status` reads `"partial"` when a shutdown request ended the phase early and
 `"complete"` otherwise, including after a
-training that failed, so a script must check the exit code of `cobre run` to learn
+training that failed, so a script must check the exit code of `novomodelo run` to learn
 whether the run succeeded ([Checking Exit Codes](#checking-exit-codes)). `bounds` carries the final lower and upper bounds. The
 convergence gap sits under `convergence`:
 
@@ -250,9 +250,9 @@ after a failed training:
 jq -r '.convergence.termination_reason' /path/to/my_study/output/training/metadata.json
 ```
 
-From Python, `cobre.results.load_results("/path/to/my_study/output")` returns
-both metadata files as dicts, and `cobre.results.load_convergence` /
-`cobre.results.load_simulation` load the Parquet tables. See
+From Python, `novomodelo.results.load_results("/path/to/my_study/output")` returns
+both metadata files as dicts, and `novomodelo.results.load_convergence` /
+`novomodelo.results.load_simulation` load the Parquet tables. See
 [Convergence & Diagnostics](/running/interpreting-results/) for reading the
 convergence trajectory and simulation outputs, and [Output Format](/reference/output/) for every field
 of [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson) and
@@ -312,7 +312,7 @@ Use `--threads` to accelerate training and simulation with intra-rank
 parallelism:
 
 ```bash
-cobre run /path/to/my_study --threads 4
+novomodelo run /path/to/my_study --threads 4
 ```
 
 The excerpt below compares one thread with four on the scaffold, with
@@ -320,15 +320,15 @@ The excerpt below compares one thread with four on the scaffold, with
 set to `1000`. Each block starts with the command that produced it, and the excerpt keeps
 only the `Threads` line and each phase's completion line. The times are from one machine:
 
-{/* capture: cobre run my_study --threads 1 2>&1; cobre run my_study --threads 4 2>&1 | cobre   v0.18.0 | binary: cobre-cli sha256 93cb7307 | case: temporary 1dtoy derivative (cobre init --template 1dtoy; config.json edited with jq: training.selection.forward_passes 8 and simulation.selection.num_scenarios 1000); run from an empty working directory with a relative case path, the output directory emptied between the runs, both runs exit 0; excerpt: per run, the Threads line and the two phase completion lines are quoted, the rest of the run including the Host line is not */}
+{/* capture: novomodelo run my_study --threads 1 2>&1; novomodelo run my_study --threads 4 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; config.json edited with jq: training.selection.forward_passes 8 and simulation.selection.num_scenarios 1000); run from an empty working directory with a relative case path, the output directory emptied between the runs, both runs exit 0; excerpt: per run, the Threads line and the two phase completion lines are quoted, the rest of the run including the Host line is not */}
 
 ```text
-$ cobre run my_study --threads 1
+$ novomodelo run my_study --threads 1
   Threads:   1 rayon thread
 Training complete in 7.2s (128 iterations, iteration_limit)
 Simulation complete in 3.3s (1000 scenarios)
 
-$ cobre run my_study --threads 4
+$ novomodelo run my_study --threads 4
   Threads:   4 rayon threads
 Training complete in 2.3s (128 iterations, iteration_limit)
 Simulation complete in 3.4s (1000 scenarios)
@@ -343,9 +343,9 @@ backward pass, and the simulation scenarios. In the excerpt, simulation time doe
 
 ### Communication Backend
 
-A single `cobre run` uses the local (single-process) backend; launching under an
-MPI launcher (`mpiexec`, `mpirun`, or `srun`) distributes the work across ranks when the binary is built with MPI support (the `cobre-mpi` binary of [HPC & Cluster Deployment](/running/hpc-deployment/)); the standard `cobre` binary offers only the local backend, so under a launcher `auto` runs every process as its own single-process study.
-By default (`--comm-backend auto`) cobre detects the launcher and selects the
+A single `novomodelo run` uses the local (single-process) backend; launching under an
+MPI launcher (`mpiexec`, `mpirun`, or `srun`) distributes the work across ranks when the binary is built with MPI support (the `novomodelo-mpi` binary of [HPC & Cluster Deployment](/running/hpc-deployment/)); the standard `novomodelo` binary offers only the local backend, so under a launcher `auto` runs every process as its own single-process study.
+By default (`--comm-backend auto`) novomodelo detects the launcher and selects the
 backend accordingly, so no flag is needed in either case. Pass
 `--comm-backend mpi` to force the MPI backend — it fails with a clear message on a
 binary built without MPI support — or `--comm-backend local` to force a single
@@ -354,7 +354,7 @@ process even under a launcher.
 ### Quiet Mode for Scripts
 
 ```bash
-cobre run /path/to/my_study --quiet
+novomodelo run /path/to/my_study --quiet
 exit_code=$?
 if [ $exit_code -ne 0 ]; then
   echo "Study failed with exit code $exit_code" >&2
@@ -365,7 +365,7 @@ Suppresses banner and progress output, suitable for batch scripts.
 
 ### Checking Exit Codes
 
-`cobre run` exits `0` on success and non-zero otherwise. The meaning of each code
+`novomodelo run` exits `0` on success and non-zero otherwise. The meaning of each code
 is in [CLI Reference — Exit Codes](/reference/cli-reference/#exit-codes).
 [Troubleshooting](/running/troubleshooting/) lists error messages with their cause
 and fix.
@@ -397,7 +397,7 @@ tree, and run again:
 
 ```bash
 # Step 1: initial run with stochastic export enabled in config.json
-cobre run my_case
+novomodelo run my_case
 
 # Step 2: copy the exported input files into scenarios/
 S=my_case/output/stochastic
@@ -421,7 +421,7 @@ empty, because the loader refuses a `correlation.json` with no profile. Copy
 `load_seasonal_stats.parquet` when the export wrote it.
 
 Step 3 declares the opening tree in `config.json`, by adding one key to the
-existing `training.scenario_source` object. `cobre run` reads
+existing `training.scenario_source` object. `novomodelo run` reads
 `scenarios/noise_openings.parquet` only when `training.scenario_source.openings`
 is `{"source": "file"}`; a copied file without the declaration is ignored and
 the tree is generated again:
@@ -436,7 +436,7 @@ the tree is generated again:
 }
 ```
 
-Step 4 runs the study again with `cobre run my_case`. The re-run reads the
+Step 4 runs the study again with `novomodelo run my_case`. The re-run reads the
 inflow model from the copied inflow files instead of estimating any part of it
 from `inflow_history.parquet`, and reads the opening tree from
 `scenarios/noise_openings.parquet` instead of generating it. The tree file must

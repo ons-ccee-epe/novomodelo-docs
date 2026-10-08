@@ -1,14 +1,14 @@
 // Vendored error-kind variants refresh (ticket-214a, R63, ADR-020).
 //
-// `reference/error-codes.mdx` documents the variants of cobre's `ErrorKind`
-// (cobre-io validation) and `LoadError` (cobre-io loader) enums. The interim
-// error-coverage gate needs, in CI and without a cobre checkout, the declared
+// `reference/error-codes.mdx` documents the variants of novomodelo's `ErrorKind`
+// (novomodelo-io validation) and `LoadError` (novomodelo-io loader) enums. The interim
+// error-coverage gate needs, in CI and without a novomodelo checkout, the declared
 // variants of both and whether the code ever emits each one. This script
 // vendors that data into scripts/error-kinds.json.
 //
 // Released-baseline rule (as refresh-schemas.mjs): content is read from an
-// immutable git TAG via `git -C <cobre> ls-tree` / `show <ref>:<path>`, NEVER
-// the cobre working tree, which can sit past the tag.
+// immutable git TAG via `git -C <novomodelo> ls-tree` / `show <ref>:<path>`, NEVER
+// the novomodelo working tree, which can sit past the tag.
 //
 // Emitted rule (D-214a-1, XD-315, v0.18.0 ADR-008). A variant V of enum E is emitted
 // iff some `crates/<crate>/src/**/*.rs` file, other than `tests.rs` /
@@ -23,7 +23,7 @@
 //   (b) a call `E::<helper>(` where <helper> is an associated fn of an
 //       `impl E {` block, in E's defining file, whose body starts `Self::V`; or
 //   (c) for `ErrorKind` only, when the ref holds
-//       `crates/cobre-io/src/validation/rules.rs`: a `rules::NAME` (not
+//       `crates/novomodelo-io/src/validation/rules.rs`: a `rules::NAME` (not
 //       `my_rules::NAME`) where NAME is a row of that file's `declare_rules!`
 //       table whose kind is V. A row is
 //       `NAME = "id", Layer, Kind, Severity, "summary";`, read with comments
@@ -34,10 +34,10 @@
 // found it.
 //
 // Usage:
-//   node scripts/refresh-error-kinds.mjs [--cobre <path>] [--ref <git-ref>] [--check]
-//     --cobre   path to a cobre checkout (default: $COBRE_REPO or ~/git/cobre);
+//   node scripts/refresh-error-kinds.mjs [--novomodelo <path>] [--ref <git-ref>] [--check]
+//     --novomodelo   path to a novomodelo checkout (default: $NOVOMODELO_REPO or ~/git/novomodelo);
 //               used only to resolve the git object database.
-//     --ref     git ref/tag to vendor from (default: DEFAULT_COBRE_REF).
+//     --ref     git ref/tag to vendor from (default: DEFAULT_NOVOMODELO_REF).
 //     --check   verify-only: compare scripts/error-kinds.json against <ref>,
 //               write nothing; exit 1 naming each differing variant, else 0.
 // A git failure, a missing enum, a bad `declare_rules!` table or an unknown
@@ -48,15 +48,15 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { DEFAULT_COBRE_REF } from "./cobre-ref.mjs";
+import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 
 const ENUMS = [
   {
     name: "ErrorKind",
-    source: "crates/cobre-io/src/validation/mod.rs",
-    rules: "crates/cobre-io/src/validation/rules.rs",
+    source: "crates/novomodelo-io/src/validation/mod.rs",
+    rules: "crates/novomodelo-io/src/validation/rules.rs",
   },
-  { name: "LoadError", source: "crates/cobre-io/src/error.rs" },
+  { name: "LoadError", source: "crates/novomodelo-io/src/error.rs" },
 ];
 const SRC_FILE = /^crates\/[^/]+\/src\/.+\.rs$/;
 const SEVERITIES = ["Error", "Warning"];
@@ -511,24 +511,24 @@ export function diffVendored(committedText, vendored) {
 
 // --- Git plumbing (execFileSync with an ARGS ARRAY — never a shell string) --
 
-function git(cobre, args) {
+function git(novomodelo, args) {
   try {
-    return execFileSync("git", ["-C", cobre, ...args], {
+    return execFileSync("git", ["-C", novomodelo, ...args], {
       encoding: "utf8",
       maxBuffer: GIT_MAX_BUFFER,
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (error) {
     throw new Error(
-      `refresh:error-kinds: git ${args.join(" ")} failed in ${cobre} — is the tag fetched? (${error.message})`,
+      `refresh:error-kinds: git ${args.join(" ")} failed in ${novomodelo} — is the tag fetched? (${error.message})`,
     );
   }
 }
 
-function readVendored(cobre, ref) {
-  const show = (path) => git(cobre, ["show", `${ref}:${path}`]);
+function readVendored(novomodelo, ref) {
+  const show = (path) => git(novomodelo, ["show", `${ref}:${path}`]);
   const paths = listSourcePaths(
-    git(cobre, ["ls-tree", "-r", "--name-only", ref, "--", "crates"]),
+    git(novomodelo, ["ls-tree", "-r", "--name-only", ref, "--", "crates"]),
   );
   const enums = ENUMS.map(({ name, source, rules }) => {
     const text = show(source);
@@ -575,13 +575,13 @@ function readVendored(cobre, ref) {
 // --- Arg parsing and main ---------------------------------------------------
 
 function parseArgs(argv) {
-  let cobre = process.env.COBRE_REPO ?? join(homedir(), "git", "cobre");
-  let ref = DEFAULT_COBRE_REF;
+  let novomodelo = process.env.NOVOMODELO_REPO ?? join(homedir(), "git", "novomodelo");
+  let ref = DEFAULT_NOVOMODELO_REF;
   let check = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--cobre") {
-      cobre = argv[++i];
+    if (arg === "--novomodelo") {
+      novomodelo = argv[++i];
     } else if (arg === "--ref") {
       ref = argv[++i];
     } else if (arg === "--check") {
@@ -590,12 +590,12 @@ function parseArgs(argv) {
       throw new Error(`refresh:error-kinds: unrecognized argument '${arg}'`);
     }
   }
-  return { cobre, ref, check };
+  return { novomodelo, ref, check };
 }
 
 function main() {
-  const { cobre, ref, check } = parseArgs(process.argv.slice(2));
-  const vendored = readVendored(cobre, ref);
+  const { novomodelo, ref, check } = parseArgs(process.argv.slice(2));
+  const vendored = readVendored(novomodelo, ref);
 
   if (check) {
     const drift = existsSync(vendoredPath)

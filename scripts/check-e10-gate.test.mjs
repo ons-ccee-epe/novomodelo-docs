@@ -60,7 +60,7 @@ const ROOT_FOOTER = [
   '<p class="sl-footer-notice"><a href="/THIRD-PARTY-NOTICES.txt">Third-party notices</a></p>',
   '<p class="sl-footer-notice">© 2026 Cobre Contributors — text &amp; figures ',
   '<a href="https://creativecommons.org/licenses/by/4.0/">CC-BY-4.0</a>, code ',
-  '<a href="https://github.com/cobre-rs/cobre-docs/blob/main/LICENSE">Apache-2.0</a></p>',
+  '<a href="https://github.com/ons-ccee-epe/novomodelo-docs/blob/main/LICENSE">Apache-2.0</a></p>',
   "</div>",
 ].join("");
 
@@ -77,7 +77,7 @@ test("footerHasNotices: a versioned-build base-prefixed href still passes", () =
     'href="/THIRD-PARTY-NOTICES.txt"',
     'href="/v0.8/THIRD-PARTY-NOTICES.txt"',
   ).replace(
-    'href="https://github.com/cobre-rs/cobre-docs/blob/main/LICENSE"',
+    'href="https://github.com/ons-ccee-epe/novomodelo-docs/blob/main/LICENSE"',
     'href="/v0.8/LICENSE"',
   );
   assert.equal(footerHasNotices(versioned).ok, true);
@@ -108,7 +108,7 @@ test("footerHasNotices: a missing CC-BY-4.0 token is reported", () => {
 
 test("footerHasNotices: a missing LICENSE link is reported", () => {
   const noLicense = ROOT_FOOTER.replace(
-    '<a href="https://github.com/cobre-rs/cobre-docs/blob/main/LICENSE">Apache-2.0</a>',
+    '<a href="https://github.com/ons-ccee-epe/novomodelo-docs/blob/main/LICENSE">Apache-2.0</a>',
     "Apache-2.0",
   );
   const r = footerHasNotices(noLicense);

@@ -1,11 +1,11 @@
 ---
 title: Notation Conventions
-description: Complete mathematical notation reference — index sets, parameters, decision variables, and dual variables used across the Cobre methodology chapters.
+description: Complete mathematical notation reference — index sets, parameters, decision variables, and dual variables used across the Novomodelo methodology chapters.
 ---
 
 ## Purpose
 
-This chapter defines the complete mathematical notation used across the Cobre methodology chapters: index sets, parameters, decision variables, and dual variables. It serves as the canonical reference for symbol meanings, ensuring consistency across the methodology chapters.
+This chapter defines the complete mathematical notation used across the Novomodelo methodology chapters: index sets, parameters, decision variables, and dual variables. It serves as the canonical reference for symbol meanings, ensuring consistency across the methodology chapters.
 
 ## 1. General Notation Conventions
 
@@ -109,7 +109,7 @@ A glyph takes a second meaning only on pages that never carry its first; each su
 
 ### Stage Indexing
 
-Math formulas throughout this corpus index stages starting at $1$: $t \in \{1, \ldots, T\}$ (the convention already fixed above). Cobre's configuration files and Parquet outputs instead identify a stage by its **declared** `stage_id` — the integer `id` the stage carries in `stages.json`. Declared ids need not start at $0$ or be contiguous (a pre-study stage may carry a negative id); stages are ordered by id ascending, and $t$ is a study stage's position in that order.
+Math formulas throughout this corpus index stages starting at $1$: $t \in \{1, \ldots, T\}$ (the convention already fixed above). Novomodelo's configuration files and Parquet outputs instead identify a stage by its **declared** `stage_id` — the integer `id` the stage carries in `stages.json`. Declared ids need not start at $0$ or be contiguous (a pre-study stage may carry a negative id); stages are ordered by id ascending, and $t$ is a study stage's position in that order.
 
 | Context                                         | Convention                                                          |
 | ----------------------------------------------- | ------------------------------------------------------------------- |
@@ -405,4 +405,4 @@ Sign convention: more incoming storage lowers the cost-to-go wherever the extra 
 - [PAR(p) Inflow Model](/math/par-inflow-model) — Detailed PAR(p) model using inflow parameters defined here
 - [Hydro Production Function Models](/math/hydro-production-models) — FPHA plane coefficients ($\gamma$) and productivity ($\rho$)
 - [Equipment-Specific Formulations](/math/equipment-formulations) — Thermal, contract, pumping variable notation
-- [What Cobre Solves](/overview/what-cobre-solves) — the methodology principles: reproducibility, determinism, declaration order invariance and agent-readability
+- [What Novomodelo Solves](/overview/what-novomodelo-solves) — the methodology principles: reproducibility, determinism, declaration order invariance and agent-readability

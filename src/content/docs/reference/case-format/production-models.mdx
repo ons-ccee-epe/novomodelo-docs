@@ -26,7 +26,7 @@ for **any** hydro, whatever its generation model, that has a specific
 productivity (the `system/hydros.json` entity field or a
 `system/hydro_energy_productivity.parquet` override). For such a plant, a table
 that fails to build, or a non-positive mean equivalent head, rejects the case at
-`cobre validate` (see
+`novomodelo validate` (see
 [`GenericConstraintValidationError`](/reference/error-codes/#genericconstraintvalidationerror)).
 Author the table to span `reservoir.min_storage_hm3` … `reservoir.max_storage_hm3`:
 when the table is narrower, the mean is taken over the table's own extent.
@@ -67,7 +67,7 @@ plant and is identified by a unique `hydro_id`. Results are loaded in
 
 ```json
 {
-  "$schema": "https://docs.cobre-rs.dev/schemas/production_models.schema.json",
+  "$schema": "https://docs.novomodelo.invalid/schemas/production_models.schema.json",
   "production_models": [ ... ]
 }
 ```
@@ -164,12 +164,12 @@ source of truth for V_ref: when absent, the case-wide default fraction is used.
 | `production_models[].stage_ranges[].fpha_config.source`                         | string          | Yes      | —       | —     | `"precomputed"` or `"computed"`                                                                                                                                                                                                                                          |
 | `production_models[].stage_ranges[].fpha_config.volume_discretization_points`   | integer \| null | No       | —       | —     | Number of volume grid points, at least `2`; `1`, or a fitting volume range that is a single point, selects the single-volume (run-of-river) fit; absent or `null` uses `5`                                                                                               |
 | `production_models[].stage_ranges[].fpha_config.turbine_discretization_points`  | integer \| null | No       | —       | —     | Number of turbine-flow grid points; at least `2`; absent or `null` uses `5`                                                                                                                                                                                              |
-| `production_models[].stage_ranges[].fpha_config.spillage_discretization_points` | integer \| null | No       | —       | —     | Validated (`>= 2`); does not add a spillage axis to the fit — accepted for input round-tripping (see [Hydro Production Function Models — Configure](/math/hydro-production-models#implementation-in-cobre)); absent or `null` uses `5`                                   |
-| `production_models[].stage_ranges[].fpha_config.max_planes_per_hydro`           | integer \| null | No       | —       | —     | Validated (`>= 1`); the fit keeps every upper-envelope facet and does not trim to this count; only `fpha_plane_reduction` reduces the set (see [Hydro Production Function Models — Configure](/math/hydro-production-models#implementation-in-cobre)); absent or `null` uses `10` |
+| `production_models[].stage_ranges[].fpha_config.spillage_discretization_points` | integer \| null | No       | —       | —     | Validated (`>= 2`); does not add a spillage axis to the fit — accepted for input round-tripping (see [Hydro Production Function Models — Configure](/math/hydro-production-models#implementation-in-novomodelo)); absent or `null` uses `5`                                   |
+| `production_models[].stage_ranges[].fpha_config.max_planes_per_hydro`           | integer \| null | No       | —       | —     | Validated (`>= 1`); the fit keeps every upper-envelope facet and does not trim to this count; only `fpha_plane_reduction` reduces the set (see [Hydro Production Function Models — Configure](/math/hydro-production-models#implementation-in-novomodelo)); absent or `null` uses `10` |
 | `production_models[].stage_ranges[].fpha_config.fitting_window`                 | object \| null  | No       | —       | —     | Volume range restriction for hyperplane computation; absent or `null` uses the full forebay range of the plant's `system/hydro_geometry.parquet` volume–height curve                                                                                                     |
 
 `source: "precomputed"` means the hyperplanes are loaded from
-`system/fpha_hyperplanes.parquet`. `source: "computed"` means Cobre derives
+`system/fpha_hyperplanes.parquet`. `source: "computed"` means Novomodelo derives
 them from `system/hydro_geometry.parquet`; in this case `hydro_geometry.parquet`
 must be present and the computed planes are automatically written to
 `output/hydro_models/fpha_hyperplanes.parquet`.
@@ -196,7 +196,7 @@ mutually exclusive per bound — set at most one of `volume_min_hm3` and
 
 ```json
 {
-  "$schema": "https://docs.cobre-rs.dev/schemas/production_models.schema.json",
+  "$schema": "https://docs.novomodelo.invalid/schemas/production_models.schema.json",
   "production_models": [
     {
       "hydro_id": 0,

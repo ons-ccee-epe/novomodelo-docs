@@ -28,7 +28,7 @@ The state is ordered canonically: storage, inflow lags, in-transit buckets, comm
 
 ## 2. Pinning by Column Bounds
 
-The water balance ([LP Formulation §4](/math/lp-formulation#4-hydro-water-balance)), FPHA hyperplanes ([LP Formulation §6](/math/lp-formulation#6-hydro-generation-constraints)), the evaporation row ([LP Formulation — Evaporation Row](/math/lp-formulation#evaporation-row)) and generic constraints ([LP Formulation §10](/math/lp-formulation#10-generic-constraints)) all involve the incoming storage value $\hat{v}_h$. Rather than embedding $\hat{v}_h$ as a constant in the RHS of each of these constraints (which would require collecting duals from all of them to compute cut coefficients), Cobre introduces an explicit **incoming storage LP variable** $v^{in}_h$ that every such constraint references, and **pins** it to the trial value.
+The water balance ([LP Formulation §4](/math/lp-formulation#4-hydro-water-balance)), FPHA hyperplanes ([LP Formulation §6](/math/lp-formulation#6-hydro-generation-constraints)), the evaporation row ([LP Formulation — Evaporation Row](/math/lp-formulation#evaporation-row)) and generic constraints ([LP Formulation §10](/math/lp-formulation#10-generic-constraints)) all involve the incoming storage value $\hat{v}_h$. Rather than embedding $\hat{v}_h$ as a constant in the RHS of each of these constraints (which would require collecting duals from all of them to compute cut coefficients), Novomodelo introduces an explicit **incoming storage LP variable** $v^{in}_h$ that every such constraint references, and **pins** it to the trial value.
 
 For each hydro $h \in \mathcal{H}$, the incoming-storage column ([LP Layout and Scaling §1](/math/lp-layout-and-scaling#1-column-and-row-layout)) is pinned by setting equal lower and upper **column bounds**:
 
@@ -154,7 +154,7 @@ The coefficient of slot $(s, i)$ in a cut of stage $t$ is the reduced cost of th
 
 ## 6. Water Travel Time
 
-When an upstream release takes appreciable time to travel down the cascade, only the share $\nu_{h',t,0}$ of a release ([LP Formulation §4](/math/lp-formulation#4-hydro-water-balance)) reaches the downstream neighbour in the release stage, and the rest arrives in later stages. Cobre models this as an **augmented in-transit state**: the volume still in transit on a cascade arc is carried through the Bellman recursion as extra state coordinates, exactly like storage (§2) and AR lags (§4).
+When an upstream release takes appreciable time to travel down the cascade, only the share $\nu_{h',t,0}$ of a release ([LP Formulation §4](/math/lp-formulation#4-hydro-water-balance)) reaches the downstream neighbour in the release stage, and the rest arrives in later stages. Novomodelo models this as an **augmented in-transit state**: the volume still in transit on a cascade arc is carried through the Bellman recursion as extra state coordinates, exactly like storage (§2) and AR lags (§4).
 
 **Scope.** A hydro $h$ declares a travel-time arc when it has a downstream plant and the arc to it has a strictly positive travel time; the diversion and pumping arcs carry no travel time (main cascade arc only). An absent or zero travel time is an instantaneous transfer — the upstream release enters the downstream water balance in the same stage ([LP Formulation §4](/math/lp-formulation#4-hydro-water-balance)) and no state is added.
 
@@ -172,7 +172,7 @@ $$
 \underline{b}^{\,\mathrm{in}}_{h,d} = \bar{b}^{\,\mathrm{in}}_{h,d} = \hat{b}_{h,d}
 $$
 
-where $\hat{b}_{h,d}$ is the incoming in-transit volume, the previous stage's outgoing bucket (or, at the first stage, the seed derived from the in-transit releases declared before the study — see [System Element Modeling Overview — Cascade Travel Time](/math/system-elements#cascade-travel-time) and [Hydro Production Function Models — Implementation in Cobre](/math/hydro-production-models#implementation-in-cobre)). The **reduced cost** of the pinned bucket column is the cut coefficient for that in-transit dimension (see below) — the same regime used for storage (§2) and AR lags (§4).
+where $\hat{b}_{h,d}$ is the incoming in-transit volume, the previous stage's outgoing bucket (or, at the first stage, the seed derived from the in-transit releases declared before the study — see [System Element Modeling Overview — Cascade Travel Time](/math/system-elements#cascade-travel-time) and [Hydro Production Function Models — Implementation in Novomodelo](/math/hydro-production-models#implementation-in-novomodelo)). The **reduced cost** of the pinned bucket column is the cut coefficient for that in-transit dimension (see below) — the same regime used for storage (§2) and AR lags (§4).
 
 ### Delayed-arrival water-balance entry
 
