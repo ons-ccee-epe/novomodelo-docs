@@ -261,22 +261,6 @@ export default defineConfig({
       //     not a defect. Do not add empty/stub pt-br `.md`/`.mdx` files — they
       //     would render as broken pages and skew the dashboard's status.
       plugins: [lunaria({ configPath: "./lunaria.config.json", route: "/lunaria" })],
-      // Brand mark (ticket-011b, resolves ticket-009's deferred logo). The header
-      // slot is small (~24px), so we use the ICON — a self-contained 128×128 copper
-      // mark on a Midnight tile, the brand's "small contexts / 16px" form — NOT the
-      // wide 400×120 wordmark logos (those duplicate "Novomodelo" beside the title and
-      // scale to illegibility at this height). `replacesTitle: false` keeps the
-      // "Novomodelo Methodology" title text beside the icon. Theme-adaptive (Starlight
-      // logo:{dark,light}): the Midnight-tiled icon on dark; a light-surface-tiled
-      // variant on light (cobre-icon-light.svg — derived, copper anchored darker so
-      // it reads on the light tile). The dark-tiled icon is also the favicon.
-      logo: {
-        dark: "./src/assets/cobre-icon.svg",
-        light: "./src/assets/cobre-icon-light.svg",
-        alt: "Novomodelo",
-        replacesTitle: false,
-      },
-      favicon: "/favicon.svg",
       // Unified interleaved sidebar (ticket-005, docs-unification strategy §5
       // sketch). NOT `autogenerate`: the curated TOC crosses content folders
       // (System Modelling…Coupling & Boundary Conditions are all `math/…`

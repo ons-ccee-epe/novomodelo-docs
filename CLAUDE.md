@@ -74,10 +74,11 @@ is the freeze runbook.
   `Profile` is an associated type of `SolverInterface`, resolved at compile
   time (a generic, not an enum). Reflect this if a chapter describes the solver
   interface.
-- **Brand colours**: the site identity is **Copper** (`#B87333`), not blue — see
-  [`docs/design/brand.md`](docs/design/brand.md) before any theming. **Never infer
-  brand colour from the diagram palette** (`--dgm-*` in `src/styles/palette.css`;
-  its `--dgm-hydro` is Flow Blue for hydro/water marks only, not the UI accent).
+- **Site colours**: the accent is **Copper** (`#B87333`), not blue — read
+  `src/styles/` (`brand.css`, `neutrals.css`, `palette.css`) before any theming.
+  **Never infer the accent from the diagram palette** (`--dgm-*` in
+  `src/styles/palette.css`; its `--dgm-hydro` is Flow Blue for hydro/water marks
+  only, not the UI accent).
 - **Current-state voice, both layers.** Every page in both layers states what
   novomodelo does now, with no change narration (no "now", "no longer", "previously",
   "used to", "formerly", "fixed in", "was broken", "BREAKING", "new in",
@@ -512,4 +513,3 @@ tree). Refresh on each novomodelo release; the freshness gate stays in `novomode
 | Crate READMEs + ARCHITECTURE | `https://github.com/ons-ccee-epe/novomodelo/` (`crates/*/README.md`, `ARCHITECTURE.md`) | Developer/crate-internal surface (not on the site) |
 | CHANGELOG                 | `https://github.com/ons-ccee-epe/novomodelo/CHANGELOG.md`               | Per-release feature list (sync source)                      |
 | Diagram authoring guide   | [`docs/design/diagram-authoring.md`](docs/design/diagram-authoring.md) | Tool selection + design system for diagrams        |
-| Brand & colour            | [`docs/design/brand.md`](docs/design/brand.md)                 | Site colour/identity — **Copper** primary, Flow Blue for links/hydro only |

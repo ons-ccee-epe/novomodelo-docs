@@ -59,8 +59,7 @@ src/
 ├── content.config.ts
 ├── components/           # Astro islands (Observable Plot figures, version picker, footer)
 ├── figures/              # tested TypeScript compute layer for the plots (*.ts + *.test.ts)
-├── styles/               # brand palette, figure/KaTeX/font CSS
-└── assets/               # logo / favicon
+└── styles/               # site palette, figure/KaTeX/font CSS
 astro.config.mjs          # integrations + the Starlight sidebar (groups and page order)
 build-versions.mjs        # multi-version build orchestrator
 scripts/                  # quality-gate and refresh scripts, with their tests and fixtures (see below)
