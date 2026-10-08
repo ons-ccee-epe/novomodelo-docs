@@ -80,26 +80,21 @@ jobs:
         run: d2 --version
 
       # ticket-243 (GRD-05, G3 decision B1, ADR-021): check:gc-examples runs the
-      # pinned non-MPI novomodelo release asset, installed the way d2 is: pinned
-      # release, workflow-pinned sha256, extract, move onto PATH. The core
-      # repository is private, so `gh release download` fetches the asset with the
-      # NOVOMODELO_CORE_TOKEN secret (read access to ons-ccee-epe/novomodelo's
-      # contents). The workflow pins the sha256 itself; the release `.sha256`
-      # sidecar is not the pin source. Bump the release tag, the hash, this step's
-      # name, the README check:gc-examples line and scripts/novomodelo-ref.mjs
-      # DEFAULT_NOVOMODELO_REF together at each novomodelo sync: the gate exits 2
-      # when `novomodelo version` differs from that ref. Re-vendor the error kinds
-      # in the same sync with `npm run refresh:error-kinds` (check:error-coverage
-      # reads them).
+      # pinned non-MPI novomodelo release asset, installed the way d2 is: pinned URL,
+      # workflow-pinned sha256, extract, move onto PATH. The workflow pins the
+      # sha256 itself; the release `.sha256` sidecar is not the pin source. Bump the
+      # URL, the hash, this step's name, the README check:gc-examples line and
+      # scripts/novomodelo-ref.mjs DEFAULT_NOVOMODELO_REF together at each novomodelo sync: the
+      # gate exits 2 when `novomodelo version` differs from that ref. Re-vendor the
+      # error kinds in the same sync with `npm run refresh:error-kinds`
+      # (check:error-coverage reads them).
       # Only the binary is extracted, so the directory is empty after the move and
       # nothing is left in the checkout for the build.
       - name: Install novomodelo (pinned v0.18.0, sha256-verified)
-        env:
-          GH_TOKEN: ${{ secrets.NOVOMODELO_CORE_TOKEN }}
         run: |
           novomodelo_tarball=novomodelo-cli-x86_64-unknown-linux-gnu.tar.xz
           novomodelo_sha256=636d692eb6bcc5388dea62decb351962d76275f5f5b0b07b35fa7e43f171dc38
-          gh release download v0.18.0 --repo ons-ccee-epe/novomodelo --pattern "${novomodelo_tarball}"
+          curl -fsSL "https://github.com/ons-ccee-epe/novomodelo/releases/download/v0.18.0/${novomodelo_tarball}" -o "${novomodelo_tarball}"
           echo "${novomodelo_sha256}  ${novomodelo_tarball}" | sha256sum -c -
           tar xJf "${novomodelo_tarball}" novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
           sudo mv novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo /usr/local/bin/novomodelo

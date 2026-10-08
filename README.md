@@ -126,7 +126,7 @@ novomodelo v1.0.0; from then on, only the last two or three minors.
    - re-vendors `scripts/error-kinds.json` with `npm run refresh:error-kinds`
      and removes the `**Status:** Reserved.` lines of the kinds the new release
      emits (`src/content/docs/reference/error-codes.mdx`);
-   - moves the CI novomodelo pin (the step name, release tag and archive sha256 in
+   - moves the CI novomodelo pin (the step name, URL and archive sha256 in
      `.github/workflows/starlight-ci.yml`) and the `check:gc-examples` line of
      this README;
    - regenerates `scripts/fixtures/gc-overlay/` per its README;
