@@ -65,8 +65,8 @@ const katexStrict = createKatexStrict();
 export default defineConfig({
   // Architecture B: each version build sets its own base (e.g. "/vX.Y/").
   base: process.env.DOCS_BASE ?? "/",
-  // Custom domain for absolute URLs (canonical links + sitemap). Cutover target;
-  // methodology.cobre-rs.dev 301-redirects in. Env-overridable for a versioned build.
+  // Custom domain for absolute URLs (canonical links + sitemap). Env-overridable
+  // for a versioned build.
   site: process.env.DOCS_SITE ?? "https://docs.novomodelo.invalid",
   // D5: mdBook→Starlight URL preservation. Each key is an old mdBook (or
   // retired-site) path and each destination is a live page slug, one hop. mdBook
@@ -105,7 +105,7 @@ export default defineConfig({
   // preservation to "decide with traffic data" — the entries below are the
   // mechanically-known chapter mappings; the residual is a USER decision and is
   // intentionally NOT pre-populated here. Pull inbound-link / referrer / 404
-  // data for methodology.cobre-rs.dev, then decide:
+  // data for the old URLs, then decide:
   //   (a) Keep redirects at all? The site is young / blast radius is low, so the
   //       plan's default is to SHIP every entry below (cheap, static, no
   //       downside) — confirm or drop.

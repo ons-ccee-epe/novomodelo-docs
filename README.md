@@ -95,7 +95,7 @@ npm run check:e10     # third-party-notices / content-licensing completeness
 
 A push to `main` triggers `.github/workflows/starlight-deploy.yml`, which builds the
 site, runs the build checks, and publishes it to GitHub Pages at
-`docs.novomodelo.invalid` (`methodology.cobre-rs.dev` 301-redirects in). The full gate
+`docs.novomodelo.invalid`. The full gate
 suite, including the doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on
 pull requests to `main`.
 

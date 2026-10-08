@@ -21,8 +21,7 @@ lives as per-crate `README.md` files + `ARCHITECTURE.md` in the `novomodelo` rep
 - **Source**: all chapters live under `src/content/docs/`; the sidebar/TOC is
   configured in `astro.config.mjs` (Starlight `sidebar`), not a flat text
   table-of-contents file.
-- **Audience & domain**: the unified site serves `docs.novomodelo.invalid`;
-  `methodology.cobre-rs.dev` 301-redirects in.
+- **Audience & domain**: the unified site serves `docs.novomodelo.invalid`.
 
 The actual Novomodelo code at the main org repo is the **ground truth**. When specs
 diverge from the code, the spec must be updated — not the other way around.

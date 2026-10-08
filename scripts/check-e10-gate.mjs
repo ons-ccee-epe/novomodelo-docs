@@ -1,7 +1,7 @@
 // E10-completion gate (E8 ticket-029) — the cutover licensing gate.
 //
-// The cutover (ticket-030) publishes the Starlight site to the public domain
-// methodology.cobre-rs.dev, which means the build REDISTRIBUTES its runtime and
+// The cutover (ticket-030) publishes the Starlight site on its public host,
+// which means the build REDISTRIBUTES its runtime and
 // build-time third-party libraries (KaTeX, the Fontsource faces, the d2/ELK
 // toolchain, the Astro/Starlight stack). Permissive licenses
 // (MIT/ISC/Apache-2.0/OFL-1.1) require preserving THEIR notices in what ships,
