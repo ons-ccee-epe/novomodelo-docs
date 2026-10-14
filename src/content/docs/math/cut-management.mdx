@@ -249,7 +249,7 @@ At iteration $k$, the DCS loop for one (stage, solve) is:
 
    The candidate is **violated** iff $f_i - \theta^*_{\text{raw}} > \varepsilon_{\text{viol}}$ (strict). This follows from the cut-row convention $-\beta^\top x + \theta \ge \beta_0$.
 
-4. **Add the top $n_{\text{adic}}$** most-violated candidates (sorted by violation magnitude descending, ties broken by ascending slot id). Warm re-solve from the retained basis and return to step 2.
+4. **Add the top $n_{\text{adic}}$** most-violated candidates (sorted by violation magnitude descending, ties broken by ascending slot id). Re-solve, from the retained basis when the phase warm-starts (§8.4), and return to step 2.
 
 5. **Stop** when no candidate is violated. At this point the resident-subset optimum **equals the full-pool optimum** — every omitted cut is satisfied — so the result is exact. Backward duals and forward primals are extracted from this final LP.
 
@@ -265,7 +265,7 @@ The add/re-solve loop is capped at a fixed number of rounds. If the cap is reach
 
 DCS applies across the **backward pass**, the **forward pass**, and **simulation**; simulation ignores the window $k_1$ and seeds the resident set with every active cut. Forward and simulation also run the loop to the stop of §8.1 step 5 or the round cap of §8.3 — no earlier stop — to avoid trajectory drift: an earlier stop in the forward pass would shift the states the backward pass visits, producing policy drift.
 
-Each inner re-solve adds only a few rows and restarts from the basis the previous solve left, so the bounded loop stays cheap. The stored basis of [LP Warm-Start](/math/lp-warm-start) is not applied to a DCS solve: the first solve of each stage LP starts without a stored basis, and in the backward pass the later openings of a trial point re-solve warm from the LP the previous opening left.
+In a phase that warm-starts, each inner re-solve adds only a few rows and restarts from the basis the previous solve left, so the bounded loop stays cheap; in a phase that starts cold, every inner re-solve starts cold as well ([LP Warm-Start](/math/lp-warm-start)). The stored basis of [LP Warm-Start](/math/lp-warm-start) is not applied to a DCS solve: the first solve of each stage LP starts without a stored basis, and in a warm-starting backward pass the later openings of a trial point re-solve warm from the LP the previous opening left.
 
 ### 8.5 Zero seed window
 

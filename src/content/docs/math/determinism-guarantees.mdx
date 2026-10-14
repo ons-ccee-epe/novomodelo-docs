@@ -96,15 +96,17 @@ single resident LP per stage that it mutates continuously across an iteration's
 openings. Each backward work unit is a chain of one trial point's openings at a
 stage; it begins by resetting the solver's retained basis and factorization and
 reloading the stage's frozen LP template, then appends the cuts generated during
-the current iteration. Warm-starting enters at exactly one point in the chain:
+the current iteration. When the backward pass warm-starts, warm-starting
+enters at exactly one point in the chain:
 at its first-solved opening, the basis captured for that trial point's own
 `(scenario, node)` slot — one capture per trial point per node, not one shared
 by every trial point — is loaded as the starting point. The remaining openings
 in the chain warm-continue from the factorization the previous opening left in
 place, advancing along the pinned solve order, since only the noise-dependent
-bounds change from one opening to the next. See
-[LP Warm-Start](/math/lp-warm-start) for the basis-store and reconstruction
-mechanism in full.
+bounds change from one opening to the next. A phase that starts cold starts
+every solve from no basis, so its starting point is the same in every run. See
+[LP Warm-Start](/math/lp-warm-start) for the per-phase setting, the basis store
+and the reconstruction mechanism in full.
 
 Warm-starting is compatible with the guarantee, but for a more specific reason
 than "the answer does not depend on the basis". An LP's optimal _value_ is

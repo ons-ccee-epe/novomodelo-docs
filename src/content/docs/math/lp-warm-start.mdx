@@ -12,7 +12,7 @@ This chapter describes how Novomodelo reuses an LP basis to accelerate solves. T
 related mechanisms are covered. The **per-(scenario, node) basis store** holds
 at most one basis per trial point per policy-graph node, and the forward and
 backward passes hand bases to one another through it, so that a basis found by
-one solve seeds the next solve of the same trial point at the same node.
+one solve can seed the next solve of the same trial point at the same node.
 **Cut-aware basis reconstruction by slot identity** maps a stored basis onto a
 cut pool whose active set has churned through cut selection, which is what lets
 a reused basis — whether captured earlier in the run or loaded from a saved
@@ -52,17 +52,27 @@ on a stage chain (one node per stage) a node is a stage. The store holds at most
 one captured basis — the partition of variables and constraints into basic and
 non-basic — for each trial point at each node.
 
+Whether a solve starts from the store is set per phase: the forward pass, the
+backward pass and simulation each either warm-start or start cold (see the
+implementation notes). A solve of a warm-starting phase starts from its trial
+point's slot when the slot holds a basis; a solve of a cold phase starts from
+no basis at all, neither a stored one nor the one the previous solve left in
+place. Captures do not depend on that setting.
+
 The forward and backward passes of an iteration hand bases to one another
-through the store. A forward solve at a node starts from its trial point's slot
-when the slot holds a basis, and stores its own optimal basis there. The
-backward pass runs after the forward pass of the same iteration; when it solves
-that node's openings from the same trial point's incoming state, it seeds the
-first-solved opening from the slot, which then holds the forward capture, and
+through the store. A forward solve at a node stores its optimal basis in its
+trial point's slot. The backward pass runs after the forward pass of the same
+iteration; when it solves that node's openings from the same trial point's
+incoming state, the slot holds the forward capture, which seeds the
+first-solved opening when the backward pass warm-starts, and the backward pass
 stores that opening's optimal basis in its place. The next iteration's forward
-solve at the node starts from that backward capture. One backward scheduling
-option reads the forward capture without storing its own; under an enumerated
-forward pass the backward pass uses no stored basis; and while dynamic cut
-selection is active no solve uses the store (see the implementation notes).
+solve at the node starts from that backward capture when the forward pass
+warm-starts; a cold forward solve leaves it unread and replaces it with its own
+capture. Either way, the slot the backward pass reads holds the forward
+capture of its own iteration. One backward scheduling option reads the forward
+capture without storing its own; under an enumerated forward pass the backward
+pass uses no stored basis; and while dynamic cut selection is active no solve
+uses the store (see the implementation notes).
 
 ```d2
 shape: sequence_diagram
@@ -77,10 +87,14 @@ bwd -> slot: stores that opening's basis
 slot -> fwd: seeds the next iteration's solve
 ```
 
-Within each chain of openings solved in sequence, the store is read at most
-once, by the first-solved opening; the remaining openings continue from the
-basis and factorization the previous opening left in place, since consecutive
-openings differ only in their realization.
+Each _seeds_ arrow applies when that phase warm-starts; each _stores_ arrow
+applies whichever phases warm-start.
+
+Within each chain of openings that a warm-starting backward pass solves in
+sequence, the store is read at most once, by the first-solved opening; the
+remaining openings continue from the basis and factorization the previous
+opening left in place, since consecutive openings differ only in their
+realization.
 
 The basis a solve starts from therefore depends on the order in which its
 chain's openings are solved. That order is fixed in advance, and it changes the
@@ -90,9 +104,11 @@ opening's LP yields a valid cut;
 sets out how the fixed order keeps the run reproducible.
 
 A warm-start or resume run seeds the store from each saved basis that fits its
-stage LP, so that its first iteration also warm-starts at those nodes, through
-the reconstruction of §4;
-a node whose saved basis does not fit starts its first iteration cold.
+stage LP, so that, when the forward pass warm-starts, its first iteration's
+forward solves at those nodes start from them through the reconstruction of §4;
+a node whose saved basis does not fit starts its first iteration cold. When the
+forward pass starts cold, its captures replace the seeded bases before the
+backward pass reads the store, so the saved bases seed no training solve.
 
 ## 3. Cut-Set Changes
 
