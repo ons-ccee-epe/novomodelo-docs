@@ -30,7 +30,7 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.18.0 (2026-10-07).**
+**Synced to: novomodelo v0.18.1 (2026-10-14).**
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -178,7 +178,7 @@ partial filenames so the render split holds.
 ## Quality Gates
 
 ```bash
-# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.18.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
+# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.18.1/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:python-api \
@@ -190,7 +190,7 @@ npm run check:figures && npm run check:voice && npm run check:counts \
 
 - **d2 v0.7.1** on `PATH`: without it `npm run build` and `npm run dev` abort with
   "Could not find D2".
-- **novomodelo v0.18.0** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
+- **novomodelo v0.18.1** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
   The gate exits 2 when the binary is missing, lies under a cargo
   `target/release/` or `target/debug/` directory, or reports a version other
   than `DEFAULT_NOVOMODELO_REF` in `scripts/novomodelo-ref.mjs`.
@@ -271,6 +271,19 @@ exactness that `lp-layout-and-scaling.md` §2.3 states as holding by default
 only.
 (Backend is selectable at build time — HiGHS default, CLP opt-in — a
 software-layer/devguide concern; keep the math backend-generic.)
+→ **Warm start per phase**: each phase's solver profile
+(`solve/solver_phase.rs`) sets `use_warm_start`. The HiGHS profiles warm-start
+the backward pass (`true`) and start forward and simulation solves cold
+(`false`); a cold HiGHS solve uses neither the offered basis nor the one the
+previous solve left (`backends/highs/interface.rs` drops the basis, which keeps
+`basis_offered` at 0; HiGHS `run()` clears the solver), DCS inner re-solves
+included. A phase's `use_warm_start` override changes either choice and every
+retry keeps it. CLP has no `use_warm_start`, rejects per-phase fields, and
+warm-starts every phase. Captures happen whatever the profile, so under the
+HiGHS defaults a checkpoint's stored bases seed no training solve (the cold
+forward pass overwrites the slot before the backward pass reads it) and
+simulation-only uses them only with `simulation.solver.use_warm_start: true`.
+The math layer says "a phase that warm-starts", never a backend name.
 → **Cut pool**: append-only with stable, deterministic slot indices; deactivation
 is a **pool boolean flag** (`active: Vec<bool>`, `CutPool::set_active`) that
 mutates no LP row, RHS, or bound. A deactivated cut keeps its slot but is
@@ -396,8 +409,8 @@ Operating (Filling counts as not Operating) is rejected at case load by
 `validation/semantic/pumping.rs`).
 **Hydros are the exception**: outside its window a non-filling hydro is
 **PreFilling** — turbine/spillage/diversion pinned to 0, storage decoupled by a
-frozen identity, inflow and maturing transit water passed downstream to its
-short-circuit target. **Spillage** is frozen to 0 in
+frozen identity, inflow (with the inflow slack, which follows `z`) and maturing
+transit water passed downstream to its short-circuit target. **Spillage** is frozen to 0 in
 PreFilling only, free during Filling and Operating (`columns.rs`; the phase is
 `hydro_phase` in `lp/builder/hydro_state.rs`, over `filling_phase` in
 `crates/novomodelo-core/src/commissioning.rs`).
@@ -437,6 +450,33 @@ opening-tree library and constructs `StudySetup` for every deck (`validate_study
 `crates/novomodelo-sddp/src/validate_phases.rs`), so it also builds the forward
 scheme's library and reports the refusals `run` reports for it.
 
+When **updating inflow non-negativity** (`inflow-nonnegativity.md`,
+`lp-formulation.md` §4/§10, `penalty-system.mdx`, the Tier 1 convexity bullet of
+`cut-management.mdx`, `stopping-rules.mdx` §5, `scenario-generation.mdx` §3,
+`running/configuration.mdx`, `reference/output/simulation.mdx`):
+
+→ The methods are the strategies of Larroyd et al. (2022): the raw PAR
+realization `r` stays on the z row and in the inflow lag under every method,
+never clamped (`transform_inflow_noise`,
+`crates/novomodelo-sddp/src/stochastic/noise.rs`), and the correction is the
+inflow-slack column `σ^inf`, present when `has_slack_columns`
+(`truncates() || slack_is_priced()`, `stochastic/inflow_method.rs`). With the
+truncation amount `l* = max(−r, 0)`: `none` has no column; `penalty` is
+`[0, ∞)`, priced; `truncation` is fixed at `[l*, l*]` at cost 0;
+`truncation_with_penalty`, the default (`novomodelo-io/src/config/modeling.rs`),
+is `[0, l*]`, priced at `inflow_nonnegativity_cost` × stage hours. Template bounds
+are `[0, 0]` (`fill_inflow_slack_columns`, `lp/builder/columns.rs`) and every
+solve patches them from its own realization, divided by `col_scale`
+(`apply_inflow_slack_col_bounds`, `noise.rs`). The slack carries exactly z's
+water-row entries, on a PreFilling plant's short-circuit target too
+(`push_local_inflow_coupling`, `lp/builder/entries.rs`). Limitation (Larroyd
+§2.5): under a PAR model with lag terms (an AR order above zero or an annual
+component) `l*` is piecewise-linear in the lags, so the cost-to-go need not be
+convex in them and the lower bound can exceed the upper bound; the gap rule
+compares `max(UB − LB, 0)` (`convergence/stopping_rule.rs`), so it can stop with
+no optimality certificate. The paper has no noise-adjustment variable;
+`inflow-nonnegativity.md` §6.2 maps each method to its strategy.
+
 When **updating the generic-constraint `hydro_inflow` term**
 (`reference/generic-constraints.mdx`, section `hydro_inflow`; `lp-formulation.md`
 §10, Hydro Inflow):
@@ -445,13 +485,16 @@ When **updating the generic-constraint `hydro_inflow` term**
 (`crates/novomodelo-io/src/constraints/generic.rs`) and `resolve_hydro_inflow`
 (`crates/novomodelo-sddp/src/lp/builder/generic_constraints.rs`) resolves it to a
 **rate** identity (m³/s), not the `−τ`-weighted storage-balance row: the plant's
-local `z_inflow` column, inflow diverted into the plant, upstream releases
+local `z_inflow` column, its inflow slack under the truncation methods only
+(`push_local_inflow_rate`), inflow diverted into the plant, upstream releases
 weighted by the share the downstream balance row credits to the block, and
 maturing transit water. Each upstream PreFilling plant whose short-circuit
-targets this plant adds its local inflow, diverted inflow and upstream releases
+targets this plant adds its local inflow (with its slack under the truncation
+methods), diverted inflow and upstream releases
 at `1.0`, and its maturing bucket at the rate `arrival_density[blk]/τ(blk)`
 (`push_maturing_bucket_rate`). The plant's own outflows,
-evaporation, withdrawal slacks, AR-lag `ψ` and pumping are excluded.
+evaporation, withdrawal slacks, the `penalty` inflow slack, AR-lag `ψ` and
+pumping are excluded.
 
 When **updating policy reuse and its gates** (`running/policy-management.mdx`,
 `reference/error-codes.mdx`):
