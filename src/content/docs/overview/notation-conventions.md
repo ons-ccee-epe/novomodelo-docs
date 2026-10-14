@@ -105,7 +105,6 @@ A glyph takes a second meaning only on pages that never carry its first; each su
 - $\mathcal{M}_h$ is the FPHA hyperplane set of hydro $h$; in [Risk Measures](/math/risk-measures) $\mathcal{M}(p)$, $\mathcal{M}_\alpha(p)$ and $\mathcal{M}^{EAVaR}(p)$ are risk sets of the dual representation of a convex risk measure.
 - $\mathcal{X}_t(x_{t-1}, \omega_t)$ is the feasible set of the stage-$t$ state and control; in [Cut Management](/math/cut-management) $\mathcal{X}_t$ is the feasible state set on which a cut is valid.
 - $I_t$ is the number of vertices stored at stage $t$ in [Upper Bound Evaluation](/math/upper-bound-evaluation); in [LP Formulation](/math/lp-formulation) $I_{h,k}$ is the inflow of hydro $h$ in block $k$ that a hydro-inflow term reads.
-- $\xi_r$ is the availability ratio of non-controllable source $r$ in [System Element Modeling Overview](/math/system-elements), [Equipment-Specific Formulations](/math/equipment-formulations) and [Scenario Generation](/math/scenario-generation); in [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) $\xi_h$ is the noise-adjustment slack of the reference design.
 
 ### Stage Indexing
 
@@ -210,7 +209,7 @@ Cost coefficients use $c$ with a superscript naming the cost type.
 | $c^{gv-}_h$ | \$/MWh | Generation-minimum violation penalty, charged on every cell of hydro $h$ |
 | $c^{ev+}_h$, $c^{ev-}_h$ | \$/(m³/s·h) | Evaporation above-target and below-target violation penalties |
 | $c^{wv+}_h$, $c^{wv-}_h$ | \$/(m³/s·h) | Water-withdrawal over-delivery and under-delivery penalties |
-| $c^{inf}_h$ | \$/(m³/s·h) | Inflow non-negativity penalty (penalty-based inflow methods) |
+| $c^{inf}_h$ | \$/(m³/s·h) | Inflow non-negativity penalty (`penalty` and `truncation_with_penalty` inflow methods) |
 | $c^{exch}_n$ | \$/MWh | Exchange (transmission) cost |
 | $c^{curt}_r$ | \$/MWh | Curtailment regularization cost of non-controllable source $r$ |
 | $c^{ctr}_c$     | \$/MWh      | Contract price (signed: + import cost, − export revenue) |
@@ -310,6 +309,7 @@ We use **"season $m$"** as a generic term for the position within the cycle, avo
 | $\tilde{\Lambda}^{1/2}$ | - | Square roots of the eigenvalues clipped at zero, $\mathrm{diag}(\sqrt{\max(\lambda_1, 0)}, \ldots, \sqrt{\max(\lambda_n, 0)})$ |
 | $C^{1/2}$ | - | Spectral correlation factor $U \Lambda^{1/2} U^\top$, negative eigenvalues clipped to zero; the correlated noise is $C^{1/2} z$ |
 | $a_h$ | m³/s | Incremental inflow of hydro $h$ at the current stage |
+| $a^-_h$ | m³/s | Truncation amount, the negative part of the realization: $a^-_h = \max(0, -a_h)$ ([Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity)) |
 | $\hat{a}_{h,\ell}$ | m³/s  | Incoming AR lag $\ell$ (state)                                                                                                                                                                                                                   |
 
 ## 4. Decision Variables
@@ -380,7 +380,7 @@ Slack variables for soft constraints:
 | $\sigma^{g-}_{h,b,k}$                    | $\geq 0$ | MW    | Generation below minimum — one per (hydro, bus) cell $b \in \mathcal{B}_h$ of a split plant                                                       |
 | $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Evaporation above-target and below-target violation (per plant): one stage-level pair $\sigma^{e\pm}_h$ on a parallel stage, priced over the stage hours $H_t$; one pair per block on a chronological stage, priced over $\tau_k$ |
 | $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Water withdrawal under-/over-delivery relative to the target $r_h$ (stage-level, not per-block); priced by $c^{wv-}_h$ / $c^{wv+}_h$ respectively |
-| $\sigma^{inf}_h$                         | $\geq 0$ | m³/s  | Inflow non-negativity (if enabled)                                                                                                                |
+| $\sigma^{inf}_h$                         | $\geq 0$ | m³/s  | Inflow non-negativity, every inflow method except `none`; its bounds follow the method                                                            |
 
 ## 5. Duals and Cut Slopes
 
