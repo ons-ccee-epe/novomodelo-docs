@@ -217,33 +217,33 @@
       "properties": {
         "method": {
           "$ref": "#/$defs/InflowNonNegativityMethod",
-          "default": "penalty",
-          "description": "Method: `\"none\"`, `\"truncation\"`, `\"penalty\"`, or `\"truncation_with_penalty\"`.\n\nDefault: `\"penalty\"`. The penalty objective coefficient is always sourced from\n`penalties.json → hydro.inflow_nonnegativity_cost` (default 1000.0 when absent)."
+          "default": "truncation_with_penalty",
+          "description": "Method: `\"none\"`, `\"truncation\"`, `\"penalty\"`, or `\"truncation_with_penalty\"`.\n\nDefault: `\"truncation_with_penalty\"`. Under `\"penalty\"` and\n`\"truncation_with_penalty\"` the correction's cost is\n`penalties.json → hydro.inflow_nonnegativity_cost` (default 1000.0 when absent);\nunder `\"truncation\"` it has no cost."
         }
       },
       "type": "object"
     },
     "InflowNonNegativityMethod": {
-      "description": "Method string for inflow non-negativity enforcement.\n\nAccepted values in `config.json → modeling.inflow_non_negativity.method`:\n\n- `\"none\"` — no enforcement; PAR(p) inflows may be negative.\n- `\"truncation\"` — clamp negative PAR(p) inflows to zero before LP patching.\n- `\"penalty\"` — add slack columns with `inflow_nonnegativity_cost` objective\n  coefficient (sourced from `penalties.json → hydro.inflow_nonnegativity_cost`).\n- `\"truncation_with_penalty\"` — combine both: clamp noise *and* add slack columns.",
+      "description": "Method string for inflow non-negativity enforcement.\n\nAccepted values in `config.json → modeling.inflow_non_negativity.method`:\n\n- `\"none\"` — no enforcement; the PAR(p) inflow may be negative.\n- `\"truncation\"` — the PAR(p) value stays raw: it is the incremental inflow and the\n  next stage's lag. A per-hydro correction fixed at `max(−r, 0)`, at no cost, lifts the\n  local inflow to zero.\n- `\"penalty\"` — an unbounded correction priced by\n  `penalties.json → hydro.inflow_nonnegativity_cost`.\n- `\"truncation_with_penalty\"` — the PAR(p) value stays raw; a correction between 0 and\n  `max(−r, 0)`, priced by `penalties.json → hydro.inflow_nonnegativity_cost`.\n\nUnder the two truncation methods the correction depends on the incoming state, so the\nlower bound can exceed the upper bound, and a `gap` stopping rule can then report\nconvergence that has not occurred (Larroyd et al. (2022), the paper's §2.5).",
       "oneOf": [
         {
           "const": "none",
-          "description": "No inflow non-negativity enforcement.",
+          "description": "No enforcement; the inflow may be negative.",
           "type": "string"
         },
         {
           "const": "truncation",
-          "description": "Truncation-based enforcement only (no slack columns).",
+          "description": "Raw PAR(p) value; correction fixed at the truncation amount, at no cost.",
           "type": "string"
         },
         {
           "const": "penalty",
-          "description": "Penalty-based enforcement via slack columns.\n\nObjective coefficient is `penalties.json → hydro.inflow_nonnegativity_cost`.",
+          "description": "Unbounded correction priced by `penalties.json → hydro.inflow_nonnegativity_cost`.",
           "type": "string"
         },
         {
           "const": "truncation_with_penalty",
-          "description": "Combined truncation and penalty enforcement.",
+          "description": "Raw PAR(p) value; priced correction capped at the truncation amount.",
           "type": "string"
         }
       ]
@@ -297,7 +297,7 @@
         "inflow_non_negativity": {
           "$ref": "#/$defs/InflowNonNegativityConfig",
           "default": {
-            "method": "penalty"
+            "method": "truncation_with_penalty"
           },
           "description": "Strategy for handling non-negative inflow constraints."
         }
@@ -484,7 +484,7 @@
         },
         "use_warm_start": {
           "default": null,
-          "description": "Warm-start override. This is a diagnostic setting: disabling it forces\nevery solve cold.",
+          "description": "Warm-start override. By default backward solves warm-start from the\nstored basis and forward and simulation solves are cold.",
           "type": [
             "boolean",
             "null"
@@ -1376,7 +1376,7 @@
       "default": {
         "cost_scale_factor": null,
         "inflow_non_negativity": {
-          "method": "penalty"
+          "method": "truncation_with_penalty"
         }
       },
       "description": "Modeling options (inflow non-negativity treatment)."

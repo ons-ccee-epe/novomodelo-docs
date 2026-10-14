@@ -86,7 +86,7 @@ npm run check:input-schemas # vendored input schemas match the case-format table
 npm run check:python-api # every public novomodelo-python stub symbol has an anchor in reference/python-api (stubs: scripts/pystubs/)
 npm run check:d2      # D2 uses the ELK engine, never TALA
 npm run check:spdx    # 100% FOSS dependency audit
-npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.18.0 (NOVOMODELO_BIN or novomodelo on PATH)
+npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.18.1 (NOVOMODELO_BIN or novomodelo on PATH)
 npm run refresh:recordings -- --check # quickstart.gif matches scripts/recordings-provenance.json (check only)
 npm run check:type-spelling # reference Type cells use the reference-conventions §4 vocabulary
 npm run check:e10     # third-party-notices / content-licensing completeness
