@@ -112,7 +112,7 @@ every key that shapes the stage LP must equal the training run's (a stored basis
 whose stage LP changed is left out, see [Stored-basis gate](#stored-basis-gate)). For
 example, a policy trained with `modeling.inflow_non_negativity` set to
 `{ "method": "none" }` loads without its stored bases if the simulation-only config omits the key:
-it then defaults to `"penalty"`, which adds slack columns (one per hydro) to the
+it then defaults to `"truncation_with_penalty"`, which adds slack columns (one per hydro) to the
 stage LP.
 
 The keys to change, merged into that `config.json` (all other keys stay as in
@@ -381,6 +381,16 @@ the basis itself records, and its count of basic entries equals its row count.
 
 Warm-start and resume check the bases a checkpoint carries, simulation-only
 always checks them, and a [boundary load](#boundary-cuts) checks none.
+
+A stored basis that fits seeds a solve only in a phase that warm-starts
+([`use_warm_start`](/running/configuration/#solver-profile-fields)). Under the
+built-in HiGHS profiles forward and simulation solves start cold, so a
+simulation-only run starts from its checkpoint bases only with
+`simulation.solver.use_warm_start: true`, and a warm-start or resume run only
+with `training.solver.forward.use_warm_start: true`; the backward pass reads
+the bases the forward pass captures. On CLP every phase starts from them. The
+[LP Warm-Start implementation notes](/math/lp-warm-start/#implementation-in-novomodelo)
+trace the store through each phase.
 
 Every training run writes its stage LP bases with the end-of-training
 checkpoint, and `policy.checkpointing.store_basis` has no effect on that. Any
@@ -656,7 +666,7 @@ does not relax the subset rejects or loosen the date-selection rejects.
 per-family reconciliation is surfaced on three
 paths:
 
-- **`novomodelo run`** prints a **Boundary policy** block to stderr while it loads the case, before training —
+- **`novomodelo run`** prints a **Boundary policy** block to stdout while it loads the case, before training —
   `Cuts loaded: N (priced at {date})`, `Source: {path}`, and a `Reconciliation:`
   line `N copied, N fanned out, N defaulted to 0.0, N dropped`.
 - **`novomodelo validate --json`** emits a boundary object with `configured`,

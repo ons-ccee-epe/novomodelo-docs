@@ -544,10 +544,19 @@ template is built — and every rank resolves the same profile from the broadcas
 | `use_warm_start` | boolean |
 | `steepest_edge_devex_fallback_threshold` | number |
 
-- `presolve` affects only a genuinely cold solve — a warm-started solve
-  skips presolve regardless of the setting.
-- `use_warm_start` is a **diagnostic** override, not an intended production
-  setting: setting it to `false` forces every solve in the phase cold.
+- `presolve` affects only a solve that starts cold — a warm-started solve
+  skips presolve regardless of the setting. Under the built-in HiGHS profiles
+  every forward and simulation solve starts cold.
+- `use_warm_start` decides whether the phase's solves start from a stored
+  basis. The built-in HiGHS profiles warm-start the backward pass (`true`)
+  and start forward and simulation solves cold (`false`); setting the field
+  overrides that phase, and every retry of a solve keeps the phase's setting. With
+  `false`, each solve in the phase starts cold and ignores any stored basis.
+  A cold solve can stop at a different, equally optimal vertex than a
+  warm-started one, so the cuts, the lower bound and the simulated duals can
+  differ slightly between the two settings. How the basis store feeds each
+  phase is in the
+  [LP Warm-Start implementation notes](/math/lp-warm-start/#implementation-in-novomodelo).
 - `dual_edge_weight: "steepest_edge"` is a **request, not a guarantee** —
   HiGHS silently falls back to Devex pricing once the dual steepest-edge
   weight log-error exceeds `steepest_edge_devex_fallback_threshold`.
@@ -585,7 +594,8 @@ setup — deterministically, on every rank, before any LP template is built —
 with a named error identifying the phase and the field. An empty override
 block (for example `"solver": {}` or `"backward": {}`) and an absent block
 are both legal on CLP; only a field that is actually set triggers rejection.
-See [Installation — Choosing a Backend](/getting-started/installation) for
+CLP starts the solves of every phase from a stored basis when one is
+available. See [Installation — Choosing a Backend](/getting-started/installation) for
 backend selection and CLP's other limitations.
 
 Example — `training.solver.backward` with two overrides:
@@ -723,22 +733,35 @@ Controls physical modeling options.
 
 ### `modeling.inflow_non_negativity`
 
-| Field    | Type   | Default     | Description                                                                   |
-| -------- | ------ | ----------- | ------------------------------------------------------------------------------- |
-| `method` | string | `"penalty"` | One of `"none"`, `"penalty"`, `"truncation"`, or `"truncation_with_penalty"`. |
+| Field    | Type   | Default                     | Description                                                                   |
+| -------- | ------ | --------------------------- | ------------------------------------------------------------------------------- |
+| `method` | string | `"truncation_with_penalty"` | One of `"none"`, `"penalty"`, `"truncation"`, or `"truncation_with_penalty"`. |
 
-- `"none"` -- no treatment; negative inflows are passed through to the LP.
-- `"penalty"` -- adds a slack variable to the LP that absorbs negative inflow
-  realisations. The slack carries a per-hydro objective cost from
-  `penalties.json::hydro.inflow_nonnegativity_cost`.
-- `"truncation"` -- clamps negative PAR model draws to zero before applying noise.
-- `"truncation_with_penalty"` -- combines both: clamps the inflow to zero and adds
-  a slack variable (`>= 0`, the same column as under `"penalty"`) penalised by `penalties.json::hydro.inflow_nonnegativity_cost`,
-  providing a smooth backstop for extreme tail realisations.
+Under every method the PAR model draw `r` stays raw: it is the plant's
+incremental inflow, it may be negative, and it is the next stage's inflow lag.
+The methods differ in the per-hydro correction that adds water to the plant's
+water balance:
 
-The four methods are defined in [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity/).
+- `"none"` -- no correction; a negative draw enters the water balance as it
+  is and can leave the LP infeasible.
+- `"penalty"` -- an unbounded correction (`>= 0`) priced at
+  `penalties.json::hydro.inflow_nonnegativity_cost` (default `1000.0`) times
+  the stage hours.
+- `"truncation"` -- a correction fixed at the truncation amount `max(−r, 0)`,
+  at no cost, so the inflow that enters the water balance is never negative.
+- `"truncation_with_penalty"` -- a correction between `0` and `max(−r, 0)`,
+  priced like the `"penalty"` correction.
 
-Example:
+The simulation output reports the raw draw as `incremental_inflow_m3s` and the
+correction as `inflow_nonnegativity_slack_m3s`
+([`simulation/hydros/`](/reference/output/simulation/#simulationhydros)).
+Under the two truncation methods the correction depends on the incoming inflow
+lags of a PAR model with lag terms (an AR order above zero or an annual
+component), so the training lower bound can exceed the upper bound and a `gap`
+stopping rule can report convergence that has not occurred. The four methods
+are defined in [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity/).
+
+Example — the uncapped `"penalty"` correction in place of the default:
 
 ```json
 {
@@ -1101,7 +1124,7 @@ Train with in-sample noise and simulate with out-of-sample inflow. The `simulati
   },
   "modeling": {
     "inflow_non_negativity": {
-      "method": "penalty"
+      "method": "truncation_with_penalty"
     }
   },
   "simulation": {
