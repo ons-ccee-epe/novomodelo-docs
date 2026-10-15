@@ -13,7 +13,7 @@ novomodelo [--color <WHEN>] <SUBCOMMAND> [OPTIONS]
 
 | Option           | Type                          | Default | Description                                                                                                                                                   |
 | ---------------- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Control ANSI color output on stderr. `auto` colors only when stderr is a terminal; `always` forces color on — useful under `mpiexec` which pipes stderr through a non-TTY. |
+| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Control ANSI color output on stdout and stderr. `auto` colors each stream only when it is a terminal; `always` forces color on — useful under `mpiexec`, which pipes both streams through a non-TTY. On more than one MPI rank, rank 0 of `novomodelo run` colors both streams unless `--quiet` is given, whatever `--color` says. |
 
 ## Subcommands
 
@@ -89,7 +89,7 @@ Stochastic artifact export is controlled by `exports.stochastic` in `config.json
 | `--output <DIR>` | Path    | `<CASE_DIR>/output/` | Output directory for results                                                                                                                                           |
 | `--threads <N>`  | integer | `1`                  | Number of worker threads per MPI rank. Each thread solves its own LP instances; scenarios are distributed across threads. Must be `1` or more. |
 | `--comm-backend <WHICH>` | `auto` \| `local` \| `mpi` | `auto` | Communication backend. `auto` selects the MPI backend when a binary built with MPI support (the `novomodelo-mpi` release asset) is launched under an MPI launcher (`mpiexec`/`mpirun`/`srun`), and the local backend otherwise; `local` forces a single process; `mpi` forces the MPI backend and fails with a clear message on a binary built without MPI support. |
-| `--quiet`        | flag    | off                  | Suppress the banner and progress bars. Errors still go to stderr                                                                                                       |
+| `--quiet`        | flag    | off                  | Suppress the banner, progress bars and summaries. Errors still go to stderr                                                                                            |
 
 ### Config-First Principle
 
@@ -129,7 +129,7 @@ mpiexec -np 4 novomodelo-mpi run /data/cases/hydro_study
 
 ### Output format
 
-`novomodelo run` prints this summary to stderr once the study finishes. It carries
+`novomodelo run` prints this summary to stdout once training finishes. It carries
 the convergence, policy-rows, and LP-solve lines, plus a `Time split` block
 that decomposes the total training wall time into `Forward` / `Backward` /
 `Serial` phases (see the arithmetic notes below).
@@ -138,7 +138,7 @@ that decomposes the total training wall time into `Forward` / `Backward` /
 Training complete in 4m 12s (42 iterations, converged at iter 38)
   Lower bound:  4.85000e4 $/stage
   Upper bound:  4.90000e4 +/- 2.50000e2 $/stage
-  Gap:          1.0%
+  Gap:          1.00000%
   Policy rows:  980000 active / 1250000 generated
   LP solves:    84000 (81900 first-try, 2000 retried, 100 failed)
   Avg iter:     6000ms
@@ -293,10 +293,10 @@ support, host architecture, and build profile.
 
 ### Output lines
 
-{/* capture: novomodelo version | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: none */}
+{/* capture: novomodelo version | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: none */}
 
 ```
-novomodelo   v0.18.0
+novomodelo   v0.18.1
 solver: HiGHS 1.13.1
 comm:   local
 zstd:   enabled
@@ -333,6 +333,7 @@ None.
 | `3`  | Solver     | An infeasible LP or a solver failure, in training or in simulation, or a solver backend that cannot be initialized |
 | `4`  | Internal   | A communication failure, an unexpected channel closure, or another internal fault; under `novomodelo validate` also the load error that escapes the validation report, an AR-coefficient count mismatch (`novomodelo run`: `1`) |
 | `5`  | Stopped    | `novomodelo run` only: a SIGTERM or SIGINT during training stopped the run at an iteration boundary after writing the training outputs and the checkpoint; the simulation is skipped ([Stopping Rules — Shutdown Requests](/math/stopping-rules/#shutdown-requests)) |
+| `101` | Panic     | A panic, which is a defect rather than a reported failure; under MPI the panicking rank of `novomodelo run` aborts the whole job, so the launcher reports `101` and no rank is left waiting |
 
 A dangling reference (an entity ID that refers to a non-existent entity) surfaces
 as an `InvalidReference` line inside a semantic-constraint violation (exit code 1).

@@ -112,7 +112,7 @@ every key that shapes the stage LP must equal the training run's (a stored basis
 whose stage LP changed is left out, see [Stored-basis gate](#stored-basis-gate)). For
 example, a policy trained with `modeling.inflow_non_negativity` set to
 `{ "method": "none" }` loads without its stored bases if the simulation-only config omits the key:
-it then defaults to `"penalty"`, which adds slack columns (one per hydro) to the
+it then defaults to `"truncation_with_penalty"`, which adds slack columns (one per hydro) to the
 stage LP.
 
 The keys to change, merged into that `config.json` (all other keys stay as in
@@ -137,7 +137,7 @@ With these keys in `config.json`, `novomodelo validate` accepts the case.
 Validate reads the checkpoint at `policy.path` and applies the same load, so
 this confirms the config and the policy load:
 
-{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; trained once with novomodelo run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; trained once with novomodelo run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
 
 ```text
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -309,7 +309,7 @@ A [boundary load](#boundary-cuts) runs its own checks, listed under
 1. **Read.** `manifest.bin` is present and its wire `format_version` is `3` (the
    `format_version` gate). A `manifest.bin` stamped with another value is refused
    with:
-   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs:1528-1529 at novomodelo v0.18.0 */}
+   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs:1528-1529 at novomodelo v0.18.1 */}
    ```text
    unsupported checkpoint manifest format_version {format_version}; expected 3; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
    ```
@@ -337,7 +337,7 @@ patch or pre-release build (for example 0.17.0 against 0.17.1).
 
 The refusal reads:
 
-{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 at novomodelo v0.18.0 — not capturable (needs a checkpoint written by another software or version) */}
+{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 at novomodelo v0.18.1 — not capturable (needs a checkpoint written by another software or version) */}
 
 ```text
 policy was written by {writer}, but this is novomodelo {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
@@ -367,7 +367,7 @@ covers the wire level.
 A full-FCF load uses a stored LP basis only when it fits its stage LP, leaves
 the others out with one warning, and proceeds. For example, `novomodelo run` prints:
 
-{/* capture: novomodelo run case 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with novomodelo run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
+{/* capture: novomodelo run case 2>&1 | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with novomodelo run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
 
 ```text
 warning: stored bases not used: 4 of 4 do not fit the current LP (first: node 0, 28 columns, the LP has 29); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, and its basic count equals its row count; the policy was trained on a different LP
@@ -381,6 +381,16 @@ the basis itself records, and its count of basic entries equals its row count.
 
 Warm-start and resume check the bases a checkpoint carries, simulation-only
 always checks them, and a [boundary load](#boundary-cuts) checks none.
+
+A stored basis that fits seeds a solve only in a phase that warm-starts
+([`use_warm_start`](/running/configuration/#solver-profile-fields)). Under the
+built-in HiGHS profiles forward and simulation solves start cold, so a
+simulation-only run starts from its checkpoint bases only with
+`simulation.solver.use_warm_start: true`, and a warm-start or resume run only
+with `training.solver.forward.use_warm_start: true`; the backward pass reads
+the bases the forward pass captures. On CLP every phase starts from them. The
+[LP Warm-Start implementation notes](/math/lp-warm-start/#implementation-in-novomodelo)
+trace the store through each phase.
 
 Every training run writes its stage LP bases with the end-of-training
 checkpoint, and `policy.checkpointing.store_basis` has no effect on that. Any
@@ -656,7 +666,7 @@ does not relax the subset rejects or loosen the date-selection rejects.
 per-family reconciliation is surfaced on three
 paths:
 
-- **`novomodelo run`** prints a **Boundary policy** block to stderr while it loads the case, before training —
+- **`novomodelo run`** prints a **Boundary policy** block to stdout while it loads the case, before training —
   `Cuts loaded: N (priced at {date})`, `Source: {path}`, and a `Reconciliation:`
   line `N copied, N fanned out, N defaulted to 0.0, N dropped`.
 - **`novomodelo validate --json`** emits a boundary object with `configured`,
@@ -925,10 +935,10 @@ print(len(reloaded["stage_cuts"][0]["cuts"]), reloaded["metadata"]["software_ver
 The script prints the reloaded cut count and the version that
 `write_policy_checkpoint` stamped:
 
-{/* capture: python round-trip example | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none */}
+{/* capture: python round-trip example | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none */}
 
 ```text
-3 0.18.0
+3 0.18.1
 ```
 
 ### Input validation
@@ -952,7 +962,7 @@ exception text it raises.
 A cut whose `coefficients` length disagrees with its stage's
 `state_dimension`:
 
-{/* capture: python input-validation snippet 1 of 3 (ValueError text) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+{/* capture: python input-validation snippet 1 of 3 (ValueError text) | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
 
 ```python
 bad_cuts = [
@@ -981,7 +991,7 @@ novomodelo.write_policy_checkpoint("output/policy", bad_cuts, metadata)
 A `stage_states` entry whose flat `data` length disagrees with
 `count * state_dimension`:
 
-{/* capture: python input-validation snippet 2 of 3 (ValueError text) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
+{/* capture: python input-validation snippet 2 of 3 (ValueError text) | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
 
 ```python
 stage_states = [
@@ -1003,7 +1013,7 @@ A cut carrying `inflow_lag_coefficients` with no `inflow_lag_depth` passed to
 reserve the lag slots (keyed by **integer** hydro id; list index `0` = lag
 depth 1):
 
-{/* capture: python input-validation snippet 3 of 3 (ValueError text) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+{/* capture: python input-validation snippet 3 of 3 (ValueError text) | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
 
 ```python
 stage_cuts = [

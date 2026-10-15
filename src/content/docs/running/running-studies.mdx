@@ -45,7 +45,7 @@ novomodelo validate /path/to/my_study
 
 Successful validation prints entity counts and exits with code 0:
 
-{/* capture: novomodelo validate my_study | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path; exit 0, stderr empty */}
+{/* capture: novomodelo validate my_study | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path; exit 0, stderr empty */}
 
 ```text
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -59,7 +59,7 @@ shows only the missing field, because the read of `system/hydros.json` stops
 there before any value is checked. The negative value is reported once the
 field is restored:
 
-{/* capture: novomodelo validate my_study 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json edited with jq: .hydros[0] |= del(.reservoir), then .hydros[0].generation.max_turbined_m3s = -5.0); run from an empty working directory with a relative case path; exit 1, stderr empty */}
+{/* capture: novomodelo validate my_study 2>&1 | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json edited with jq: .hydros[0] |= del(.reservoir), then .hydros[0].generation.max_turbined_m3s = -5.0); run from an empty working directory with a relative case path; exit 1, stderr empty */}
 
 ```text
 Validation: 1 errors, 0 warnings in my_study
@@ -140,21 +140,23 @@ study can import it as its terminal boundary
 Unless `--quiet` is given, a banner shows the version, followed by an `Execution`
 block with the solver, the communication backend, and the thread count.
 Use `--quiet` to suppress the banner, progress bars, and summaries.
-Errors are always written to stderr regardless of `--quiet`.
+The banner, the `Execution` block and the summaries go to stdout; warnings go to
+stderr, and errors are always written to stderr regardless of `--quiet`.
 
 ### Progress Bars
 
-On a terminal, training shows a live progress bar with the current iteration, the
-bounds, the gap, and the forward and backward times. When stderr is redirected or
-piped, novomodelo prints one line per iteration instead, and simulation reports its
-scenario count the same way. In `--quiet` mode, no progress is printed.
+When stderr is a terminal, training shows a live progress bar on stderr with the
+current iteration, the bounds, the gap, and the forward and backward times. When
+stderr is redirected or piped, novomodelo prints one line per iteration to stdout
+instead, and simulation reports its scenario count the same way. In `--quiet` mode,
+no progress is printed.
 
 ### Summary
 
 An excerpt of the output of `novomodelo run my_study` on the scaffolded case. It omits the
 banner, the `Host` line, and the progress lines between the first and the last of each phase:
 
-{/* capture: novomodelo run my_study 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path and stderr redirected to a file; excerpt: the banner, the Host line and the progress lines between the first and the last of each phase are not quoted */}
+{/* capture: novomodelo run my_study 2>&1 | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path and stderr redirected to a file; excerpt: the banner, the Host line and the progress lines between the first and the last of each phase are not quoted */}
 
 ```text
 Execution
@@ -163,7 +165,7 @@ Execution
   Threads:   1 rayon thread
 Loading case: my_study
 Setup
-  Load:            2ms
+  Load:            1ms
   Stochastic fit:  0ms
   Production fit:  0ms
   Evaporation fit: 0ms
@@ -178,35 +180,35 @@ Model provenance
   Correlation:     n/a
   Opening tree:    estimated
 Training   starting... (max 128 iterations)
-Training   1/128 iter  LB: 5.06021e6  UB: 1.71260e7  gap: 238.4%  fwd: 2ms / bwd: 2ms  [00:00:00 < 00:00:01]
-Training   128/128 iter  LB: 1.55955e7  UB: 5.79592e5  gap: -96.3%  fwd: 0ms / bwd: 4ms  [00:00:00]
-Training complete in 0.9s (128 iterations, iteration_limit)
+Training   1/128 iter  LB: 5.06021e6  UB: 1.71260e7  gap: 238.44361%  fwd: 1ms / bwd: 1ms  [00:00:00 < 00:00:00]
+Training   128/128 iter  LB: 1.55955e7  UB: 5.79592e5  gap: -96.28360%  fwd: 2ms / bwd: 2ms  [00:00:00]
+Training complete in 0.6s (128 iterations, iteration_limit)
   Lower bound:  1.55955e7 $/stage
   Upper bound:  5.79592e5 +/- 0.00000e0 $/stage
-  Gap:          -96.3% (started at 238.4%)
+  Gap:          -96.28360% (started at 238.44361%)
   Policy rows:  384 active / 384 generated
   LP solves:    5632 (5632 first-try, 0 retried, 0 failed)
-  Avg iter:     7ms
-  Time split:   Forward  29ms (3%)   solve 29ms · wait 0ms (0% of phase)
-                Backward 459ms (50%)   solve 448ms · wait 0ms (0% of phase)
-                Serial   439ms (47%)   bound 172ms · selection 0ms · other 267ms
+  Avg iter:     5ms
+  Time split:   Forward  191ms (29%)   solve 191ms · wait 0ms (0% of phase)
+                Backward 204ms (31%)   solve 204ms · wait 0ms (0% of phase)
+                Serial   269ms (41%)   bound 73ms · selection 0ms · other 196ms
 Writing training outputs...
 Output written to my_study/output/ (0.0s)
 Simulation starting... (100 scenarios across 1 ranks × 1 threads)
-Simulation 1/100 scenarios  LP: 0.2ms avg  [00:00:00 < 00:00:00]
-Simulation 100/100 scenarios  LP: 0.2ms avg  [00:00:00]
-Simulation complete in 0.7s (100 scenarios)
+Simulation 1/100 scenarios  LP: 0.6ms avg  [00:00:00 < 00:00:00]
+Simulation 100/100 scenarios  LP: 0.7ms avg  [00:00:00]
+Simulation complete in 0.3s (100 scenarios)
   Completed: 100  Failed: 0
   Expected cost: 9.67939e6 +/- 4.64452e6 (std: 2.36965e7)
   LP solves:    400 (400 first-try, 0 retried, 0 failed)
-  Avg/scenario: 0.007s
-  Time split:   Solver 87ms (12%)
-                Other  626ms (88%)
+  Avg/scenario: 0.004s
+  Time split:   Solver 264ms (72%)
+                Other  100ms (28%)
 Writing simulation outputs...
 Output written to my_study/output/ (0.0s)
 ```
 
-Each phase prints a summary to stderr with:
+Each phase prints a summary to stdout with:
 
 - **Training**: iteration count and how training ended, bounds, gap, policy rows, solves, time
 - **Simulation** (when enabled): scenarios requested, completed, failed
@@ -320,17 +322,17 @@ The excerpt below compares one thread with four on the scaffold, with
 set to `1000`. Each block starts with the command that produced it, and the excerpt keeps
 only the `Threads` line and each phase's completion line. The times are from one machine:
 
-{/* capture: novomodelo run my_study --threads 1 2>&1; novomodelo run my_study --threads 4 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; config.json edited with jq: training.selection.forward_passes 8 and simulation.selection.num_scenarios 1000); run from an empty working directory with a relative case path, the output directory emptied between the runs, both runs exit 0; excerpt: per run, the Threads line and the two phase completion lines are quoted, the rest of the run including the Host line is not */}
+{/* capture: novomodelo run my_study --threads 1 2>&1; novomodelo run my_study --threads 4 2>&1 | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; config.json edited with jq: training.selection.forward_passes 8 and simulation.selection.num_scenarios 1000); run from an empty working directory with a relative case path, the output directory emptied between the runs, both runs exit 0; excerpt: per run, the Threads line and the two phase completion lines are quoted, the rest of the run including the Host line is not */}
 
 ```text
 $ novomodelo run my_study --threads 1
   Threads:   1 rayon thread
-Training complete in 7.2s (128 iterations, iteration_limit)
-Simulation complete in 3.3s (1000 scenarios)
+Training complete in 12.7s (128 iterations, iteration_limit)
+Simulation complete in 11.4s (1000 scenarios)
 
 $ novomodelo run my_study --threads 4
   Threads:   4 rayon threads
-Training complete in 2.3s (128 iterations, iteration_limit)
+Training complete in 4.2s (128 iterations, iteration_limit)
 Simulation complete in 3.4s (1000 scenarios)
 ```
 
@@ -338,7 +340,7 @@ Simulation complete in 3.4s (1000 scenarios)
 integer of at least `1` and defaults to `1`. The pool solves the forward-pass,
 backward-pass, and simulation LPs in parallel, so speedup is bounded by the
 parallel work available: the forward passes per iteration, the trial points of the
-backward pass, and the simulation scenarios. In the excerpt, simulation time does not fall with the thread count: the solves run in parallel, but each process writes the scenario results through a single writer, which bounds the wall time of a case this small. See
+backward pass, and the simulation scenarios. In the excerpt, both phases run about three times faster on four threads: on this case the LP solves take most of each phase's wall time, and they run in parallel. See
 [Performance Accelerators](/running/performance/) for the execution model.
 
 ### Communication Backend

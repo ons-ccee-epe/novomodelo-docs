@@ -29,7 +29,7 @@ These penalties ensure that the SDDP algorithm has relatively complete recourse 
 | ------------------ | ------ | ------------------------- | ------------------------------- |
 | Deficit ($c^{def}_{b,s}$) | \$/MWh | Unmet load per bus, by segment | Piecewise cost of load shedding |
 | Excess ($c^{exc}_b$) | \$/MWh | Excess generation per bus | Absorb uncontrollable surplus |
-| Inflow non-negativity ($c^{inf}_h$) | \$/(m³/s·h) | Water added to a hydro's water balance (penalty-based inflow methods) | Keep the water balance feasible under a negative inflow realization |
+| Inflow non-negativity ($c^{inf}_h$) | \$/(m³/s·h) | Water added to a hydro's water balance (`penalty` and `truncation_with_penalty` inflow methods) | Keep the water balance feasible under a negative inflow realization |
 
 Deficit and excess are conceptually slack variables on the load balance constraint, but they have special names because of their importance in the hydrothermal dispatch application. Deficit represents the value of lost load; excess is a regularization-level cost to eliminate spurious slack generation.
 
@@ -102,7 +102,7 @@ Novomodelo checks the configured costs when the case loads. The checks compare t
 
 ## 3. Penalty Defaults and Overrides
 
-Each cost has a case-level default and may be overridden per entity and per stage. The evaporation and withdrawal slacks are priced by directional costs whose defaults follow the symmetric costs; the [Configure tab](#implementation-in-novomodelo) lists the fields, the tiers and the fallback order. [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) covers the penalty method of the inflow slack.
+Each cost has a case-level default and may be overridden per entity and per stage. The evaporation and withdrawal slacks are priced by directional costs whose defaults follow the symmetric costs; the [Configure tab](#implementation-in-novomodelo) lists the fields, the tiers and the fallback order. [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) covers the inflow slack's bounds and price under each inflow method.
 
 ### Piecewise Deficit
 
@@ -133,7 +133,7 @@ This section enumerates all constraints in the LP that use slack variables, orga
 | Evaporation | $\sigma^{e-}_h$ | Below target | $c^{ev-}_h$ | Constraint violation |
 | Water withdrawal | $\sigma^{w+}_h$ | Over-delivery | $c^{wv+}_h$ | Constraint violation |
 | Water withdrawal | $\sigma^{w-}_h$ | Under-delivery | $c^{wv-}_h$ | Constraint violation |
-| Water balance (penalty-based inflow methods) | $\sigma^{inf}_h$ | Added water | $c^{inf}_h$ | Recourse |
+| Water balance (`penalty` and `truncation_with_penalty` inflow methods) | $\sigma^{inf}_h$ | Added water | $c^{inf}_h$ | Recourse |
 
 ### Hydro — Storage Bounds
 
@@ -223,4 +223,4 @@ The methodology above defines the penalty taxonomy and priority ordering; the ta
 ## Cross-References
 
 - [LP Formulation](/math/lp-formulation) — Cost taxonomy (§1) and penalty terms (§9)
-- [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) — Penalty method for inflow non-negativity
+- [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) — The inflow non-negativity slack under each inflow method, and the effect of truncation on the lower bound

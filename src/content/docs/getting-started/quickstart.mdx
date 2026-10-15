@@ -23,11 +23,11 @@ novomodelo init --template 1dtoy my_first_study
 Novomodelo writes 11 input files into a new `my_first_study/` directory and prints a
 summary to stderr:
 
-{/* capture: novomodelo init --template 1dtoy my_first_study 2>&1 | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: none; run from an empty working directory with a relative case path, so no absolute path appears */}
+{/* capture: novomodelo init --template 1dtoy my_first_study 2>&1 | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: none; run from an empty working directory with a relative case path, so no absolute path appears */}
 
 ```
  ╺━━━━━━━━━╻●
- ╺━━━━━━━━━╻●⚡  NOVOMODELO v0.18.0
+ ╺━━━━━━━━━╻●⚡  NOVOMODELO v0.18.1
  ╺━━━━━━━━━╻●   Power systems in Rust
 
 Created my_first_study case directory from template '1dtoy':
@@ -81,7 +81,7 @@ feasibility and stochastic consistency — then
 builds the study as `novomodelo run` does and checks any policy the run would load,
 without solving an LP, and prints a single line of entity counts on success:
 
-{/* capture: novomodelo validate my_first_study | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: novomodelo validate my_first_study | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -105,32 +105,35 @@ novomodelo run my_first_study --output my_first_study/results
 
 Novomodelo runs the SDDP training loop (128 iterations, 1 forward pass each) followed by
 a simulation pass (100 scenarios). Output is written to `my_first_study/results/`.
-The banner, an execution/setup header, and progress bars are printed to stderr;
-once the progress bars finish, the rest of stderr is the post-run summary:
+The banner, an execution/setup header, and the post-run summary are printed to
+stdout; the progress bars are drawn on stderr when it is a terminal, and otherwise
+one progress line per training iteration and per simulated scenario goes to stdout.
+Each phase's summary follows its progress; this excerpt starts at the training
+summary and leaves out the simulation progress lines:
 
-{/* capture: novomodelo run my_first_study --output my_first_study/results 2>&1, post-run summary excerpt | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy (novomodelo init --template 1dtoy); timings vary run to run */}
+{/* capture: novomodelo run my_first_study --output my_first_study/results 2>&1, post-run summary excerpt | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: 1dtoy (novomodelo init --template 1dtoy); timings vary run to run */}
 
 ```
-Training complete in 0.4s (128 iterations, iteration_limit)
+Training complete in 0.6s (128 iterations, iteration_limit)
   Lower bound:  1.55955e7 $/stage
   Upper bound:  5.79592e5 +/- 0.00000e0 $/stage
-  Gap:          -96.3% (started at 238.4%)
+  Gap:          -96.28360% (started at 238.44361%)
   Policy rows:  384 active / 384 generated
   LP solves:    5632 (5632 first-try, 0 retried, 0 failed)
-  Avg iter:     3ms
-  Time split:   Forward  3ms (<1%)   solve 3ms · wait 0ms (0% of phase)
-                Backward 186ms (42%)   solve 186ms · wait 0ms (0% of phase)
-                Serial   249ms (57%)   bound 53ms · selection 0ms · other 196ms
+  Avg iter:     5ms
+  Time split:   Forward  190ms (28%)   solve 190ms · wait 0ms (0% of phase)
+                Backward 209ms (31%)   solve 209ms · wait 0ms (0% of phase)
+                Serial   271ms (40%)   bound 77ms · selection 0ms · other 194ms
 Writing training outputs...
 Output written to my_first_study/results/ (0.0s)
 Simulation starting... (100 scenarios across 1 ranks × 1 threads)
-Simulation complete in 0.1s (100 scenarios)
+Simulation complete in 0.3s (100 scenarios)
   Completed: 100  Failed: 0
   Expected cost: 9.67939e6 +/- 4.64452e6 (std: 2.36965e7)
   LP solves:    400 (400 first-try, 0 retried, 0 failed)
-  Avg/scenario: 0.002s
-  Time split:   Solver 53ms (27%)
-                Other  144ms (73%)
+  Avg/scenario: 0.003s
+  Time split:   Solver 267ms (78%)
+                Other  74ms (22%)
 Writing simulation outputs...
 Output written to my_first_study/results/ (0.0s)
 ```
@@ -248,7 +251,7 @@ The convergence history and the simulation costs are plain Parquet files. Instal
 `training/convergence.parquet` and summarises the per-scenario costs in
 `simulation/costs/`:
 
-{/* capture: python read results (polars) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: python read results (polars) | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 d873ca8e) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```python
 import polars as pl
@@ -297,7 +300,7 @@ also carries the future-cost estimate, so summing it does not reproduce the expe
 The second snippet plots both bounds against the iteration number. It writes
 `convergence.png` to the working directory, so it runs without a display:
 
-{/* capture: python plot convergence (matplotlib) | novomodelo-python 0.18.0 (PyPI wheel sha256 8a31828a) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 93cb7307) on 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: python plot convergence (matplotlib) | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 d873ca8e) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```python
 import matplotlib
@@ -356,21 +359,21 @@ novomodelo run my_first_study --output my_first_study/results-more
 
 The post-run summary, as an excerpt (the timings vary with the machine):
 
-{/* capture: novomodelo run my_first_study --output my_first_study/results-more 2>&1, excerpt | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 93cb7307 | case: 1dtoy (novomodelo init --template 1dtoy) + config.json training.selection.forward_passes 10, simulation.selection.num_scenarios 2000; timings vary */}
+{/* capture: novomodelo run my_first_study --output my_first_study/results-more 2>&1, excerpt | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: 1dtoy (novomodelo init --template 1dtoy) + config.json training.selection.forward_passes 10, simulation.selection.num_scenarios 2000; timings vary */}
 
 ```text
-Training complete in 17.4s (128 iterations, iteration_limit)
+Training complete in 18.6s (128 iterations, iteration_limit)
   Lower bound:  1.56023e7 $/stage
   Upper bound:  1.44899e7 +/- 1.88601e7 $/stage
-  Gap:          -7.1% (started at 62.3%)
+  Gap:          -7.12943% (started at 62.32309%)
   Policy rows:  3840 active / 3840 generated
-Simulation complete in 17.0s (2000 scenarios)
+Simulation complete in 28.6s (2000 scenarios)
   Completed: 2000  Failed: 0
   Expected cost: 1.64438e7 +/- 1.47887e6 (std: 3.37435e7)
 ```
 
 With these values each iteration's upper bound is the mean of ten trajectory costs, printed
-with their standard deviation, and the gap (-7.1 % at the last iteration) is still an
+with their standard deviation, and the gap (-7.12943 % at the last iteration) is still an
 estimate that moves from iteration to iteration. The expected cost of the 2000 scenarios is
 a 95 % confidence interval, `1.64438e7 +/- 1.47887e6`, that contains the lower bound, so the two agree
 within the sampling noise. The lower bound ends slightly higher than in Step 3, at `1.56023e7`,

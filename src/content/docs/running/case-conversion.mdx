@@ -34,7 +34,7 @@ simulation-output parquet files directly.)
 
 A novomodelo-bridge release `X.Y.Z` targets novomodelo `X.Y.Z`: the converted case
 follows that release's input contract. The bridge records its minimum novomodelo
-version (`0.18.0`) in the conversion manifest and uses it to decide whether the
+version (`0.18.1`) in the conversion manifest and uses it to decide whether the
 installed `novomodelo-python` can run `convert --validate`.
 The [Dependencies](#dependencies) section lists the pin that tracks that
 minimum. If the
@@ -110,10 +110,12 @@ JSON document to stdout instead of the Rich console output, with exactly
 five top-level keys in this fixed order: `schema_version`, `command`,
 `status`, `summary`, `diagnostics`. `summary` holds the command-specific
 payload (entity counts, for `convert`); `diagnostics` is the same findings
-list the Rich panels render.
+list the Rich panels render. A `convert` that fails lists the warnings it
+found before the failure next to the error, in the conversion notes and in
+the `--json` `diagnostics`.
 
 For the complete flag reference for every command, see the
-[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/cli.md).
+[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/cli.md).
 
 ### Converting a DECOMP Deck
 
@@ -139,7 +141,7 @@ refused at read by the format check.
 To run the case under another novomodelo release, install the novomodelo-bridge release
 paired with that novomodelo release, which pins its `novomodelo-python`, and convert the
 deck again. The novomodelo-bridge DECOMP guide covers
-[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/decomp.md#running-a-case-with-an-imported-boundary).
+[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/decomp.md#running-a-case-with-an-imported-boundary).
 :::
 
 ### What Gets Converted
@@ -157,14 +159,18 @@ complete Novomodelo case directory, organised by output sub-directory:
 - **Top level** -- study configuration, stage definitions, penalties, and
   initial conditions.
 
+Both tracks set
+[`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity)
+`method` to `"truncation_with_penalty"` in `config.json`.
+
 For the authoritative, field-level source-to-Novomodelo lineage -- which deck
 file, record, and column feeds which output field, and what transformation
 is applied -- see the bridge's own generated data maps. They are produced by
 `scripts/gen-lineage-docs.py`, verified by tests against a real conversion,
 marked "Do not edit by hand," and written in Portuguese:
-[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/newave-data-map.md)
+[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/newave-data-map.md)
 and
-[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/decomp-data-map.md).
+[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/decomp-data-map.md).
 
 ### Output Directory Structure
 
@@ -243,6 +249,13 @@ results (`MEDIAS-*.CSV`, `pmo.dat`) against Novomodelo simulation output.
 published operation (`dec_oper_*.csv`) the same way. Both source directories
 must hold the case/deck and its result files directly (not nested in a
 subdirectory).
+
+`compare newave` compares the inflows Novomodelo reports. Those carry the raw
+PAR draw, which can be negative; the correction that lifts a negative draw in
+the water balance is reported apart, as `inflow_nonnegativity_slack_m3s`
+([`simulation/hydros/`](/reference/output/simulation/#simulationhydros)). Where
+that correction acts, the Novomodelo incremental inflow, total inflow and
+natural inflow energy sit below the inflow the water balance uses.
 
 | Flag                | Description                                                                                                                    |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -337,6 +350,14 @@ novomodelo-bridge check decomp /path/to/deck
 features `convert decomp` does not carry over), so a limitation is never a
 silent omission.
 
+The text files `arquivos.dat` names on the NEWAVE track, and `dadger` and
+`dadgnl` on the DECOMP track, are read by fixed columns, so a tab where the
+layout expects spaces shifts the fields after it, and a DECOMP register line
+that starts with a tab is not read at all. `check` and `convert` warn about
+every tab in those files, naming each file and its lines (DECOMP comment
+lines, whose first non-blank character is `&`, are skipped), and a `check`
+that finds one reports ready with warnings.
+
 `check` shares `convert`'s `--json`, `-v/--verbose`, `--log-file`,
 `--no-color`, and `--quiet` flags.
 
@@ -365,6 +386,12 @@ novomodelo-bridge dashboard /path/to/novomodelo/case
 
 `dashboard` also shares `convert`'s `-v/--verbose`, `--log-file`,
 `--no-color`, and `--quiet` flags. Exit codes: `0` written, `1` error.
+
+For a case that ran one phase, `dashboard` leaves the other phase out. A simulation-only case
+(training disabled, simulating from a stored policy) has no Training tab and
+no training sections in its Performance tab, and its Overview takes the
+version, run date and duration from the simulation metadata. A training-only
+case has no simulation sections in its Performance tab.
 
 ---
 
@@ -398,7 +425,7 @@ to the next real plant downstream.
 overrides applied, and its small plants as must-run non-controllable sources.
 
 For the full list of conversion rules, see the novomodelo-bridge
-[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.0/docs/newave.md).
+[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/newave.md).
 
 ### Risk Measure Support
 
@@ -433,11 +460,11 @@ merged with sequential integer IDs, and per-stage right-hand-side bounds in
 
 ## Dependencies
 
-novomodelo-bridge 0.18.0 installs its runtime dependencies with the package. Two
+novomodelo-bridge 0.18.1 installs its runtime dependencies with the package. Two
 pins matter:
 
-- `novomodelo-python==0.18.0`: the pinned version is the bridge's `MIN_NOVOMODELO_VERSION`
-  (`0.18.0`), and a packaging test keeps the pin and that constant in lockstep.
+- `novomodelo-python==0.18.1`: the pinned version is the bridge's `MIN_NOVOMODELO_VERSION`
+  (`0.18.1`), and a packaging test keeps the pin and that constant in lockstep.
 - `inewave>=1.16.1`: the NEWAVE file reader.
 
 The minimum novomodelo version does not make versions interchangeable: an imported boundary

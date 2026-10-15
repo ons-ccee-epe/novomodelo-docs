@@ -91,7 +91,7 @@ The gap rule terminates training once the exact upper bound has closed on the lo
 
 **Evaluation**:
 
-The rule evaluates the [optimality gap](#optimality-gap) with the exact upper bound, $\bar{z}^k = \bar{z}_{\text{exact}}$, and compares it clamped at zero, $\max(0,\; \text{gap}^k)$; the clamp belongs to the rule's comparison, not to the gap's definition. In exact arithmetic the exact upper bound satisfies $\bar{z} \geq \underline{z}$; the clamp only absorbs floating-point noise once the gap has closed to (numerically) zero.
+The rule evaluates the [optimality gap](#optimality-gap) with the exact upper bound, $\bar{z}^k = \bar{z}_{\text{exact}}$, and compares it clamped at zero, $\max(0,\; \text{gap}^k)$; the clamp belongs to the rule's comparison, not to the gap's definition. In exact arithmetic the exact upper bound satisfies $\bar{z} \geq \underline{z}$ whenever the lower bound is valid ([Cut Management — Tier 1](/math/cut-management#tier-1-valid-lower-bound)), and the clamp then only absorbs floating-point noise once the gap has closed to (numerically) zero. Under a truncation inflow non-negativity method on a PAR model with lag terms (an order above zero or an annual component) the lower bound can exceed the exact upper bound; the clamp reads that negative gap as closed, so the rule can stop with no optimality certificate: the exact upper bound is the cost of a feasible policy, but an invalid lower bound does not bound the optimum from below ([Inflow Non-Negativity Solution Methods §7](/math/inflow-nonnegativity#7-truncation-and-the-lower-bound)).
 
 **Stopping condition** — two arms combined by disjunction (either is sufficient):
 
@@ -108,7 +108,7 @@ The absolute tolerance $\varepsilon_{\text{abs}}$, in currency units, is set by 
 
 Under a sampled forward pass, or a stage-varying measure, the exact-bound comparison the rule depends on is unavailable, and the gap rule is rejected at setup with a named validation error rather than silently evaluating against an unsound comparison.
 
-**Why recommended**: unlike bound stalling (a proxy for convergence) or the iteration and time limits (safety bounds unrelated to convergence), a closed gap is a direct optimality certificate under the exact-bound regime the rule requires — an enumerated forward pass with a risk measure held uniform across stages.
+**Why recommended**: unlike bound stalling (a proxy for convergence) or the iteration and time limits (safety bounds unrelated to convergence), a closed gap is a direct optimality certificate under the exact-bound regime the rule requires — an enumerated forward pass with a risk measure held uniform across stages — over a valid lower bound.
 
 The admissibility decision takes the two conditions in order: first whether the forward pass is enumerated, then whether the measure is the same at every stage. Passing both admits the gap rule, which then compares the lower bound with the exact upper bound, so that a closed gap certifies optimality under the [Tier 3](/math/cut-management#tier-3-gap-certificate) hypotheses; failing either rejects the rule at setup — stop such a run with bound stalling and an iteration limit instead, as in [Sampled runs](#sampled-runs).
 

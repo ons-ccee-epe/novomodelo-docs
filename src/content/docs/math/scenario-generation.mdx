@@ -660,27 +660,26 @@ The cross-scheme implications are:
 - **Historical scheme.** Every scenario starts the forward LP from the
   derived seed; the implied $\varepsilon$ rebuilds the raw historical observation to
   within floating-point precision at every stage; the LB and UB evaluate
-  $V_0$ at the same $x_0$. The reconstruction is exact under the inflow
-  non-negativity methods that pass the noise through. Under the truncation
-  methods, a hydro's first negative observation replays as zero inflow, and
-  from that stage on the hydro's replayed lag chain departs from the observed
-  one (see [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity)).
+  $V_0$ at the same $x_0$. The reconstruction is exact under every inflow
+  non-negativity method: each keeps the realization and the lag chain it
+  feeds, negative observations included, and differs only in the water it
+  adds to the water balance beside the realization; under `none`, which adds
+  none, a negative observation can leave the stage LP without a solution (see
+  [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity)).
 - **Historical-residual openings.** When training replays history, the openings
   of a historical-residual stage (§2.5) come from the same window pool, applied
   PAR model and derived seed as the replay. At a trial point whose lags are
   window $y$'s chain $a^{(y)}_{h,t-\ell}$, an opening that drew window $y$ at the
-  stage reproduces that window's observation there (under the truncation
-  methods, a negative observation replays as zero, as above); at any other lag
+  stage reproduces that window's observation there; at any other lag
   state the same residual enters the PAR equation with that state's lags and in
   general yields a different inflow.
 - **External scheme.** Same rolling-chain machinery for inflow — the supplied
   target series is inverted relative to the derived seed, preserving LB/UB
   consistency at $x_0$ across all forward replays; load and NCS carry no lag
   structure, and their values are standardized by the class's applied mean and
-  standard deviation alone. Under the truncation methods, a hydro's first
-  negative target value replays as zero inflow, and from that stage on the
-  hydro's replayed lag chain departs from the supplied series (see
-  [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity)).
+  standard deviation alone. As in the historical scheme, the inflow
+  reconstruction is exact under every inflow non-negativity method, negative
+  target values included.
 - **InSample / OutOfSample.** Unaffected — their forward pass replays no
   observed series, so it has no reconstruction to keep consistent. An
   OutOfSample pass draws fresh noise (§3.2), plain Monte Carlo even at a
