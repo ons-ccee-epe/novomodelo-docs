@@ -67,7 +67,7 @@ export default defineConfig({
   base: process.env.DOCS_BASE ?? "/",
   // Custom domain for absolute URLs (canonical links + sitemap). Env-overridable
   // for a versioned build.
-  site: process.env.DOCS_SITE ?? "https://docs.novomodelo.invalid",
+  site: process.env.DOCS_SITE ?? "https://docs.modelossetoreletrico.org.br",
   // D5: mdBook→Starlight URL preservation. Each key is an old mdBook (or
   // retired-site) path and each destination is a live page slug, one hop. mdBook
   // served each chapter at `/specs/<group>/<chapter>.html` (and the intro at
@@ -160,8 +160,8 @@ export default defineConfig({
     // Part 7 — Reference
     "/specs/reference/glossary.html": "/reference/glossary/",
     "/specs/reference/bibliography.html": "/reference/bibliography/",
-    // Retired software mdBook paths (the old docs.novomodelo.invalid served the mdBook
-    // flat at these URLs). Map each to its unified twin; omitted chapters (crate
+    // Retired software mdBook paths (the old site served the mdBook flat at these
+    // URLs). Map each to its unified twin; omitted chapters (crate
     // internals → GitHub READMEs, energy-variables, deterministic-suite,
     // creating-your-own) 404 by design. D5: no analytics yet — these cover the
     // mdBook SUMMARY chapters that have an unambiguous unified page.

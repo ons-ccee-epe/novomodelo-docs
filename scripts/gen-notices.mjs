@@ -200,7 +200,7 @@ function main() {
     "This file lists the open-source software components redistributed by the",
   );
   lines.push(
-    "Novomodelo documentation site (https://docs.novomodelo.invalid).",
+    "Novomodelo documentation site (https://docs.modelossetoreletrico.org.br).",
   );
   lines.push(
     "Regenerate this file with: npm run gen:notices (from the site/ directory).",
