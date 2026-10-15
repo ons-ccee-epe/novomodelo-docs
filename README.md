@@ -4,9 +4,9 @@
 ecosystem — the mathematics, algorithm, and worked examples behind its
 SDDP-based hydrothermal dispatch, together with how the software implements them.
 
-Built with [Astro Starlight](https://starlight.astro.build/). The site is not
-published yet: it goes live at the fork's documentation domain, for which
-`docs.novomodelo.invalid` stands in (see **Deployment**).
+Built with [Astro Starlight](https://starlight.astro.build/) and published at
+[docs.modelossetoreletrico.org.br](https://docs.modelossetoreletrico.org.br/) (see
+**Deployment**).
 
 > **Scope.** This is the **single, unified** docs site: an annotation-free math
 > layer (formulation, algorithm, worked examples) interleaved per topic with a
@@ -96,10 +96,10 @@ npm run check:e10     # third-party-notices / content-licensing completeness
 
 A push to `main` triggers `.github/workflows/starlight-deploy.yml`, which builds the
 site, runs the build checks, and publishes it to GitHub Pages at
-`docs.novomodelo.invalid`. Nothing is published yet: GitHub Pages is not enabled for
-this repository, and `docs.novomodelo.invalid` stands in for the fork's documentation
-domain. The full gate suite, including the doc-lint gates, runs in
-`.github/workflows/starlight-ci.yml` on pull requests to `main`.
+`docs.modelossetoreletrico.org.br`. The repository's Pages source is GitHub Actions,
+and its Pages settings hold the custom domain. The full gate suite, including the
+doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on pull requests to
+`main`.
 
 ## Versioning
 

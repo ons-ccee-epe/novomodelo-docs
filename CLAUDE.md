@@ -21,7 +21,7 @@ lives as per-crate `README.md` files + `ARCHITECTURE.md` in the `novomodelo` rep
 - **Source**: all chapters live under `src/content/docs/`; the sidebar/TOC is
   configured in `astro.config.mjs` (Starlight `sidebar`), not a flat text
   table-of-contents file.
-- **Audience & domain**: the unified site serves `docs.novomodelo.invalid`.
+- **Audience & domain**: the unified site serves `docs.modelossetoreletrico.org.br`.
 
 The actual Novomodelo code at the main org repo is the **ground truth**. When specs
 diverge from the code, the spec must be updated — not the other way around.
@@ -551,7 +551,7 @@ tree). Refresh on each novomodelo release; the freshness gate stays in `novomode
 | Resource                  | Location                                                        | Purpose                                                      |
 | ------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------- |
 | Novomodelo code (ground truth) | `https://github.com/ons-ccee-epe/novomodelo/`                           | Actual implementation                                       |
-| Unified docs site         | `https://docs.novomodelo.invalid/`                                   | This site (methodology + software layer)                    |
+| Unified docs site         | `https://docs.modelossetoreletrico.org.br/`                                   | This site (methodology + software layer)                    |
 | Crate READMEs + ARCHITECTURE | `https://github.com/ons-ccee-epe/novomodelo/` (`crates/*/README.md`, `ARCHITECTURE.md`) | Developer/crate-internal surface (not on the site) |
 | CHANGELOG                 | `https://github.com/ons-ccee-epe/novomodelo/CHANGELOG.md`               | Per-release feature list (sync source)                      |
 | Diagram authoring guide   | [`docs/design/diagram-authoring.md`](docs/design/diagram-authoring.md) | Tool selection + design system for diagrams        |

@@ -225,7 +225,7 @@ const UNTOUCHED = {
   "a protocol-relative href": '<a href="//cdn.example/x">',
   "a protocol-relative src": '<img src="//cdn.example/a.png">',
   "a fragment href": '<a href="#s">',
-  "an absolute https href": '<a href="https://docs.novomodelo.invalid/x">',
+  "an absolute https href": '<a href="https://docs.modelossetoreletrico.org.br/x">',
   "a mailto href": '<a href="mailto:a@b.example">',
   "a relative href": '<a href="rel/x">',
   "a dot-relative href": '<a href="../x/">',
@@ -239,7 +239,7 @@ const UNTOUCHED = {
   "the bare base refresh target with a fragment":
     '<meta http-equiv="refresh" content="0;url=/v0.16#s">',
   "an absolute refresh target":
-    '<meta http-equiv="refresh" content="0;url=https://docs.novomodelo.invalid/x/">',
+    '<meta http-equiv="refresh" content="0;url=https://docs.modelossetoreletrico.org.br/x/">',
   "a protocol-relative refresh target":
     '<meta http-equiv="refresh" content="0;url=//cdn.example/x/">',
   "a relative refresh target":
@@ -309,7 +309,7 @@ const astroStub = (refresh, link) => `<!doctype html>
 <title>Redirecting to: /math/lp-formulation/</title>
 <meta http-equiv="refresh" content="0;url=${refresh}">
 <meta name="robots" content="noindex">
-<link rel="canonical" href="https://docs.novomodelo.invalid/math/lp-formulation/">
+<link rel="canonical" href="https://docs.modelossetoreletrico.org.br/math/lp-formulation/">
 <body>
 \t<a href="${link}">Redirecting from <code>/v0.16/specs/math/lp-formulation.html/</code> to <code>/math/lp-formulation/</code></a>
 </body>`;
