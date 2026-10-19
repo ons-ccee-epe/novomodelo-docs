@@ -384,7 +384,7 @@ $$
 0 \leq u_{h,k} \leq \bar{U}_h
 $$
 
-The lower bound is $0$ unless a minimum diversion flow is set for the stage or for the block, which replaces it. Both bounds are hard. Diversion cost is a regularization term (see §1), not a violation penalty.
+$\bar{U}_h$ is the channel capacity, or a maximum diversion flow set for the stage or for the block, which replaces it. A channel declared without a capacity has $\bar{U}_h = +\infty$, and a hydro without a diversion channel has $\bar{U}_h = 0$. The lower bound is $0$ unless a minimum diversion flow is set for the stage or for the block, which replaces it. Both bounds are hard. Diversion cost is a regularization term (see §1), not a violation penalty. Neither this bound nor the spillage bound below depends on storage: Novomodelo models no sill below which the diversion channel or the spillway closes.
 
 ### Spillage Bounds (per hydro $h$, block $k$)
 

@@ -320,7 +320,8 @@ curve" means and what Novomodelo does about it.
 
 **Diversion channel** — the `diversion` block models a diversion that routes
 flow directly to a downstream plant's reservoir, bypassing turbines and
-spillways; absent means no diversion.
+spillways; absent means no diversion. `max_flow_m3s` is the channel capacity;
+leave it out or set it to `null` for a channel with no capacity limit.
 
 ```json
 "diversion": { "downstream_id": 2, "max_flow_m3s": 200.0 }
@@ -393,11 +394,11 @@ bound overrides for a hydro plant, optionally narrowed to one block via an
 optional `block_id` column (`null` applies at the stage level). Three of its
 columns set a diversion floor and the spillage band:
 
-- `min_diversion_m3s` — a minimum diversion-flow floor (m³/s). This is a
-  **floor that requires a declared `diversion` channel** on the hydro (see
-  Diversion channel, above): with no channel declared, the diversion column
-  is pinned `[0, 0]`, so a positive floor is infeasible and is rejected at
-  load.
+- `min_diversion_m3s` — a minimum diversion-flow floor (m³/s). A positive
+  floor, like a positive `max_diversion_m3s`, **requires a declared
+  `diversion` channel** on the hydro (see Diversion channel, above): with no
+  channel declared, the diversion column is pinned `[0, 0]`, and a positive
+  diversion bound is rejected at load.
 - `min_spillage_m3s`, `max_spillage_m3s` — the spillage band (m³/s);
   `min_spillage_m3s` must be `<= max_spillage_m3s`.
 

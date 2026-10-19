@@ -770,9 +770,9 @@ the [Case Format](/reference/case-format/) page for documented constraints. For 
 make the outgoing probabilities from each stage sum to 1.0. For stages, declare at least one
 block in every study stage's `blocks` array.
 
-**See also:** a `min_diversion_m3s` floor on a hydro with no declared
-diversion channel is reported under this kind — see
-[Diversion floor without a declared channel](#diversion-floor-without-a-declared-channel).
+**See also:** a positive `min_diversion_m3s` or `max_diversion_m3s` on a hydro
+with no declared diversion channel is reported under this kind — see
+[Diversion bound without a declared channel](#diversion-bound-without-a-declared-channel).
 
 #### Generic-constraint bounds row with neither endpoint and no affine remainder
 
@@ -800,32 +800,34 @@ or add an inline relational operator (`<=`, `>=`, `==`) to the constraint's
 `expression` so an affine remainder fills the missing endpoint. See
 [Generic Constraints — the activation grid](/reference/generic-constraints/).
 
-#### Diversion floor without a declared channel
+#### Diversion bound without a declared channel
 
 **When it occurs:** `constraints/hydro_bounds.parquet` may override a hydro's
-`min_diversion_m3s` floor per `(hydro, stage)`. When the hydro declares no
-`diversion` channel, its diversion flow is fixed at `[0, 0]` — a positive floor
-is then the infeasible interval `[min > 0, 0]`. The business-rule check rejects
-the override before it ever reaches the LP.
+`min_diversion_m3s` and `max_diversion_m3s` per `(hydro, stage)` or per block.
+When the hydro declares no `diversion` channel, its diversion flow is fixed at
+`[0, 0]`. A positive floor would be the infeasible interval `[min > 0, 0]`, and
+a positive ceiling would divert water that no plant receives. The business-rule
+check rejects either override before it reaches the LP, with one finding per
+field.
 
 **Fields:**
 
 | Field         | Description                                                                                                                                          |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Contains a `[InvalidValue] constraints/hydro_bounds.parquet (Hydro <id>): Hydro <id>: hydro_bounds row at stage_id=<stage> sets min_diversion_m3s=<value>, but the hydro declares no diversion channel; diversion is pinned [0, 0] with no channel, making a positive floor infeasible` line |
+| `description` | Contains a `[InvalidValue] constraints/hydro_bounds.parquet (Hydro <id>): Hydro <id>: hydro_bounds row at stage_id=<stage>[ block_id=<block>] sets <field>=<value>, but the hydro declares no diversion channel; without a channel the diversion column is [0, 0]` line, where `<field>` is `min_diversion_m3s` or `max_diversion_m3s` |
 
 **Example:**
 
-{/* capture: novomodelo validate divfloor | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy divfloor; constraints/hydro_bounds.parquet added with one row: hydro_id 0, stage_id 1, min_diversion_m3s 2.0, and the 1dtoy hydro declares no diversion channel; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate divcap | novomodelo   v0.18.0 | binary: novomodelo-cli sha256 f7c1d590 (unreleased build of the change that widened this rule) | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy divcap; constraints/hydro_bounds.parquet added with one row: hydro_id 0, stage_id 1, max_diversion_m3s 25.0, and the 1dtoy hydro declares no diversion channel; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted and the error: prefix is not quoted) */}
 
 ```text
-[InvalidValue] constraints/hydro_bounds.parquet (Hydro 0): Hydro 0: hydro_bounds row at stage_id=1 sets min_diversion_m3s=2, but the hydro declares no diversion channel; diversion is pinned [0, 0] with no channel, making a positive floor infeasible
+[InvalidValue] constraints/hydro_bounds.parquet (Hydro 0): Hydro 0: hydro_bounds row at stage_id=1 sets max_diversion_m3s=25, but the hydro declares no diversion channel; without a channel the diversion column is [0, 0]
 ```
 
 **Resolution:** Either declare a `diversion` channel on the hydro in
 `system/hydros.json` (see [System Element Modeling Overview](/math/system-elements)), or remove
-the `min_diversion_m3s` override for that `(hydro, stage)` in
-`constraints/hydro_bounds.parquet`.
+the positive `min_diversion_m3s` or `max_diversion_m3s` override for that
+`(hydro, stage)` in `constraints/hydro_bounds.parquet`.
 
 ---
 
