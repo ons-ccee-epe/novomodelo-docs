@@ -272,7 +272,7 @@ The z-inflow columns sit between the leading state columns and the incoming stor
 
 ## 6. Hydro Generation Constraints
 
-Novomodelo supports two production models, in increasing order of complexity. A third model name, linearized head, is a reserved alias that resolves to constant productivity in every phase — see [Hydro Production Function Models §3](/math/hydro-production-models). The model can vary by stage or season per hydro.
+Novomodelo supports two production models, in increasing order of complexity. The model can vary by stage or season per hydro.
 
 Both models are evaluated **per cell** $(h, b)$ (§3) rather than per plant; for a single-cell plant the per-cell constraint is the plant-level constraint.
 
@@ -468,7 +468,7 @@ The coefficients $\gamma_{g,e}$ may be either literal numeric values or **named 
 
 Each endpoint composes independently from up to two pieces, summed together: a numeric base that may itself vary by stage (and, for the finest-grained parameter kind below, by block within the stage), plus an optional affine remainder layered on top of it — a constant plus a weighted sum of named scalar parameters. An endpoint carrying neither piece is simply absent; a base alone, a remainder alone, or their sum are all valid, so a single endpoint can combine a scheduled floor or cap that already varies by stage with a further parameter-driven adjustment on top.
 
-A named scalar parameter takes one of five kinds: one value for every stage; one per stage; one per season; a quantity computed from a plant's geometry and energy conversion, §5 of [Hydro Production Function Models](/math/hydro-production-models#5-energy-conversion-quantities); or one per stage and block.
+A named scalar parameter takes one of five kinds: one value for every stage; one per stage; one per season; a quantity computed from a plant's geometry and energy conversion, §5 of [Hydro Production Function Models](/math/hydro-production-models#4-energy-conversion-quantities); or one per stage and block.
 
 Resolution happens once at LP-build time, so the LP coefficients and endpoints are still numeric at solve time — the parameter mechanism does not introduce LP-variable coupling between constraints. Methodology relevance: it lets the corpus express ramping limits, capacity caps, and operator-imposed quotas that vary by stage, season, or block without authoring a separate constraint per stage. Coefficient and endpoint values can therefore be **stage- and block-varying constants**, not just literal numbers.
 
@@ -540,6 +540,6 @@ For cut coefficient derivation, aggregation, and selection strategies, see [Cut 
 - [State Augmentation](/math/state-augmentation) — the state vector, its pinning by column bounds, the outgoing state and the cut row, and the inflow-lag, commitment-ring and in-transit state families
 - [LP Layout and Scaling](/math/lp-layout-and-scaling) — the column and row layout of this LP, its cost scaling and prescaling, and the unscaling of its duals and reduced costs
 - [PAR(p) Inflow Model](/math/par-inflow-model) — complete AR inflow model specification
-- [Hydro Production Function Models](/math/hydro-production-models) — constant, linearized head, and FPHA model details
+- [Hydro Production Function Models](/math/hydro-production-models) — constant and FPHA model details
 - [Cut Management](/math/cut-management) — dual extraction, cut coefficients, aggregation, and selection
 - [Equipment-Specific Formulations](/math/equipment-formulations) — per-equipment constraint derivations, pumping details

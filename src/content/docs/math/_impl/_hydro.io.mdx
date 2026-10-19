@@ -9,7 +9,7 @@ and [Output Format](/reference/output/) pages).
 | ---- | ---- |
 | `system/hydros.json` | Hydro plant registry — core fields, reservoir, outflow, generation model, the required `unit_groups` bus partition, and the advanced blocks (see the [System Element Modeling Overview](/math/system-elements#implementation-in-novomodelo) Configure tab). |
 | `system/hydro_production_models.json` | Optional per-hydro production-model selection (`stage_ranges` / `seasonal`), FPHA fitting configuration, and plane reduction. |
-| `system/hydro_geometry.parquet` | Volume-Height-Area (VHA) curves — required for any hydro using computed FPHA and for the evaporation area-volume conversion; when the file holds any row, every FPHA plant needs at least 1 row of its own and every `linearized_head` plant at least 2; also read, for any plant with a specific productivity, by the useful-range mean evaluator ([Hydro Production Function Models §5.3](/math/hydro-production-models#53-useful-range-mean-productivity)). |
+| `system/hydro_geometry.parquet` | Volume-Height-Area (VHA) curves — required for any hydro using computed FPHA and for the evaporation area-volume conversion; when the file holds any row, every FPHA plant needs at least 1 row of its own; also read, for any plant with a specific productivity, by the useful-range mean evaluator ([Hydro Production Function Models §4.3](/math/hydro-production-models#43-useful-range-mean-productivity)). |
 | `system/hydro_energy_productivity.parquet` | Per-`(hydro, stage)` overrides: equivalent productivity (both evaluators), specific productivity (both evaluators' head term and the `specific_productivity` tag), reference turbined flow (the `reference_turbine` tag only) — the tabular authoring source of the Configure tab's resolution order, and the FPHA override. |
 | `system/tailrace_curves.parquet` | Optional piecewise-quartic tailrace-level curves — `tailrace_level(outflow)` per `(hydro_id, family_id, segment_id)` — feeding the computed-FPHA fit. A hydro with no curve uses its entity-level `tailrace` model. |
 | `system/fpha_hyperplanes.parquet` | Pre-fitted FPHA hyperplane coefficients, read when a plant's `fpha_config.source` is `"precomputed"`. |
@@ -30,14 +30,14 @@ Each row names a data source, the fields the methodology above reads from it, an
 | Hydro plant entity | `tailrace` (polynomial or piecewise) | $h_{tail}(q_{out})$ computation |
 | Hydro plant entity | `hydraulic_losses` (factor or constant) | $h_{loss}$ computation |
 | Hydro plant entity | `efficiency` (constant) | Turbine efficiency $\eta$ |
-| Hydro plant entity | `specific_productivity_mw_per_m3s_per_m` (FPHA, and the useful-range mean evaluator for any model) | $\rho_{esp}$ for $\rho_{eq}$ derivation (§5.1) and $\bar\rho_{eq}$ (§5.3) |
-| Hydro plant entity | Cascade topology (downstream pointer) | $\rho_{acum}$ topological sum (§5.2) |
-| Hydro production models input | Range-level productivity per `stage_range` / `seasonal` entry (non-FPHA, optional) | $\rho_{h,t}$ for §1 and §3 (§5.1) |
-| Hydro production models input | `reference_volume` per `stage_range` / `seasonal` entry (absolute or percentile) | $V^{ref}$ for the energy-conversion reduction (§5.1) and the tailrace backwater reference level (§2.3.1) |
+| Hydro plant entity | `specific_productivity_mw_per_m3s_per_m` (FPHA, and the useful-range mean evaluator for any model) | $\rho_{esp}$ for $\rho_{eq}$ derivation (§4.1) and $\bar\rho_{eq}$ (§4.3) |
+| Hydro plant entity | Cascade topology (downstream pointer) | $\rho_{acum}$ topological sum (§4.2) |
+| Hydro production models input | Range-level productivity per `stage_range` / `seasonal` entry (non-FPHA, optional) | $\rho_{h,t}$ for §1 (§4.1) |
+| Hydro production models input | `reference_volume` per `stage_range` / `seasonal` entry (absolute or percentile) | $V^{ref}$ for the energy-conversion reduction (§4.1) and the tailrace backwater reference level (§2.3.1) |
 | Hydro production models input | FPHA `fitting_window` per `stage_range` / `seasonal` entry (absolute or percentile bounds, optional) | Computed-FPHA volume grid $[v_{min}, v_{max}]$ (§2.6.1) |
 | Hydro production models input | FPHA fitting configuration and optional `fpha_plane_reduction` block | Grid sizes, plane reduction method (§2.6–§2.8) |
-| Hydro energy productivity input | Per-(hydro, stage) `equivalent_productivity_mw_per_m3s` and specific productivity | $\rho_{eq,h,t}$ for both evaluators: the authoring source of a non-FPHA plant, the override of an FPHA plant (§5.1); $\rho_{esp,h,t}$ for both evaluators' head-derived value (§5.1, §5.3) |
-| Hydro geometry | `volume_hm3`, `height_m` | $h_{fore}(v)$ interpolation (§2.3); mean forebay level $\bar h_{fore,h}$ (§5.3) |
+| Hydro energy productivity input | Per-(hydro, stage) `equivalent_productivity_mw_per_m3s` and specific productivity | $\rho_{eq,h,t}$ for both evaluators: the authoring source of a non-FPHA plant, the override of an FPHA plant (§4.1); $\rho_{esp,h,t}$ for both evaluators' head-derived value (§4.1, §4.3) |
+| Hydro geometry | `volume_hm3`, `height_m` | $h_{fore}(v)$ interpolation (§2.3); mean forebay level $\bar h_{fore,h}$ (§4.3) |
 | Pre-fitted FPHA planes | `gamma_0`, `gamma_v`, `gamma_q`, `gamma_s` (plus the optional `kappa` intercept factor, default 1.0) | Optional alternative to in-process fitting |
 
 ### Outputs
