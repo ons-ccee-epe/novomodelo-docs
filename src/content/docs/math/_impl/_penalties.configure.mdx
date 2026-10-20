@@ -164,10 +164,10 @@ defaults only; no slack is priced at a symmetric cost.
 | Variable                   | Lower Bound                                                                                                | Upper Bound            | Lower Slack                                    | Upper Slack  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------- | ------------ |
 | `storage`                  | `min_storage_hm3`; `0` for a filling hydro in every phase and for a hydro outside its commissioning window | `max_storage_hm3`      | Hard (soft for a filling hydro once operating) | Spillage     |
-| `turbined_flow`            | `0`; the `min_turbined_m3s` minimum, summed over a (hydro, bus) cell's unit groups, is a soft row          | `max_turbined_m3s`     | With penalty, when that minimum is `> 0`       | Hard         |
+| `turbined_flow`            | `0`; the `min_turbined_m3s` minimum, summed over a (hydro, bus) cell's unit groups, is a soft row, plus a soft plant-total row where the plant's own `min_turbined_m3s` exceeds that sum | `max_turbined_m3s`, also on the plant's total where it is below the cells' summed capacities | With penalty, when that minimum is `> 0`       | Hard         |
 | `spillage`                 | `min_spillage_m3s` (default `0`)                                                                           | `max_spillage_m3s` (default unbounded) | Hard                                           | Hard         |
 | `outflow`                  | `min_outflow_m3s`                                                                                          | `max_outflow_m3s` (optional) | With penalty, when that minimum is `> 0`       | With penalty, when that maximum is set |
-| `generation`               | `0`; the `min_generation_mw` minimum, summed over a (hydro, bus) cell's unit groups, is a soft row         | `max_generation_mw`    | With penalty, when that minimum is `> 0`       | Hard         |
+| `generation`               | `0`; the `min_generation_mw` minimum, summed over a (hydro, bus) cell's unit groups, is a soft row, plus a soft plant-total row where the plant's own `min_generation_mw` exceeds that sum | `max_generation_mw`, also on the plant's total where it is below the cells' summed capacities | With penalty, when that minimum is `> 0`       | Hard         |
 | `evaporation`              | minus the per-stage bound of [Signed Net Evaporation](#signed-net-evaporation)                             | plus that bound        | With penalty                                   | With penalty |
 | `withdrawal` (stage-level) | `water_withdrawal_m3s`                                                                                     | `water_withdrawal_m3s` | With penalty                                   | With penalty |
 
@@ -180,7 +180,8 @@ not derived from turbined flow bounds, because the production function is not
 always constant productivity. When a complete hydro model is available, the
 installed capacity provides a natural hard upper bound. A positive cell minimum is
 enforced by a soft row whose slack is priced at `generation_violation_below_cost`;
-a zero cell minimum leaves that slack fixed at `0`.
+a zero cell minimum leaves that slack fixed at `0`. A plant-total minimum row
+prices its own slack at the same cost, and a shortfall is charged once.
 :::
 
 Relationship: `outflow = turbined_flow + spillage`,

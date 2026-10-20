@@ -195,6 +195,14 @@ cannot exceed the plant's own declared maximum from its [`generation` block](/ma
 — a plant's own value is the envelope, so groups cannot raise it — and
 the sum of every group's minima must be able to reach the plant's own
 declared minimum.
+Only a per-stage override in `constraints/hydro_bounds.parquet` can therefore
+move the plant's own bounds past its groups': a plant minimum raised above the
+groups' summed minima binds on the plant's total, and a plant maximum lowered
+below the cells' summed capacities caps that total (see the [LP Formulation —
+Plant Minimum and Maximum](/math/lp-formulation#plant-minimum-and-maximum)). A
+plant minimum lowered below the groups' summed minima has no effect, and setup
+warns about it; lower the group minima in
+`constraints/hydro_unit_group_bounds.parquet` instead.
 
 Stage-varying, optionally per-block overrides of a group's four bounds are
 supplied by `constraints/hydro_unit_group_bounds.parquet` — see the [Hydro Production Function Models](/math/hydro-production-models#implementation-in-novomodelo) Inputs & Outputs tab.

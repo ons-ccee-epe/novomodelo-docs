@@ -725,6 +725,30 @@ max_spillage_m3s`, and so `min_diversion_m3s`, `min_spillage_m3s`, and
 [Case Format](/reference/case-format/) for
 `hydro_bounds.parquet`'s column reference.
 
+#### Negative diversion channel capacity
+
+**When it occurs:** A hydro's `diversion.max_flow_m3s` in `system/hydros.json`
+is negative. The channel capacity bounds the diverted flow from above, and the
+flow is bounded below by `0`, so a negative capacity is rejected at load. A
+channel without a capacity limit leaves `max_flow_m3s` out or sets it to
+`null`.
+
+**Fields:**
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[SchemaViolation] system/hydros.json: field hydros[<i>].diversion.max_flow_m3s: max_flow_m3s must be >= 0, got <value>` line, where `<i>` is the hydro's zero-based position in the file |
+
+**Example:**
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].diversion.max_flow_m3s: max_flow_m3s must be >= 0, got -5
+```
+
+**Resolution:** Set `max_flow_m3s` to the channel's capacity, `0` or more, or
+leave it out for a channel without a capacity limit. A per-stage or per-block
+`max_diversion_m3s` in `constraints/hydro_bounds.parquet` still caps the flow.
+
 ---
 
 ### `InvalidReference`

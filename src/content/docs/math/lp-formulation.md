@@ -49,6 +49,7 @@ The table lists the families in the order of the stage LP's rows, with $N = \lve
 | 8 | Maximum outflow | $N \lvert\mathcal{K}\rvert$, one per hydro and block | [§7](#7-outflow-constraints) |
 | 9 | Minimum turbined flow | one per (hydro, bus) cell and block | [§8](#8-variable-bounds-and-minimum-constraints) |
 | 10 | Minimum generation | one per (hydro, bus) cell and block | [§6](#6-hydro-generation-constraints) |
+| 10a | Plant minimum and maximum | for a hydro with several cells, per block: a turbined-flow and a generation minimum row when the plant minimum binds on its cells' total at some block of the stage, then a turbined-flow and a generation maximum row when the plant maximum does | [§8 Plant Minimum and Maximum](#plant-minimum-and-maximum) |
 | 11 | Filling floor | one per filling hydro at each stage of its filling window | [§8](#8-variable-bounds-and-minimum-constraints) |
 | 12 | Soft dead-volume floor | one per filling hydro at each stage from its entry stage on | [§8](#8-variable-bounds-and-minimum-constraints) |
 | 13 | Commitment fish | one per anticipated thermal whose delivery at the stage was decided at an earlier stage or before the study | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
@@ -317,7 +318,7 @@ $$
 \underline{G}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{G}_u, \qquad \bar{G}_{h,b} = \min\!\Big( \sum_{u \,\in\, (h,b)} \bar{G}_u,\ \ \bar{G}_h \Big)
 $$
 
-Generation bounds are user-defined (declared per unit group, not derived from turbined flow). The lower bound is soft, with one slack $\sigma^{g-}_{h,b,k}$ **per cell** — priced at the plant's own penalty $c^{gv-}_h$ at full magnitude on every cell of a split plant, never divided by cell count; a constant-productivity cell's floor couples this same slack to $\rho_h \cdot q_{h,b,k}$ rather than to a generation column. The upper bound's plain sum over the cell's own unit groups closes against the plant's own resolved maximum $\bar{G}_h$ — a bounds override may never raise a cell above it. See [System Element Modeling Overview §5](/math/system-elements). Matches the per-cell $\sigma^{g-}_{h,b,k}$ defined in [Notation Conventions §4.3](/overview/notation-conventions#43-slack-variables).
+Generation bounds are user-defined (declared per unit group, not derived from turbined flow). The lower bound is soft, with one slack $\sigma^{g-}_{h,b,k}$ **per cell** — priced at the plant's own penalty $c^{gv-}_h$ at full magnitude on every cell of a split plant, never divided by cell count; a constant-productivity cell's floor couples this same slack to $\rho_h \cdot q_{h,b,k}$ rather than to a generation column. The upper bound's plain sum over the cell's own unit groups closes against the plant's own resolved maximum $\bar{G}_h$ — a bounds override may never raise a cell above it. The plant's own minimum $\underline{G}_h$ and, on a plant with several cells, its maximum $\bar{G}_h$ also bind on the total of its cells ([§8 Plant Minimum and Maximum](#plant-minimum-and-maximum)). See [System Element Modeling Overview §5](/math/system-elements). Matches the per-cell $\sigma^{g-}_{h,b,k}$ defined in [Notation Conventions §4.3](/overview/notation-conventions#43-slack-variables).
 
 For details on the FPHA construction and production function model variants, see [Hydro Production Function Models](/math/hydro-production-models).
 
@@ -370,13 +371,35 @@ $$
 \underline{Q}_{h,b} - \sigma^{q-}_{h,b,k} \leq q_{h,b,k} \leq \bar{Q}_{h,b}
 $$
 
-The lower bound is soft, with one slack $\sigma^{q-}_{h,b,k}$ per cell, priced at the plant's own penalty $c^{tv-}_h$ at full magnitude on every cell — never divided by cell count; it is the plain sum of the cell's own unit groups' resolved minimum turbined flow, $\underline{Q}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{Q}_u$. The upper bound is hard and closes against the plant's own resolved maximum, never raised above it:
+The lower bound is soft, with one slack $\sigma^{q-}_{h,b,k}$ per cell, priced at the plant's own penalty $c^{tv-}_h$ at full magnitude on every cell — never divided by cell count; it is the plain sum of the cell's own unit groups' resolved minimum turbined flow, $\underline{Q}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{Q}_u$, except on a single-cell plant whose own minimum is tighter ([Plant Minimum and Maximum](#plant-minimum-and-maximum)). The upper bound is hard and closes against the plant's own resolved maximum, never raised above it:
 
 $$
 \bar{Q}_{h,b} = \min\!\left( \sum_{u \,\in\, (h,b)} \mathrm{fold}(u),\ \ \bar{Q}_h \right)
 $$
 
 where $\mathrm{fold}(u) = \bar{Q}_u$ for an FPHA hydro (turbined flow and generation are independent columns there) and $\mathrm{fold}(u) = \min(\bar{Q}_u,\ \bar{G}_u / \rho_h)$ for a constant-productivity hydro — each group's own flow cap and MW-implied flow cap must be folded **before** summing across the cell, since $\min$ does not distribute over a sum of groups that bind on different sides. This is the mechanism that enforces a constant-productivity cell's generation cap (§6): there is no separate generation column to bound directly. Matches the per-cell $\sigma^{q-}_{h,b,k}$ defined in [Notation Conventions §4.3](/overview/notation-conventions#43-slack-variables).
+
+### Plant Minimum and Maximum
+
+A plant's own resolved minimum turbined flow $\underline{Q}_h$ and minimum generation $\underline{G}_h$ bind on the total of its cells where they are tighter than the cells' floors. Take the relative tolerance $\epsilon(x) = 10^{-9} \max(\lvert x \rvert, 1)$. At a block where $\underline{Q}_h \le \sum_{b \in \mathcal{B}_h} \underline{Q}_{h,b} + \epsilon(\underline{Q}_h)$ the cell floors already enforce the plant minimum. Elsewhere, a single-cell plant takes $\underline{Q}_h$ as its cell floor, and a plant with several cells gets one residual row on top of its cell rows:
+
+$$
+\sum_{b \in \mathcal{B}_h} \big( q_{h,b,k} + \sigma^{q-}_{h,b,k} \big) + \sigma^{Q-}_{h,k} \;\geq\; \underline{Q}_h,
+\qquad
+\sum_{b \in \mathcal{B}_h} \big( \pi_{h,b,k} + \sigma^{g-}_{h,b,k} \big) + \sigma^{G-}_{h,k} \;\geq\; \underline{G}_h
+$$
+
+$\pi_{h,b,k}$ is the cell's generation: $g_{h,b,k}$ for an FPHA cell, $\rho_h \, q_{h,b,k}$ for a constant-productivity cell, and nothing for an FPHA plant without a generation column, which is PreFilling or in its filling window. The residual slacks are priced at the plant's own penalties, $c^{tv-}_h$ on $\sigma^{Q-}_{h,k}$ and $c^{gv-}_h$ on $\sigma^{G-}_{h,k}$, at full magnitude. Because each residual row also carries the cell slacks, the cheapest slacks charge $c^{tv-}_h \max\big(\underline{Q}_h - \sum_{b} q_{h,b,k},\ \sum_{b} (\underline{Q}_{h,b} - q_{h,b,k})^+\big)$ for the turbined flow and the same form for the generation, so a shortfall is charged once. A plant with a residual row at some block of the stage has the row at every block of the stage; at a block where its cells cover the plant minimum the row is free and the residual slack is fixed at $[0, 0]$. The minima apply in every lifecycle phase.
+
+A plant minimum below its cells' floors does not loosen them: the cell floors still bind. A plant with several cells also gets one hard row per block for its maximum turbined flow and one for its maximum generation, without a slack:
+
+$$
+\sum_{b \in \mathcal{B}_h} q_{h,b,k} \;\leq\; \bar{Q}_h,
+\qquad
+\sum_{b \in \mathcal{B}_h} \pi_{h,b,k} \;\leq\; \bar{G}_h
+$$
+
+Each binds at a block where the plant maximum is below the sum of its cells' caps by more than $\epsilon$ of it, the cells' caps being $\bar{Q}_{h,b}$ for the turbined flow, and $\rho_h \bar{Q}_{h,b}$ (constant productivity) or $\bar{G}_{h,b}$ (FPHA) for the generation; at any other block of the stage the row is free. A single-cell plant has no such row, since its cell bound already closes against $\bar{Q}_h$ and $\bar{G}_h$, and neither has a plant that is PreFilling or in its filling window, whose turbined flow is fixed at $0$.
 
 ### Diversion Flow Bounds (per hydro $h$, block $k$)
 
@@ -416,11 +439,11 @@ The per-block constraint violation penalties in the objective (referenced from �
 
 $$
 \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \Big[
-  c^{tv-}_h \sum_{b \in \mathcal{B}_h} \sigma^{q-}_{h,b,k} + c^{ov-}_h \sigma^{o-}_{h,k} + c^{ov+}_h \sigma^{o+}_{h,k} + c^{gv-}_h \sum_{b \in \mathcal{B}_h} \sigma^{g-}_{h,b,k}
+  c^{tv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{q-}_{h,b,k} + \sigma^{Q-}_{h,k} \Big) + c^{ov-}_h \sigma^{o-}_{h,k} + c^{ov+}_h \sigma^{o+}_{h,k} + c^{gv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{g-}_{h,b,k} + \sigma^{G-}_{h,k} \Big)
 \Big]
 $$
 
-The turbined- and generation-minimum slacks are **per cell** — each of a split plant's cells carries its own slack column and its own row, priced at the plant's penalty at full magnitude, never divided across cells. The outflow slacks stay per plant: outflow has no per-cell column to attribute a floor to. The evaporation slacks are per plant too, stage-level on a parallel stage and per block on a chronological stage ([Evaporation Row](#evaporation-row)).
+The turbined- and generation-minimum slacks are **per cell** — each of a split plant's cells carries its own slack column and its own row, priced at the plant's penalty at full magnitude, never divided across cells. The residual slacks $\sigma^{Q-}_{h,k}$ and $\sigma^{G-}_{h,k}$ exist only for a plant with a residual row ([§8 Plant Minimum and Maximum](#plant-minimum-and-maximum)) and are $0$ for every other plant. The outflow slacks stay per plant: outflow has no per-cell column to attribute a floor to. The evaporation slacks are per plant too, stage-level on a parallel stage and per block on a chronological stage ([Evaporation Row](#evaporation-row)).
 
 $$
 + \sum_{h \in \mathcal{H}} H_t \cdot \bigl(c^{wv-}_h \sigma^{w-}_h + c^{wv+}_h \sigma^{w+}_h\bigr)
