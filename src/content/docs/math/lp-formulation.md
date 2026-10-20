@@ -49,14 +49,14 @@ The table lists the families in the order of the stage LP's rows, with $N = \lve
 | 8 | Maximum outflow | $N \lvert\mathcal{K}\rvert$, one per hydro and block | [§7](#7-outflow-constraints) |
 | 9 | Minimum turbined flow | one per (hydro, bus) cell and block | [§8](#8-variable-bounds-and-minimum-constraints) |
 | 10 | Minimum generation | one per (hydro, bus) cell and block | [§6](#6-hydro-generation-constraints) |
-| 10a | Plant minimum and maximum | for a hydro with several cells, per block: a turbined-flow and a generation minimum row when the plant minimum binds on its cells' total at some block of the stage, then a turbined-flow and a generation maximum row when the plant maximum does | [§8 Plant Minimum and Maximum](#plant-minimum-and-maximum) |
-| 11 | Filling floor | one per filling hydro at each stage of its filling window | [§8](#8-variable-bounds-and-minimum-constraints) |
-| 12 | Soft dead-volume floor | one per filling hydro at each stage from its entry stage on | [§8](#8-variable-bounds-and-minimum-constraints) |
-| 13 | Commitment fish | one per anticipated thermal whose delivery at the stage was decided at an earlier stage or before the study | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
-| 14 | Commitment deposit | one per anticipated thermal that decides at the stage a commitment for a delivery inside the study or the declared post-study calendar at which the plant is commissioned | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
-| 15 | Commitment carry | one per ring slot holding a later delivery, decided at an earlier stage or before the study, inside the study or the declared post-study calendar | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
-| 16 | Generic constraints | one per active bound and block it covers, or one stage-level row for a block-independent bound | [§10](#10-generic-constraints) |
-| 17 | Benders cuts | one per active cut; one per resident cut under Dynamic Cut Selection | [§11](#11-benders-cuts) |
+| 11 | Plant minimum and maximum | for a hydro with several cells, per block: a turbined-flow and a generation minimum row when the plant minimum binds on its cells' total at some block of the stage, then a turbined-flow and a generation maximum row when the plant maximum does | [§8 Plant Minimum and Maximum](#plant-minimum-and-maximum) |
+| 12 | Filling floor | one per filling hydro at each stage of its filling window | [§8](#8-variable-bounds-and-minimum-constraints) |
+| 13 | Soft dead-volume floor | one per filling hydro at each stage from its entry stage on | [§8](#8-variable-bounds-and-minimum-constraints) |
+| 14 | Commitment fish | one per anticipated thermal whose delivery at the stage was decided at an earlier stage or before the study | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
+| 15 | Commitment deposit | one per anticipated thermal that decides at the stage a commitment for a delivery inside the study or the declared post-study calendar at which the plant is commissioned | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
+| 16 | Commitment carry | one per ring slot holding a later delivery, decided at an earlier stage or before the study, inside the study or the declared post-study calendar | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
+| 17 | Generic constraints | one per active bound and block it covers, or one stage-level row for a block-independent bound | [§10](#10-generic-constraints) |
+| 18 | Benders cuts | one per active cut; one per resident cut under Dynamic Cut Selection | [§11](#11-benders-cuts) |
 
 Incoming-state pinning and the lifecycle pins are column bounds, not rows: each incoming-state column is fixed at its trial value by equal bounds ([State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds)), and each column a lifecycle phase freezes is fixed by its bounds ([§8](#8-variable-bounds-and-minimum-constraints)).
 
@@ -81,7 +81,7 @@ $$
 \min \; \underbrace{C^{resource}}_{\text{thermal, contracts}} + \underbrace{C^{recourse}}_{\text{deficit, excess, inflow non-negativity}} + \underbrace{C^{violation}}_{\text{constraint slacks}} + \underbrace{C^{regularization}}_{\text{spillage, exchange, ...}} + d_{t \to t+1} \, \theta
 $$
 
-where the per-block terms are weighted by the block duration $\tau_k$ and the stage-level terms, namely the storage-violation slacks on end-of-stage storage, the inflow non-negativity and withdrawal slacks, the evaporation slacks of a parallel stage, the slacks of a stage-level generic constraint (§10) and the commitment cost of an anticipated thermal, apply once per stage (§2); the per-block part of each component is:
+where the per-block terms are weighted by the block duration $\tau_k$, except the amount-basis slacks of a block-level generic constraint (§10), and the stage-level terms, namely the storage-violation slacks on end-of-stage storage, the inflow non-negativity and withdrawal slacks, the evaporation slacks of a parallel stage, the slacks of a stage-level generic constraint (§10) and the commitment cost of an anticipated thermal, apply once per stage (§2); the per-block part of each component is:
 
 $$
 C^{component} = \sum_{k \in \mathcal{K}} \tau_k \cdot (\text{cost terms for component})
@@ -491,7 +491,7 @@ Each coefficient $\gamma_{g,e}$ is an arithmetic expression over literal numbers
 
 Each endpoint composes independently from up to two pieces, summed together: a numeric base that may itself vary by stage (and, for the finest-grained parameter kind below, by block within the stage), plus an optional affine remainder layered on top of it — a constant plus a weighted sum of named scalar parameters. An endpoint carrying neither piece is simply absent; a base alone, a remainder alone, or their sum are all valid, so a single endpoint can combine a scheduled floor or cap that already varies by stage with a further parameter-driven adjustment on top.
 
-A named scalar parameter takes one of six kinds: one value for every stage; one per stage; one per season; a quantity computed from a plant's geometry and energy conversion, §5 of [Hydro Production Function Models](/math/hydro-production-models#4-energy-conversion-quantities); one per stage and block; or a formula over other parameters, which varies wherever the parameters it reads vary.
+A named scalar parameter takes one of six kinds: one value for every stage; one per stage; one per season; a quantity computed from a plant's geometry and energy conversion, §4 of [Hydro Production Function Models](/math/hydro-production-models#4-energy-conversion-quantities); one per stage and block; or a formula over other parameters, which varies wherever the parameters it reads vary.
 
 Resolution happens once at LP-build time, and every resolved coefficient and endpoint must be finite, so the LP coefficients and endpoints are still numeric at solve time — the parameter mechanism does not introduce LP-variable coupling between constraints. Methodology relevance: it lets the corpus express ramping limits, capacity caps, and operator-imposed quotas that vary by stage, season, or block without authoring a separate constraint per stage. Coefficient and endpoint values can therefore be **stage- and block-varying constants**, not just literal numbers.
 
