@@ -25,7 +25,9 @@ The table is also read by the useful-range mean evaluator
 for **any** hydro, whatever its generation model, that has a specific
 productivity (the `system/hydros.json` entity field or a
 `system/hydro_energy_productivity.parquet` override). For such a plant, a table
-that fails to build, or a non-positive mean equivalent head, rejects the case at
+that fails to build, or a non-positive mean equivalent head at a stage without an
+`integrated_equivalent_productivity_mw_per_m3s` value in
+`system/hydro_energy_productivity.parquet`, rejects the case at
 `novomodelo validate` (see
 [`GenericConstraintValidationError`](/reference/error-codes/#genericconstraintvalidationerror)).
 Author the table to span `reservoir.min_storage_hm3` … `reservoir.max_storage_hm3`:
@@ -260,12 +262,23 @@ layer. Rows with `stage_id = NULL` act as per-hydro defaults and apply to all
 stages not covered by a stage-specific row. Each override column reaches a
 different set of consumers:
 
-- `equivalent_productivity_mw_per_m3s` — replaces ρ_eq outright in **both**
-  energy-conversion evaluators (the reference-point value and the useful-range
-  mean value), and therefore the `equivalent_productivity` /
-  `integrated_equivalent_productivity` computed tags and the
-  `equivalent_productivity_mw_per_m3s` /
-  `integrated_equivalent_productivity_mw_per_m3s` simulation output columns.
+- `equivalent_productivity_mw_per_m3s` — replaces the reference-point ρ_eq
+  outright, and therefore the `equivalent_productivity` and
+  `accumulated_productivity` computed tags and the
+  `equivalent_productivity_mw_per_m3s` simulation output column. It reaches
+  the useful-range mean value only for a plant that has no mean of its own to
+  integrate (step 3 of the
+  [resolution order](/math/hydro-production-models#43-useful-range-mean-productivity)):
+  a plant with VHA geometry and a specific productivity integrates its mean
+  even when this column is set.
+- `integrated_equivalent_productivity_mw_per_m3s` — sets the plant's own
+  useful-range mean productivity ρ̄_eq for the stage outright, for any
+  generation model, and therefore the cascade sum, the
+  `integrated_equivalent_productivity` / `integrated_accumulated_productivity`
+  and `max_stored_energy` computed tags, the `integrated_*` simulation output
+  columns and `stored_energy_*`. Use it when the case's stored-energy
+  convention differs from integrating the plant's geometry over its physical
+  range.
 - `specific_productivity_mw_per_m3s_per_m` — the ρ_esp that multiplies the net
   head in **both** evaluators' head-derived ρ_eq (the reference-point value of an
   FPHA plant; the useful-range mean value of any plant with VHA geometry), and
@@ -283,17 +296,20 @@ different set of consumers:
 | `equivalent_productivity_mw_per_m3s`     | Float64 (nullable) | Yes      | —       | MW/(m³/s)   | Direct ρ_eq override [MW/(m³/s)]; finite and >= 0.0 (`0.0` marks a planned outage at a stage not using the `"fpha"` model)  |
 | `reference_outflow_m3s`                  | Float64 (nullable) | Yes      | —       | m³/s        | Q_ref override [m³/s]; finite and >= 0.0                                                                                    |
 | `specific_productivity_mw_per_m3s_per_m` | Float64 (nullable) | Yes      | —       | MW/(m³/s)/m | ρ_esp override [MW/(m³/s)/m]; finite and >= 0.0 (`0.0` is accepted and makes the head-derived equivalent productivity zero) |
+| `integrated_equivalent_productivity_mw_per_m3s` | Float64 (nullable) | Yes | — | MW/(m³/s) | Useful-range mean ρ̄_eq override [MW/(m³/s)]; finite and >= 0.0; NULL means no override |
 
 **Validation:**
 
-- All five columns must be present; a file missing any of them is rejected.
+- All six columns must be present; a file missing any of them is rejected. A
+  column may be NULL on every row.
 - `hydro_id` must not be null.
 - `equivalent_productivity_mw_per_m3s`, when set, must be finite and >= 0.0;
   `0.0` is accepted; at a stage that does not use the `"fpha"` model it marks a planned outage.
 - `reference_outflow_m3s`, when set, must be finite and >= 0.0.
 - `specific_productivity_mw_per_m3s_per_m`, when set, must be finite and >= 0.0;
   `0.0` is accepted; it makes the head-derived equivalent productivity zero and is not a planned-outage marker.
-- A row where all three override columns are NULL is accepted.
+- `integrated_equivalent_productivity_mw_per_m3s`, when set, must be finite and >= 0.0.
+- A row where all four override columns are NULL is accepted.
 - Duplicate `(hydro_id, stage_id)` pairs are rejected during case build.
 - The reference operating volume V_ref is declared per `(plant, stage)` by `reference_volume` in
   `system/hydro_production_models.json`; a `reference_volume_hm3` column in this

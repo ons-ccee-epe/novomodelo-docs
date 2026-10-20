@@ -275,13 +275,21 @@ A hydro whose `generation.model` is `fpha` is outside both checks: its
 equivalent productivity is derived from the VHA geometry and the specific
 productivity (methodology §4.1). An `equivalent_productivity_mw_per_m3s` row
 for such a hydro (stage-specific, else the per-hydro default) is an override that
-replaces the derived value for both evaluators — the reference-point value
-(§4.1) and the useful-range mean value (§4.3).
+replaces the derived reference-point value (§4.1) only. The useful-range mean
+value (§4.3) is set outright, for any hydro and generation model, by an
+`integrated_equivalent_productivity_mw_per_m3s` value on the same row; without
+one it follows the resolution order of §4.3, so a plant with VHA geometry and a
+specific productivity integrates its mean even when it carries an
+`equivalent_productivity_mw_per_m3s` override. A non-positive mean head is
+rejected at setup with a message that names
+`integrated_equivalent_productivity_mw_per_m3s` as the way to supply the
+value.
 
 In `system/hydro_energy_productivity.parquet`,
-`equivalent_productivity_mw_per_m3s` and
-`specific_productivity_mw_per_m3s_per_m` must each be finite and non-negative
-when set: `0` is accepted and a negative value is rejected at load. A `0`
+`equivalent_productivity_mw_per_m3s`,
+`specific_productivity_mw_per_m3s_per_m` and
+`integrated_equivalent_productivity_mw_per_m3s` must each be finite and
+non-negative when set; NULL means no override: `0` is accepted and a negative value is rejected at load. A `0`
 equivalent productivity at a stage that does not use the `"fpha"` model marks a
 planned-outage stage, as
 `0.0` does in the JSON field below. A `0` specific productivity zeroes the head-derived equivalent productivity and does not stop generation.
