@@ -100,7 +100,7 @@ $$
 \sigma^{inf}_h = a^-_h = \max(0, -a_h)
 $$
 
-so the water reaching the reservoir is $a_h + a^-_h = \max(a_h, 0)$: a negative realization enters the water balance as zero, and a non-negative one enters unchanged, its truncation amount being zero. The next stage's lag carries $a_h$, not the truncated value.
+so the water reaching the reservoir is $a_h + a^-_h = \max(a_h, 0)$: a negative realization enters the water balance as zero, and a non-negative one enters unchanged, its truncation amount being zero. The inflow lags of later stages are built from $a_h$, not from the truncated value.
 
 **Advantages**:
 
@@ -148,7 +148,7 @@ It shares the dependence of the cap on the incoming lags with `truncation` (§7)
 | Truncation: $l = \max(-x^*, 0)$, unpriced                             | `truncation`              |
 | Truncation combined with penalty: $0 \le l \le \max(-x^*, 0)$, priced | `truncation_with_penalty` |
 
-where $x^*$ is the realization at the solve's incoming lags, so $\max(-x^*, 0)$ is the truncation amount $a^-_h$. Under every strategy the PAR state, and with it the next stage's lag, keeps the raw realization. The paper's optimal-value strategy, which solves a separate allocation problem for the inflow and applies only in the forward pass, has no counterpart among these methods.
+where $x^*$ is the realization at the solve's incoming lags, so $\max(-x^*, 0)$ is the truncation amount $a^-_h$. Under every strategy the PAR state keeps the raw realization, and the inflow lags of later stages are built from it. The paper's optimal-value strategy, which solves a separate allocation problem for the inflow and applies only in the forward pass, has no counterpart among these methods.
 
 ## 7. Truncation and the Lower Bound
 
