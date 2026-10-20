@@ -49,10 +49,6 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/ons-ccee-epe/novom
 You can also download individual archives directly from the
 [GitHub Releases page](https://github.com/ons-ccee-epe/novomodelo/releases/latest).
 
-The x86-64 Linux MPI build `novomodelo-mpi` (see
-[HPC & Cluster Deployment](/running/hpc-deployment/)) uses AVX2 and FMA instructions and
-needs a processor that supports them.
-
 ### Verify the Installation
 
 ```bash
@@ -177,6 +173,12 @@ Verify:
 ```bash
 ./target/release/novomodelo version
 ```
+
+The build sets no target features or target CPU, so on x86-64 a binary built from
+source, `cargo install` included, uses the same floating-point kernel as the
+pre-built archives of the same version and selects the same cuts. Setting
+`-C target-feature` or `-C target-cpu` through `RUSTFLAGS` can change the kernel,
+and the run can then select different, equally valid cuts.
 
 :::note[Contributors]
 To run the test suite, use `cargo test --workspace` (default HiGHS backend);

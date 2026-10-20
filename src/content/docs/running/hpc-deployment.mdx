@@ -76,9 +76,6 @@ an MPICH built for PMIx, as on this page, launch with `srun --mpi=pmix` (see
 Windows and Intel macOS have no pre-built MPI archive — build from source
 (Option 2) on those platforms.
 
-The x86-64 Linux `novomodelo-mpi` uses AVX2 and FMA instructions and needs a
-processor that supports them.
-
 The Linux binaries are dynamically linked against `libmpi.so.12` (the MPICH 4.x
 ABI). They do **not** bundle an MPI runtime — you supply one at run time (see
 [Building MPICH from source](#building-mpich-from-source)). Any MPICH-ABI-compatible
@@ -111,9 +108,11 @@ The binary is written to `target/release/novomodelo`. The build reads the MPI
 headers and link flags through `pkg-config`, so ensure `PKG_CONFIG_PATH`
 includes your MPICH `lib/pkgconfig` directory.
 
-On x86-64 Linux the source tree's `.cargo/config.toml` enables AVX2 and FMA for
-the build, so the binary needs a processor that supports them, as the pre-built
-archive does, unless a `RUSTFLAGS` environment variable replaces that setting.
+The source tree sets no target features or target CPU, so on x86-64 every build
+of a version, the pre-built archives included, uses one floating-point kernel and
+selects the same cuts. A build given `-C target-feature` or `-C target-cpu`, for
+example through `RUSTFLAGS`, can use another kernel and select different, equally
+valid cuts, so its results can differ from those of the release builds.
 
 :::note[NUMA topology]
 `novomodelo-cli` has no `numa` feature of its own; the ferrompi NUMA extension is a

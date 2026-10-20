@@ -544,18 +544,19 @@ template is built — and every rank resolves the same profile from the broadcas
 | `use_warm_start` | boolean |
 | `steepest_edge_devex_fallback_threshold` | number |
 
-- `presolve` affects only a solve that starts cold — a warm-started solve
-  skips presolve regardless of the setting. Under the built-in HiGHS profiles
-  every forward and simulation solve starts cold.
-- `use_warm_start` decides whether the phase's solves start from a stored
-  basis. The built-in HiGHS profiles warm-start the backward pass (`true`)
-  and start forward and simulation solves cold (`false`); setting the field
-  overrides that phase, and every retry of a solve keeps the phase's setting. With
-  `false`, each solve in the phase starts cold and ignores any stored basis.
-  A cold solve can stop at a different, equally optimal vertex than a
-  warm-started one, so the cuts, the lower bound and the simulated duals can
-  differ slightly between the two settings. How the basis store feeds each
-  phase is in the
+- `presolve` affects only a genuinely cold solve — a warm-started solve
+  skips presolve regardless of the setting.
+- `use_warm_start` chooses whether a phase's HiGHS solves start from the stored
+  basis. The built-in profiles set it to `true` for `training.solver.backward` and
+  to `false` for `training.solver.forward` and `simulation.solver`. Under `false`,
+  HiGHS ignores the stored basis and solves cold, with presolve (on in every
+  built-in profile). Set `"use_warm_start": true` in `training.solver.forward` or
+  `simulation.solver` to warm-start that phase. A cold solve can stop at a
+  different, equally optimal vertex than a warm-started one: the same objective
+  value, possibly different duals. HiGHS retry escalation keeps the phase's
+  `use_warm_start` at every retry level. The CLP backend has no such setting:
+  every phase starts from the stored basis when one exists. How the basis store
+  feeds each phase is in the
   [LP Warm-Start implementation notes](/math/lp-warm-start/#implementation-in-novomodelo).
 - `dual_edge_weight: "steepest_edge"` is a **request, not a guarantee** —
   HiGHS silently falls back to Devex pricing once the dual steepest-edge
