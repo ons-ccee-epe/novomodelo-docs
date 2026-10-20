@@ -13,7 +13,7 @@ novomodelo [--color <WHEN>] <SUBCOMMAND> [OPTIONS]
 
 | Option           | Type                          | Default | Description                                                                                                                                                   |
 | ---------------- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Control ANSI color output on stdout and stderr. `auto` colors each stream only when it is a terminal; `always` forces color on — useful under `mpiexec`, which pipes both streams through a non-TTY. On more than one MPI rank, rank 0 of `novomodelo run` colors both streams unless `--quiet` is given, whatever `--color` says. |
+| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Control ANSI color output on stdout and stderr. `auto` colors each stream only when it is a terminal; `always` forces color on both — useful under `mpiexec`, which pipes both streams through a non-TTY. On more than one MPI rank, rank 0 of `novomodelo run` colors both streams unless `--quiet` is given, whatever `--color` says. |
 
 ## Subcommands
 
@@ -89,7 +89,7 @@ Stochastic artifact export is controlled by `exports.stochastic` in `config.json
 | `--output <DIR>` | Path    | `<CASE_DIR>/output/` | Output directory for results                                                                                                                                           |
 | `--threads <N>`  | integer | `1`                  | Number of worker threads per MPI rank. Each thread solves its own LP instances; scenarios are distributed across threads. Must be `1` or more. |
 | `--comm-backend <WHICH>` | `auto` \| `local` \| `mpi` | `auto` | Communication backend. `auto` selects the MPI backend when a binary built with MPI support (the `novomodelo-mpi` release asset) is launched under an MPI launcher (`mpiexec`/`mpirun`/`srun`), and the local backend otherwise; `local` forces a single process; `mpi` forces the MPI backend and fails with a clear message on a binary built without MPI support. |
-| `--quiet`        | flag    | off                  | Suppress the banner, progress bars and summaries. Errors still go to stderr                                                                                            |
+| `--quiet`        | flag    | off                  | Suppress the banner, the progress output and the summaries, so stdout stays empty. Errors still go to stderr                                                           |
 
 ### Config-First Principle
 
@@ -129,6 +129,13 @@ mpiexec -np 4 novomodelo-mpi run /data/cases/hydro_study
 
 ### Output format
 
+`novomodelo run` writes its report to stdout: the banner, the execution and setup
+blocks, the progress lines, and the training and simulation summaries. Warnings
+and errors go to stderr. On an interactive terminal the progress bars draw on
+stderr instead; when stderr is not a terminal (redirected, piped, or under an MPI
+launcher), progress is one appended line per iteration and per simulation update
+on stdout.
+
 `novomodelo run` prints this summary to stdout once training finishes. It carries
 the convergence, policy-rows, and LP-solve lines, plus a `Time split` block
 that decomposes the total training wall time into `Forward` / `Backward` /
@@ -138,7 +145,7 @@ that decomposes the total training wall time into `Forward` / `Backward` /
 Training complete in 4m 12s (42 iterations, converged at iter 38)
   Lower bound:  4.85000e4 $/stage
   Upper bound:  4.90000e4 +/- 2.50000e2 $/stage
-  Gap:          1.00000%
+  Gap:          1.03093%
   Policy rows:  980000 active / 1250000 generated
   LP solves:    84000 (81900 first-try, 2000 retried, 100 failed)
   Avg iter:     6000ms
