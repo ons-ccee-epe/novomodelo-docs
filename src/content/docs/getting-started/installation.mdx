@@ -46,12 +46,13 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/ons-ccee-epe/novom
 | Linux (ARM64)          | `aarch64-unknown-linux-gnu`   |
 | Windows (x86-64)       | `x86_64-pc-windows-msvc`      |
 
+The Linux archives, which the installer also downloads, need glibc 2.38 or
+newer; `ldd --version` prints your glibc version. On an older system, such as
+Ubuntu 22.04, Debian 12 or RHEL 9, install [from crates.io](#from-cratesio)
+instead, which builds against the system's own glibc.
+
 You can also download individual archives directly from the
 [GitHub Releases page](https://github.com/ons-ccee-epe/novomodelo/releases/latest).
-
-The x86-64 Linux MPI build `novomodelo-mpi` (see
-[HPC & Cluster Deployment](/running/hpc-deployment/)) uses AVX2 and FMA instructions and
-needs a processor that supports them.
 
 ### Verify the Installation
 
@@ -61,10 +62,10 @@ novomodelo version
 
 Expected output (exact versions and arch will vary):
 
-{/* capture: novomodelo version | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: none */}
+{/* capture: novomodelo version | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: none */}
 
 ```
-novomodelo   v0.18.1
+novomodelo   v0.19.0
 solver: HiGHS 1.13.1
 comm:   local
 zstd:   enabled
@@ -113,11 +114,11 @@ use the `musllinux` wheel.
 python -c "import novomodelo; print(novomodelo.__version__); print(novomodelo.version_info())"
 ```
 
-{/* capture: python -c "import novomodelo; print(novomodelo.__version__); print(novomodelo.version_info())" | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none */}
+{/* capture: python -c "import novomodelo; print(novomodelo.__version__); print(novomodelo.version_info())" | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: none */}
 
 ```text
-0.18.1
-{'version': '0.18.1', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
+0.19.0
+{'version': '0.19.0', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
 ```
 
 If the first line shows the installed version and the second a dictionary, the
@@ -178,6 +179,12 @@ Verify:
 ./target/release/novomodelo version
 ```
 
+The build sets no target features or target CPU, so on x86-64 a binary built from
+source, `cargo install` included, uses the same floating-point kernel as the
+pre-built archives of the same version and selects the same cuts. Setting
+`-C target-feature` or `-C target-cpu` through `RUSTFLAGS` can change the kernel,
+and the run can then select different, equally valid cuts.
+
 :::note[Contributors]
 To run the test suite, use `cargo test --workspace` (default HiGHS backend);
 [CONTRIBUTING.md](https://github.com/ons-ccee-epe/novomodelo/blob/main/CONTRIBUTING.md)
@@ -234,10 +241,10 @@ explicitly. The default build (no extra flags) uses HiGHS.
 
 The `novomodelo version` banner shows which backend is compiled in:
 
-{/* capture: novomodelo version | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: excerpt; CLP line verified at crates/novomodelo-solver/vendor/coin-build/include/ClpConfig.h:21 at novomodelo v0.18.1, solver line not capturable from the HiGHS release asset */}
+{/* capture: novomodelo version | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: excerpt; CLP line verified at crates/novomodelo-solver/vendor/coin-build/include/ClpConfig.h:21 at novomodelo v0.19.0, solver line not capturable from the HiGHS release asset */}
 
 ```
-novomodelo   v0.18.1
+novomodelo   v0.19.0
 solver: CLP 1.17.11
 comm:   local
 ...

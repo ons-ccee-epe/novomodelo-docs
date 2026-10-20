@@ -1,6 +1,6 @@
 ---
 title: Hydro Production Function Models
-description: Constant productivity, FPHA (piecewise-linear convex hull fit), and linearized head models for hydro generation constraints — with fitting pipeline, LP integration, and energy-conversion scalars.
+description: Constant productivity and FPHA (piecewise-linear convex hull fit) models for hydro generation constraints — with fitting pipeline, LP integration, and energy-conversion scalars.
 ---
 
 import FphaPlot from "../../../components/FphaPlot.astro";
@@ -11,7 +11,7 @@ import { Content as HydroNotes } from "./_impl/_hydro.notes.mdx";
 
 ## Purpose
 
-This chapter defines the hydro generation constraint models supported by Novomodelo, which relate turbined flow and reservoir storage to electrical output. Two production functions shape dispatch: constant productivity and FPHA. A third model name — linearized head — is a reserved alias for constant productivity (see §3). The choice between constant productivity and FPHA trades off accuracy vs. computational cost, and can vary by stage per hydro.
+This chapter defines the hydro generation constraint models supported by Novomodelo, which relate turbined flow and reservoir storage to electrical output. Two production functions shape dispatch: constant productivity and FPHA. The choice between constant productivity and FPHA trades off accuracy vs. computational cost, and can vary by stage per hydro.
 
 All decision variables use **rate units** (MW, m³/s) — see the Variable Units Convention in [System Element Modeling Overview](/math/system-elements). For variable definitions see [Notation Conventions](/overview/notation-conventions); for LP integration see [LP Formulation](/math/lp-formulation); for hydro element descriptions see [System Element Modeling Overview](/math/system-elements).
 
@@ -34,7 +34,7 @@ with:
 - $\eta_h$ = turbine efficiency (a dimensionless factor in $(0, 1]$)
 - $H^{ref}_{h,t}$ = reference net head (meters), evaluated at the reference storage level and varying by stage
 
-**Per-stage productivity**: the productivity coefficient is authored **per (hydro, stage)** rather than per plant. A plant can therefore carry a stage-varying constant productivity — useful when the reference head differs between near-term and far-future stages of the same study, or when the constant model is being used as a coarse approximation that needs different operating points across the horizon. Section 5.1 describes how that per-(hydro, stage) value is supplied.
+**Per-stage productivity**: the productivity coefficient is authored **per (hydro, stage)** rather than per plant. A plant can therefore carry a stage-varying constant productivity — useful when the reference head differs between near-term and far-future stages of the same study, or when the constant model is being used as a coarse approximation that needs different operating points across the horizon. Section 4.1 describes how that per-(hydro, stage) value is supplied.
 
 **LP treatment**: constant productivity adds no generation column and no production row: the turbined-flow column of each (hydro, bus) cell (§2.9) enters its bus's load balance with coefficient $\rho_{h,t}$ in every block, so $g_{h,k} = \rho_{h,t} \cdot q_{h,k}$ holds by construction. Simple and fast, but ignores head variation with storage **within a stage**.
 
@@ -142,7 +142,7 @@ $$
 
 The exact production function converts hydraulic power to electrical power with the factor $9.81\,\eta_h/1000$ (MW per (m³/s · m)), so $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ in MW. Novomodelo uses constant efficiency $\eta_h$ per plant. The **specific productivity** $\rho_{esp}$, in the same unit, is a separate plant input that the exact production function and the FPHA fit do not use.
 
-An FPHA plant has no single scalar productivity $\rho$. The fitted planes follow from $\eta_h$ and the topology functions alone, while the equivalent productivity $\rho_{eq}$ at the reference operating point is **derived** from a specific productivity $\rho_{esp}$ supplied for the plant (overridable per stage) and the VHA geometry; the derivation is documented in section 5.1.
+An FPHA plant has no single scalar productivity $\rho$. The fitted planes follow from $\eta_h$ and the topology functions alone, while the equivalent productivity $\rho_{eq}$ at the reference operating point is **derived** from a specific productivity $\rho_{esp}$ supplied for the plant (overridable per stage) and the VHA geometry; the derivation is documented in section 4.1.
 
 ### 2.5 FPHA Hyperplanes
 
@@ -173,7 +173,7 @@ The computed-FPHA path produces hyperplanes from topology data in four stages: c
 
 The fitter evaluates the exact production function $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ on a uniform two-dimensional grid over the fitting window, **with spillage $s = 0$ and lateral flow $= 0$**. The grid has:
 
-- **Volume axis**: a configurable number of uniformly spaced values spanning the fitting window $[v_{min}, v_{max}]$. The window lies within the plant's forebay storage range (the full range unless narrowed) and is distinct from the reference volume (§5.1), which fixes an operating point, not this window. The point counts and the window are set on the Configure tab.
+- **Volume axis**: a configurable number of uniformly spaced values spanning the fitting window $[v_{min}, v_{max}]$. The window lies within the plant's forebay storage range (the full range unless narrowed) and is distinct from the reference volume (§4.1), which fixes an operating point, not this window. The point counts and the window are set on the Configure tab.
 - **Flow axis**: a configurable number of uniformly spaced values spanning $[0, q_{max}]$. The axis **starts at $q = 0$**, where generation is zero; this zero-flow column anchors the lower closure of the cloud and eliminates the need for any synthetic closing point.
 
 Each cloud point is capped at the plant's installed capacity $\bar{G}_h$. Spillage is not a cloud dimension — it is fixed at zero throughout.
@@ -208,7 +208,7 @@ Key properties:
 
 **Precomputed input**: precomputed planes may carry an intercept factor $\kappa \in (0, 1]$ (Configure tab) that scales each plane's intercept only ($\gamma_0^m \leftarrow \gamma_0^m \cdot \kappa$), unlike the whole-affine $k_{FPHA}$. The computed path does not use $\kappa$; its $k_{FPHA}$ correction plays that role.
 
-The figure below shows a synthetic plant with normalized axes: storage, flow and generation are fractions of $v_{max}$, $q_{max}$ and $\bar{G}_h$. It slices the fit at one grid volume, which the example takes as the reference volume $V^{ref}$ of §5.1, and plots five series against turbined flow: the cloud points at that volume; the exact production $\phi$ capped at $\bar{G}_h$; the raw hull $FPHA_0$, the minimum over the hull planes, which lies on or above every cloud point; the corrected envelope $k_{FPHA} \cdot FPHA_0$, which rescales the hull by the single scalar of this section; and the dashed line $\rho_{eq}\,q$ of §5.1, which, as the example sets $\rho_{esp}$ to $9.81\,\eta_h/1000$, meets the uncapped $\phi$ at $q_{max}$, above the capped curve where the capacity binds.
+The figure below shows a synthetic plant with normalized axes: storage, flow and generation are fractions of $v_{max}$, $q_{max}$ and $\bar{G}_h$. It slices the fit at one grid volume, which the example takes as the reference volume $V^{ref}$ of §4.1, and plots five series against turbined flow: the cloud points at that volume; the exact production $\phi$ capped at $\bar{G}_h$; the raw hull $FPHA_0$, the minimum over the hull planes, which lies on or above every cloud point; the corrected envelope $k_{FPHA} \cdot FPHA_0$, which rescales the hull by the single scalar of this section; and the dashed line $\rho_{eq}\,q$ of §4.1, which, as the example sets $\rho_{esp}$ to $9.81\,\eta_h/1000$, meets the uncapped $\phi$ at $q_{max}$, above the capped curve where the capacity binds.
 
 <FphaPlot />
 
@@ -314,17 +314,11 @@ For the complete cut coefficient computation, see [Cut Management](/math/cut-man
 
 A production model that varies by stage or season is part of the model the policy is trained on: its cuts lower-approximate that model's cost-to-go whichever production model each stage uses ([Cut Management — when bounds and certificates hold](/math/cut-management#when-bounds-and-certificates-hold)). A policy simulated under a different production model than the one it was trained on is a heuristic, with no bound guarantee: the trained lower bound need not bound the simulated model's optimal value, and the gap between the two certifies nothing.
 
-## 3. Linearized Head Model (Reserved — Resolves to Constant Productivity)
-
-Linearized head is a **reserved production-model name**: it is equivalent to constant productivity (§1) in every phase — training (backward and forward passes) and simulation alike — and selecting it applies no head correction and imposes no phase restriction.
-
-Generation is therefore $g_{h,k} = \rho_{h,t} \cdot q_{h,k}$ with the plant's per-(hydro, stage) productivity (§5.1). It still requires the plant's productivity input.
-
-## 4. Model Selection Guidelines
+## 3. Model Selection Guidelines
 
 ### Training (Policy Construction)
 
-The substantive choice during training is between constant productivity and FPHA (linearized head is an alias for the former, §3). That choice trades accuracy against computational cost:
+The choice during training is between constant productivity and FPHA. That choice trades accuracy against computational cost:
 
 | Scenario                       | Recommended Model     | Rationale                          |
 | ------------------------------ | --------------------- | ---------------------------------- |
@@ -337,40 +331,38 @@ The substantive choice during training is between constant productivity and FPHA
 
 ### Simulation (Policy Evaluation)
 
-During simulation, constant productivity and FPHA behave as they do in training, and linearized head resolves to constant productivity (§3):
+During simulation, constant productivity and FPHA behave as they do in training:
 
 | Scenario                                                 | Recommended Model                   | Rationale                                                                                                |
 | -------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Plants trained with FPHA                                 | FPHA                                | Consistency with training model                                                                          |
 | Plants trained with constant, low head variation         | Constant productivity               | No benefit from head correction                                                                          |
-| Plants selecting linearized head                         | Constant productivity (equivalent)  | Linearized head resolves to the same constant-productivity source (§3); no head correction is applied    |
 | Post-optimization validation                             | Compare all models                  | Verify approximation quality                                                                             |
 
 Simulating a plant under another production model than the one it was trained with evaluates the policy heuristically (§2.11).
 
 The production model may vary by stage or by season per hydro (Configure tab).
 
-## 5. Energy-Conversion Quantities
+## 4. Energy-Conversion Quantities
 
-The three production models of sections 1–3 describe how generation depends on the operating state. For accounting purposes — natural-inflow energy (ENA), stored reservoir energy (EARM), and per-stage MW/MWh reporting — Novomodelo reduces each plant's production model to a small set of per-(hydro, stage) scalars produced by **two evaluators**: one evaluated at a representative reference operating point (§5.1–§5.2), and one averaged over the plant's physical storage range (§5.3). These scalars are computed once at study setup and reused on every stage of every scenario.
+The two production models of sections 1–2 describe how generation depends on the operating state. For accounting purposes — natural-inflow energy (ENA), stored reservoir energy (EARM), and per-stage MW/MWh reporting — Novomodelo reduces each plant's production model to a small set of per-(hydro, stage) scalars produced by **two evaluators**: one evaluated at a representative reference operating point (§4.1–§4.2), and one averaged over the plant's physical storage range (§4.3). These scalars are computed once at study setup and reused on every stage of every scenario.
 
-### 5.1 Equivalent Productivity
+### 4.1 Equivalent Productivity
 
 The **equivalent productivity** $\rho_{eq,h,t}$ (MW per m³/s) is the single-scalar productivity that the plant would carry at the reference operating point $(V^{ref}_{h,t},\, Q^{ref}_{h,t})$. The derivation depends on the plant's declared generation model, not on the model a stage selects:
 
 | Generation model        | $\rho_{eq,h,t}$ derivation                                                                                                                                                                                                                                                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Constant productivity   | A per-(hydro, stage) numeric value authored by the case (see below).                                                                                                                                                                                                                                                                                                |
-| Linearized head         | A per-(hydro, stage) numeric value authored by the case, supplied as for constant productivity.                                                                                                                                                                                                                                                                     |
-| FPHA                    | $\rho_{eq,h,t} = \rho_{esp,h,t} \cdot h_{eq}(V^{ref}_{h,t},\, Q^{ref}_{h,t})$, where $h_{eq}$ is the net head computed from the VHA geometry (section 2.3) at the reference point and $\rho_{esp,h,t}$ is resolved per stage: a per-stage override, else a per-plant default override, else the plant's own value. FPHA hydros author no separate $\rho_{eq}$ scalar — it is derived, and an override is accepted (see below). |
+| FPHA                    | $\rho_{eq,h,t} = \rho_{esp,h,t} \cdot h_{eq}(V^{ref}_{h,t},\, Q^{ref}_{h,t})$, where $h_{eq}$ is the net head computed from the VHA geometry (section 2.3) at the reference point and $\rho_{esp,h,t}$ is resolved per stage: a per-stage override, else a per-plant default override, else the plant's own value. FPHA hydros author no separate $\rho_{eq}$ scalar — it is derived, and an override of this reference-point value is accepted (see below). |
 
 **Reference volume**: the reference operating volume $V^{ref}_{h,t}$ is declared once per production-model entry (a stage range or a season), either as an absolute volume or as a fraction of the useful volume between $V^{min}_h$ and $V^{max}_h$; when absent a default fraction of the useful volume applies (Configure tab). This single declaration is the source of truth for the $\rho_{eq}$ derivation above and for the reservoir reference level at which the computed-FPHA piecewise-quartic tailrace families are interpolated (§2.3.1 — a plant's reference volume sets the downstream forebay level seen by the plant immediately upstream). It does **not** set the computed-FPHA volume fitting window $[V_{min}, V_{max}]$: that window is configured separately on the Configure tab, defaulting to the plant's full forebay storage range (§2.6.1).
 
 The reference flow $Q^{ref}_{h,t}$ at which both evaluators compute the net head is the plant's installed turbined-flow capacity.
 
-**Authoring**: a non-FPHA plant's equivalent productivity $\rho_{eq,h,t}$ is authored per hydro and stage. An FPHA plant's equivalent productivity is derived as in the table above and may be overridden; the override replaces the derived value in both evaluators, the reference-point value here and the useful-range mean value of §5.3. A zero equivalent productivity at a stage where the plant does not use the FPHA model is a planned outage: the plant generates nothing at that stage. At a stage that uses the FPHA model, generation follows the fitted planes, not this scalar. The authoring sources, their resolution order and the load-time checks are on the Configure tab.
+**Authoring**: a non-FPHA plant's equivalent productivity $\rho_{eq,h,t}$ is authored per hydro and stage. An FPHA plant's equivalent productivity is derived as in the table above and may be overridden; the override sets only the reference-point value here. The useful-range mean value of §4.3 has an override of its own. A zero equivalent productivity at a stage where the plant does not use the FPHA model is a planned outage: the plant generates nothing at that stage. At a stage that uses the FPHA model, generation follows the fitted planes, not this scalar. The authoring sources, their resolution order and the load-time checks are on the Configure tab.
 
-### 5.2 Accumulated Cascade Productivity
+### 4.2 Accumulated Cascade Productivity
 
 The **accumulated productivity** $\rho_{acum,h,t}$ (MW per m³/s) is the energy that one m³/s of incremental inflow into plant $h$ contributes once it is routed through plant $h$ and every plant downstream of $h$ along the cascade:
 
@@ -380,11 +372,11 @@ $$
 
 The sum is taken in topological order over the cascade (see [System Element Modeling Overview](/math/system-elements) for the cascade topology). Plants with no downstream successors have $\rho_{acum} = \rho_{eq}$. The accumulation is per-stage because each summand can vary by stage.
 
-### 5.3 Useful-Range Mean Productivity
+### 4.3 Useful-Range Mean Productivity
 
-The reference-point scalars of §5.1–§5.2 value water at a single operating volume. A quantity that values the **whole** stored volume — stored energy, or a floor on it — needs a productivity representative of every volume the reservoir can occupy. The second evaluator supplies it by averaging the forebay level over the plant's physical storage range.
+The reference-point scalars of §4.1–§4.2 value water at a single operating volume. A quantity that values the **whole** stored volume — stored energy, or a floor on it — needs a productivity representative of every volume the reservoir can occupy. The second evaluator supplies it by averaging the forebay level over the plant's physical storage range.
 
-**Physical storage range.** Each plant carries a physical storage range $[V^{min}_h, V^{max}_h]$: a stage-invariant property of the plant (its dead-volume floor and its full-reservoir ceiling). It is distinct from the per-stage operative bounds $[\underline V_h, \bar V_h]$ on the storage variable, which may be tighter at a given stage (for example under a flood-control ceiling). Every quantity in this subsection and in §5.4 reads the physical range, never the operative bounds, so an active operative restriction never truncates a stored-energy value.
+**Physical storage range.** Each plant carries a physical storage range $[V^{min}_h, V^{max}_h]$: a stage-invariant property of the plant (its dead-volume floor and its full-reservoir ceiling). It is distinct from the per-stage operative bounds $[\underline V_h, \bar V_h]$ on the storage variable, which may be tighter at a given stage (for example under a flood-control ceiling). Every quantity in this subsection and in §4.4 reads the physical range, never the operative bounds, so an active operative restriction never truncates a stored-energy value.
 
 **Mean forebay level.** The forebay level is averaged over the physical range:
 
@@ -394,7 +386,7 @@ $$
 
 Because $h_{fore}$ is the piecewise-linear volume–height curve of §2.3, this integral is evaluated exactly (a composite trapezoid over the curve's breakpoints), not approximated by quadrature.
 
-**Mean equivalent productivity.** With $h_{eq}(h_f, Q) = h_f - h_{tail}(Q) - h_{loss}$ the net-head function of §5.1, evaluated from a forebay level $h_f$ and the reference flow $Q$:
+**Mean equivalent productivity.** With $h_{eq}(h_f, Q) = h_f - h_{tail}(Q) - h_{loss}$ the net-head function of §4.1, evaluated from a forebay level $h_f$ and the reference flow $Q$:
 
 $$
 \bar\rho_{eq,h,t} \;=\; \rho_{esp,h,t} \cdot h_{eq}\big(\bar h_{fore,h},\; Q^{ref}_{h,t}\big)
@@ -404,13 +396,13 @@ It is the **forebay level** that is averaged, not the net head: the tailrace lev
 
 **Resolution order.** For each (hydro $h$, stage $t$):
 
-1. An explicit equivalent-productivity override replaces **both** evaluators with the same value, so $\bar\rho_{eq,h,t} = \rho_{eq,h,t}$ equals the override.
-2. Otherwise, a collapsed physical range ($V^{min}_h = V^{max}_h$), or a plant without volume–height geometry or without a specific productivity $\rho_{esp,h,t}$, gives $\bar\rho_{eq,h,t} = \rho_{eq,h,t}$: a zero-width range reduces the average to a point evaluation.
-3. Otherwise, $\bar\rho_{eq,h,t}$ is the integrated value above.
+1. An explicit override of the useful-range mean productivity sets $\bar\rho_{eq,h,t}$ outright. It serves a case whose stored-energy convention differs from integrating the plant's geometry over its physical range.
+2. Otherwise, a plant with volume–height geometry and a specific productivity $\rho_{esp,h,t}$, over a physical range that is not collapsed ($V^{min}_h < V^{max}_h$), takes the integrated value above. An override of the reference-point productivity $\rho_{eq,h,t}$ (§4.1) does not skip this step.
+3. Otherwise, $\bar\rho_{eq,h,t} = \rho_{eq,h,t}$, the reference-point value: a plant without the geometry or the specific productivity has no integral to evaluate, and a zero-width range reduces the average to a point evaluation.
 
-The integrating evaluator is gated by the plant's geometry, not by its generation model: it applies to **any** plant with volume–height geometry and a specific productivity, whether its LP production model is FPHA or constant productivity. A non-positive mean net head is rejected at study setup. The collapsed-range rule is how a run-of-river plant falls out of the data: with a collapsed range it behaves identically under either evaluator.
+The integrating evaluator is gated by the plant's geometry, not by its generation model: it applies to **any** plant with volume–height geometry and a specific productivity, whether its LP production model is FPHA or constant productivity. A non-positive mean net head in step 2 is rejected at study setup, with or without a reference-point override; an override of the mean productivity (step 1) avoids it. The collapsed-range rule is how a run-of-river plant falls out of the data: with a collapsed range it behaves identically under either evaluator.
 
-**Mean accumulated productivity.** $\bar\rho_{acum,h,t}$ follows from the mean own terms by the same downstream recurrence as §5.2:
+**Mean accumulated productivity.** $\bar\rho_{acum,h,t}$ follows from the mean own terms by the same downstream recurrence as §4.2:
 
 $$
 \bar\rho_{acum,h,t} \;=\; \bar\rho_{eq,h,t} \;+\; \sum_{h' \,\in\, \text{downstream}(h)} \bar\rho_{eq,h',t}
@@ -434,7 +426,7 @@ $$
 
 states "at least a fraction $p$ of the useful volume, in energy terms". The per-plant coefficient cancels only because both sides use the same (mean) evaluator and the same raw unit; mixing the reference-point coefficient on one side with $E^{max}_{h,t}$ on the other, or converting one side to MWh alone, would not reduce to the useful-volume fraction. How such a row is authored is described in [LP Formulation §10](/math/lp-formulation#10-generic-constraints).
 
-### 5.4 Inflow and Storage in Energy Units
+### 4.4 Inflow and Storage in Energy Units
 
 $\rho_{acum}$ and $\bar\rho_{acum}$ convert hydraulic quantities to energy units that downstream reporting expects:
 
@@ -454,7 +446,7 @@ $$
 \text{EARM}^{\,\text{final}}_h \;=\; (V^{final}_h - V^{min}_h) \cdot \bar\rho_{acum,h,t} \cdot \frac{10^6}{3600}
 $$
 
-where $V^{min}_h$ is the **physical** minimum storage of §5.3 (not the stage's operative lower bound) and $\bar\rho_{acum,h,t}$ is the useful-range mean accumulated productivity. The conversion factor $10^6 / 3600$ converts hm³ to m³ and seconds to hours so that storage in hm³ multiplied by productivity in MW/(m³/s) yields MWh; no stage duration enters, so EARM is independent of stage length.
+where $V^{min}_h$ is the **physical** minimum storage of §4.3 (not the stage's operative lower bound) and $\bar\rho_{acum,h,t}$ is the useful-range mean accumulated productivity. The conversion factor $10^6 / 3600$ converts hm³ to m³ and seconds to hours so that storage in hm³ multiplied by productivity in MW/(m³/s) yields MWh; no stage duration enters, so EARM is independent of stage length.
 
 **Stored reservoir energy, power form** (MW):
 
@@ -468,9 +460,9 @@ EARM and ENA use different evaluators on purpose: ENA values an inflow at the pl
 
 These quantities do not enter the LP — they are accounting outputs derived from the LP solution. Their methodology relevance is that they make the production model auditable in the same energy units used by the load forecast and the cost objective.
 
-### 5.5 Why a Scalar Reduction Exists at All
+### 4.5 Why a Scalar Reduction Exists at All
 
-The full FPHA production function (section 2) is multi-dimensional and concave; constant productivity is a scalar but per-plant. Neither can be summed across a cascade or scaled by inflow without a reference operating point. The energy-conversion scalars resolve this: each model is reduced to two numbers per (hydro, stage) — one from the reference-point evaluator, one from the useful-range mean evaluator — and those numbers are what the cascade-summation, ENA, EARM, and maximum-stored-energy formulas above can consume uniformly. The LP's production model does not use these scalars; it continues to enforce the full production model. They are accounting quantities that may also be used as coefficients of user-authored generic constraints, such as the security curve of §5.3 (see [LP Formulation §10](/math/lp-formulation#10-generic-constraints)).
+The full FPHA production function (section 2) is multi-dimensional and concave; constant productivity is a scalar but per-plant. Neither can be summed across a cascade or scaled by inflow without a reference operating point. The energy-conversion scalars resolve this: each model is reduced to two numbers per (hydro, stage) — one from the reference-point evaluator, one from the useful-range mean evaluator — and those numbers are what the cascade-summation, ENA, EARM, and maximum-stored-energy formulas above can consume uniformly. The LP's production model does not use these scalars; it continues to enforce the full production model. They are accounting quantities that may also be used as coefficients of user-authored generic constraints, such as the security curve of §4.3 (see [LP Formulation §10](/math/lp-formulation#10-generic-constraints)).
 
 ## Implementation in Novomodelo
 

@@ -1,13 +1,15 @@
 ---
 title: Policy Checkpoint
-description: The FlatBuffers files of the policy checkpoint — per-pool cuts, per-stage bases and visited states, and the study-global manifest — field by field.
+description: The FlatBuffers files of the policy checkpoint — per-pool cuts, per-node bases, per-pool trial states, and the study-global manifest — field by field.
 ---
 
 The policy checkpoint is the directory under `policy.path` (`policy/` by default)
 that `novomodelo run` writes after training. It holds the pool-keyed `cuts/NNN.bin`
-files, the node-keyed `basis/NNN.bin` files, the stage-keyed `states/NNN.bin`
-trial-point exports (only when `exports.states` is `true`), and `manifest.bin`,
-written last.
+files, the node-keyed `basis/NNN.bin` files, the pool-keyed `states/NNN.bin`
+trial states (for each pool that stores them, under `exports.states` or the
+`level1` selection method), and `manifest.bin`, written last. A run that fails
+writes its checkpoint under `<policy.path>.partial` instead (see
+[A failed run](/running/policy-management/#a-failed-run)).
 
 :::note[Wire format]
 The wire format of the binary files below is described by the canonical
@@ -42,14 +44,13 @@ study-global manifest is needed to interpret a pool's coefficients.
 | Name                 | Type          | Nullable | Units | Description                                                                                                                                                                              |
 | -------------------- | ------------- | -------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `stage_id`           | uint32        | No       | —     | Pool id (0-based), the key that names `cuts/<pool>.bin`.                                                                                                                                 |
-| `state_dimension`    | uint32        | No       | —     | State-vector length: the length of every cut's `coefficients` and of `entity_manifest`.                                                                                                  |
+| `state_dimension`    | uint32        | No       | —     | The writing study's state-vector length. A pool that projects fewer dimensions holds shorter coefficient vectors, of the length of its `entity_manifest`.                                 |
 | `capacity`           | uint32        | No       | —     | Total preallocated cut slots in the pool.                                                                                                                                                |
-| `warm_start_count`   | uint32        | No       | —     | Number of leading slots loaded from a previous policy at run start; `0` for a fresh run, except in the terminal pool of a run that loads `policy.boundary`, where it counts the boundary cuts. |
-| `cuts`               | [AffinePiece] | No       | —     | The pool's cuts, one `AffinePiece` per cut (fields below).                                                                                                                               |
-| `active_cut_indices` | [uint32]      | No       | —     | Positions in `cuts` of the cuts currently active in the LP.                                                                                                                              |
+| `warm_start_count`   | uint32        | No       | —     | Protected-prefix length: the leading slots the writing run started with, loaded from a previous policy; `0` for a fresh run, except in the terminal pool of a run that loads `policy.boundary`, where it counts the boundary cuts. |
+| `cuts`               | [AffinePiece] | No       | —     | The pool's cuts, one `AffinePiece` per cut (fields below), strictly ascending by `slot_index`.                                                                                          |
 | `populated_count`    | uint32        | No       | —     | Number of filled slots; equals the length of `cuts`.                                                                                                                                     |
 | `entity_manifest`    | [EntitySlot]  | No       | —     | Per-slot entity identity, one `EntitySlot` per state dimension (fields below).                                                                                                           |
-| `cost_scale_factor`  | float64       | No       | —     | Objective cost-scale factor of the writing study; the pool's authoritative load-time scale (see [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization)). |
+| `cost_scale_factor`  | float64       | No       | —     | The scale of every cut's `intercept` and `coefficients`: the objective cost-scale factor of the writing study, whose scaled units they are in (see [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization)). |
 | `node_id`            | int32         | No       | —     | Policy-graph id of the pool's sole owning node; `-1` for a shared pool.                                                                                                                  |
 | `graph_stage_id`     | int32         | No       | —     | Graph-stage id of the stage that owns the pool; `-1` when unresolved. No load reads it: a boundary load selects its source pool by `priced_state_date`.                                  |
 | `priced_state_date`  | int32         | No       | —     | The owning stage's `end_date` encoded `YYYYMMDD` (`year*10000 + month*100 + day`); `-2147483648` (the int32 minimum) when not recorded.                                                  |
@@ -59,13 +60,20 @@ The binary is not human-readable. The logical record structure of each cut
 
 | Name                 | Type      | Nullable | Units | Description                                                                                                                                                                                                                                                                                                                                                |
 | -------------------- | --------- | -------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `piece_id`           | uint64    | No       | —     | Unique identifier for this cut across all iterations. Assigned monotonically by the training loop. The Python `load_policy` dict calls it `cut_id` (see [Policy Management](/running/policy-management)).                                                                                                                                                  |
-| `slot_index`         | uint32    | No       | —     | LP row position. Required for checkpoint reproducibility and basis warm-starting.                                                                                                                                                                                                                                                                          |
+| `slot_index`         | uint32    | No       | —     | The cut's slot in the pool, which a stored basis names in `piece_row_slots`. Required for checkpoint reproducibility and basis warm-starting.                                                                                                                                                                                                              |
 | `iteration`          | uint32    | No       | —     | Training iteration that generated this cut.                                                                                                                                                                                                                                                                                                                |
 | `forward_pass_index` | uint32    | No       | —     | Forward pass index within the generating iteration.                                                                                                                                                                                                                                                                                                        |
-| `intercept`          | float64   | No       | —     | Pre-computed cut intercept $\beta_0 = \bar{Q}_t - \beta^\top \hat{x}_{t-1}$, where $\hat{x}_{t-1}$ is the state at the generating forward pass node and $\bar{Q}_t$ the aggregated stage value there.                                                                                                                                                      |
+| `intercept`          | float64   | No       | —     | Pre-computed cut intercept $\beta_0 = \bar{Q}_t - \beta^\top \hat{x}_{t-1}$, where $\hat{x}_{t-1}$ is the state at the generating forward pass node and $\bar{Q}_t$ the aggregated stage value there; in the scale of the pool's `cost_scale_factor`.                                                                                                     |
 | `coefficients`       | [float64] | No       | —     | The cut's slope: one coefficient per state dimension, the sensitivity of the future cost to each incoming state value (see [Cut Management](/math/cut-management/)). Length equals the state dimension — the number of entries in the embedded entity manifest below, also the pool's own `state_dimension` (per-pool, not a `policy/manifest.bin` field). |
-| `is_active`          | bool      | No       | —     | Whether this cut is currently active in the LP. Inactive cuts are retained for potential reactivation by the cut selection strategy.                                                                                                                                                                                                                       |
+| `is_active`          | bool      | No       | —     | Whether this cut was active in the LP when the checkpoint was written: the last selection. Inactive cuts are retained for potential reactivation by the selection method.                                                                                                                                                                                   |
+| `scored`             | bool      | No       | —     | Whether the writing run stored the trial state the cut was computed at (under `exports.states` or the `level1` method). Kept when that state is later dropped from `states/`; a `level1` run that loads the policy selects a scored cut like its own.                                                                                                       |
+| `active_count`       | uint64    | Yes      | —     | The writing run's count of the cut's binding activity; absent unless the manifest's `activity_counters` is set.                                                                                                                                                                                                                                             |
+| `last_active_iteration` | uint64 | Yes      | —     | The writing run's last iteration in which the cut was binding; absent unless the manifest's `activity_counters` is set.                                                                                                                                                                                                                                     |
+
+The wire tables keep the ids of fields that format version 4 removed —
+`AffinePiece.piece_id` and `StageCuts.active_cut_indices` among them — as
+reserved slots that no writer fills; each cut's `is_active` carries the active
+set.
 
 Each `NNN.bin` also embeds a **per-slot entity manifest** — one entry per
 state-vector dimension, in canonical cut-coefficient order — recording which
@@ -87,7 +95,7 @@ entities is rejected.
 | `interval_end`   | int32      | No       | —     | Exclusive end of the window, paired with `interval_start`; reads the sentinel `-2147483648` wherever `interval_start` does.                                                                                                                                                                                                                                                                                          |
 
 **Wire readability.** A reader parses `policy/manifest.bin` first, requires the
-`CBVF` file identifier and a `format_version` of `3`, and only then decodes the
+`CBVF` file identifier and a `format_version` of `4`, and only then decodes the
 payloads. There is no conversion between format versions; see
 [Versioning policy](/reference/flatbuffers-schema/#versioning-policy).
 
@@ -99,15 +107,15 @@ name and version exactly (see the [version gate](/running/policy-management/#ver
 
 ## `policy/basis/NNN.bin`
 
-FlatBuffers binary file encoding the LP simplex basis checkpoint for a single
-stage. **Node-keyed**: files are named by the policy-graph node's 0-based
-position (`basis/NNN.bin`; the position is the `stage_id` field below),
-zero-padded to three digits, and exist only for nodes training captured a basis
-for; on a stage chain the position is the 0-based stage position, one file per
-stage. Bases are always written with the end-of-training
-checkpoint. Warm-start, resume, and simulation-only loads read them to
-warm-start the stage LP solves, using each basis that fits its stage LP and
-leaving the others out (see the
+FlatBuffers binary file encoding the LP simplex bases stored at a single
+policy-graph node, one per scenario that held one. **Node-keyed**: files are
+named by the node's 0-based position (`basis/NNN.bin`; the position is the
+`stage_id` field below), zero-padded to three digits, and exist only for nodes
+training captured a basis for; on a stage chain the position is the 0-based
+stage position, one file per stage. Bases are always written with the
+end-of-training checkpoint. Warm-start, resume, and simulation-only loads read
+them to warm-start the stage LP solves, using each basis that fits its stage LP
+and leaving the others out (see the
 [stored-basis gate](/running/policy-management/#stored-basis-gate)); boundary
 loads read none.
 
@@ -115,55 +123,68 @@ loads read none.
 
 The logical record structure (the `StageBasis` root table) is:
 
-| Name            | Type    | Nullable | Units | Description                                                                                                                  |
-| --------------- | ------- | -------- | ----- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `stage_id`      | uint32  | No       | —     | 0-based position of the policy-graph node (equal to the 0-based stage position on a stage chain), not the declared stage id. |
-| `iteration`     | uint32  | No       | —     | Training iteration that produced this basis.                                                                                 |
-| `num_columns`   | uint32  | No       | —     | Number of LP columns; equals the `column_status` length.                                                                     |
-| `num_rows`      | uint32  | No       | —     | Number of LP rows; equals the `row_status` length.                                                                           |
-| `column_status` | [uint8] | No       | —     | One canonical basis-status code per LP column (variable). See the encoding note below.                                       |
-| `row_status`    | [uint8] | No       | —     | One canonical basis-status code per LP row (constraint). See the encoding note below.                                        |
-| `num_cut_rows`  | uint32  | No       | —     | Number of trailing rows in `row_status` that correspond to cut rows (as opposed to structural constraints).                  |
+| Name        | Type         | Nullable | Units | Description                                                                                                                  |
+| ----------- | ------------ | -------- | ----- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `stage_id`  | uint32       | No       | —     | 0-based position of the policy-graph node (equal to the 0-based stage position on a stage chain), not the declared stage id. |
+| `iteration` | uint32       | No       | —     | Training iteration that produced these bases.                                                                                |
+| `entries`   | [BasisEntry] | No       | —     | One entry per global scenario holding a basis at this node, ascending by `scenario` (fields below).                          |
+
+**`BasisEntry` fields** (one `entries` element per scenario):
+
+| Name              | Type     | Nullable | Units | Description                                                                                                              |
+| ----------------- | -------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------ |
+| `scenario`        | uint32   | No       | —     | Global scenario index holding this basis.                                                                                |
+| `column_status`   | [uint8]  | No       | —     | One canonical basis-status code per LP column (variable). See the encoding note below.                                  |
+| `row_status`      | [uint8]  | No       | —     | One canonical basis-status code per LP row (constraint). See the encoding note below.                                   |
+| `piece_row_slots` | [uint32] | No       | —     | Pool slot of each trailing cut row of `row_status`: entry `i` is the `slot_index` of the cut in the `i`-th cut row.      |
 
 The `column_status`/`row_status` bytes are the canonical solver-neutral
 `BasisStatus` superset `0..=6` — `0` Lower, `1` Basic, `2` Upper, `3` Zero,
 `4` Nonbasic, `5` Superbasic, `6` Fixed — not a backend-specific encoding; novomodelo
 maps each LP backend (HiGHS default, CLP opt-in) onto this canonical set on
-export. `num_columns` and `num_rows` are wire-only: they let a generated reader
-size the status vectors and are not surfaced by the Python `load_policy` dict
-(which derives the lengths from the vectors themselves).
+export. The lengths of the status vectors are the basis's column and row
+counts; the rows before the last `len(piece_row_slots)` are the template rows.
+A training load (resume or warm start) gives each scenario its own entry; a
+scenario without one starts cold on resume and takes the node's lowest-scenario
+entry that fits on a warm start. A simulation-only load warm-starts every
+scenario from the node's lowest-scenario entry that fits. The manifest's `basis_store_complete` records
+whether `basis/` holds the bases of every scenario the run gathered.
 
 ---
 
 ## `policy/states/NNN.bin`
 
-FlatBuffers binary file encoding the visited forward-pass trial points for a
-single stage. **Stage-keyed**: one file per stage (`states/<stage_id>.bin`),
-zero-padded to three digits. Present only when `exports.states` is `true`
-(default is `false`). The `states/` directory is omitted entirely when disabled.
-The file is named by stage position, so on a policy graph with several nodes at
-one stage it holds the states of the node with the highest declared id among
-them. Like the cut files, each `NNN.bin` embeds the per-slot entity manifest
-describing its state dimensions.
+FlatBuffers binary file encoding the trial states one pool stores, one per
+stored cut slot. **Pool-keyed**: one file per pool that stores trial states
+(`states/<pool_id>.bin`, the same key as `cuts/<pool_id>.bin`), zero-padded to
+three digits. With `exports.states` set, every pool that receives cuts stores
+the states of its own cuts: the first stage's pool keeps every state, and each
+pool strictly between the first and the last stage keeps those inside
+`lookback_iterations` when that key is set. A `level1` run stores and writes the
+states of the pools it selects whether or not `exports.states` is set. The
+`states/` directory is omitted when no pool stores states. Like the cut files,
+each `NNN.bin` embeds the per-slot entity manifest describing its state
+dimensions.
 
 **Methodology:** [Cut Management](/math/cut-management)
 
-Trial points are the state vectors observed at each forward-pass scenario
-during training. The file is an export of them for diagnostics and analysis;
-no policy load uses its contents. Cut
-selection scores cuts against an in-memory record of the visited states that
-training keeps, not against this file.
+A trial state is the state vector a cut was computed at. A `resume` reads these
+files to restore the trial states a `level1` run selects at; a `warm_start`
+loads the state stored for a `scored` cut with that cut. The manifest's
+`state_history` records which states the interior pools hold, and
+`total_visited_states` their total count.
 
 **`StageStates` fields** (the root table of each `states/NNN.bin`):
 
 | Name              | Type         | Nullable | Units | Description                                                                                                                                                                                                                                               |
 | ----------------- | ------------ | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stage_id`        | uint32       | No       | —     | 0-based stage position in the study (not the declared stage id).                                                                                                                                                                                          |
-| `node_id`         | int32        | No       | —     | Policy-graph node identity — the declared node id on a branching graph. Sentinel `-1` when absent (a writer that never resolved one, or a buffer that omits the field). Distinct from `stage_id` the moment a graph carries more than one node per stage. |
-| `state_dimension` | uint32       | No       | —     | Length of each state vector; equals the writing pool's own `state_dimension` (per-pool, not a `policy/manifest.bin` field).                                                                                                                               |
-| `count`           | uint32       | No       | —     | Number of state vectors stored for this stage.                                                                                                                                                                                                            |
+| `stage_id`        | uint32       | No       | —     | Pool id (0-based), the same key as the `stage_id` of `cuts/<pool>.bin`.                                                                                                                                                                                   |
+| `node_id`         | int32        | No       | —     | Declared id of the pool's sole owning node; sentinel `-1` for a shared pool or a buffer that omits the field.                                                                                                                                             |
+| `state_dimension` | uint32       | No       | —     | Length of each state vector: the length of the pool's `entity_manifest` in `cuts/<pool>.bin`.                                                                                                                                                             |
+| `count`           | uint32       | No       | —     | Number of state vectors stored for this pool.                                                                                                                                                                                                             |
 | `data`            | [float64]    | No       | —     | Flat array of `count * state_dimension` elements, row-major (one state per row).                                                                                                                                                                          |
 | `entity_manifest` | [EntitySlot] | No       | —     | Per-slot entity identity of each state dimension; `state_dimension` entries, with the fields of the `EntitySlot` table under [`policy/cuts/NNN.bin`](#policycutsnnnbin).                                                                                  |
+| `slots`           | [uint32]     | No       | —     | Pool slot of each stored row, strictly ascending; `count` entries. Each names a cut of the pool whose `scored` is set.                                                                                                                                     |
 
 ---
 
@@ -188,7 +209,7 @@ follow that grouping, with the same field names.
 
 | Name              | Type    | Nullable | Units | Description                                                                                                                                                                                                                                                                                                                                                                       |
 | ----------------- | ------- | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `format_version`  | integer | No       | —     | On-disk format version; must equal `3` on read, before any payload is parsed (wire readability). Admission is the separate software and version check.                                                                                                                                                                                                                                 |
+| `format_version`  | integer | No       | —     | On-disk format version; must equal `4` on read, before any payload is parsed (wire readability). Admission is the separate software and version check.                                                                                                                                                                                                                                 |
 | `software` | string | Yes | — | Name of the software that wrote this checkpoint: `"novomodelo"` from every novomodelo writer, `None` for a buffer without the field (wire id 20). The [version gate](/running/policy-management/#version-gate) compares it, and `novomodelo.write_policy_checkpoint` stamps it. |
 | `software_version` | string | No | — | Version of that software, compared verbatim (wire id 1); every policy load requires it to equal the running version. |
 | `created_at`      | string  | No       | —     | ISO 8601 timestamp when the checkpoint was written.                                                                                                                                                                                                                                                                                                                               |
@@ -234,7 +255,10 @@ follow that grouping, with the same field names.
 | `producer.warm_start_cuts`                 | integer | No       | —     | Largest per-pool warm-start cut count: the maximum of `warm_start_counts[]`, not their sum. `0` for a fresh run without `policy.boundary`.                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `producer.warm_start_counts[]`             | array   | No       | —     | Per-pool warm-start cut counts, in pool-id order. Supersedes `warm_start_cuts` for per-pool accuracy when non-empty.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `producer.rng_seed`                        | integer | No       | —     | RNG seed used by the scenario sampler. Required for reproducibility.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `producer.total_visited_states`            | integer | No       | —     | Total number of visited state vectors across all nodes, recorded whenever training keeps the visited-state record — when `exports.states` is `true` or a `training.cut_selection` method is set; `0` when neither is.                                                                                                                                                                                                                                                                                                                                                  |
+| `producer.total_visited_states`            | integer | No       | —     | Total number of trial states the pools store, summed over the pools: the `count` of every `states/<pool>.bin`. `0` when no pool stores states.                                                                                                                                                                                                                                                                                                                            |
 | `producer.training_block_mode`             | string  | No       | —     | Block mode the artifact was trained under: the shared lowercase mode (`"parallel"`/`"chronological"`) when every stage agrees, else `"mixed"`.                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `producer.training_block_mode_per_stage[]` | array   | No       | —     | Per-study-stage training block modes, in study-stage order. Empty when uniform; populated only for mixed-mode studies.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `producer.cost_scale_factor`               | number  | Yes      | —     | Objective cost-scale factor the writing study resolved (`modeling.cost_scale_factor`), recorded here as study-global provenance. The authoritative load-time value is carried **per pool** in each `cuts/<pool>.bin` (see the cuts payload above), which marks that pool's cut coefficients/intercepts as canonical currency units; every load path requires it, and a resolved pool missing it is rejected ("predates self-describing cuts …"). See [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization) for the details. |
+| `producer.cost_scale_factor`               | number  | Yes      | —     | Objective cost-scale factor the writing study resolved (`modeling.cost_scale_factor`): the scale of the writer's scaled units, which every cut's `intercept` and `coefficients` are in, recorded here as study-global provenance. Each pool carries its own copy in `cuts/<pool>.bin`, which is what a load reads; every load path requires it, and a resolved pool missing it is rejected ("predates self-describing cuts …"). See [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization) for the details. |
+| `producer.state_history`                   | string \| integer | Yes | — | Which trial states the pools strictly between the first and the last stage store: `None` (none), `"whole"` (every one), or a positive integer `w` (those of the last `w` iterations). On the wire, `state_history_scope` (`0` none, `1` window, `2` whole) and `state_history_window`. A resume checks it against the run's `level1` setting. |
+| `producer.activity_counters`               | bool    | No       | —     | Whether every cut of every pool carries `active_count` and `last_active_iteration`; set by a run with `max_active_per_stage` or the `dynamic` method, whose resume reads them. |
+| `producer.basis_store_complete`            | bool    | No       | —     | Whether `basis/` holds the bases of every scenario the writing run gathered from all ranks. Unset when the run failed, which keeps the writing rank's own; a resume refuses a checkpoint where it is unset. |

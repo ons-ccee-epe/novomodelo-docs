@@ -71,8 +71,8 @@ warm-starts; a cold forward solve leaves it unread and replaces it with its own
 capture. Either way, the slot the backward pass reads holds the forward
 capture of its own iteration. One backward scheduling option reads the forward
 capture without storing its own; under an enumerated forward pass the backward
-pass uses no stored basis; and while dynamic cut selection is active no solve
-uses the store (see the implementation notes).
+pass uses no stored basis; and while the dynamic method of cut selection is
+active no solve uses the store (see the implementation notes).
 
 ```d2
 shape: sequence_diagram
@@ -80,11 +80,11 @@ fwd: Forward pass
 slot: Stored basis\n(trial point, node)
 bwd: Backward pass
 
-slot -> fwd: seeds the solve
+slot -> fwd: can seed the solve
 fwd -> slot: stores its basis
 slot -> bwd: seeds the first-solved opening
 bwd -> slot: stores that opening's basis
-slot -> fwd: seeds the next iteration's solve
+slot -> fwd: can seed the next iteration's solve
 ```
 
 Each _seeds_ arrow applies when that phase warm-starts; each _stores_ arrow
@@ -103,12 +103,16 @@ opening's LP yields a valid cut;
 [Determinism & Provenance §3](/math/determinism-guarantees#3-methodology-mechanisms)
 sets out how the fixed order keeps the run reproducible.
 
-A warm-start or resume run seeds the store from each saved basis that fits its
-stage LP, so that, when the forward pass warm-starts, its first iteration's
-forward solves at those nodes start from them through the reconstruction of §4;
-a node whose saved basis does not fit starts its first iteration cold. When the
-forward pass starts cold, its captures replace the seeded bases before the
-backward pass reads the store, so the saved bases seed no training solve.
+A warm-start or resume run seeds the store from the saved bases, one per trial
+point at each node, so that, when the forward pass warm-starts, its first
+iteration's forward solves at those nodes start from them through the
+reconstruction of §4. A resume run seeds each trial point from its own saved
+basis and leaves a trial point without one cold; a warm-start run seeds a trial
+point without its own saved basis from the node's lowest-scenario saved basis.
+A saved basis that does not fit its stage LP is left out, and a node left with
+none starts its first iteration cold. When the forward pass starts cold, its
+captures replace the seeded bases before the backward pass reads the store, so
+the saved bases seed no training solve.
 
 ## 3. Cut-Set Changes
 

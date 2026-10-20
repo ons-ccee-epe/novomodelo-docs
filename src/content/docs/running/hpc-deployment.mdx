@@ -76,9 +76,6 @@ an MPICH built for PMIx, as on this page, launch with `srun --mpi=pmix` (see
 Windows and Intel macOS have no pre-built MPI archive — build from source
 (Option 2) on those platforms.
 
-The x86-64 Linux `novomodelo-mpi` uses AVX2 and FMA instructions and needs a
-processor that supports them.
-
 The Linux binaries are dynamically linked against `libmpi.so.12` (the MPICH 4.x
 ABI). They do **not** bundle an MPI runtime — you supply one at run time (see
 [Building MPICH from source](#building-mpich-from-source)). Any MPICH-ABI-compatible
@@ -111,9 +108,11 @@ The binary is written to `target/release/novomodelo`. The build reads the MPI
 headers and link flags through `pkg-config`, so ensure `PKG_CONFIG_PATH`
 includes your MPICH `lib/pkgconfig` directory.
 
-On x86-64 Linux the source tree's `.cargo/config.toml` enables AVX2 and FMA for
-the build, so the binary needs a processor that supports them, as the pre-built
-archive does, unless a `RUSTFLAGS` environment variable replaces that setting.
+The source tree sets no target features or target CPU, so on x86-64 every build
+of a version, the pre-built archives included, uses one floating-point kernel and
+selects the same cuts. A build given `-C target-feature` or `-C target-cpu`, for
+example through `RUSTFLAGS`, can use another kernel and select different, equally
+valid cuts, so its results can differ from those of the release builds.
 
 :::note[NUMA topology]
 `novomodelo-cli` has no `numa` feature of its own; the ferrompi NUMA extension is a
@@ -308,6 +307,10 @@ export LD_LIBRARY_PATH="$MPICH_PREFIX/lib:${LD_LIBRARY_PATH:-}"
 srun --mpi=pmix "$NOVOMODELO_MPI" run "$1" --threads "$SLURM_CPUS_PER_TASK"
 ```
 
+`novomodelo_%j.out` receives the run report (the banner, the setup blocks, one
+progress line per iteration and per simulation update, and the summaries), and
+`novomodelo_%j.err` the warnings and errors.
+
 Refer to the binary by an **absolute path**. `sbatch` runs the script in the
 directory you submitted from, so `./novomodelo-mpi` works only if you happen to run
 `sbatch` from the directory that holds the binary.
@@ -355,7 +358,7 @@ holds the facts behind them.
    run stops with an error when ranks differ in `--threads`.
 3. Under the `sampled` method, set `training.selection.forward_passes` and
    `simulation.selection.num_scenarios` to at least the rank count times
-   `--threads`, and to a multiple of it for equal shares. Trajectories and
+   `--threads`, and to a multiple of it for equal shares. A count that is not a multiple runs and writes the same outputs as on one process; the ranks and workers with fewer trajectories wait for the others. Trajectories and
    scenarios are split over the ranks and then over each rank's workers, and a
    worker left without work idles.
 4. Size each node's memory for one rank's full copy of the case, the opening

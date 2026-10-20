@@ -3,34 +3,34 @@ beyond the methodology of [LP Warm-Start](/math/lp-warm-start). This tab
 references the methodology body for the hand-off and the reconstruction rather
 than restating them.
 
-### Which phases warm-start
+### Which solves start from a stored basis
 
-Each phase's solver profile — `training.solver.backward`,
-`training.solver.forward` and `simulation.solver` — accepts `use_warm_start`,
-which sets whether that phase's solves warm-start. Under HiGHS the default
-profiles warm-start the backward pass and start forward and simulation solves
-cold. A cold HiGHS solve ignores an offered basis — nothing is installed,
-validated, or counted in `basis_offered` — and does not continue from the basis
-the previous solve left in the solver either, so every solve of a cold phase
-starts from scratch. Extended retries keep the phase's setting. Set
-`"use_warm_start": true` in `training.solver.forward` or `simulation.solver` to
-warm-start that phase, or `false` in `training.solver.backward` to start every
-backward solve cold. Outside dynamic cut selection, captures fill the basis
-store whatever the setting, so the backward pass reads the forward capture even
-when the forward phase starts cold.
+Every phase captures its solves' bases into the basis store, but whether a
+solve starts from the basis it is offered depends on the solver backend. The
+HiGHS backend's phase profiles set `use_warm_start` to `false` for the forward
+pass and simulation and to `true` for the backward pass, so by default forward
+and simulation solves start cold and backward solves warm-start. Under
+`use_warm_start: false` HiGHS ignores the offered basis: it is not installed,
+not validated and not counted in `basis_offered`. A cold HiGHS solve does not
+continue from the basis the previous solve left in the solver either, so every
+solve of a cold phase starts from scratch. The retry levels 5–11, which
+restore HiGHS's default settings before applying their own, keep the phase's
+`use_warm_start`. The CLP backend has no such setting and starts a solve from
+the offered basis in every phase. Where the sections below say a forward or
+simulation solve starts from a stored basis, that applies under CLP, or under
+HiGHS when that phase's profile sets `use_warm_start: true` (see
+[Turning warm-start off](#turning-warm-start-off)).
 
 A cold solve can stop at a different optimal vertex from a warm one, with the
 same optimal value
 ([Determinism & Provenance §3](/math/determinism-guarantees#3-methodology-mechanisms)),
 so a run's trial points, its cuts, its final lower bound and its simulated duals
-can differ between the two settings. Per-phase profile overrides are HiGHS-only: the CLP backend
-rejects a set field at setup, and every CLP phase warm-starts; see
-[`training.solver`](/running/configuration/#trainingsolver).
+can differ between the two settings.
 
 ### Backward work units
 
-This section describes the backward pass when dynamic cut selection is inactive;
-the next section covers the active case. A backward work unit solves a chain of
+This section describes the backward pass when the dynamic method of cut
+selection is inactive; the next section covers the active case. A backward work unit solves a chain of
 openings in sequence for one trial point at one node. Before the chain, the
 worker resets the solver's retained basis and factorization, reloads the node's
 frozen LP template, and appends the cuts that the node's cut pool has gained
@@ -48,18 +48,19 @@ successor node as one chain. The `by_node` scheduler
 opening blocks and solves each block as a chain of its own. Each block's
 first-solved opening reads the basis that the forward pass captured in the slot
 (the forward capture). Under `by_node` the backward pass stores nothing, so the
-slot keeps the forward capture, which the next iteration's forward solve starts
-from when the forward phase warm-starts.
+slot keeps the forward capture, which is the basis the next iteration's forward
+solve is offered.
 
 However, under an enumerated forward pass
 ([`training.selection`](/running/configuration/#trainingselection)), the forward
 pass solves each node once per iteration and stores that solve's basis in one
-slot for the node, which the next iteration's forward solve at the node starts
-from when the forward phase warm-starts. The backward pass reads no stored
-basis and stores none: each chain's first-solved opening starts without a
-stored basis, and the rest continue from the retained factorization. Under the
-default HiGHS profiles an enumerated run therefore starts no solve from the
-store.
+slot for the node, which the next iteration's forward solve at the node is
+offered.
+The backward pass reads no stored basis and stores none: each chain's
+first-solved opening starts without a stored basis, and the rest continue from
+the retained factorization.
+Under the default HiGHS profiles an enumerated run therefore starts no solve
+from the store.
 
 ### When a stored basis is reused
 
@@ -70,50 +71,55 @@ solve to start cold. A slot is empty until its first capture, so in a fresh run
 the first iteration's forward solves start cold whatever the phase setting. An
 infeasible forward solve clears its slot.
 
-While dynamic cut selection ([Cut Management](/math/cut-management)) is active,
-no solve reads or writes the store. The forward pass leaves its slot untouched,
+While the dynamic method of cut selection
+([Cut Management §8](/math/cut-management#8-the-dynamic-method)) is active, no
+solve reads or writes the store. The forward pass leaves its slot untouched,
 and every solve's initial LP starts without a stored basis; in a warm-starting
-phase the later openings of a backward chain, and each re-solve after dynamic
-cut selection adds violated cuts, continue from the retained basis, while in a
+phase the later openings of a backward chain, and each re-solve after the
+dynamic method adds violated cuts, continue from the retained basis, while in a
 cold phase they start cold as well. The store therefore keeps the bases
-captured in the iterations before dynamic cut selection started, and those are
-the bases the end-of-training checkpoint carries.
+captured in the iterations before the dynamic method started, and those are the
+bases the end-of-training checkpoint carries.
 
 ### Warm-start, resume and simulation-only runs
 
-The end-of-training checkpoint carries one basis per node: the basis held in one
-trial point's slot when training ends. A warm-start or resume run copies each
-node's checkpoint basis that fits its stage LP into every trial point's slot on
-each rank before its first iteration; a node whose basis was left out
-starts its first solve cold and then reuses its own captures. Outside dynamic
-cut selection, a warm-starting forward phase starts the first iteration's
-forward solves from those bases through the reconstruction of
+The end-of-training checkpoint carries one basis per trial point at each node:
+the basis held in that trial point's slot when training ends, recorded with its
+scenario and the pool slot of each cut row. A warm-start or resume run seeds
+each trial point's slot from the checkpoint before its first iteration. A
+resume run seeds a trial point from its own basis and leaves a trial point
+without one to start cold; a warm-start run seeds a trial point without its own
+basis from the node's lowest-scenario basis, since the run that wrote the
+checkpoint may have run fewer forward passes. A slot left empty starts its first
+solve cold and then reuses its own captures. Outside the dynamic method, a
+warm-starting forward phase starts the first iteration's seeded solves through
+the reconstruction of
 [§4](/math/lp-warm-start#4-cut-aware-basis-reconstruction-by-slot-identity); a
-fresh run has nothing to copy. Under the default HiGHS forward profile the
-forward solves start cold and their captures replace the copied bases before
+fresh run has nothing to seed. Under the default HiGHS forward profile the
+forward solves start cold and their captures replace the seeded bases before
 the backward pass reads the slots, so the checkpoint bases seed no training
 solve unless `training.solver.forward` sets `"use_warm_start": true`.
 
-When the simulation phase warm-starts, and outside dynamic cut selection,
+When the simulation phase warm-starts, and outside the dynamic method,
 simulation starts each visited node's solve from that node's basis, taken from
-the preceding training run or, in a simulation-only run, from the checkpoint
-when that basis fits its stage LP (a node whose checkpoint basis does not fit is
-solved without its own stored basis); under dynamic cut selection simulation
-solves start without a stored basis. Under the default HiGHS simulation profile
-every simulation solve starts cold, so a simulation-only run reads its
-checkpoint bases only when `simulation.solver` sets `"use_warm_start": true`.
+the preceding training run or, in a simulation-only run, from the node's
+lowest-scenario checkpoint basis for every scenario (a node with none is solved
+without its own stored basis); under the dynamic method simulation solves start
+without a stored basis. Under the default HiGHS simulation profile every
+simulation solve starts cold, so a simulation-only run reads its checkpoint
+bases only when `simulation.solver` sets `"use_warm_start": true`.
 
-A checkpoint basis that does not fit its node's current stage LP is left out
-(see
-[Stored-basis gate](/running/policy-management/#stored-basis-gate)). The load
-keeps a checkpoint basis's cut-row statuses only when the node's saved cut pool
-qualifies. The pool qualifies when the pool's active cuts are exactly its first
-populated slots, in slot order (a condition that proves no cut has been
-deactivated since the capture), and when it holds at least as many active cuts
-as the basis has cut rows. Otherwise the load drops those statuses, and every
-current cut row starts BASIC while the template rows and the columns keep their
-stored statuses. Either way only the basis the warm start begins from changes,
-never the optimal value of the stage LP.
+
+A checkpoint basis is used only when its column count equals the node's
+current stage LP's, its row count equals the LP's template rows plus its
+recorded cut rows, its basic count equals its row count, and every cut-row slot
+it records holds a loaded cut. A basis that fails is left out, and the load
+reports how many were left out and why the first failed (see
+[Stored-basis gate](/running/policy-management/#stored-basis-gate)). An
+admitted basis keeps the statuses of its recorded cut rows, matched to the
+loaded pool by slot; a current cut row it does not record starts BASIC. Either
+way only the basis the warm start begins from changes, never the optimal value
+of the stage LP.
 
 ### What persists across solves
 
@@ -143,3 +149,17 @@ work that restores optimality from the reused basis, once that basis is
 reconciled to the current cut set
 ([§4](/math/lp-warm-start#4-cut-aware-basis-reconstruction-by-slot-identity)),
 rather than Phase-I feasibility work from a cold start.
+
+### Turning warm-start off
+
+Each phase's solver profile — `training.solver.backward`,
+`training.solver.forward` and `simulation.solver` — accepts `use_warm_start`,
+which overrides the phase default (`false` for forward and simulation, `true`
+for backward). Setting it to `false` forces every solve in that phase cold, and
+setting it to `true` lets forward or simulation solves start from the store;
+outside the dynamic method, captures fill the basis store either way. The
+backward setting is diagnostic, not a production option: comparing a cold
+backward pass with a warm one isolates the warm-start contribution to
+training-run performance. Per-phase profile overrides are HiGHS-only; the CLP
+backend rejects a set field at setup; see
+[`training.solver`](/running/configuration/#trainingsolver).

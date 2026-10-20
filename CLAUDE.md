@@ -30,7 +30,7 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.18.1 (2026-10-14).**
+**Synced to: novomodelo v0.19.0 (2026-10-20).**
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -178,7 +178,7 @@ partial filenames so the render split holds.
 ## Quality Gates
 
 ```bash
-# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.18.1/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
+# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.19.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:python-api \
@@ -190,7 +190,7 @@ npm run check:figures && npm run check:voice && npm run check:counts \
 
 - **d2 v0.7.1** on `PATH`: without it `npm run build` and `npm run dev` abort with
   "Could not find D2".
-- **novomodelo v0.18.1** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
+- **novomodelo v0.19.0** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
   The gate exits 2 when the binary is missing, lies under a cargo
   `target/release/` or `target/debug/` directory, or reports a version other
   than `DEFAULT_NOVOMODELO_REF` in `scripts/novomodelo-ref.mjs`.
@@ -219,7 +219,7 @@ When **updating the LP / SDDP / cut / warm-start cluster** (`lp-formulation.md`,
 `delivery_ring.rs`, `entries.rs`, `fpha_cursor.rs`, `generic_constraints.rs`,
 `hydro_state.rs`, `layout.rs`, `patch.rs`, `rows.rs`, `scaling.rs`,
 `state_box.rs`, `template.rs`); `StageGeometry` is at
-`lp/builder/layout.rs:1707`. Other owners: `lp/indexer/entity_positions.rs`,
+`lp/builder/layout.rs:1843`. Other owners: `lp/indexer/entity_positions.rs`,
 `lp/indexer/anticipated_plants.rs`, `lp/indexer/block_row_family.rs`, the
 crate-root `block_clock.rs`, `time_value.rs` and `bucket_topology.rs`, and
 `setup/lp_build_inputs.rs`. The normative contract is novomodelo's
@@ -242,7 +242,7 @@ is structural, so a coefficient on a live slot may be zero.
 (`parallel` default | `chronological`); a chronological stage chains per-block
 storage, computes per-block FPHA + evaporation on each block's **average**
 storage, and (PreFilling) freezes each block's storage identity
-(`rows.rs`/`entries.rs`). `push_z_inflow_coupling` (`entries.rs`) puts `z_h` on
+(`rows.rs`/`entries.rs`). `push_local_inflow_coupling` (`entries.rs`) puts `z_h` on
 each water row of the target hydro: `−ζ` on a parallel stage, `−τ_k` per block
 on a chronological stage. `evaporation_slot_count` (`lp/builder/layout.rs`)
 gives one stage-level evaporation slot on a parallel stage and one per block on
@@ -251,13 +251,15 @@ on a chronological stage and the single stage row on a parallel stage. Cut
 coefficients are block-count/mode-independent, so the cuts are **portable across
 block modes and counts**: `validate_policy_load` (`policy_load.rs`) never reads
 `block_mode`. A full-FCF load (warm start, resume, simulation-only) also runs
-`build_basis_cache_from_checkpoint`, which uses a stored basis for its node
-only when `admit_stored_basis` passes (column count equals the template's, row
-count equals the template rows plus the record's own `num_cut_rows`, basic
-count equals the row count); a record that fails is left out with one
-aggregated warning (`UnusedStoredBases`), never a refusal, so a checkpoint
-loads across a changed block mode or count and the affected nodes start
-without a stored basis. Boundary injection uses no stored basis.
+`build_basis_cache_from_checkpoint` over the stored bases (one per node and
+forward-pass scenario), which uses an entry only when `admit_stored_basis`
+passes (column count equals the template's, row count equals the template rows
+plus the entry's own recorded cut rows `piece_row_slots`, basic count equals the
+row count) and every recorded cut-row slot maps to a loaded cut; an entry that
+fails is left out with one aggregated warning (`UnusedStoredBases`), never a
+refusal, so a checkpoint loads across a changed block mode or count and the
+affected nodes start without a stored basis. Boundary injection uses no stored
+basis.
 → **LP scaling**: Novomodelo applies its own offline geometric-mean row/col prescaler
 plus a configurable cost-scale factor (`modeling.cost_scale_factor`, default
 `1_000_000.0` = `DEFAULT_COST_SCALE_FACTOR` in `setup/params.rs`); the LP
@@ -276,13 +278,16 @@ software-layer/devguide concern; keep the math backend-generic.)
 the backward pass (`true`) and start forward and simulation solves cold
 (`false`); a cold HiGHS solve uses neither the offered basis nor the one the
 previous solve left (`backends/highs/interface.rs` drops the basis, which keeps
-`basis_offered` at 0; HiGHS `run()` clears the solver), DCS inner re-solves
-included. A phase's `use_warm_start` override changes either choice and every
-retry keeps it. CLP has no `use_warm_start`, rejects per-phase fields, and
-warm-starts every phase. Captures happen whatever the profile, so under the
-HiGHS defaults a checkpoint's stored bases seed no training solve (the cold
-forward pass overwrites the slot before the backward pass reads it) and
-simulation-only uses them only with `simulation.solver.use_warm_start: true`.
+`basis_offered` at 0; HiGHS `run()` clears the solver), the dynamic method's
+inner re-solves included. A phase's `use_warm_start` override changes either
+choice and every retry keeps it. CLP has no `use_warm_start`, rejects per-phase
+fields, and warm-starts every phase. The dynamic method neither reads nor writes
+the basis store (`training/forward/stage_solve.rs`,
+`training/backward/by_scenario.rs`); outside it captures happen whatever the
+profile, so under the HiGHS defaults a checkpoint's stored bases seed no
+training solve (the cold forward pass overwrites the slot before the backward
+pass reads it) and simulation-only uses them only with
+`simulation.solver.use_warm_start: true`.
 The math layer says "a phase that warm-starts", never a backend name.
 → **Cut pool**: append-only with stable, deterministic slot indices; deactivation
 is a **pool boolean flag** (`active: Vec<bool>`, `CutPool::set_active`) that
@@ -292,15 +297,15 @@ mutates no LP row, RHS, or bound. A deactivated cut keeps its slot but is
 LP is append-only (rows never removed, bound stays monotone). The only
 `f64::INFINITY` in a cut row is the normal upper bound of the one-sided `≥`
 Benders cut (`cut/row.rs`), present on every active row — **not** a deactivation
-sentinel. Periodic-pruning methods (`level1`/`lml1`/`domination`) deactivate;
-**DCS** keeps the pool whole and loads a bounded resident subset per solve
+sentinel. The periodic-pruning method (`level1`) deactivates;
+the **dynamic** method keeps the pool whole and loads a bounded resident subset per solve
 (`crates/novomodelo-sddp/src/cut/dcs.rs`), and is inadmissible under enumerated
 forward traversal.
 → **Checkpoint format (self-describing)**: `policy/manifest.bin` (a
 `FlatBuffers` `CheckpointManifest` root: study graph, stage count, producer
 provenance + `format_version`) is written LAST as the commit signal and read
 FIRST behind the `format_version` gate. Each `cuts/<pool>.bin` self-describes its
-own `cost_scale_factor` + graph identity. `FORMAT_VERSION` is `3`; every load kind
+own `cost_scale_factor` + graph identity. `FORMAT_VERSION` is `4`; every load kind
 checks in `validate_policy_load`, before any state check, that the checkpoint
 was written by exactly this build (`SoftwareIdentity::THIS_BUILD`: the same
 `SOFTWARE_NAME` at the same `SOFTWARE_VERSION`,

@@ -1,10 +1,10 @@
 # Starlight CI — pull-request verification for the Astro/Starlight docs.
 #
-# On every pull request to `main` (and on manual dispatch) this workflow installs
-# Node, a pinned d2 and a pinned novomodelo, runs the static corpus gates before the
-# build, builds the multi-version site with `npm run build:versions`, then runs
-# `npm test`, `npm run check`, `npm run check:math`, `npm run check:links` and
-# `npm run check:e10`.
+# On every pull request to `main` or `develop` (and on manual dispatch) this
+# workflow installs Node, a pinned d2 and a pinned novomodelo, runs the static corpus
+# gates before the build, builds the multi-version site with
+# `npm run build:versions`, then runs `npm test`, `npm run check`,
+# `npm run check:math`, `npm run check:links` and `npm run check:e10`.
 #
 # It deploys nothing: no Pages artifact, no CNAME, no pages: or id-token:
 # permissions. starlight-deploy.yml publishes on push to `main` and runs a subset
@@ -17,7 +17,7 @@ name: Starlight CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 # Cancel superseded runs for the same ref (e.g. a force-push to an open PR).
@@ -90,11 +90,11 @@ jobs:
       # (check:error-coverage reads them).
       # Only the binary is extracted, so the directory is empty after the move and
       # nothing is left in the checkout for the build.
-      - name: Install novomodelo (pinned v0.18.1, sha256-verified)
+      - name: Install novomodelo (pinned v0.19.0, sha256-verified)
         run: |
           novomodelo_tarball=novomodelo-cli-x86_64-unknown-linux-gnu.tar.xz
-          novomodelo_sha256=d873ca8ed08fbf8a9b1cf89f089388e230e3a8082ac41a772a63ea39fb29b3d8
-          curl -fsSL "https://github.com/ons-ccee-epe/novomodelo/releases/download/v0.18.1/${novomodelo_tarball}" -o "${novomodelo_tarball}"
+          novomodelo_sha256=f5c7ee9332dabfdb3b3a87a1d21ad4f6983a41424376e797b07169aa7943540e
+          curl -fsSL "https://github.com/ons-ccee-epe/novomodelo/releases/download/v0.19.0/${novomodelo_tarball}" -o "${novomodelo_tarball}"
           echo "${novomodelo_sha256}  ${novomodelo_tarball}" | sha256sum -c -
           tar xJf "${novomodelo_tarball}" novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
           sudo mv novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo /usr/local/bin/novomodelo

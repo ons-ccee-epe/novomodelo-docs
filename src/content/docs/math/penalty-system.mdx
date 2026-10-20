@@ -51,7 +51,7 @@ These penalties provide slack for physical or operational constraints that may b
 | Generation below minimum ($c^{gv-}_h$) | \$/MWh | Generation < min | Contractual or environmental minimum generation |
 | Evaporation above or below target ($c^{ev+}_h$, $c^{ev-}_h$) | \$/(m³/s·h) | Evaporation constraint | Physical constraint (bidirectional, see Section 5) |
 | Withdrawal over- or under-delivery ($c^{wv+}_h$, $c^{wv-}_h$) | \$/(m³/s·h) | Unmet water withdrawal | Human consumption / irrigation commitments |
-| Generic constraint violation (user-set cost) | \$/(constraint unit·h) | Generic constraint violations | User-defined physical or operational constraints |
+| Generic constraint violation (user-set cost) | \$/(constraint unit·h) or \$/constraint unit | Generic constraint violations | User-defined physical or operational constraints |
 
 These penalties create an artificial cost in the objective function that propagates backward through the value function, telling earlier stages to store more water (or dispatch differently) to avoid reaching states where violations are necessary.
 
@@ -73,7 +73,7 @@ These are small costs inserted into the objective function to guide the solver t
 
 The costs carry different units: \$/hm³ for the storage-violation and filling-target slacks; \$/(m³/s·h) for the turbined, outflow, evaporation, withdrawal and inflow non-negativity slacks and the spillage, turbined and diversion costs; and \$/MWh for deficit, excess, the generation-minimum slack and every non-hydro cost. The ordering compares them as energy-equivalent costs in \$/MWh.
 
-Water at hydro $h$ in stage $t$ produces energy at its accumulated productivity $\bar\rho_{acum,h,t}$, the sum of the useful-range mean productivities of the plant and of every plant downstream ([Hydro Production Function Models §5.3](/math/hydro-production-models#53-useful-range-mean-productivity)). One hm³ is $\kappa = 10^6/3600$ (m³/s)·h, so, for a plant with $\bar\rho_{acum,h,t} > 0$, a storage cost $c$ is worth $c/(\kappa\,\bar\rho_{acum,h,t})$ \$/MWh and a flow cost $c$ is worth $c/\bar\rho_{acum,h,t}$ \$/MWh. In these units the tiers are ordered from highest to lowest:
+Water at hydro $h$ in stage $t$ produces energy at its accumulated productivity $\bar\rho_{acum,h,t}$, the sum of the useful-range mean productivities of the plant and of every plant downstream ([Hydro Production Function Models §4.3](/math/hydro-production-models#43-useful-range-mean-productivity)). One hm³ is $\kappa = 10^6/3600$ (m³/s)·h, so, for a plant with $\bar\rho_{acum,h,t} > 0$, a storage cost $c$ is worth $c/(\kappa\,\bar\rho_{acum,h,t})$ \$/MWh and a flow cost $c$ is worth $c/\bar\rho_{acum,h,t}$ \$/MWh. In these units the tiers are ordered from highest to lowest:
 
 $$
 \begin{aligned}
@@ -126,9 +126,11 @@ This section enumerates all constraints in the LP that use slack variables, orga
 | Minimum storage (filling hydro, from its entry stage) | $\sigma^{v-}_h$ | Lower bound | $c^{sv-}_h$ | Constraint violation |
 | Filling target | $\sigma^{fill}_h$ | Lower bound | $c^{fill}_h$ | Constraint violation |
 | Minimum turbined | $\sigma^{q-}_{h,b,k}$ | Lower bound | $c^{tv-}_h$ | Constraint violation |
+| Plant minimum turbined (residual) | $\sigma^{Q-}_{h,k}$ | Lower bound | $c^{tv-}_h$ | Constraint violation |
 | Minimum outflow | $\sigma^{o-}_{h,k}$ | Lower bound | $c^{ov-}_h$ | Constraint violation |
 | Maximum outflow | $\sigma^{o+}_{h,k}$ | Upper bound | $c^{ov+}_h$ | Constraint violation |
 | Minimum generation | $\sigma^{g-}_{h,b,k}$ | Lower bound | $c^{gv-}_h$ | Constraint violation |
+| Plant minimum generation (residual) | $\sigma^{G-}_{h,k}$ | Lower bound | $c^{gv-}_h$ | Constraint violation |
 | Evaporation | $\sigma^{e+}_h$ | Above target | $c^{ev+}_h$ | Constraint violation |
 | Evaporation | $\sigma^{e-}_h$ | Below target | $c^{ev-}_h$ | Constraint violation |
 | Water withdrawal | $\sigma^{w+}_h$ | Over-delivery | $c^{wv+}_h$ | Constraint violation |
@@ -153,7 +155,7 @@ The **maximum storage** $\bar{V}_h$ is a hard physical limit (the reservoir capa
 
 ### Generic Constraints
 
-User-defined generic constraints can optionally have slack variables with user-specified penalty costs. These are typically used for physical or operational directives from the system operator, and fall into the **constraint violation** category. A two-sided generic constraint (both a floor and a cap) carries two slack columns, one per endpoint; the reported violation is their signed net, and both are penalised.
+User-defined generic constraints can optionally have slack variables with user-specified penalty costs. These are typically used for physical or operational directives from the system operator, and fall into the **constraint violation** category. A two-sided generic constraint (both a floor and a cap) carries two slack columns, one per endpoint; the reported violation is their signed net, and both are penalised. The cost is declared on one of two bases: per unit and hour for a row whose quantity is a rate (MW, m³/s), charged over the hours of the row's block or, on a stage-level row, of the stage; or per unit for a row whose quantity is an amount (MWh, hm³), charged once whatever the duration ([LP Formulation §10](/math/lp-formulation#10-generic-constraints)).
 
 ### Non-Controllable Sources
 

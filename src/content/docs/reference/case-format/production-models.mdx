@@ -18,14 +18,16 @@ tailrace-level curves. Each row or entry names a plant of
 Volume-Height-Area (VHA) curves for hydro reservoirs. Required for a
 computed-FPHA plant (`source: "computed"`) and for a plant that declares
 `evaporation` coefficients. When the file holds any row, every FPHA plant needs
-at least 1 row of its own and every `linearized_head` plant at least 2.
+at least 1 row of its own.
 
 The table is also read by the useful-range mean evaluator
-([Hydro Production Function Models §5.3](/math/hydro-production-models#53-useful-range-mean-productivity))
+([Hydro Production Function Models §4.3](/math/hydro-production-models#43-useful-range-mean-productivity))
 for **any** hydro, whatever its generation model, that has a specific
 productivity (the `system/hydros.json` entity field or a
 `system/hydro_energy_productivity.parquet` override). For such a plant, a table
-that fails to build, or a non-positive mean equivalent head, rejects the case at
+that fails to build, or a non-positive mean equivalent head at a stage without an
+`integrated_equivalent_productivity_mw_per_m3s` value in
+`system/hydro_energy_productivity.parquet`, rejects the case at
 `novomodelo validate` (see
 [`GenericConstraintValidationError`](/reference/error-codes/#genericconstraintvalidationerror)).
 Author the table to span `reservoir.min_storage_hm3` … `reservoir.max_storage_hm3`:
@@ -111,17 +113,17 @@ to mean "until end of horizon".
 | `production_models[].stage_ranges`                           | array           | Conditional | —       | —         | Required when `selection_mode` is `"stage_ranges"`. One entry per stage range.                                                                                                                                                                                                                                                                                 |
 | `production_models[].stage_ranges[].start_stage_id`          | integer         | Yes         | —       | —         | First stage (inclusive) to which this entry applies                                                                                                                                                                                                                                                                                                            |
 | `production_models[].stage_ranges[].end_stage_id`            | integer \| null | No          | —       | —         | Last stage (inclusive); `null` or absent means open-ended                                                                                                                                                                                                                                                                                                      |
-| `production_models[].stage_ranges[].model`                   | string          | Yes         | —       | —         | Model name: `"constant_productivity"`, `"linearized_head"`, or `"fpha"`                                                                                                                                                                                                                                                                                        |
+| `production_models[].stage_ranges[].model`                   | string          | Yes         | —       | —         | One of `"constant_productivity"`, `"fpha"`; any other name is rejected at load                                                                                                                                                                                                                                                 |
 | `production_models[].stage_ranges[].fpha_config`             | object \| null  | No          | —       | —         | Source and fit settings of an `"fpha"` entry; see FPHA config fields below. An `"fpha"` entry without it reads the rows of `system/fpha_hyperplanes.parquet`, as `source: "precomputed"` does.                                                                                                                                                                 |
 | `production_models[].stage_ranges[].reference_volume`        | object \| null  | No          | —       | —         | Reference operating volume V_ref, a sibling of `fpha_config` (not nested). Set exactly one of `volume_hm3` (absolute, hm³, `> 0.0`) or `percentile` (a fraction of the operating range, `[0.0, 1.0]`); both or neither is rejected. Absent ⇒ the case-wide default fraction. Applies to any plant in either selection mode. See reference-volume fields below. |
-| `production_models[].stage_ranges[].productivity_mw_per_m3s` | number \| null  | No          | —       | MW/(m³/s) | Finite and `>= 0` when present (`0` marks a planned-outage stage); rejected on `"fpha"`. Optional for `constant_productivity` and `linearized_head` — when omitted, supply the value via `system/hydro_energy_productivity.parquet`. Exactly one source per `(hydro, stage)` is required; both is rejected at load time.                                       |
+| `production_models[].stage_ranges[].productivity_mw_per_m3s` | number \| null  | No          | —       | MW/(m³/s) | Finite and `>= 0` when present (`0` marks a planned-outage stage); rejected on `"fpha"`. Optional for `constant_productivity` — when omitted, supply the value via `system/hydro_energy_productivity.parquet`. Exactly one source per `(hydro, stage)` is required; both is rejected at load time.                                       |
 
 **`seasonal` mode.** The model for a stage is determined by its `season_id`.
 Stages whose season is not listed use `default_model`.
 
 | Name                                | Type   | Required    | Default | Units | Description                                                                                                                                                            |
 | ----------------------------------- | ------ | ----------- | ------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `production_models[].default_model` | string | Conditional | —       | —     | Required when `selection_mode` is `"seasonal"`. Fallback model name for unlisted seasons                                                                               |
+| `production_models[].default_model` | string | Conditional | —       | —     | One of `"constant_productivity"`, `"fpha"`. Required when `selection_mode` is `"seasonal"`. Fallback model for unlisted seasons                                        |
 | `production_models[].seasons`       | array  | Conditional | —       | —     | Required when `selection_mode` is `"seasonal"`. Array of season overrides: `season_id`, `model`, optional `fpha_config`, `reference_volume`, `productivity_mw_per_m3s` |
 
 **`production_models[].seasons[]` entry fields:**
@@ -129,7 +131,7 @@ Stages whose season is not listed use `default_model`.
 | Name                                                                             | Type            | Required | Default | Units     | Description                                                                               |
 | -------------------------------------------------------------------------------- | --------------- | -------- | ------- | --------- | ----------------------------------------------------------------------------------------- |
 | `production_models[].seasons[].season_id`                                        | integer         | Yes      | —       | —         | Season index (0-based, matching the `stages.json` season map).                            |
-| `production_models[].seasons[].model`                                            | string          | Yes      | —       | —         | Model name: `"constant_productivity"`, `"linearized_head"`, or `"fpha"`                   |
+| `production_models[].seasons[].model`                                            | string          | Yes      | —       | —         | One of `"constant_productivity"`, `"fpha"`; any other name is rejected at load        |
 | `production_models[].seasons[].fpha_config`                                      | object \| null  | No       | —       | —         | As `production_models[].stage_ranges[].fpha_config`.                                      |
 | `production_models[].seasons[].fpha_config.source`                               | string          | Yes      | —       | —         | As `production_models[].stage_ranges[].fpha_config.source`.                               |
 | `production_models[].seasons[].fpha_config.volume_discretization_points`         | integer \| null | No       | —       | —         | As `production_models[].stage_ranges[].fpha_config.volume_discretization_points`.         |
@@ -175,7 +177,7 @@ must be present and the computed planes are automatically written to
 `output/hydro_models/fpha_hyperplanes.parquet`.
 
 A plant with any `source: "computed"` entry fits planes for every study stage, so every stage must resolve to an entry
-that carries an `fpha_config`. A `constant_productivity` or `linearized_head` range, a season left to `default_model`,
+that carries an `fpha_config`. A `constant_productivity` range, a season left to `default_model`,
 or a stage that no entry covers is rejected when the case is set up. To use FPHA in some stages and another model in
 the rest, give every FPHA entry `source: "precomputed"`.
 
@@ -228,7 +230,7 @@ mutually exclusive per bound — set at most one of `volume_min_hm3` and
 }
 ```
 
-**Example — hydro 5 uses FPHA in season 0, linearized_head in all other seasons:**
+**Example — hydro 5 uses FPHA in season 0, constant productivity in all other seasons:**
 
 ```json
 {
@@ -236,7 +238,7 @@ mutually exclusive per bound — set at most one of `volume_min_hm3` and
     {
       "hydro_id": 5,
       "selection_mode": "seasonal",
-      "default_model": "linearized_head",
+      "default_model": "constant_productivity",
       "seasons": [
         {
           "season_id": 0,
@@ -253,19 +255,30 @@ mutually exclusive per bound — set at most one of `volume_min_hm3` and
 
 ## `system/hydro_energy_productivity.parquet`
 
-**Methodology:** [Hydro Production Function Models §5](/math/hydro-production-models/#5-energy-conversion-quantities)
+**Methodology:** [Hydro Production Function Models §4](/math/hydro-production-models/#4-energy-conversion-quantities)
 
 Optional per-plant, per-stage overrides for the energy-conversion preprocessing
 layer. Rows with `stage_id = NULL` act as per-hydro defaults and apply to all
 stages not covered by a stage-specific row. Each override column reaches a
 different set of consumers:
 
-- `equivalent_productivity_mw_per_m3s` — replaces ρ_eq outright in **both**
-  energy-conversion evaluators (the reference-point value and the useful-range
-  mean value), and therefore the `equivalent_productivity` /
-  `integrated_equivalent_productivity` computed tags and the
-  `equivalent_productivity_mw_per_m3s` /
-  `integrated_equivalent_productivity_mw_per_m3s` simulation output columns.
+- `equivalent_productivity_mw_per_m3s` — replaces the reference-point ρ_eq
+  outright, and therefore the `equivalent_productivity` and
+  `accumulated_productivity` computed tags and the
+  `equivalent_productivity_mw_per_m3s` simulation output column. It reaches
+  the useful-range mean value only for a plant that has no mean of its own to
+  integrate (step 3 of the
+  [resolution order](/math/hydro-production-models#43-useful-range-mean-productivity)):
+  a plant with VHA geometry and a specific productivity integrates its mean
+  even when this column is set.
+- `integrated_equivalent_productivity_mw_per_m3s` — sets the plant's own
+  useful-range mean productivity ρ̄_eq for the stage outright, for any
+  generation model, and therefore the cascade sum, the
+  `integrated_equivalent_productivity` / `integrated_accumulated_productivity`
+  and `max_stored_energy` computed tags, the `integrated_*` simulation output
+  columns and `stored_energy_*`. Use it when the case's stored-energy
+  convention differs from integrating the plant's geometry over its physical
+  range.
 - `specific_productivity_mw_per_m3s_per_m` — the ρ_esp that multiplies the net
   head in **both** evaluators' head-derived ρ_eq (the reference-point value of an
   FPHA plant; the useful-range mean value of any plant with VHA geometry), and
@@ -283,17 +296,20 @@ different set of consumers:
 | `equivalent_productivity_mw_per_m3s`     | Float64 (nullable) | Yes      | —       | MW/(m³/s)   | Direct ρ_eq override [MW/(m³/s)]; finite and >= 0.0 (`0.0` marks a planned outage at a stage not using the `"fpha"` model)  |
 | `reference_outflow_m3s`                  | Float64 (nullable) | Yes      | —       | m³/s        | Q_ref override [m³/s]; finite and >= 0.0                                                                                    |
 | `specific_productivity_mw_per_m3s_per_m` | Float64 (nullable) | Yes      | —       | MW/(m³/s)/m | ρ_esp override [MW/(m³/s)/m]; finite and >= 0.0 (`0.0` is accepted and makes the head-derived equivalent productivity zero) |
+| `integrated_equivalent_productivity_mw_per_m3s` | Float64 (nullable) | Yes | — | MW/(m³/s) | Useful-range mean ρ̄_eq override [MW/(m³/s)]; finite and >= 0.0; NULL means no override |
 
 **Validation:**
 
-- All five columns must be present; a file missing any of them is rejected.
+- All six columns must be present; a file missing any of them is rejected. A
+  column may be NULL on every row.
 - `hydro_id` must not be null.
 - `equivalent_productivity_mw_per_m3s`, when set, must be finite and >= 0.0;
   `0.0` is accepted; at a stage that does not use the `"fpha"` model it marks a planned outage.
 - `reference_outflow_m3s`, when set, must be finite and >= 0.0.
 - `specific_productivity_mw_per_m3s_per_m`, when set, must be finite and >= 0.0;
   `0.0` is accepted; it makes the head-derived equivalent productivity zero and is not a planned-outage marker.
-- A row where all three override columns are NULL is accepted.
+- `integrated_equivalent_productivity_mw_per_m3s`, when set, must be finite and >= 0.0.
+- A row where all four override columns are NULL is accepted.
 - Duplicate `(hydro_id, stage_id)` pairs are rejected during case build.
 - The reference operating volume V_ref is declared per `(plant, stage)` by `reference_volume` in
   `system/hydro_production_models.json`; a `reference_volume_hm3` column in this

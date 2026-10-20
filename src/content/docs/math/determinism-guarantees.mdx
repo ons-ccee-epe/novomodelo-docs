@@ -267,18 +267,19 @@ and every lower bound and cut derived from it, is identical across topologies �
 the same rank-count invariance already established for internally generated cuts,
 trial points, and simulation costs.
 
-**Order-independent parallel cut selection.** Cut selection evaluates every cut
-at every visited trial point and decides survival per cut. The trial points are
-partitioned into fixed-size blocks processed in parallel; each block produces a
-survival bitmap, and the bitmaps are combined by a bitwise OR. Because set union
-is commutative and associative, the selected cut set is identical regardless of
-how the blocks are distributed across threads or how many threads run — a
+**Order-independent parallel cut selection.** Level 1 selection gives every
+stored trial point one owner: the cut with the highest value there, an exact
+tie going to the cut at the lowest pool slot. The stored trial points are
+partitioned into fixed-size blocks processed in parallel, and each point's owner
+is computed from that point and the cuts alone, so no result depends on how the
+blocks are distributed across threads or how many threads run — a
 single-threaded run and a fully parallel run produce the same deactivations and
-reactivations. The deterministic cut-pool slot index closes the loop: the
-tie-break that keeps the _oldest_ cut at a state (LML1) resolves to the same
-cut in every run, because each cut occupies the same slot in every run.
+reactivations. Values are compared exactly, with no tolerance, and the
+deterministic cut-pool slot index closes the loop: the lowest-slot tie-break
+resolves to the same cut in every run, because each cut occupies the same slot
+in every run.
 
-The same discipline extends to **dynamic cut selection (DCS)**, which chooses a
+The same discipline extends to the **dynamic method**, which chooses a
 per-solve resident subset of cuts rather than deactivating any. The resident set
 is seeded from synchronized per-slot pool metadata (not per-worker solve traces),
 the omitted-cut violation scores come from a bit-deterministic batched product,
@@ -326,7 +327,16 @@ binary, and the guarantee makes no promise across binaries; the single-process
 `novomodelo` and the `novomodelo-mpi` release assets are two such builds. Runs on different
 processor models are not promised equal either, nor is a multi-node job whose
 nodes differ in processor model, since the system libraries a binary loads can
-select code paths by processor features.
+select code paths by processor features. Novomodelo's own cut-scoring product is not
+one of them: every x86_64 build of one Novomodelo version, the release assets and
+builds from source alike, compiles it to one floating-point kernel without
+AVX2 or FMA instructions, so those builds score and select cuts identically. A
+build compiled with extra target features or for a specific target CPU can fuse
+multiply-adds there, and a build for another architecture can resolve another
+kernel; either can select different, equally valid cuts. The bundled LP solver
+and convex-hull code compile without fused multiply-adds on every target, so a
+compiler whose default target has FMA changes neither a build's LP solutions nor
+its fitted production planes.
 
 **Cross-platform binary equality of output files.** Timestamps, schema-version
 fields, and file-format padding may differ across platforms and library versions.

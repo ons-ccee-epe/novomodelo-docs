@@ -57,9 +57,9 @@ function entryProblems(v, i, isAncestor) {
   const at = `versions[${i}] ${JSON.stringify(v.slug)}`;
   const problems = [];
   if (!SLUG.test(v.slug)) problems.push(`${at}: slug does not match vX.Y`);
-  if (v.label !== v.slug) {
+  if (v.label !== v.novomodelo) {
     problems.push(
-      `${at}: label ${JSON.stringify(v.label)} does not equal the slug`,
+      `${at}: label ${JSON.stringify(v.label)} does not equal the frozen release ${JSON.stringify(v.novomodelo)}`,
     );
   }
   if (v.base !== `/${v.slug}/`) {
@@ -175,7 +175,7 @@ const anyRefIsAncestor = () => true;
 
 const entry = (slug, ref) => ({
   slug,
-  label: slug,
+  label: `${slug}.0`,
   base: `/${slug}/`,
   ref,
   novomodelo: `${slug}.0`,
@@ -258,5 +258,13 @@ test("rejects an entry missing base", () => {
   assertOneProblem(
     validateVersions(config(noBase), anyRefIsAncestor),
     /base undefined is not "\/v0\.17\/"/,
+  );
+});
+
+test("rejects a label that is not the frozen release", () => {
+  const cfg = config({ ...entry("v0.18", ABSENT_SHA), label: "v0.18" });
+  assertOneProblem(
+    validateVersions(cfg, anyRefIsAncestor),
+    /label "v0\.18" does not equal the frozen release "v0\.18\.0"/,
   );
 });

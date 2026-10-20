@@ -1,7 +1,7 @@
 Novomodelo's `system/hydro_production_models.json` file authors the production-model
 selection the methodology above describes, and the `generation` block of
 `system/hydros.json` supplies each plant's default model and its turbine and
-generation bounds. The equations these fields feed are in the sections above ([Hydro Production Function Models §1](/math/hydro-production-models#1-constant-productivity-model)–[§5](/math/hydro-production-models#5-energy-conversion-quantities)).
+generation bounds. The equations these fields feed are in the sections above ([Hydro Production Function Models §1](/math/hydro-production-models#1-constant-productivity-model)–[§4](/math/hydro-production-models#4-energy-conversion-quantities)).
 The rest of the plant registry is on
 [System Element Modeling Overview — Configure](/math/system-elements#implementation-in-novomodelo).
 
@@ -38,9 +38,8 @@ production function.
 | --------------------- | ------------------------- | ----------- |
 | Constant productivity | `"constant_productivity"` | `power = productivity * turbined_flow`. Independent of reservoir head. Productivity is supplied per stage range or season in `system/hydro_production_models.json`. |
 | FPHA                  | `"fpha"`                  | Piecewise-linear envelope of the nonlinear production function. Head-dependent. Configured via `hydro_production_models.json` — see below. |
-| Linearized head       | `"linearized_head"`       | Reserved model name; it resolves to the same constant-productivity source as `constant_productivity` (see methodology §3). Requires the plant's productivity input. |
 
-Every model applies in training and in simulation.
+Every model applies in training and in simulation. Any other `model` value is rejected at load.
 
 For most initial studies, `constant_productivity` is the natural choice. The
 productivity coefficient encodes the plant's average efficiency and net head:
@@ -166,10 +165,7 @@ derivation.
 This source requires `tailrace`, `hydraulic_losses`, and `efficiency` models
 in `hydros.json`, plus geometry rows in `system/hydro_geometry.parquet` for the
 plant. An FPHA-configured plant needs at least 1 row — a single row is valid for
-run-of-river plants (a constant forebay, so `gamma_v = 0`). A plant configured
-with `linearized_head` needs at least 2 rows when the file holds any row; that higher minimum is a load-time
-validation rule keyed on the configured model name, not a runtime head fit —
-`linearized_head` resolves to constant productivity (methodology §3).
+run-of-river plants (a constant forebay, so `gamma_v = 0`).
 
 ```json
 "fpha_config": {
@@ -246,7 +242,7 @@ across input ordering and rank count.
 
 #### Per-Range and Per-Season Productivity
 
-For `constant_productivity` and `linearized_head` hydros, the equivalent
+For `constant_productivity` hydros, the equivalent
 productivity for each `(hydro, stage)` pair is supplied by exactly one of two
 sources:
 
@@ -277,15 +273,23 @@ files.
 
 A hydro whose `generation.model` is `fpha` is outside both checks: its
 equivalent productivity is derived from the VHA geometry and the specific
-productivity (methodology §5.1). An `equivalent_productivity_mw_per_m3s` row
+productivity (methodology §4.1). An `equivalent_productivity_mw_per_m3s` row
 for such a hydro (stage-specific, else the per-hydro default) is an override that
-replaces the derived value for both evaluators — the reference-point value
-(§5.1) and the useful-range mean value (§5.3).
+replaces the derived reference-point value (§4.1) only. The useful-range mean
+value (§4.3) is set outright, for any hydro and generation model, by an
+`integrated_equivalent_productivity_mw_per_m3s` value on the same row; without
+one it follows the resolution order of §4.3, so a plant with VHA geometry and a
+specific productivity integrates its mean even when it carries an
+`equivalent_productivity_mw_per_m3s` override. A non-positive mean head is
+rejected at setup with a message that names
+`integrated_equivalent_productivity_mw_per_m3s` as the way to supply the
+value.
 
 In `system/hydro_energy_productivity.parquet`,
-`equivalent_productivity_mw_per_m3s` and
-`specific_productivity_mw_per_m3s_per_m` must each be finite and non-negative
-when set: `0` is accepted and a negative value is rejected at load. A `0`
+`equivalent_productivity_mw_per_m3s`,
+`specific_productivity_mw_per_m3s_per_m` and
+`integrated_equivalent_productivity_mw_per_m3s` must each be finite and
+non-negative when set; NULL means no override: `0` is accepted and a negative value is rejected at load. A `0`
 equivalent productivity at a stage that does not use the `"fpha"` model marks a
 planned-outage stage, as
 `0.0` does in the JSON field below. A `0` specific productivity zeroes the head-derived equivalent productivity and does not stop generation.
@@ -307,7 +311,7 @@ planned-outage stage, as
 
 | Rule                            | Error Class          | Description |
 | -------------------------------- | --------------------- | ----------- |
-| FPHA geometry coverage            | Dimensional error      | When `system/hydro_geometry.parquet` holds any row, every `fpha` plant must have at least 1 row of its own (a single row is valid for run-of-river plants) and every `linearized_head` plant at least 2 rows; with no row in the file this rule does not run. |
+| FPHA geometry coverage            | Dimensional error      | When `system/hydro_geometry.parquet` holds any row, every `fpha` plant must have at least 1 row of its own (a single row is valid for run-of-river plants); with no row in the file this rule does not run. |
 | FPHA plane coverage               | Dimensional error      | Every `(hydro_id, stage_id)` group in `system/fpha_hyperplanes.parquet` must have at least 1 plane. |
 | FPHA coefficient signs            | Semantic error         | `gamma_v` must be non-negative (`>= 0`; run-of-river plants have `gamma_v = 0`); `gamma_s` must be non-positive. |
 | Geometry monotonicity             | Semantic error         | `volume_hm3` must be strictly increasing; `height_m` and `area_km2` must be non-decreasing. |

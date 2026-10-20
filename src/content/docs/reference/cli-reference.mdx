@@ -13,7 +13,7 @@ novomodelo [--color <WHEN>] <SUBCOMMAND> [OPTIONS]
 
 | Option           | Type                          | Default | Description                                                                                                                                                   |
 | ---------------- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Control ANSI color output on stdout and stderr. `auto` colors each stream only when it is a terminal; `always` forces color on — useful under `mpiexec`, which pipes both streams through a non-TTY. On more than one MPI rank, rank 0 of `novomodelo run` colors both streams unless `--quiet` is given, whatever `--color` says. |
+| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Control ANSI color output on stdout and stderr. `auto` colors each stream only when it is a terminal; `always` forces color on both — useful under `mpiexec`, which pipes both streams through a non-TTY. On more than one MPI rank, rank 0 of `novomodelo run` colors both streams unless `--quiet` is given, whatever `--color` says. |
 
 ## Subcommands
 
@@ -89,7 +89,7 @@ Stochastic artifact export is controlled by `exports.stochastic` in `config.json
 | `--output <DIR>` | Path    | `<CASE_DIR>/output/` | Output directory for results                                                                                                                                           |
 | `--threads <N>`  | integer | `1`                  | Number of worker threads per MPI rank. Each thread solves its own LP instances; scenarios are distributed across threads. Must be `1` or more. |
 | `--comm-backend <WHICH>` | `auto` \| `local` \| `mpi` | `auto` | Communication backend. `auto` selects the MPI backend when a binary built with MPI support (the `novomodelo-mpi` release asset) is launched under an MPI launcher (`mpiexec`/`mpirun`/`srun`), and the local backend otherwise; `local` forces a single process; `mpi` forces the MPI backend and fails with a clear message on a binary built without MPI support. |
-| `--quiet`        | flag    | off                  | Suppress the banner, progress bars and summaries. Errors still go to stderr                                                                                            |
+| `--quiet`        | flag    | off                  | Suppress the banner, the progress output and the summaries, so stdout stays empty. Errors still go to stderr                                                           |
 
 ### Config-First Principle
 
@@ -129,6 +129,13 @@ mpiexec -np 4 novomodelo-mpi run /data/cases/hydro_study
 
 ### Output format
 
+`novomodelo run` writes its report to stdout: the banner, the execution and setup
+blocks, the progress lines, and the training and simulation summaries. Warnings
+and errors go to stderr. On an interactive terminal the progress bars draw on
+stderr instead; when stderr is not a terminal (redirected, piped, or under an MPI
+launcher), progress is one appended line per iteration and per simulation update
+on stdout.
+
 `novomodelo run` prints this summary to stdout once training finishes. It carries
 the convergence, policy-rows, and LP-solve lines, plus a `Time split` block
 that decomposes the total training wall time into `Forward` / `Backward` /
@@ -138,7 +145,7 @@ that decomposes the total training wall time into `Forward` / `Backward` /
 Training complete in 4m 12s (42 iterations, converged at iter 38)
   Lower bound:  4.85000e4 $/stage
   Upper bound:  4.90000e4 +/- 2.50000e2 $/stage
-  Gap:          1.00000%
+  Gap:          1.03093%
   Policy rows:  980000 active / 1250000 generated
   LP solves:    84000 (81900 first-try, 2000 retried, 100 failed)
   Avg iter:     6000ms
@@ -152,7 +159,9 @@ The three walls in the `Time split` block sum to the total training time
 `Backward`, `solve` is the per-worker mean LP-solve wall time for that phase
 (cumulative solve time across all workers divided by parallelism, capped at
 the phase wall); `wait` is that phase's worker wait from load imbalance,
-shown as a percentage of the phase wall. In the `Serial` line, `bound` is
+shown as a percentage of the phase wall; the `Backward` wait covers the
+workers of every rank, so under MPI it includes the time a rank waits for its
+peers. In the `Serial` line, `bound` is
 lower-bound evaluation time and `selection` is row-selection time;
 `allreduce` (MPI forward-bound synchronization) and `sync` (per-stage
 row-sync `allgatherv`) appear **only** on MPI runs, inserted only when
@@ -206,7 +215,7 @@ A warning-free case prints nothing else. When the pipeline raises warnings, a
 `Validation: 0 errors, N warnings in <dir>` summary follows the `Valid case:`
 line (with `<dir>` exactly as passed on the command line), then one `warning:`
 line per finding, the policy load's included (`warning: <output dir>/<policy.path>: …`).
-When `config.json` configures a boundary policy, a
+When `config.json` configures a boundary policy and the run trains, a
 `boundary policy priced at <date>` line and a one-line reconciliation summary
 follow.
 
@@ -217,8 +226,8 @@ followed by each error as an `error:`-prefixed line, and exits as
 which also prints the I/O error on stderr. A case directory that does not
 exist is reported on stderr without the summary.
 
-When `config.json` configures `policy.boundary`, `novomodelo validate` loads and
-reconciles that boundary policy, including the
+When `config.json` configures `policy.boundary` and the run trains, `novomodelo validate` loads and
+reconciles that boundary policy, as `novomodelo run` does, including the
 [version gate](/running/policy-management/#version-gate). A refusal exits `1`,
 as does a boundary checkpoint that cannot be read. Under `--json`, a refusal
 and an unreadable checkpoint both report phase `BoundaryReconciliationError`;
@@ -228,7 +237,8 @@ see
 When the run would load a policy (`policy.mode` `warm_start` or `resume` with
 training enabled, or training disabled with simulation enabled), `novomodelo validate`
 reads it from `<output dir>/<policy.path>` and applies the same checks: a refusal
-exits `1` (phase `WarmStartIncompatible` or `ResumeIncompatible`), and so does a
+exits `1` (phase `WarmStartIncompatible`, `ResumeIncompatible` or
+`SimulationPolicyIncompatible`), and so does a
 case whose policy does not exist yet. `--output` names the output directory.
 
 ### Arguments
@@ -241,7 +251,7 @@ case whose policy does not exist yet. `--output` names the output directory.
 
 | Option   | Type | Default | Description                                                                                                                                                                                                                                                                                                   |
 | -------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json` | flag | off     | Replace the human-readable report with exactly one JSON object on stdout. On success it carries the boundary-policy reconciliation outcome (`configured`, `boundary_date`, `report` — the last two `null` when no boundary policy is configured) plus `policy_load` (`mode`, `unused_stored_bases`) when a policy load is configured; on failure it carries an `error` object with the failing `phase` and `message`. Exit codes are unchanged. |
+| `--json` | flag | off     | Replace the human-readable report with exactly one JSON object on stdout. On success it carries the boundary-policy reconciliation outcome (`configured`, `boundary_date`, `report` — `configured` is `true` when `policy.boundary` is configured and the run applies it, which only a run that trains does, and the last two are `null` when it is `false`) plus `policy_load` (`mode`, `unused_stored_bases`) when a policy load is configured; on failure it carries an `error` object with the failing `phase` and `message`. Exit codes are unchanged. |
 | `--output <DIR>` | Path | `<CASE_DIR>/output/` | The output directory: the policy load reads `<DIR>/<policy.path>`, and `policy.path` is checked against it. |
 
 ### Examples
@@ -293,10 +303,10 @@ support, host architecture, and build profile.
 
 ### Output lines
 
-{/* capture: novomodelo version | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: none */}
+{/* capture: novomodelo version | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: none */}
 
 ```
-novomodelo   v0.18.1
+novomodelo   v0.19.0
 solver: HiGHS 1.13.1
 comm:   local
 zstd:   enabled
@@ -333,7 +343,7 @@ None.
 | `3`  | Solver     | An infeasible LP or a solver failure, in training or in simulation, or a solver backend that cannot be initialized |
 | `4`  | Internal   | A communication failure, an unexpected channel closure, or another internal fault; under `novomodelo validate` also the load error that escapes the validation report, an AR-coefficient count mismatch (`novomodelo run`: `1`) |
 | `5`  | Stopped    | `novomodelo run` only: a SIGTERM or SIGINT during training stopped the run at an iteration boundary after writing the training outputs and the checkpoint; the simulation is skipped ([Stopping Rules — Shutdown Requests](/math/stopping-rules/#shutdown-requests)) |
-| `101` | Panic     | A panic, which is a defect rather than a reported failure; under MPI the panicking rank of `novomodelo run` aborts the whole job, so the launcher reports `101` and no rank is left waiting |
+| `101` | Panic     | An internal fault that panicked; the panic message goes to stderr. Under MPI, the rank that panics prints `rank {rank}: panicked; aborting the MPI job` and aborts the whole job with this code ([Runtime errors](/reference/error-codes/#runtime-errors)) |
 
 A dangling reference (an entity ID that refers to a non-existent entity) surfaces
 as an `InvalidReference` line inside a semantic-constraint violation (exit code 1).

@@ -124,7 +124,7 @@ Storage is tracked in **hm³** (cubic hectometres; 1 hm³ = 10⁶ m³).
 | `max_storage_hm3` | number | Physical maximum storage. Must be greater than or equal to `min_storage_hm3` (equal is allowed — a fixed-storage plant). |
 
 This is the plant's physical, stage-invariant range: stored-energy outputs and the
-useful-range mean productivity ([Hydro Production Function Models §5.3](/math/hydro-production-models#53-useful-range-mean-productivity))
+useful-range mean productivity ([Hydro Production Function Models §4.3](/math/hydro-production-models#43-useful-range-mean-productivity))
 read it, while `constraints/hydro_bounds.parquet` storage overrides (for example a
 flood-control ceiling) tighten only the per-stage operative bounds of the LP storage
 variable.
@@ -195,6 +195,14 @@ cannot exceed the plant's own declared maximum from its [`generation` block](/ma
 — a plant's own value is the envelope, so groups cannot raise it — and
 the sum of every group's minima must be able to reach the plant's own
 declared minimum.
+Only a per-stage override in `constraints/hydro_bounds.parquet` can therefore
+move the plant's own bounds past its groups': a plant minimum raised above the
+groups' summed minima binds on the plant's total, and a plant maximum lowered
+below the cells' summed capacities caps that total (see the [LP Formulation —
+Plant Minimum and Maximum](/math/lp-formulation#plant-minimum-and-maximum)). A
+plant minimum lowered below the groups' summed minima has no effect, and setup
+warns about it; lower the group minima in
+`constraints/hydro_unit_group_bounds.parquet` instead.
 
 Stage-varying, optionally per-block overrides of a group's four bounds are
 supplied by `constraints/hydro_unit_group_bounds.parquet` — see the [Hydro Production Function Models](/math/hydro-production-models#implementation-in-novomodelo) Inputs & Outputs tab.
@@ -320,7 +328,8 @@ curve" means and what Novomodelo does about it.
 
 **Diversion channel** — the `diversion` block models a diversion that routes
 flow directly to a downstream plant's reservoir, bypassing turbines and
-spillways; absent means no diversion.
+spillways; absent means no diversion. `max_flow_m3s` is the channel capacity;
+leave it out or set it to `null` for a channel with no capacity limit.
 
 ```json
 "diversion": { "downstream_id": 2, "max_flow_m3s": 200.0 }
@@ -393,11 +402,11 @@ bound overrides for a hydro plant, optionally narrowed to one block via an
 optional `block_id` column (`null` applies at the stage level). Three of its
 columns set a diversion floor and the spillage band:
 
-- `min_diversion_m3s` — a minimum diversion-flow floor (m³/s). This is a
-  **floor that requires a declared `diversion` channel** on the hydro (see
-  Diversion channel, above): with no channel declared, the diversion column
-  is pinned `[0, 0]`, so a positive floor is infeasible and is rejected at
-  load.
+- `min_diversion_m3s` — a minimum diversion-flow floor (m³/s). A positive
+  floor, like a positive `max_diversion_m3s`, **requires a declared
+  `diversion` channel** on the hydro (see Diversion channel, above): with no
+  channel declared, the diversion column is pinned `[0, 0]`, and a positive
+  diversion bound is rejected at load.
 - `min_spillage_m3s`, `max_spillage_m3s` — the spillage band (m³/s);
   `min_spillage_m3s` must be `<= max_spillage_m3s`.
 

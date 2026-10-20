@@ -15,18 +15,17 @@ reader in any language `flatc` supports.
 | `policy/manifest.bin`   | `CheckpointManifest` (study-global; written last, read first) |
 | `policy/cuts/NNN.bin`   | `StageCuts`                                        |
 | `policy/basis/NNN.bin`  | `StageBasis`                                       |
-| `policy/states/NNN.bin` | `StageStates` (only when `exports.states = true`)  |
+| `policy/states/NNN.bin` | `StageStates` (only for a pool that stores trial states) |
 
-`NNN` is a three-digit, zero-padded id: the **pool id** for `cuts/`, the
-0-based node position for `basis/` and the 0-based stage position for
-`states/`. `manifest.bin` is a single
+`NNN` is a three-digit, zero-padded id: the **pool id** for `cuts/` and
+`states/`, and the 0-based node position for `basis/`. `manifest.bin` is a single
 study-global file with no id. The reader derives identity from inside each
 buffer, never from the file name. The `CheckpointManifest` root carries the
 study graph (`nodes`/`edges`), the stage count, the producer provenance, and
 the `format_version` marker.
 
 The schema lives at
-[`crates/novomodelo-io/schemas/policy.fbs`](https://github.com/ons-ccee-epe/novomodelo/blob/v0.18.1/crates/novomodelo-io/schemas/policy.fbs)
+[`crates/novomodelo-io/schemas/policy.fbs`](https://github.com/ons-ccee-epe/novomodelo/blob/v0.19.0/crates/novomodelo-io/schemas/policy.fbs)
 under namespace `Novomodelo.IO.Policy`. It declares `file_identifier "CBVF"`
 and `file_extension "bin"` but no `root_type`, so `--root-type` is required
 per file to select the entry point for `flatc`. The reader refuses any buffer
@@ -61,7 +60,8 @@ languages. Pick the one matching your toolchain.
 
 ```bash
 flatc --python crates/novomodelo-io/schemas/policy.fbs
-# emits Novomodelo/IO/Policy/{AffinePiece,EntitySlot,EntityType,StageCuts,StageBasis,StageStates}.py
+# emits one module per schema type under Novomodelo/IO/Policy/ (AffinePiece, BasisEntry,
+# CheckpointManifest, EntitySlot, EntityType, StageCuts, StageBasis, StageStates, ...)
 ```
 
 ```python
@@ -74,7 +74,7 @@ cuts = StageCuts.GetRootAs(buf, 0)
 print("stage_id =", cuts.StageId())
 for i in range(cuts.CutsLength()):
     piece = cuts.Cuts(i)
-    print(piece.PieceId(), piece.Intercept(), [piece.Coefficients(j) for j in range(piece.CoefficientsLength())])
+    print(piece.SlotIndex(), piece.Intercept(), [piece.Coefficients(j) for j in range(piece.CoefficientsLength())])
 ```
 
 :::tip[Python bindings]
@@ -103,22 +103,31 @@ For other targets see `flatc --help`.
 ## Field-by-field reference
 
 The authoritative description of every field lives in
-[`policy.fbs`](https://github.com/ons-ccee-epe/novomodelo/blob/v0.18.1/crates/novomodelo-io/schemas/policy.fbs)
+[`policy.fbs`](https://github.com/ons-ccee-epe/novomodelo/blob/v0.19.0/crates/novomodelo-io/schemas/policy.fbs)
 itself — every field carries an inline doc comment. The
 [Output Format](/reference/output/) page has a tabular summary suitable
 for reading on the web.
 
 ### Reserved slots
 
-The schema reuses one field id and permanently burns three others:
+The schema reuses one field id and permanently burns the others listed here:
 
 - **`AffinePiece.intercept` (id 4)** reuses the vtable slot of the retired
   `domination_count` field. This id reuse is the exceptional case in this
   page's [versioning policy](#versioning-policy) — ordinarily a burned id is
   never reused.
+- **`AffinePiece.piece_id` (id 0)** is marked `deprecated`. It is a retired
+  per-run cut label; `slot_index` identifies a cut within its pool.
 - **`AffinePiece.reserved_7` (id 7)** is marked `deprecated`. It is a retired,
   always-empty vector field. The vtable slot number is permanently burned so
   no future field can reuse it.
+- **`StageCuts.active_cut_indices` (id 5)** is marked `deprecated`. It is a
+  retired list of active cut positions; each cut's `is_active` carries the
+  same fact.
+- **`StageBasis` ids 2–6** (`num_columns`, `num_rows`, `column_status`,
+  `row_status`, `num_cut_rows`) are marked `deprecated`. They held a single
+  basis per node; `entries` (id 7) holds one `BasisEntry` per scenario, whose
+  `piece_row_slots` names the pool slot of each cut row.
 - **`EntitySlot.delivery_anchor` (id 4)** is marked `deprecated`. It is a
   retired month-integer anchor (`year * 12 + (month - 1)`).
 - **`EntitySlot.delivery_date` (id 5)** is **also** marked `deprecated`. It is
@@ -137,7 +146,7 @@ The schema reuses one field id and permanently burns three others:
 
 Unlike an ordinary appended field, reusing or burning an id is not
 wire-backward-compatible: a reader built for another layout misreads the slot.
-A buffer with no `CBVF` identifier or a `format_version` other than `3` is
+A buffer with no `CBVF` identifier or a `format_version` other than `4` is
 therefore rejected outright on load rather than read with graceful-absence
 defaults — see [Versioning policy](#versioning-policy) below.
 
@@ -187,7 +196,7 @@ below.
 `.bin` payload. Every `.bin` buffer, the manifest included, carries the `CBVF`
 `file_identifier` described above, and a reader refuses a buffer without it
 before decoding. The manifest's `CheckpointManifest` carries a required
-`format_version` marker, which must equal `3` (`FORMAT_VERSION`); a missing
+`format_version` marker, which must equal `4` (`FORMAT_VERSION`); a missing
 `manifest.bin` or another `format_version` stops the read before any payload is
 parsed. There is **no conversion between format versions**;
 [Policy-load errors](/reference/error-codes/#policy-load-errors) lists what a
@@ -210,15 +219,17 @@ change that does not require an output-format version bump — the
   FlatBuffers default (zero / empty vector). New readers see the value
   when the writer was new enough to emit it. Wire compatibility does not
   imply the *values* are safe to consume: a field can change what existing
-  fields mean (the `cost_scale_factor` provenance marker marks cut
-  coefficients as canonical currency units, which a reader that ignores it
-  silently misinterprets — no error, wrong numbers). Whether a checkpoint
+  fields mean (the `cost_scale_factor` marker names the scale the cut
+  values are in, which a reader that ignores it silently misinterprets — no
+  error, wrong numbers). Whether a checkpoint
   loads is governed by the
   [version gate](/running/policy-management/#version-gate), not by this
   wire-level rule.
 - **Removing a field** → mark it `deprecated`, never reuse the id. See
-  `AffinePiece.reserved_7`, `EntitySlot.delivery_anchor`, and
-  `EntitySlot.delivery_date` for worked examples. `AffinePiece.intercept`
+  `AffinePiece.piece_id`, `AffinePiece.reserved_7`,
+  `StageCuts.active_cut_indices`, the `StageBasis` ids 2–6,
+  `EntitySlot.delivery_anchor`, and `EntitySlot.delivery_date` for worked
+  examples. `AffinePiece.intercept`
   reusing id 4, the slot of the retired `domination_count` field, is the one
   exception this page documents, not a precedent for reusing a burned id under
   the ordinary rule.

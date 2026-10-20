@@ -290,7 +290,7 @@ A **hydro plant** converts the potential energy of stored water into electricity
 
 A hydro plant's turbines are organized into one or more **unit groups**, each declaring its own bus connection and its own turbined-flow and generation bounds. Groups sharing a bus form one **(hydro, bus) cell**; a plant is partitioned into as many cells as it has distinct group buses, and every plant declares at least one group. Storage, spillage, diversion, and inflow remain single reservoir-level quantities tracked once per plant regardless of cell count — only turbined flow and generation are tracked **per cell**, and each cell injects its generation at its own bus rather than at a single plant-level bus.
 
-A plant whose groups all share one bus has exactly one cell and reduces to the single-bus model used throughout the rest of this chapter. A plant whose groups span several buses has one turbined-flow variable and one generation variable per cell instead of per plant; see [LP Formulation §3](/math/lp-formulation#3-load-balance-constraint)–[§4](/math/lp-formulation#4-hydro-water-balance) for how a cell's generation enters the bus load balance and a plant's cells sum into its water balance, and [LP Formulation §6](/math/lp-formulation#6-hydro-generation-constraints), [§8](/math/lp-formulation#8-variable-bounds-and-minimum-constraints) for how a cell's bounds compose from its member groups.
+A plant whose groups all share one bus has exactly one cell and reduces to the single-bus model used throughout the rest of this chapter. A plant whose groups span several buses has one turbined-flow variable and one generation variable per cell instead of per plant; see [LP Formulation §3](/math/lp-formulation#3-load-balance-constraint)–[§4](/math/lp-formulation#4-hydro-water-balance) for how a cell's generation enters the bus load balance and a plant's cells sum into its water balance, and [LP Formulation §6](/math/lp-formulation#6-hydro-generation-constraints), [§8](/math/lp-formulation#8-variable-bounds-and-minimum-constraints) for how a cell's bounds compose from its member groups. The plant's own minimum and maximum also bind on the total of its cells where they are tighter than the cells' own bounds ([LP Formulation — Plant Minimum and Maximum](/math/lp-formulation#plant-minimum-and-maximum)).
 
 ### Operating Status
 
@@ -436,13 +436,11 @@ Novomodelo carries the water in transit on such an arc as additional **in-transi
 
 ### Production Function (Water to Power)
 
-Novomodelo supports three production-model names for converting turbined flow to electrical generation:
+Novomodelo supports two production models for converting turbined flow to electrical generation:
 
 1. **Constant Productivity**: $g_{h,b,k} = \rho_h \cdot q_{h,b,k}$ (per cell $(h,b)$) — simple linear relationship with fixed $\rho_h$ [MW/(m³/s)], suitable for plants with stable head.
 
-2. **Linearized Head** (reserved alias): A reserved model name that resolves to **constant productivity** in every phase — training and simulation alike. No distinct head-dependent model is applied; requesting it yields the constant-productivity model above. See [Hydro Production Function Models §3](/math/hydro-production-models).
-
-3. **FPHA (approximate hydroelectric production function)**: Piecewise-linear approximation via hyperplanes that captures head variation with storage level and accounts for tailrace effects from spillage, fitted once per plant. Each cell's generation is bounded above by every plane of the plant's fitted set, evaluated at the cell's turbined flow, the plant's spillage and the average storage (of the stage, or of each block on a chronological stage), with the plane's flow-independent terms apportioned by the cell's share of the plant's declared turbine capacity — see [Hydro Production Function Models](/math/hydro-production-models).
+2. **FPHA (approximate hydroelectric production function)**: Piecewise-linear approximation via hyperplanes that captures head variation with storage level and accounts for tailrace effects from spillage, fitted once per plant. Each cell's generation is bounded above by every plane of the plant's fitted set, evaluated at the cell's turbined flow, the plant's spillage and the average storage (of the stage, or of each block on a chronological stage), with the plane's flow-independent terms apportioned by the cell's share of the plant's declared turbine capacity — see [Hydro Production Function Models](/math/hydro-production-models).
 
 :::note[Training models]
 Each production model can be used in training (policy construction) and in simulation (policy evaluation).
@@ -458,14 +456,16 @@ Several hydro constraints are enforced as **soft constraints** with slack variab
 | ---------------------------------------------- | --------------------------------------------- | --------------------- |
 | $v_h \geq \underline{V}_h$ (filling hydro, from its entry stage) | Minimum storage once filled                   | $\sigma^{v-}_{h}$     |
 | $q_{h,b,k} \geq \underline{Q}_{h,b}$ (per cell) | Minimum turbined flow (equipment limits)     | $\sigma^{q-}_{h,b,k}$ |
+| $\sum_b q_{h,b,k} \geq \underline{Q}_h$ (plant total, where tighter than its cells) | Plant minimum turbined flow | $\sigma^{Q-}_{h,k}$ |
 | $o_{h,k} \geq \underline{O}_h$                 | Minimum outflow (environmental flow)          | $\sigma^{o-}_{h,k}$   |
 | $o_{h,k} \leq \bar{O}_h$                       | Maximum outflow (flood control)               | $\sigma^{o+}_{h,k}$   |
 | $g_{h,b,k} \geq \underline{G}_{h,b}$ (per cell) | Minimum generation (grid services)           | $\sigma^{g-}_{h,b,k}$ |
+| $\sum_b g_{h,b,k} \geq \underline{G}_h$ (plant total, where tighter than its cells) | Plant minimum generation | $\sigma^{G-}_{h,k}$ |
 | $e_{h,k}$ feasible                             | Evaporation within physical limits            | $\sigma^{e\pm}_{h,k}$ (stage-level on a parallel stage, per block on a chronological stage) |
 | realized withdrawal meets $r_h$                | Water withdrawal commitment                   | $\sigma^{w-}_h$, $\sigma^{w+}_h$ (stage-level) |
 | $v_h \geq V^{\text{target}}_t$ (filling floor) | Per-stage filling target during commissioning | $\sigma^{fill}_{h}$   |
 
-Soft constraints allow the optimizer to violate bounds when physically necessary (e.g., drought conditions preventing minimum outflow), with high penalty costs signaling undesirable operation. Maximum storage ($\bar{V}_h$) is a **hard** physical limit — excess water is handled by spillage, not a slack variable. The dead volume is a hard bound too, except for a filling hydro once it operates and a plant that is not in service (see [LP Formulation §8](/math/lp-formulation#8-variable-bounds-and-minimum-constraints)). For the penalty priority ordering and cost magnitudes, see [Penalty System](/math/penalty-system). For the complete hydro constraint formulations, see [LP Formulation](/math/lp-formulation).
+Soft constraints allow the optimizer to violate bounds when physically necessary (e.g., drought conditions preventing minimum outflow), with high penalty costs signaling undesirable operation. Maximum storage ($\bar{V}_h$) is a **hard** physical limit — excess water is handled by spillage, not a slack variable. A plant's maximum turbined flow and maximum generation are hard too, on each cell and on the plant's total. The dead volume is a hard bound too, except for a filling hydro once it operates and a plant that is not in service (see [LP Formulation §8](/math/lp-formulation#8-variable-bounds-and-minimum-constraints)). For the penalty priority ordering and cost magnitudes, see [Penalty System](/math/penalty-system). For the complete hydro constraint formulations, see [LP Formulation](/math/lp-formulation).
 
 ### Not-Yet-Commissioned Hydros (PreFilling)
 
@@ -658,5 +658,5 @@ The methodology above defines every system element; the tabs below cover how Nov
 - [LP Formulation](/math/lp-formulation) — fully assembled LP constraints combining all elements
 - [State Augmentation](/math/state-augmentation) — the state the elements carry between stages: storage, inflow lags, in-transit buckets and commitment-ring slots
 - [Equipment-Specific Formulations](/math/equipment-formulations) — detailed per-equipment constraint derivations
-- [Hydro Production Function Models](/math/hydro-production-models) — FPHA and linearized head alternatives for the hydro production function
+- [Hydro Production Function Models](/math/hydro-production-models) — constant productivity and FPHA hydro production functions
 - [Penalty System](/math/penalty-system) — penalty costs, priority ordering, and the full penalty taxonomy

@@ -49,13 +49,14 @@ The table lists the families in the order of the stage LP's rows, with $N = \lve
 | 8 | Maximum outflow | $N \lvert\mathcal{K}\rvert$, one per hydro and block | [§7](#7-outflow-constraints) |
 | 9 | Minimum turbined flow | one per (hydro, bus) cell and block | [§8](#8-variable-bounds-and-minimum-constraints) |
 | 10 | Minimum generation | one per (hydro, bus) cell and block | [§6](#6-hydro-generation-constraints) |
-| 11 | Filling floor | one per filling hydro at each stage of its filling window | [§8](#8-variable-bounds-and-minimum-constraints) |
-| 12 | Soft dead-volume floor | one per filling hydro at each stage from its entry stage on | [§8](#8-variable-bounds-and-minimum-constraints) |
-| 13 | Commitment fish | one per anticipated thermal whose delivery at the stage was decided at an earlier stage or before the study | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
-| 14 | Commitment deposit | one per anticipated thermal that decides at the stage a commitment for a delivery inside the study or the declared post-study calendar at which the plant is commissioned | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
-| 15 | Commitment carry | one per ring slot holding a later delivery, decided at an earlier stage or before the study, inside the study or the declared post-study calendar | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
-| 16 | Generic constraints | one per active bound and block it covers, or one stage-level row for a block-independent bound | [§10](#10-generic-constraints) |
-| 17 | Benders cuts | one per active cut; one per resident cut under Dynamic Cut Selection | [§11](#11-benders-cuts) |
+| 11 | Plant minimum and maximum | for a hydro with several cells, per block: a turbined-flow and a generation minimum row when the plant minimum binds on its cells' total at some block of the stage, then a turbined-flow and a generation maximum row when the plant maximum does | [§8 Plant Minimum and Maximum](#plant-minimum-and-maximum) |
+| 12 | Filling floor | one per filling hydro at each stage of its filling window | [§8](#8-variable-bounds-and-minimum-constraints) |
+| 13 | Soft dead-volume floor | one per filling hydro at each stage from its entry stage on | [§8](#8-variable-bounds-and-minimum-constraints) |
+| 14 | Commitment fish | one per anticipated thermal whose delivery at the stage was decided at an earlier stage or before the study | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
+| 15 | Commitment deposit | one per anticipated thermal that decides at the stage a commitment for a delivery inside the study or the declared post-study calendar at which the plant is commissioned | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
+| 16 | Commitment carry | one per ring slot holding a later delivery, decided at an earlier stage or before the study, inside the study or the declared post-study calendar | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
+| 17 | Generic constraints | one per active bound and block it covers, or one stage-level row for a block-independent bound | [§10](#10-generic-constraints) |
+| 18 | Benders cuts | one per active cut; one per resident cut under the dynamic method | [§11](#11-benders-cuts) |
 
 Incoming-state pinning and the lifecycle pins are column bounds, not rows: each incoming-state column is fixed at its trial value by equal bounds ([State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds)), and each column a lifecycle phase freezes is fixed by its bounds ([§8](#8-variable-bounds-and-minimum-constraints)).
 
@@ -80,7 +81,7 @@ $$
 \min \; \underbrace{C^{resource}}_{\text{thermal, contracts}} + \underbrace{C^{recourse}}_{\text{deficit, excess, inflow non-negativity}} + \underbrace{C^{violation}}_{\text{constraint slacks}} + \underbrace{C^{regularization}}_{\text{spillage, exchange, ...}} + d_{t \to t+1} \, \theta
 $$
 
-where the per-block terms are weighted by the block duration $\tau_k$ and the stage-level terms, namely the storage-violation slacks on end-of-stage storage, the inflow non-negativity and withdrawal slacks, the evaporation slacks of a parallel stage, the slacks of a stage-level generic constraint (§10) and the commitment cost of an anticipated thermal, apply once per stage (§2); the per-block part of each component is:
+where the per-block terms are weighted by the block duration $\tau_k$, except the amount-basis slacks of a block-level generic constraint (§10), and the stage-level terms, namely the storage-violation slacks on end-of-stage storage, the inflow non-negativity and withdrawal slacks, the evaporation slacks of a parallel stage, the slacks of a stage-level generic constraint (§10) and the commitment cost of an anticipated thermal, apply once per stage (§2); the per-block part of each component is:
 
 $$
 C^{component} = \sum_{k \in \mathcal{K}} \tau_k \cdot (\text{cost terms for component})
@@ -272,7 +273,7 @@ The z-inflow columns sit between the leading state columns and the incoming stor
 
 ## 6. Hydro Generation Constraints
 
-Novomodelo supports two production models, in increasing order of complexity. A third model name, linearized head, is a reserved alias that resolves to constant productivity in every phase — see [Hydro Production Function Models §3](/math/hydro-production-models). The model can vary by stage or season per hydro.
+Novomodelo supports two production models, in increasing order of complexity. The model can vary by stage or season per hydro.
 
 Both models are evaluated **per cell** $(h, b)$ (§3) rather than per plant; for a single-cell plant the per-cell constraint is the plant-level constraint.
 
@@ -317,7 +318,7 @@ $$
 \underline{G}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{G}_u, \qquad \bar{G}_{h,b} = \min\!\Big( \sum_{u \,\in\, (h,b)} \bar{G}_u,\ \ \bar{G}_h \Big)
 $$
 
-Generation bounds are user-defined (declared per unit group, not derived from turbined flow). The lower bound is soft, with one slack $\sigma^{g-}_{h,b,k}$ **per cell** — priced at the plant's own penalty $c^{gv-}_h$ at full magnitude on every cell of a split plant, never divided by cell count; a constant-productivity cell's floor couples this same slack to $\rho_h \cdot q_{h,b,k}$ rather than to a generation column. The upper bound's plain sum over the cell's own unit groups closes against the plant's own resolved maximum $\bar{G}_h$ — a bounds override may never raise a cell above it. See [System Element Modeling Overview §5](/math/system-elements). Matches the per-cell $\sigma^{g-}_{h,b,k}$ defined in [Notation Conventions §4.3](/overview/notation-conventions#43-slack-variables).
+Generation bounds are user-defined (declared per unit group, not derived from turbined flow). The lower bound is soft, with one slack $\sigma^{g-}_{h,b,k}$ **per cell** — priced at the plant's own penalty $c^{gv-}_h$ at full magnitude on every cell of a split plant, never divided by cell count; a constant-productivity cell's floor couples this same slack to $\rho_h \cdot q_{h,b,k}$ rather than to a generation column. The upper bound's plain sum over the cell's own unit groups closes against the plant's own resolved maximum $\bar{G}_h$ — a bounds override may never raise a cell above it. The plant's own minimum $\underline{G}_h$ and, on a plant with several cells, its maximum $\bar{G}_h$ also bind on the total of its cells ([§8 Plant Minimum and Maximum](#plant-minimum-and-maximum)). See [System Element Modeling Overview §5](/math/system-elements). Matches the per-cell $\sigma^{g-}_{h,b,k}$ defined in [Notation Conventions §4.3](/overview/notation-conventions#43-slack-variables).
 
 For details on the FPHA construction and production function model variants, see [Hydro Production Function Models](/math/hydro-production-models).
 
@@ -370,7 +371,7 @@ $$
 \underline{Q}_{h,b} - \sigma^{q-}_{h,b,k} \leq q_{h,b,k} \leq \bar{Q}_{h,b}
 $$
 
-The lower bound is soft, with one slack $\sigma^{q-}_{h,b,k}$ per cell, priced at the plant's own penalty $c^{tv-}_h$ at full magnitude on every cell — never divided by cell count; it is the plain sum of the cell's own unit groups' resolved minimum turbined flow, $\underline{Q}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{Q}_u$. The upper bound is hard and closes against the plant's own resolved maximum, never raised above it:
+The lower bound is soft, with one slack $\sigma^{q-}_{h,b,k}$ per cell, priced at the plant's own penalty $c^{tv-}_h$ at full magnitude on every cell — never divided by cell count; it is the plain sum of the cell's own unit groups' resolved minimum turbined flow, $\underline{Q}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{Q}_u$, except on a single-cell plant whose own minimum is tighter ([Plant Minimum and Maximum](#plant-minimum-and-maximum)). The upper bound is hard and closes against the plant's own resolved maximum, never raised above it:
 
 $$
 \bar{Q}_{h,b} = \min\!\left( \sum_{u \,\in\, (h,b)} \mathrm{fold}(u),\ \ \bar{Q}_h \right)
@@ -378,13 +379,35 @@ $$
 
 where $\mathrm{fold}(u) = \bar{Q}_u$ for an FPHA hydro (turbined flow and generation are independent columns there) and $\mathrm{fold}(u) = \min(\bar{Q}_u,\ \bar{G}_u / \rho_h)$ for a constant-productivity hydro — each group's own flow cap and MW-implied flow cap must be folded **before** summing across the cell, since $\min$ does not distribute over a sum of groups that bind on different sides. This is the mechanism that enforces a constant-productivity cell's generation cap (§6): there is no separate generation column to bound directly. Matches the per-cell $\sigma^{q-}_{h,b,k}$ defined in [Notation Conventions §4.3](/overview/notation-conventions#43-slack-variables).
 
+### Plant Minimum and Maximum
+
+A plant's own resolved minimum turbined flow $\underline{Q}_h$ and minimum generation $\underline{G}_h$ bind on the total of its cells where they are tighter than the cells' floors. Take the relative tolerance $\epsilon(x) = 10^{-9} \max(\lvert x \rvert, 1)$. At a block where $\underline{Q}_h \le \sum_{b \in \mathcal{B}_h} \underline{Q}_{h,b} + \epsilon(\underline{Q}_h)$ the cell floors already enforce the plant minimum. Elsewhere, a single-cell plant takes $\underline{Q}_h$ as its cell floor, and a plant with several cells gets one residual row on top of its cell rows:
+
+$$
+\sum_{b \in \mathcal{B}_h} \big( q_{h,b,k} + \sigma^{q-}_{h,b,k} \big) + \sigma^{Q-}_{h,k} \;\geq\; \underline{Q}_h,
+\qquad
+\sum_{b \in \mathcal{B}_h} \big( \pi_{h,b,k} + \sigma^{g-}_{h,b,k} \big) + \sigma^{G-}_{h,k} \;\geq\; \underline{G}_h
+$$
+
+$\pi_{h,b,k}$ is the cell's generation: $g_{h,b,k}$ for an FPHA cell, $\rho_h \, q_{h,b,k}$ for a constant-productivity cell, and nothing for an FPHA plant without a generation column, which is PreFilling or in its filling window. The residual slacks are priced at the plant's own penalties, $c^{tv-}_h$ on $\sigma^{Q-}_{h,k}$ and $c^{gv-}_h$ on $\sigma^{G-}_{h,k}$, at full magnitude. Because each residual row also carries the cell slacks, the cheapest slacks charge $c^{tv-}_h \max\big(\underline{Q}_h - \sum_{b} q_{h,b,k},\ \sum_{b} (\underline{Q}_{h,b} - q_{h,b,k})^+\big)$ for the turbined flow and the same form for the generation, so a shortfall is charged once. A plant with a residual row at some block of the stage has the row at every block of the stage; at a block where its cells cover the plant minimum the row is free and the residual slack is fixed at $[0, 0]$. The minima apply in every lifecycle phase.
+
+A plant minimum below its cells' floors does not loosen them: the cell floors still bind. A plant with several cells also gets one hard row per block for its maximum turbined flow and one for its maximum generation, without a slack:
+
+$$
+\sum_{b \in \mathcal{B}_h} q_{h,b,k} \;\leq\; \bar{Q}_h,
+\qquad
+\sum_{b \in \mathcal{B}_h} \pi_{h,b,k} \;\leq\; \bar{G}_h
+$$
+
+Each binds at a block where the plant maximum is below the sum of its cells' caps by more than $\epsilon$ of it, the cells' caps being $\bar{Q}_{h,b}$ for the turbined flow, and $\rho_h \bar{Q}_{h,b}$ (constant productivity) or $\bar{G}_{h,b}$ (FPHA) for the generation; at any other block of the stage the row is free. A single-cell plant has no such row, since its cell bound already closes against $\bar{Q}_h$ and $\bar{G}_h$, and neither has a plant that is PreFilling or in its filling window, whose turbined flow is fixed at $0$.
+
 ### Diversion Flow Bounds (per hydro $h$, block $k$)
 
 $$
 0 \leq u_{h,k} \leq \bar{U}_h
 $$
 
-The lower bound is $0$ unless a minimum diversion flow is set for the stage or for the block, which replaces it. Both bounds are hard. Diversion cost is a regularization term (see §1), not a violation penalty.
+$\bar{U}_h$ is the channel capacity, or a maximum diversion flow set for the stage or for the block, which replaces it. A channel declared without a capacity has $\bar{U}_h = +\infty$, and a hydro without a diversion channel has $\bar{U}_h = 0$. The lower bound is $0$ unless a minimum diversion flow is set for the stage or for the block, which replaces it. Both bounds are hard. Diversion cost is a regularization term (see §1), not a violation penalty. Neither this bound nor the spillage bound below depends on storage: Novomodelo models no sill below which the diversion channel or the spillway closes.
 
 ### Spillage Bounds (per hydro $h$, block $k$)
 
@@ -416,11 +439,11 @@ The per-block constraint violation penalties in the objective (referenced from �
 
 $$
 \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \Big[
-  c^{tv-}_h \sum_{b \in \mathcal{B}_h} \sigma^{q-}_{h,b,k} + c^{ov-}_h \sigma^{o-}_{h,k} + c^{ov+}_h \sigma^{o+}_{h,k} + c^{gv-}_h \sum_{b \in \mathcal{B}_h} \sigma^{g-}_{h,b,k}
+  c^{tv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{q-}_{h,b,k} + \sigma^{Q-}_{h,k} \Big) + c^{ov-}_h \sigma^{o-}_{h,k} + c^{ov+}_h \sigma^{o+}_{h,k} + c^{gv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{g-}_{h,b,k} + \sigma^{G-}_{h,k} \Big)
 \Big]
 $$
 
-The turbined- and generation-minimum slacks are **per cell** — each of a split plant's cells carries its own slack column and its own row, priced at the plant's penalty at full magnitude, never divided across cells. The outflow slacks stay per plant: outflow has no per-cell column to attribute a floor to. The evaporation slacks are per plant too, stage-level on a parallel stage and per block on a chronological stage ([Evaporation Row](#evaporation-row)).
+The turbined- and generation-minimum slacks are **per cell** — each of a split plant's cells carries its own slack column and its own row, priced at the plant's penalty at full magnitude, never divided across cells. The residual slacks $\sigma^{Q-}_{h,k}$ and $\sigma^{G-}_{h,k}$ exist only for a plant with a residual row ([§8 Plant Minimum and Maximum](#plant-minimum-and-maximum)) and are $0$ for every other plant. The outflow slacks stay per plant: outflow has no per-cell column to attribute a floor to. The evaporation slacks are per plant too, stage-level on a parallel stage and per block on a chronological stage ([Evaporation Row](#evaporation-row)).
 
 $$
 + \sum_{h \in \mathcal{H}} H_t \cdot \bigl(c^{wv-}_h \sigma^{w-}_h + c^{wv+}_h \sigma^{w+}_h\bigr)
@@ -464,21 +487,21 @@ Either endpoint, $\underline{b}_g$ or $\bar{b}_g$, may be absent — never both 
 
 ### Coefficients and Endpoints
 
-The coefficients $\gamma_{g,e}$ may be either literal numeric values or **named scalar parameters**, exactly as for any other coefficient in the LP.
+Each coefficient $\gamma_{g,e}$ is an arithmetic expression over literal numbers and **named scalar parameters** — sums, products, quotients and groupings of them — and the constraint as written must be linear in the variables: a product of two variables, or a division by an expression that holds a variable, is refused. Terms on the same variable are combined into one coefficient, and a term whose coefficient folds to exactly zero contributes nothing to the row.
 
 Each endpoint composes independently from up to two pieces, summed together: a numeric base that may itself vary by stage (and, for the finest-grained parameter kind below, by block within the stage), plus an optional affine remainder layered on top of it — a constant plus a weighted sum of named scalar parameters. An endpoint carrying neither piece is simply absent; a base alone, a remainder alone, or their sum are all valid, so a single endpoint can combine a scheduled floor or cap that already varies by stage with a further parameter-driven adjustment on top.
 
-A named scalar parameter takes one of five kinds: one value for every stage; one per stage; one per season; a quantity computed from a plant's geometry and energy conversion, §5 of [Hydro Production Function Models](/math/hydro-production-models#5-energy-conversion-quantities); or one per stage and block.
+A named scalar parameter takes one of six kinds: one value for every stage; one per stage; one per season; a quantity computed from a plant's geometry and energy conversion, §4 of [Hydro Production Function Models](/math/hydro-production-models#4-energy-conversion-quantities); one per stage and block; or a formula over other parameters, which varies wherever the parameters it reads vary.
 
-Resolution happens once at LP-build time, so the LP coefficients and endpoints are still numeric at solve time — the parameter mechanism does not introduce LP-variable coupling between constraints. Methodology relevance: it lets the corpus express ramping limits, capacity caps, and operator-imposed quotas that vary by stage, season, or block without authoring a separate constraint per stage. Coefficient and endpoint values can therefore be **stage- and block-varying constants**, not just literal numbers.
+Resolution happens once at LP-build time, and every resolved coefficient and endpoint must be finite, so the LP coefficients and endpoints are still numeric at solve time — the parameter mechanism does not introduce LP-variable coupling between constraints. Methodology relevance: it lets the corpus express ramping limits, capacity caps, and operator-imposed quotas that vary by stage, season, or block without authoring a separate constraint per stage. Coefficient and endpoint values can therefore be **stage- and block-varying constants**, not just literal numbers.
 
 ### Two-Sided Slack
 
-A constraint may optionally carry a slack, penalized per unit of violation, so the row relaxes at a cost instead of forcing infeasibility. A one-sided row — only $\underline{b}_g$ or only $\bar{b}_g$ present — carries a single slack column relaxing that one endpoint. A two-sided row — both $\underline{b}_g$ and $\bar{b}_g$ present — carries **two** independent slack columns, $\sigma^{gc+}_g$ relaxing the floor upward and $\sigma^{gc-}_g$ relaxing the cap downward: a single column cannot represent both "how far below the floor" and "how far above the cap" without conflating the two directions.
+A constraint may optionally carry a slack, penalized per unit of violation, so the row relaxes at a cost instead of forcing infeasibility. The penalty $c_g$ is declared on one of two bases. For a row whose quantity is a rate (MW, m³/s), $c_g$ is a price per unit and hour, and a slack $\sigma$ on a row covering a period of $\tau$ hours costs $c_g \tau \sigma$: $\tau = \tau_k$ on a per-block row and $\tau = H_t$ on a stage-level row. For a row whose quantity is an amount (MWh, hm³), $c_g$ is a price per unit, and the slack costs $c_g \sigma$ on every row, independent of the stage or block duration, so on a per-block row it carries no block-duration weight $\tau_k$ (§1.1). A one-sided row — only $\underline{b}_g$ or only $\bar{b}_g$ present — carries a single slack column relaxing that one endpoint. A two-sided row — both $\underline{b}_g$ and $\bar{b}_g$ present — carries **two** independent slack columns, $\sigma^{gc+}_g$ relaxing the floor upward and $\sigma^{gc-}_g$ relaxing the cap downward: a single column cannot represent both "how far below the floor" and "how far above the cap" without conflating the two directions.
 
 The reported violation is the **signed net** $\sigma^{gc+}_g - \sigma^{gc-}_g$: positive when the row sits below its floor, negative when it sits above its cap, matching the sign of the underlying deviation rather than reading as an unsigned magnitude. The objective charges both columns, $\sigma^{gc+}_g + \sigma^{gc-}_g$, which coincides with the net's magnitude whenever only one direction is active — the case at any optimum, since paying for both directions on the same row at once is strictly dominated by paying for neither of the excess.
 
-**Row materialization**: a constraint bound declared for every block of the stage over a **block-independent** expression — one whose every term references a stock variable (incoming storage $v^{in}_h$, outgoing storage $v_h$, evaporation (the stage-level $e_h$ on a parallel stage, a named block's $e_{h,k}$ on a chronological stage), or an anticipated-thermal commitment) — is materialized as a **single stage-level row** priced by the total stage hours $H_t$, since per-block rows would be identical, **provided its coefficients and endpoints are block-independent too**: a coefficient or an endpoint drawn from the per-(stage, block) parameter kind above varies within the stage, which forces the per-block row set even when the expression alone would otherwise qualify for the collapse. A bound declared for every block on a block-level expression, or a bound declared for one block, still produces one row per relevant block. This is an LP row-count optimization that is cost- and parity-neutral.
+**Row materialization**: a constraint bound declared for every block of the stage over a **block-independent** expression — one whose every term references a stock variable (incoming storage $v^{in}_h$, outgoing storage $v_h$, evaporation (the stage-level $e_h$ on a parallel stage, a named block's $e_{h,k}$ on a chronological stage), or an anticipated-thermal commitment) — is materialized as a **single stage-level row**, since per-block rows would be identical, **provided its coefficients and endpoints are block-independent too**: a coefficient or an endpoint drawn from the per-(stage, block) parameter kind above, or from a formula that reads one, varies within the stage, which forces the per-block row set even when the expression alone would otherwise qualify for the collapse. A term whose coefficient folds to zero is dropped before this test, so it neither prevents nor causes the collapse. The slack of a stage-level row is priced over the stage, $c_g H_t \sigma$ on the rate basis and $c_g \sigma$ on the amount basis. A bound declared for every block on a block-level expression, or a bound declared for one block, still produces one row per relevant block. This is an LP row-count optimization that is cost- and parity-neutral.
 
 See [Generic Constraints](/reference/generic-constraints) for the authoring grammar, the activation grid, and the per-file field tables this formulation implements.
 
@@ -511,7 +534,7 @@ $I_{h,k}$ reads per-block columns, so a bound without a block expands to one row
 
 ## 11. Benders Cuts
 
-For each cut $i$ in the stage LP, that is each active cut or, under Dynamic Cut Selection, each cut resident in the solve ([Cut Management §8](/math/cut-management#8-dynamic-cut-selection)):
+For each cut $i$ in the stage LP, that is each active cut or, under the dynamic method, each cut resident in the solve ([Cut Management §8](/math/cut-management#8-the-dynamic-method)):
 
 $$
 \theta \geq \beta_{0,i} + \sum_{h \in \mathcal{H}} \beta^v_{i,h} \cdot v_h + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{i,h,1} \cdot z_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \cdot a_{h,\ell-1} \Big)
@@ -527,7 +550,7 @@ When anticipated thermals are present, the cut carries one coefficient per commi
 
 The future-cost variable $\theta$ has lower bound $0$ at every stage, which presumes $V_{t+1} \ge 0$. Stage objectives can be negative: export contracts earn revenue (§2), and the curtailment term of §2 is a reward: it is never positive, and it is constant for a must-run source. Where $V_{t+1}$ is negative the bound lies above it, so the cut approximation need not lie below $V_{t+1}$ and the lower bound is not guaranteed. At the last stage of the finite horizon, with no terminal boundary loaded, $\theta$ is $0$ ($V_{T+1} = 0$); with a [terminal boundary](/math/post-study-boundary#1-the-right-boundary) loaded, $\theta$ keeps the floor and the imported cuts bound it from below, so the terminal function is the larger of $0$ and the imported cuts.
 
-Cuts live in an **append-only pool** at stable slot indices: every cut ever generated is retained for the lifetime of the run, and only the active subset is baked into each iteration's stage template. Deactivation **excludes** a cut from each iteration's stage-template rebake rather than mutating any row; the persistent lower-bound LP is append-only (its rows are never removed, so the lower bound stays monotone). Slot indices stay stable, so reactivation — re-baking the cut into the template at the same slot — is exact. Dynamic Cut Selection deactivates no cut itself: each solve loads a resident subset of the active cuts and grows it with the omitted candidate cuts its solution violates. A per-stage cap on the number of active cuts, when set, deactivates cuts once it is exceeded, under every selection method.
+Cuts live in an **append-only pool** at stable slot indices: every cut ever generated is retained for the lifetime of the run, and only the active subset is baked into each iteration's stage template. Deactivation **excludes** a cut from each iteration's stage-template rebake rather than mutating any row; the persistent lower-bound LP is append-only (its rows are never removed, so the lower bound stays monotone). Slot indices stay stable, so reactivation — re-baking the cut into the template at the same slot — is exact. The dynamic method deactivates no cut itself: each solve loads a resident subset of the active cuts and grows it with the omitted candidate cuts its solution violates. A per-stage cap on the number of active cuts the run generated, when set, deactivates the excess among the cuts of earlier iterations, with or without Level 1 selection; it is not admitted with the dynamic method ([Cut Management §5](/math/cut-management#5-cut-growth-and-selection-motivation)).
 
 For cut coefficient derivation, aggregation, and selection strategies, see [Cut Management](/math/cut-management).
 
@@ -540,6 +563,6 @@ For cut coefficient derivation, aggregation, and selection strategies, see [Cut 
 - [State Augmentation](/math/state-augmentation) — the state vector, its pinning by column bounds, the outgoing state and the cut row, and the inflow-lag, commitment-ring and in-transit state families
 - [LP Layout and Scaling](/math/lp-layout-and-scaling) — the column and row layout of this LP, its cost scaling and prescaling, and the unscaling of its duals and reduced costs
 - [PAR(p) Inflow Model](/math/par-inflow-model) — complete AR inflow model specification
-- [Hydro Production Function Models](/math/hydro-production-models) — constant, linearized head, and FPHA model details
+- [Hydro Production Function Models](/math/hydro-production-models) — constant and FPHA model details
 - [Cut Management](/math/cut-management) — dual extraction, cut coefficients, aggregation, and selection
 - [Equipment-Specific Formulations](/math/equipment-formulations) — per-equipment constraint derivations, pumping details

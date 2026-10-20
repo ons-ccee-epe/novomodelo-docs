@@ -18,7 +18,9 @@ surface — see [See Also](#see-also).
 
 The timing tables and the printed `Time split` hold rank 0's view, so another
 rank's imbalance appears as rank 0's time in `cut_sync_ms`, `state_exchange_ms`
-and `mpi_allreduce_ms`. [Reading the `Time split` breakdown](/running/interpreting-results/#reading-the-time-split-breakdown)
+and `mpi_allreduce_ms`. The backward wait is the exception: `bwd_load_imbalance_ms`
+and the printed `Backward` wait cover the workers of every rank, so they include
+the time a rank waits for slower peers to finish a stage's solves. [Reading the `Time split` breakdown](/running/interpreting-results/#reading-the-time-split-breakdown)
 explains how to read the printed block. An enumerated backward pass records zero in
 `cut_sync_ms`, `state_exchange_ms` and `bwd_load_imbalance_ms`.
 
@@ -86,7 +88,7 @@ scaling for each stage.
 
 As training progresses, the row pool grows and LP solve times increase.
 Novomodelo provides a two-stage row management pipeline (Stage 1, the selection pass,
-then Stage 2, the budget pass) to control this growth while preserving convergence guarantees.
+then Stage 2, the budget pass) to control this growth.
 
 The pipeline runs after each iteration's backward pass and cut
 synchronization:
@@ -102,44 +104,44 @@ s1 -> s2
 
 ### Stage 1: Strategy-Based Selection
 
-Four strategies are available, configured through
+Two methods are available, configured through
 [`training.cut_selection`](/running/configuration/#trainingcut_selection) in
-`config.json`; the Configuration reference owns the keys, tolerances and defaults:
+`config.json`; the Configuration reference owns the keys and defaults:
 
-| Strategy     | Selection rule                                                                                                                                              |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `level1`     | Keeps every cut within the tolerance of the per-state maximum at some visited state and deactivates the other eligible cuts                                 |
-| `lml1`       | Keeps, at each visited state, only the oldest cut within the tolerance of the maximum                                                                       |
-| `domination` | Applies the `level1` test with its own tolerance                                                                                                            |
-| `dynamic`    | Lazy incremental scheme: loads a resident subset of the pool at each solve and grows it with the cuts the current LP solution violates; deactivates nothing |
+| Strategy  | Selection rule                                                                                                                                              |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `level1`  | At each stored trial state, the cut with the highest value owns the state (an exact tie goes to the lowest pool slot); a scored cut is active exactly when it owns a state |
+| `dynamic` | Lazy row generation: each solve starts from a resident subset of the active cuts and grows it with the cuts the current LP solution violates; deactivates nothing |
 
-`level1`, `lml1`, and `domination` respect `check_frequency`: the selection
-pass runs only at iterations that are multiples of `check_frequency`. The first
-stage and the terminal pool are always exempt from it (the first stage's rows
-drive the lower bound and are never backward-pass successors; the backward pass
-adds no cut to the terminal pool).
+`level1` respects `check_frequency`: the selection pass runs only at iterations
+that are multiples of it. It selects the pools of the stages strictly between
+the first and the last; the first stage's pool and the terminal pool are never
+selected. Each such pool stores the trial state of every cut the run adds there,
+or those of the last `lookback_iterations` iterations, and every scored cut,
+current-iteration cuts and inactive cuts included, competes at every stored
+state, so a deactivated cut is reactivated when it later owns a state. The rule
+is in [Level 1 Selection](/math/cut-management/#7-level-1-selection).
 
-These three strategies evaluate every populated cut at every visited
-forward-pass state, including cuts currently flagged inactive, so a
-deactivated cut can be reactivated when it later achieves the maximum at some
-state. Their semantics are in
-[Periodic-Pruning Strategies](/math/cut-management/#7-periodic-pruning-strategies).
-
-`dynamic` (Dynamic Cut Selection, DCS) operates differently: it is a
-per-solve lazy selection loop that adds cuts on demand rather than
-deactivating from a full pool scan. It does not respect `check_frequency`.
-See [Dynamic Cut Selection](/math/cut-management/#8-dynamic-cut-selection)
-for the procedure.
+`dynamic` operates differently: it is a per-solve lazy loop that adds cuts on
+demand rather than deactivating from a pool scan, and it does not read
+`check_frequency`. See [The Dynamic Method](/math/cut-management/#8-the-dynamic-method)
+for the procedure. A solve that reaches the round limit with a candidate still
+violated is counted in `lazy_round_cap_hits` of
+[`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet).
 
 ### Stage 2: Budget Enforcement
 
-A hard-cap safety net on LP size, enabled via `max_active_per_stage`.
-When the number of active rows exceeds the budget after the selection pass, the
-pool evicts rows sorted by staleness (`last_active_iter` ascending,
-then `active_count` ascending). The cap applies to every pool, including a
-terminal pool that holds a loaded boundary policy's cuts; only rows generated
-in the current iteration are exempt, so a cap below the number of active
-imported boundary cuts evicts some of them.
+A hard cap on LP size, enabled via `max_active_per_stage`. It applies to the
+pools of the stages strictly between the first and the last, each node's pool
+separately, and counts only the cuts the current run generated: cuts loaded from
+a policy, boundary cuts among them, neither count nor are evicted. When the count
+exceeds the cap after the selection pass, the pool evicts cuts of earlier
+iterations in ascending order of the iteration in which a cut last bound, then
+of the number of solves in which it bound, then of its pool slot. Cuts of the
+current iteration count but are never evicted. Under `level1`, a later
+selection pass reactivates an evicted cut that owns a state, and the cap is
+applied again in that iteration. The cap is refused with the `dynamic` method
+and with an enumerated `training.selection`.
 
 Unlike the selection pass, budget enforcement runs **every iteration** (not gated
 by `check_frequency`).
@@ -170,7 +172,7 @@ The `Execution` block of the run banner reports both levels. The excerpt below
 shows an example two-rank run with two threads per rank on one host; it omits the
 `Solver` line and writes the hostname as `<host>`:
 
-{/* quoted from source: crates/novomodelo-cli/src/summary.rs:94-96, 116-151 at novomodelo v0.18.1 | format only; the values are an example (never run under mpiexec, D9) */}
+{/* quoted from source: crates/novomodelo-cli/src/summary.rs:94-96, 116-151 at novomodelo v0.19.0 | format only; the values are an example (never run under mpiexec, D9) */}
 
 ```text
 Execution
@@ -239,19 +241,18 @@ identical to canonical (whole-trial-point) claiming.
 See [`parallelism.backward_scheduler`](/running/configuration/#trainingparallelism)
 for the config field that enables `by_node` and sets its `block_size`.
 
-:::caution[By-Node Scheduling and Dynamic Cut Selection]
+:::caution[By-Node Scheduling and the dynamic method]
 The `by_node` path depends on the frozen-LP backward setup, which is
-incompatible with [Dynamic Cut Selection (DCS)](#cut-management-pipeline)'s
-cut-free lazy core. When DCS is enabled
-(`cut_selection.selection.method = "dynamic"`), an active DCS iteration
-**always** falls back to `by_scenario` scheduling — so from DCS's
-`start_iteration` (default `2`) onward, configuring `by_node` has
+incompatible with the lazy solve's cut-free core under the
+[`dynamic` method](#cut-management-pipeline). With
+`cut_selection.selection.method = "dynamic"`, an iteration in which the lazy
+loop is active **always** falls back to `by_scenario` scheduling — so from the
+method's `start_iteration` (default `2`) onward, configuring `by_node` has
 no effect. No warning or error is emitted.
 
-DCS is **opt-in**: row selection (including DCS) is disabled by default
-(`cut_selection.selection` absent from `config.json`). This fallback applies
-only once DCS has been explicitly enabled — the default configuration does
-not make `by_node` a no-op.
+Row selection is disabled by default (`cut_selection.selection` absent from
+`config.json`). This fallback applies only once `dynamic` has been explicitly
+enabled — the default configuration does not make `by_node` a no-op.
 :::
 
 ### Per-Phase Solver Profiles
