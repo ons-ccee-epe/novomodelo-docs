@@ -56,7 +56,7 @@ The table lists the families in the order of the stage LP's rows, with $N = \lve
 | 15 | Commitment deposit | one per anticipated thermal that decides at the stage a commitment for a delivery inside the study or the declared post-study calendar at which the plant is commissioned | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
 | 16 | Commitment carry | one per ring slot holding a later delivery, decided at an earlier stage or before the study, inside the study or the declared post-study calendar | [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows) |
 | 17 | Generic constraints | one per active bound and block it covers, or one stage-level row for a block-independent bound | [§10](#10-generic-constraints) |
-| 18 | Benders cuts | one per active cut; one per resident cut under Dynamic Cut Selection | [§11](#11-benders-cuts) |
+| 18 | Benders cuts | one per active cut; one per resident cut under the dynamic method | [§11](#11-benders-cuts) |
 
 Incoming-state pinning and the lifecycle pins are column bounds, not rows: each incoming-state column is fixed at its trial value by equal bounds ([State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds)), and each column a lifecycle phase freezes is fixed by its bounds ([§8](#8-variable-bounds-and-minimum-constraints)).
 
@@ -534,7 +534,7 @@ $I_{h,k}$ reads per-block columns, so a bound without a block expands to one row
 
 ## 11. Benders Cuts
 
-For each cut $i$ in the stage LP, that is each active cut or, under Dynamic Cut Selection, each cut resident in the solve ([Cut Management §8](/math/cut-management#8-dynamic-cut-selection)):
+For each cut $i$ in the stage LP, that is each active cut or, under the dynamic method, each cut resident in the solve ([Cut Management §8](/math/cut-management#8-the-dynamic-method)):
 
 $$
 \theta \geq \beta_{0,i} + \sum_{h \in \mathcal{H}} \beta^v_{i,h} \cdot v_h + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{i,h,1} \cdot z_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \cdot a_{h,\ell-1} \Big)
@@ -550,7 +550,7 @@ When anticipated thermals are present, the cut carries one coefficient per commi
 
 The future-cost variable $\theta$ has lower bound $0$ at every stage, which presumes $V_{t+1} \ge 0$. Stage objectives can be negative: export contracts earn revenue (§2), and the curtailment term of §2 is a reward: it is never positive, and it is constant for a must-run source. Where $V_{t+1}$ is negative the bound lies above it, so the cut approximation need not lie below $V_{t+1}$ and the lower bound is not guaranteed. At the last stage of the finite horizon, with no terminal boundary loaded, $\theta$ is $0$ ($V_{T+1} = 0$); with a [terminal boundary](/math/post-study-boundary#1-the-right-boundary) loaded, $\theta$ keeps the floor and the imported cuts bound it from below, so the terminal function is the larger of $0$ and the imported cuts.
 
-Cuts live in an **append-only pool** at stable slot indices: every cut ever generated is retained for the lifetime of the run, and only the active subset is baked into each iteration's stage template. Deactivation **excludes** a cut from each iteration's stage-template rebake rather than mutating any row; the persistent lower-bound LP is append-only (its rows are never removed, so the lower bound stays monotone). Slot indices stay stable, so reactivation — re-baking the cut into the template at the same slot — is exact. Dynamic Cut Selection deactivates no cut itself: each solve loads a resident subset of the active cuts and grows it with the omitted candidate cuts its solution violates. A per-stage cap on the number of active cuts, when set, deactivates cuts once it is exceeded, under every selection method.
+Cuts live in an **append-only pool** at stable slot indices: every cut ever generated is retained for the lifetime of the run, and only the active subset is baked into each iteration's stage template. Deactivation **excludes** a cut from each iteration's stage-template rebake rather than mutating any row; the persistent lower-bound LP is append-only (its rows are never removed, so the lower bound stays monotone). Slot indices stay stable, so reactivation — re-baking the cut into the template at the same slot — is exact. The dynamic method deactivates no cut itself: each solve loads a resident subset of the active cuts and grows it with the omitted candidate cuts its solution violates. A per-stage cap on the number of active cuts the run generated, when set, deactivates the excess among the cuts of earlier iterations, with or without Level 1 selection; it is not admitted with the dynamic method ([Cut Management §5](/math/cut-management#5-cut-growth-and-selection-motivation)).
 
 For cut coefficient derivation, aggregation, and selection strategies, see [Cut Management](/math/cut-management).
 

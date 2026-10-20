@@ -1,6 +1,6 @@
 ---
 title: Cut Management
-description: Complete Benders cut lifecycle — cut definition, reduced-cost extraction, single-cut aggregation, validity conditions, cut pool growth, periodic-pruning strategies, and Dynamic Cut Selection (DCS).
+description: Complete Benders cut lifecycle — cut definition, reduced-cost extraction, single-cut aggregation, validity conditions, cut pool growth, Level 1 selection, the lazy dynamic method, and the active-cut cap.
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -10,7 +10,7 @@ import { Content as CutNotes } from './_impl/_cut-management.notes.mdx';
 
 ## Purpose
 
-This chapter defines the complete Benders cut lifecycle in Novomodelo: what cuts represent mathematically, how cut coefficients relate to LP dual variables, how per-scenario cuts are aggregated into a single cut, under what conditions cuts are valid, and what selection strategies are available to control cut pool growth.
+This chapter defines the complete Benders cut lifecycle in Novomodelo: what cuts represent mathematically, how cut coefficients relate to LP dual variables, how per-scenario cuts are aggregated into a single cut, under what conditions cuts are valid, and what selection methods are available to control cut pool growth.
 
 ## 1. Cut Definition
 
@@ -122,7 +122,7 @@ Three guarantees attach to the bounds SDDP reports, each under its own hypothese
 | Tier                                              | What holds                                                             | Requires                                                                                                                                                                                                           | Broken by                                                                                                                                                         |
 | ------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [1. Valid lower bound](#tier-1-valid-lower-bound) | $\underline{z}^k$ is at most the optimal value of the model as trained | A cost-to-go convex in the incoming state and non-negative; relatively complete recourse; cuts exact at their trial points and spanning every state component the cost-to-go depends on; a fixed terminal function | A truncation inflow non-negativity method on a PAR model with lag terms; a cut that omits a state component the cost-to-go depends on; a cost-to-go that takes negative values |
-| [2. Convergence](#tier-2-convergence)             | $\underline{z}^k$ converges to that optimal value with probability 1 under an expectation measure at every stage   | Tier 1; finitely many openings at every node; a forward pass that samples the backward pass's scenario paths or enumerates them; a selection that preserves the approximation at every visited state               | A forward pass that draws from another distribution; periodic pruning over recent trial points only; a per-stage cap on active cuts; a finite $k_1$; a DCS solve that reaches its round cap |
+| [2. Convergence](#tier-2-convergence)             | $\underline{z}^k$ converges to that optimal value with probability 1 under an expectation measure at every stage   | Tier 1; finitely many openings at every node; a forward pass that samples the backward pass's scenario paths or enumerates them; a selection that preserves the approximation at every visited state               | A forward pass that draws from another distribution; Level 1 selection as Novomodelo runs it; a per-stage cap on active cuts; a finite $k_1$ |
 | [3. Gap certificate](#tier-3-gap-certificate)     | $\bar{z}^k - \underline{z}^k$ bounds the optimality gap of the policy  | Tier 1; an exact upper bound on the same tree under the same measure: an enumerated forward pass and a measure uniform across stages                                                                               | A sampled, out-of-sample, historical or external upper bound; a measure that varies across stages                                                                 |
 
 #### Tier 1: Valid Lower Bound
@@ -142,14 +142,13 @@ Under an expectation measure at every stage, $\underline{z}^k$ converges to the 
 
 - Tier 1 holds, and every node has finitely many openings.
 - The forward pass either draws the backward pass's own scenario paths, each with positive probability, or enumerates them. A forward pass that draws from another distribution, such as out-of-sample noise, historical records or external scenarios, is outside the theorem's hypotheses.
-- The selection preserves the value of the approximation at every visited state, within the tie tolerance of §6: no selection, Level-1, LML1 or Domination evaluated over all visited states, or DCS with an unbounded candidate window, $k_1 = \infty$, whose solves stop before the round cap of §8.3.
+- The selection keeps the approximation the theorem of §9 assumes: no selection, or the dynamic method of §8 with every active cut a candidate, $k_1 = \infty$, whose solves return the optimum over the active cuts up to the violation tolerance of §8.1.
 
-Four features of cut selection on this page leave the last hypothesis:
+Three features of cut selection on this page leave the last hypothesis:
 
-- Periodic pruning (§7) scores the cuts only at the trial points of recent iterations. Under a sampled forward pass, the archive it scores holds the trial points of at most the last two selection intervals of $n_{\text{sel}}$ iterations each; under an enumerated forward pass, each iteration adds one trial point per node, so the same window spans as many times more iterations as the tree has paths, and is still finite.
-- A per-stage cap on the number of active cuts deactivates the cuts that were binding least recently once the cap is exceeded, whatever their value at the visited states; only the cuts of the current iteration are exempt.
-- With a finite $k_1$ (§8.2), DCS never scores a cut generated $k_1$ or more iterations earlier, so its loop can stop with a violated old cut left out.
-- A DCS solve that reaches the round cap (§8.3) ends with a closing solve whose optimum is not checked against the omitted cuts.
+- Level 1 selection (§7) as Novomodelo runs it departs from the rule the theorem covers (§9): it runs every $n_{\text{sel}}$ iterations, leaves the first stage's pool unselected, and, with a window $w$, scores the cuts only at the trial states of the last $w$ iterations. No convergence result is claimed for it.
+- A per-stage cap on the number of active cuts (§5) deactivates the cuts that were binding least recently once the cap is exceeded, whatever their value at the stored trial states; only the cuts of the current iteration and the loaded cuts are exempt.
+- With a finite $k_1$ (§8.2), the dynamic method never scores a cut generated $k_1$ or more iterations earlier, so its loop can stop with a violated old cut left out.
 
 #### Tier 3: Gap Certificate
 
@@ -161,83 +160,66 @@ The number of cuts grows as $\mathcal{O}(\text{iterations} \times N_{\text{forwa
 
 **Append-only pool with stable slots**: Cuts are never deleted. Every cut ever generated is retained for the lifetime of the run at a **stable, deterministic slot index** — the slot is a fixed function of the iteration and forward-pass index, which is what makes the cut order reproducible across runs and rank counts (see [Determinism & Provenance](/math/determinism-guarantees)). The pool is never compacted.
 
-**Deactivation mechanism** (periodic-pruning methods): deactivation is a pool activity flag on a stable slot — it mutates no LP row or bound. A deactivated cut keeps its slot but is excluded from the per-iteration template rebake, so only active cuts are encoded as LP rows on each forward/backward solve. The persistent lower-bound LP is **append-only**: its cut rows are never removed (so the lower bound stays monotone), and each row keeps constraining once appended. Because the slot index is preserved, **reactivation is exact**: a cut that selection later restores is re-baked into the template at the same slot, with the coefficients it was generated with.
+**Deactivation mechanism** (Level 1 selection and the active-cut cap): deactivation is a pool activity flag on a stable slot — it mutates no LP row or bound. A deactivated cut keeps its slot but is excluded from the per-iteration template rebake, so only active cuts are encoded as LP rows on each forward/backward solve. The persistent lower-bound LP is **append-only**: its cut rows are never removed (so the lower bound stays monotone), and each row keeps constraining once appended. Because the slot index is preserved, **reactivation is exact**: a cut that selection later restores is re-baked into the template at the same slot, with the coefficients it was generated with.
 
-Two families of selection strategy are available. **Periodic-pruning methods** (Level-1, LML1, Domination) run a value-evaluation pass after each $n_{\text{sel}}$-th iteration and deactivate redundant cuts from the pool. **Dynamic Cut Selection** (DCS) takes a different approach: it keeps the pool entirely append-only — never deactivating any cut — and instead controls which cuts are resident in each individual stage LP solve (§8).
+Two selection methods are available. **Level 1 selection** (§7) runs an ownership pass every $n_{\text{sel}}$ iterations: it keeps the cuts that own a stored trial state and deactivates the others. The **dynamic method** (§8) keeps the pool entirely append-only — never deactivating any cut — and instead controls which cuts are resident in each individual stage LP solve.
+
+**Active-cut cap**: a cap $B$ on the number of active cuts that the current run has generated in the pool of each node strictly between the first stage and the last. It applies in every iteration, after that iteration's cuts are added and after the Level 1 pass when one runs, with or without a selection method. When the count exceeds $B$, the excess is evicted from the cuts of earlier iterations, in ascending order of the iteration in which a cut was last binding (a cut that has never bound counts from the iteration that generated it), then of the number of solves in which it was binding, then of slot. The cuts of the current iteration count toward $B$ and are never evicted, and loaded cuts neither count nor are evicted, so a pool can hold more than $B$ active cuts. Eviction deactivates a cut and keeps it in the pool; a later Level 1 pass reactivates an evicted cut that owns a stored trial state, and the cap is then applied again in the same iteration. The cap is not admitted with the dynamic method, which never reactivates a cut, nor with an enumerated forward pass, which records no binding activity.
 
 ## 6. Cut Activity
 
-Cut selection works from a **value-evaluation** view of activity. At a visited forward-pass trial point $\hat{x}$, each cut's value is $\beta_{0,i} + \beta_i^\top \hat{x}$, and the per-state best value is
+Level 1 selection works from a **value-evaluation** view of activity. At a stored trial point $\hat{x}$ of a pool, each cut's value is $\beta_{0,i} + \beta_i^\top \hat{x}$, and the per-state best value is
 
 $$
-V^*(\hat{x}) = \max_i \left\{ \beta_{0,i} + \beta_i^\top \hat{x} \right\}
+V^*(\hat{x}) = \max_{i \in \mathcal{L}} \left\{ \beta_{0,i} + \beta_i^\top \hat{x} \right\}
 $$
 
-taken over **all populated cuts, active and inactive**. A cut is **active (near-optimal) at $\hat{x}$** when its value lies within a tolerance band of the best:
+taken over the pool's **live** cuts $\mathcal{L}$: every **scored** cut, the cuts whose own trial state the pool stored when they were written, active and inactive, and every loaded cut that carries no stored trial state while it is active. The live cut that attains $V^*(\hat{x})$ **owns** $\hat{x}$; when several attain it exactly, the cut at the lowest slot owns it. Values are compared exactly, with no tolerance band:
 
 $$
-\text{cut } i \text{ is active at } \hat{x} \iff V^*(\hat{x}) - (\beta_{0,i} + \beta_i^\top \hat{x}) \le \epsilon
+\text{owner}(\hat{x}) = \min \left\{ i \in \mathcal{L} : \beta_{0,i} + \beta_i^\top \hat{x} = V^*(\hat{x}) \right\}
 $$
 
-This is equivalent to the cut being binding (or near-binding) at the LP optimum reached from $\hat{x}$ — a cut at the per-state maximum is the one the future-cost variable $\theta$ rests on. The tolerance $\epsilon$ is the strategy's tie-breaking band: `tie_tolerance` for Level-1/LML1, `domination_tolerance` for Domination (§10).
+A cut at the per-state maximum is the one the future-cost variable $\theta$ rests on at $\hat{x}$, so a cut that owns a state is the value-evaluation counterpart of a binding cut there. Because slot order follows generation order, the lowest slot is the oldest of the tied cuts.
 
-| Tolerance  | Effect                                                       |
-| ---------- | ------------------------------------------------------------ |
-| 0          | Only exact-maximum cuts count as active                      |
-| small      | Cuts tied within rounding of the maximum are all kept active |
-| larger     | Wider near-optimal band retained                             |
-| very large | All cuts considered active (no deactivation)                 |
+Binding at an LP solution is a different quantity: a cut row **binds** in a solve when its dual multiplier exceeds a threshold (§10). That record is read only by the active-cut cap (§5) and by the seed window of the dynamic method (§8.1); it plays no part in ownership.
 
-## 7. Periodic-Pruning Strategies
+## 7. Level 1 Selection
 
-Three periodic-pruning strategies are available, and all three share one **value-evaluation kernel**: every populated cut (active and inactive) is evaluated at every visited trial point, the per-state maximum is taken, and a per-state survival rule decides which cuts to keep. The rule decides only over the **eligible** cuts: every cut except those loaded from a warm-start policy and those generated in the current iteration, which the rule never deactivates. The per-state maximum still runs over all populated cuts. Pruning scores the pool of every node except the first stage's and the shared terminal pool: periodic pruning never deactivates a first-stage cut, and the backward pass adds no cut to the terminal pool. The kernel treats deactivation and reactivation **symmetrically** — in a single pass, a selected cut that is currently inactive is reactivated and an active cut not selected anywhere is deactivated. It is bit-deterministic regardless of thread count (see [Determinism & Provenance](/math/determinism-guarantees)).
+Level 1 selection follows Level 1 of [de Matos, Philpott & Finardi (2015)](/reference/bibliography/#cut-management-and-convergence): each stored trial state has one owner (§6), and a selection run keeps the cuts that own a state. It scores the pool of every node strictly between the first stage and the last; the first stage's pool and the shared terminal pool are never selected.
 
-**Visited-states window**: these strategies score cuts against the trial points held in the visited-states archive. To bound memory on long runs, the archive keeps at each node only its most recent trial points, $n_{\text{sel}}$ times as many as there are forward passes per iteration. Under a sampled forward pass, each iteration adds one trial point per forward pass at each node, so the window covers the last $n_{\text{sel}}$ iterations. Under an enumerated forward pass, the forward passes are the paths of the tree and each iteration adds one trial point per node, so the window covers $n_{\text{sel}}$ times as many iterations as the tree has paths. After each selection run the archive is trimmed to that window, so a selection run sees up to about two windows of accumulated states before the trim; older trial points are then evicted. Dynamic Cut Selection (§8) does not use this archive.
+**The rule.** Every $n_{\text{sel}}$ iterations, after the backward pass:
 
-### 7.1 Level-1
+- A scored cut that owns at least one stored state is active; a scored cut that owns none is deactivated and kept in the pool.
+- An inactive scored cut that owns a state is reactivated, so deactivation and reactivation are symmetric within one pass.
+- A cut of the current iteration is judged like any other: there is no exemption.
+- A loaded cut with no stored trial state keeps the activity it was loaded with; while active it competes for ownership and can keep a tied cut at a higher slot inactive.
 
-At each visited trial point, every cut within `tie_tolerance` of the per-state maximum value survives; the selected set is the union of these near-maximum cuts across all visited states. A cut is deactivated only if, at **every** visited state, its value is more than `tie_tolerance` below the maximum there. This strategy was originally proposed by [de Matos, Philpott & Finardi (2015)](/reference/bibliography/#cut-management-and-convergence).
+No cut value is compared against a tolerance, so the active set after a pass is a function of the stored states and the cut coefficients alone. The pass is bit-deterministic regardless of thread count and rank count (see [Determinism & Provenance](/math/determinism-guarantees)).
 
-**Properties**:
+**Stored states and the window.** Every cut the run generates in a selected pool is scored: the pool stores the trial state the cut was computed at. A loaded cut is scored when the policy it comes from records it so, and it then competes at the stored states, its own stored state included when the policy holds one. By default a run keeps the trial states of the whole run, so the memory they take grows with the cut count. With a window of $w$ iterations, a selection run of iteration $k$ keeps only the trial states of the cuts generated after iteration $k - w$ and drops the older ones; a state loaded with a cut from another run counts as one from before the run's first iteration. The window is at least $n_{\text{sel}}$, so every state is scored at least once before it can be dropped. A window drops states, never cuts: a cut whose state was dropped stays scored and still competes at the states that remain.
 
-- Keeps every eligible cut that is within `tie_tolerance` of the maximum at some visited state
-- Preserves the convergence guarantee of section 9 when it scores every visited state; the visited-states window above scores only recent ones ([Tier 2](#tier-2-convergence))
+**Envelope property.** Right after a selection run in which the active-cut cap evicts nothing, the owner of every stored state is active, so the active cuts of the pool attain $V^*(\hat{x})$ at every stored state. A state stored after the run can be owned by an inactive cut until the next run, and the cap, applied after the pass, can deactivate a cut that owns states; the next pass reactivates it.
 
-### 7.2 Limited Memory Level-1 (LML1)
+**Departures from the paper.**
 
-Like Level-1, but at each visited state only the **single oldest** eligible cut within `tie_tolerance` of the maximum survives (oldest = smallest slot index among non-warm-start cuts). The selected set is the union of these oldest-at-maximum cuts across visited states. [Bandarra & Guigues (2021)](/reference/bibliography/#cut-management-and-convergence).
+1. The first stage's pool is never selected.
+2. Selection runs every $n_{\text{sel}}$ iterations, not each time a cut is added.
+3. The paper names no rule for an exact tie; the lowest slot is Novomodelo's choice.
 
-**Properties**:
+**Cost**: $\mathcal{O}(|\text{new cuts}| \times |\text{stored states}| + |\text{cuts}| \times |\text{new states}|)$ multiply-adds per pool and pass: the ownership record is updated incrementally, evaluating the cuts and states written since the previous pass against the others as a blocked matrix product.
 
-- Keeps at most one cut per visited state, the oldest eligible cut within `tie_tolerance` of the maximum there; at the same tolerance, over the same pool and visited states, the cuts it keeps are a subset of those Level-1 keeps
-- Preserves the convergence guarantee of section 9 when it scores every visited state; the visited-states window above scores only recent ones ([Tier 2](#tier-2-convergence))
+## 8. The Dynamic Method
 
-### 7.3 Domination
+The dynamic method is Novomodelo's own lazy row generation; it is not the Dynamic Cut Selection of [de Matos, Philpott & Finardi (2015)](/reference/bibliography/#cut-management-and-convergence). It is **mutually exclusive** with Level 1 selection, and it is **inadmissible under an enumerated forward pass**: the pairing is rejected at study setup with a named validation error, whose reason the Implementation notes tab under [Implementation in Novomodelo](#implementation-in-novomodelo) gives. It never deactivates cuts from the pool — it keeps the pool entirely append-only and controls only **which cuts are resident in each stage LP** at solve time.
 
-A cut is **dominated** if, at every visited state, the maximum over all populated cuts exceeds its value by more than `domination_tolerance`. Dominated cuts contribute nothing to the policy at any visited state and are deactivated; inactive cuts within `domination_tolerance` of the maximum somewhere are reactivated. Formally, cut $i$ is dominated when
-
-$$
-\max_{i' \neq i} \left\{ \beta_{0,i'} + \beta_{i'}^\top \hat{x} \right\} - \left( \beta_{0,i} + \beta_i^\top \hat{x} \right) > \text{domination\_tolerance} \quad \forall \hat{x} \in \text{visited states}
-$$
-
-Domination applies the Level-1 survival test with its own tolerance $\epsilon$ (`domination_tolerance`, §10), so, over the same pool and visited states, the two select the same cuts when the two tolerances are equal.
-
-**Properties**:
-
-- Cost is $\mathcal{O}(|\text{cuts}| \times |\text{visited states}|)$ per stage per check; the kernel evaluates it as a dense matrix product distributed across threads
-- May deactivate cuts that would be active at unvisited states; the convergence argument of §9 uses the approximation only at the visited trial points
-
-## 8. Dynamic Cut Selection
-
-Dynamic Cut Selection (DCS) is **mutually exclusive** with the periodic-pruning methods (Level-1, LML1, Domination). DCS is also **inadmissible under an enumerated forward pass**: the pairing is rejected at study setup with a named validation error, whose reason the Implementation notes tab under [Implementation in Novomodelo](#implementation-in-novomodelo) gives. Unlike the periodic-pruning methods, DCS never deactivates cuts from the pool — it keeps the pool entirely append-only and controls only **which cuts are resident in each stage LP** at solve time.
-
-**Motivation**: when a stage's pool is large, solving each stage LP with every active cut dominates the run time. DCS keeps the whole pool and solves each LP with a small **resident subset** of it, grown until no omitted cut is violated at the solution or a round cap is reached (§8.3), so a solve that stops on no violation returns the optimum of the solve with the whole pool when every pool cut is a candidate (§8.2). It pairs only with a sampled forward pass, as the setup check above enforces.
+**Motivation**: when a stage's pool is large, solving each stage LP with every active cut dominates the run time. The dynamic method keeps the whole pool and solves each LP with a small **resident subset** of it, grown until no candidate cut is violated at the solution, so a solve returns the optimum over its candidates up to the violation tolerance; when every active cut is a candidate (§8.2), that is the optimum with every active cut. It pairs only with a sampled forward pass, as the setup check above enforces.
 
 ### 8.1 Per-solve procedure
 
-At iteration $k$, the DCS loop for one (stage, solve) is:
+From the iteration at which the lazy loop starts, each training solve for one (stage, scenario) runs this loop; before it, solves carry every active cut.
 
-1. **Seed the resident set** with cuts that were active at this stage within the last $k_2$ iterations (the _seed window_), plus all cuts generated in the current iteration. The seed is derived only from synchronized per-slot pool metadata, the iteration each cut was last active and the iteration it was generated, never from a per-worker solve trace. This makes the seed bit-identical across thread and MPI-rank counts.
+1. **Seed the resident set** with the active cuts whose last binding was at most $k_2$ iterations ago (the _seed window_; a cut that has not yet bound counts from the iteration that generated it), plus every cut generated in the current iteration. The seed is derived only from synchronized per-slot pool metadata, the iteration each cut last bound and the iteration it was generated, never from a per-worker solve trace. This makes the seed bit-identical across thread and MPI-rank counts.
 
 2. **Solve** the stage LP with the current resident set. Let $x^*$ be the optimal state vector and $\theta^*$ the optimal future-cost value.
 
@@ -247,35 +229,41 @@ At iteration $k$, the DCS loop for one (stage, solve) is:
    f_i = \beta_{0,i} + \beta_i^\top x^*_{\text{raw}}
    $$
 
-   The candidate is **violated** iff $f_i - \theta^*_{\text{raw}} > \varepsilon_{\text{viol}}$ (strict). This follows from the cut-row convention $-\beta^\top x + \theta \ge \beta_0$.
+   The candidate is **violated** iff
 
-4. **Add the top $n_{\text{adic}}$** most-violated candidates (sorted by violation magnitude descending, ties broken by ascending slot id). Re-solve, from the retained basis when the phase warm-starts (§8.4), and return to step 2.
+   $$
+   f_i - \theta^*_{\text{raw}} > \varepsilon_{\text{viol}} \cdot \max\left(\lvert \theta^*_{\text{raw}} \rvert, \lvert f_i \rvert\right)
+   $$
 
-5. **Stop** when no candidate is violated. At this point the resident-subset optimum **equals the full-pool optimum** — every omitted cut is satisfied — so the result is exact. Backward duals and forward primals are extracted from this final LP.
+   (strict), with $\varepsilon_{\text{viol}} \in (0, 1)$ a **relative** tolerance. This follows from the cut-row convention $-\beta^\top x + \theta \ge \beta_0$.
+
+4. **Add the top $n_{\text{adic}}$** most-violated candidates (sorted by $f_i - \theta^*_{\text{raw}}$ descending, ties broken by ascending slot id). Re-solve, from the retained basis when the phase warm-starts (§8.4), and return to step 2.
+
+5. **Stop** when no candidate is violated. The solve returns only then, so its objective $z_R$ and the optimum $z_C$ over the candidate set satisfy $z_R \le z_C \le z_R + d\,\frac{\varepsilon_{\text{viol}}}{1 - \varepsilon_{\text{viol}}}\,\lvert \theta^* \rvert$, with $d$ the objective coefficient of $\theta$. Backward duals and forward primals are extracted from this final LP.
 
 ### 8.2 Candidate-recency window
 
-By default every pool cut is a candidate ($k_1 = \infty$), so the window excludes no cut; only the round cap of §8.3 can stop a solve short of the full-pool optimum. A finite $k_1$ restricts candidates to cuts generated within the last $k_1$ iterations. This is a deliberate, **inexact** speedup: cuts older than the window are never scored or added, even when violated.
+By default every active cut is a candidate ($k_1 = \infty$), so the window excludes no cut and the exit of step 5 is the optimum over every active cut, up to the violation tolerance. A finite $k_1$ restricts candidates to the cuts generated within the last $k_1$ iterations and the loaded cuts. This is a deliberate, **inexact** speedup: the result is then the optimum over those candidates together with the seed, and an older cut is never scored or added, even when violated.
 
-### 8.3 Bounded inner loop and closing solve
+### 8.3 Bounded rounds
 
-The add/re-solve loop is capped at a fixed number of rounds. If the cap is reached with violations remaining, every candidate violated at the last solution is added and one closing solve is performed, with no further scoring. The closing solve's optimum equals the full-pool optimum only when no omitted cut is violated at it, which it does not check: a candidate satisfied at the last solution can be violated at the new one.
+Rounds that add at most $n_{\text{adic}}$ cuts each run up to a fixed round count. Past it the per-round limit is lifted: every violated candidate is added in each round, and the loop still ends only at the stop of §8.1 step 5. The loop terminates because every reported candidate becomes resident, so each round shrinks the finite set of omitted candidates.
 
 ### 8.4 Pass uniformity and warm-start synergy
 
-DCS applies across the **backward pass**, the **forward pass**, and **simulation**; simulation ignores the window $k_1$ and seeds the resident set with every active cut. Forward and simulation also run the loop to the stop of §8.1 step 5 or the round cap of §8.3 — no earlier stop — to avoid trajectory drift: an earlier stop in the forward pass would shift the states the backward pass visits, producing policy drift.
+The loop runs in the **backward pass** and the **forward pass** of training, and in both it runs to the stop of §8.1 step 5 — no earlier stop — to avoid trajectory drift: an earlier stop in the forward pass would shift the states the backward pass visits, producing policy drift. A simulation solve seeds the resident set with every active cut, so the windows $k_1$ and $k_2$ apply to training only.
 
-In a phase that warm-starts, each inner re-solve adds only a few rows and restarts from the basis the previous solve left, so the bounded loop stays cheap; in a phase that starts cold, every inner re-solve starts cold as well ([LP Warm-Start](/math/lp-warm-start)). The stored basis of [LP Warm-Start](/math/lp-warm-start) is not applied to a DCS solve: the first solve of each stage LP starts without a stored basis, and in a warm-starting backward pass the later openings of a trial point re-solve warm from the LP the previous opening left.
+In a phase that warm-starts, each inner re-solve adds only a few rows and restarts from the basis the previous solve left, so the bounded loop stays cheap; in a phase that starts cold, every inner re-solve starts cold as well ([LP Warm-Start](/math/lp-warm-start)). The stored basis of [LP Warm-Start](/math/lp-warm-start) is not applied to a solve of the dynamic method: the first solve of each stage LP starts without a stored basis, and in a warm-starting backward pass the later openings of a trial point re-solve warm from the LP the previous opening left.
 
 ### 8.5 Zero seed window
 
-A seed window $k_2 = 0$ is valid and meaningful: the resident set is seeded only with cuts generated in the current iteration, with no history (zero-history seeding), and the lazy loop then grows the resident set from scratch each solve. A larger $k_2$ trades a slightly larger initial LP for fewer inner iterations.
+A seed window $k_2 = 0$ is valid and meaningful: the resident set is seeded with the cuts generated in the current iteration and those that bound in it, and the lazy loop then grows the resident set from there each solve. A larger $k_2$ trades a slightly larger initial LP for fewer inner iterations.
 
 ### 8.6 Determinism
 
 The resident-set selection is bit-identical across thread and MPI-rank counts:
 
-- The seed comes from synchronized pool metadata (the iteration each cut was last active and the iteration it was generated), not per-worker traces.
+- The seed comes from synchronized pool metadata (the iteration each cut last bound and the iteration it was generated), not per-worker traces.
 - The optimal state $x^*$ is scenario-deterministic (a function of the LP, not the rank).
 - Candidate scoring uses a bit-deterministic batched matrix product.
 - The violation sort uses a total ordering with an ascending-slot tie-break, making the top-$n_{\text{adic}}$ selection stable.
@@ -284,11 +272,13 @@ See [Determinism & Provenance](/math/determinism-guarantees).
 
 ## 9. Convergence Guarantee
 
-**Theorem** ([Bandarra & Guigues, 2021](/reference/bibliography/#cut-management-and-convergence)): For an expectation objective at every stage, SDDP with finitely many scenarios and Level-1 or LML1 cut selection evaluated over every visited trial point reaches an optimal first-stage solution after finitely many iterations with probability 1. Domination applies the Level-1 test with its own tolerance (§7.3), so the same argument covers it.
+**Theorem** ([Bandarra & Guigues, 2021](/reference/bibliography/#cut-management-and-convergence)): For an expectation objective at every stage, SDDP with finitely many scenarios and Level 1 or Limited-Memory Level 1 cut selection, applied at every iteration and evaluated over every trial point, reaches an optimal first-stage solution after finitely many iterations with probability 1.
 
-**Key insight**: Removing cuts that are never active at any visited state does not change the outer approximation at those states, and the convergence argument uses the approximation only there. With finitely many scenarios, only finitely many distinct cuts and trial points can arise, each read from a basic solution of a stage problem, so the argument needs no density of the visited states: convergence is reached after finitely many iterations.
+**Key insight**: Removing cuts that are never at the maximum at any trial point does not change the outer approximation at those points, and the convergence argument uses the approximation only there. With finitely many scenarios, only finitely many distinct cuts and trial points can arise, each read from a basic solution of a stage problem, so the argument needs no density of the trial points: convergence is reached after finitely many iterations.
 
-**DCS and convergence**: a DCS solve that stops at §8.1 step 5 is exact — the optimum it returns equals the full-pool optimum — so such solves do not weaken the convergence argument. That exactness rests on $k_1 = \infty$ (every pool cut remains a candidate); a finite $k_1$ sacrifices it. A solve that reaches the round cap ends with the closing solve of §8.3, whose exactness is not checked.
+**Level 1 selection as Novomodelo runs it** departs from the rule the theorem covers: it runs every $n_{\text{sel}}$ iterations, leaves the first stage's pool unselected, resolves an exact tie by the lowest slot, and, with a window, scores only the trial states inside it (§7). No convergence result is claimed for it, and de Matos, Philpott & Finardi (2015) state none for their Level 1.
+
+**The dynamic method and exactness**: a solve of the dynamic method returns, at §8.1 step 5, the optimum over its candidates up to the relative violation tolerance. With $k_1 = \infty$ the candidates are every active cut, and since the method deactivates no cut, the active cuts are the pool, bar loaded cuts that a source run left inactive. A finite $k_1$ sacrifices this.
 
 [Tier 2](#tier-2-convergence) states the hypotheses on the risk measure, the forward pass and the cut selection that a training run must meet for the theorem to apply, and the selection features that fall outside them.
 
@@ -296,18 +286,17 @@ See [Determinism & Provenance](/math/determinism-guarantees).
 
 The table maps each key of the `training.cut_selection` object to its symbol on this page, where it has one, and to the methods that read it; [`training.cut_selection`](/running/configuration/#trainingcut_selection) gives each key's type, default and constraints.
 
-| Math symbol                 | Config key                       | Applies to                     |
-| --------------------------- | -------------------------------- | ------------------------------ |
-| —                           | `row_activity_tolerance`         | Always-on (top-level)          |
-| —                           | `max_active_per_stage`           | Always-on (top-level)          |
-| $\epsilon$                  | `selection.tie_tolerance`        | `level1`, `lml1`               |
-| —                           | `selection.check_frequency`      | `level1`, `lml1`, `domination` |
-| $\epsilon$                  | `selection.domination_tolerance` | `domination`                   |
-| $k_2$                       | `selection.seed_window`          | `dynamic`                      |
-| $k_1$                       | `selection.candidate_recency`    | `dynamic`                      |
-| $n_{\text{adic}}$           | `selection.max_added_per_round`  | `dynamic`                      |
-| $\varepsilon_{\text{viol}}$ | `selection.violation_tolerance`  | `dynamic`                      |
-| —                           | `selection.start_iteration`      | `dynamic`                      |
+| Math symbol                 | Config key                        | Applies to                         |
+| --------------------------- | --------------------------------- | ---------------------------------- |
+| —                           | `row_activity_tolerance`          | The cap (§5) and `dynamic` (§8.1)  |
+| $B$                         | `max_active_per_stage`            | No method or `level1`              |
+| $n_{\text{sel}}$            | `selection.check_frequency`       | `level1`                           |
+| $w$                         | `selection.lookback_iterations`   | `level1`                           |
+| $k_2$                       | `selection.seed_window`           | `dynamic`                          |
+| $k_1$                       | `selection.candidate_recency`     | `dynamic`                          |
+| $n_{\text{adic}}$           | `selection.max_added_per_round`   | `dynamic`                          |
+| $\varepsilon_{\text{viol}}$ | `selection.violation_tolerance`   | `dynamic`                          |
+| —                           | `selection.start_iteration`       | `dynamic`                          |
 
 ## Implementation in Novomodelo
 
@@ -323,7 +312,7 @@ The methodology above defines the complete Benders cut lifecycle; the tabs below
 
 - [LP Formulation](/math/lp-formulation) — Benders cut constraints in the LP
 - [State Augmentation](/math/state-augmentation) — Column-bound state pinning whose reduced costs give cut coefficients; cut-state projection onto the state components each stage selects
-- [LP Warm-Start](/math/lp-warm-start) — Stored-basis warm-start of stage solves; a DCS solve does not apply it (§8.4)
+- [LP Warm-Start](/math/lp-warm-start) — Stored-basis warm-start of stage solves; a solve of the dynamic method does not apply it (§8.4)
 - [PAR(p) Inflow Model](/math/par-inflow-model) — AR lag state variables that appear in cut coefficients
 - [SDDP Algorithm](/math/sddp-algorithm) — Forward/backward pass structure that drives cut generation
 - [Scenario Generation](/math/scenario-generation) — Fixed opening tree that defines backward pass branchings; sampling scheme abstraction
@@ -332,5 +321,5 @@ The methodology above defines the complete Benders cut lifecycle; the tabs below
 - [Discount Rate Formulation](/math/discount-rate) — Discount factor scaling in cut aggregation
 - [Risk Measures](/math/risk-measures) — Risk-averse cut generation (CVaR modifies aggregation weights)
 - [Block Formulation Variants](/math/block-formulations) — Block structure that affects how per-block duals contribute to cut coefficients
-- [Determinism & Provenance](/math/determinism-guarantees) — Bit-identical results across thread and MPI-rank counts, including DCS resident-set seeding
+- [Determinism & Provenance](/math/determinism-guarantees) — Bit-identical results across thread and MPI-rank counts, including the resident-set seeding of the dynamic method
 - **Running Novomodelo:** [Policy Management](/running/policy-management/) — the software guide for persisting and reloading this cut pool across runs.

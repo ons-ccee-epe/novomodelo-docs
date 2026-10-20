@@ -24,16 +24,17 @@ chosen per stage: the key and its default are in
 Configure tab, and the components each selection projects onto are in
 [State Augmentation §7](/math/state-augmentation#7-cut-state-projection).
 
-### Export writes canonical currency units
+### Checkpoints store cuts in the writing study's scaled units
 
-Policy export multiplies every cut coefficient and intercept by the writing
-study's cost-scale factor, converting the in-memory scaled cost space into
-canonical currency units at rest. Every load path divides by the loading
-study's own factor to bring the values back into that study's scaled cost
-space. This is **orthogonal** to the `col_scale` reduced-cost
-unscaling above: `col_scale` is a per-column LP prescaler applied inside a
-single solve, while the cost-scale factor is the global objective scaling
-applied once per study. See [Policy Management — Cost-Scale
+A checkpoint stores every cut's intercept and coefficients as the pool holds
+them, in the writing study's scaled cost space, and each pool's file records the
+cost-scale factor of that space. A load uses a pool unchanged when its factor
+equals the loading study's bit for bit, so a same-factor round trip, a resume
+included, reproduces the pool exactly. At another factor every value becomes
+`(value * source) / loading`, the multiplication first. This is **orthogonal** to
+the `col_scale` reduced-cost unscaling above: `col_scale` is a per-column LP
+prescaler applied inside a single solve, while the cost-scale factor is the
+global objective scaling of a study. See [Policy Management — Cost-Scale
 Canonicalization](/running/policy-management/#cost-scale-canonicalization)
 for the load-time rule.
 
@@ -68,49 +69,54 @@ Both routes preserve the slot index, which is what makes reactivation exact:
 a cut that a later selection pass restores is re-baked into the template, at
 the same slot, with the same coefficients it was generated with.
 
-### Selection pass and budget pass, run every iteration
+### Selection pass and budget pass
 
 The row-management pipeline runs after each iteration's backward pass and cut
-synchronization, in two passes:
+synchronization, in two passes over the **interior** pools — those strictly
+between the root and the terminal pool:
 
-1. **Selection pass** (`level1` / `lml1` / `domination`) — gated by
-   `check_frequency`; runs only at iterations that are a multiple of it.
-   The first stage's cuts and the terminal pool are always exempt from this
-   pass: the first stage's cuts are never a backward-pass successor, so their
-   activity is never updated, and the backward pass adds no cut to the
-   terminal pool. Selection runs **sequentially across stages**; within a
-   stage, trial points are evaluated in parallel blocks. `dynamic` (DCS) never
-   runs this pass — it has no `check_frequency` gating and never deactivates
-   pool cuts.
-2. **Budget pass** (`max_active_per_stage`) — runs **every** iteration,
-   regardless of `check_frequency`, as a hard-cap safety net on top of
-   whatever the selection pass (or DCS) leaves active.
+1. **Selection pass** (`level1`) — runs at iterations that are a multiple of
+   `check_frequency`. It drops the trial states older than the
+   `lookback_iterations` window, records each stored state's owner, and sets
+   every scored cut's flag from that record, the current iteration's cuts
+   included. The root pool is never selected, and the backward pass adds no cut
+   to the terminal pool. Within a pool, trial points are evaluated in parallel
+   blocks. `dynamic` never runs this pass and never deactivates a pool cut.
+2. **Budget pass** (`max_active_per_stage`) — runs **every** iteration after
+   the selection pass. It counts and evicts only the cuts this run generated: a
+   loaded cut neither counts nor is evicted, and a cut of the current iteration
+   counts but is never evicted, so a pool's active count can exceed the cap by
+   its loaded cuts. Under `level1` an evicted cut that still owns a state is
+   reactivated by the next selection pass, and the cap is applied again in that
+   iteration. The cap is refused at load with `dynamic`, whose candidates are
+   the active cuts, so an evicted cut would never be a candidate again, and
+   with an enumerated forward pass, whose backward records no binding, so
+   eviction would follow generation order alone.
    [Stage 2: Budget Enforcement](/running/performance/#stage-2-budget-enforcement)
-   gives the eviction order and the cap's reach into a terminal pool that holds
-   a loaded boundary policy's cuts.
+   gives the eviction order.
 
-### DCS is lazy, not a deactivation pass
+### The dynamic method is lazy, not a deactivation pass
 
-Dynamic Cut Selection (methodology §8) never deactivates a pool cut. Each
-stage solve instead starts from a small resident subset — seeded from cuts
-active at this stage within the last `seed_window` iterations plus every cut
-generated this iteration — and grows it by repeatedly scoring the omitted
-candidates and adding the most-violated ones, up to the bounded inner-loop cap
-(50 rounds, not user-configurable). The loop stops as soon as no candidate is
-violated, at which point the resident-subset optimum already equals the
-full-pool optimum — no extra "final" solve is needed to confirm it. If the cap
-is hit first, every candidate violated at the last solution is added and one
-closing solve is performed with no further scoring, so the closing solve is not
-checked for exactness (methodology §8.3).
+The dynamic method (methodology §8) never deactivates a pool cut. Each stage
+solve instead starts from a small resident subset — the active cuts that bound
+within the last `seed_window` iterations plus every cut generated this
+iteration — and grows it by scoring the omitted candidates and adding the
+most-violated ones. After 50 rounds (not user-configurable) the per-round limit
+is lifted and every violated candidate is added in each round until none is
+left, so a solve always returns the optimum over the candidates up to the
+violation tolerance and needs no closing solve. Each solve that reaches the 50th
+round with a candidate still violated is counted in the `lazy_round_cap_hits`
+column of [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet).
+The simulation seeds every active cut, so its lazy solve adds none.
 
-DCS is rejected at setup under an enumerated forward pass (methodology §8): the
-enumerated engine seeds each cut pool at its node-native cut stride, while DCS
-relies on the eviction keys of sampled selection, which the budget pass reads
-when it evicts cuts.
+The dynamic method is refused at setup under an enumerated forward pass
+(methodology §8): the enumerated backward records no binding activity, so the
+seed window's activity clock never advances past each cut's generating
+iteration.
 
-A cut loaded into the pool via `policy.mode = "warm_start"` or `"resume"`
-(Inputs & Outputs tab) carries a reserved sentinel `iteration_generated` value
-rather than a real iteration number. Under DCS's `candidate_recency` window
-this sentinel saturates to age zero, so a warm-started cut is always inside
-any finite `candidate_recency` window — only cuts generated during the
-current run's own iterations can age out of it.
+A cut loaded into the pool by `policy.mode = "warm_start"` or `"resume"`
+(Inputs & Outputs tab) keeps the iteration that generated it in its source run.
+Under a finite `candidate_recency` window a loaded cut is always a candidate,
+like a boundary cut. Under `resume` a reloaded cut counts as loaded only when
+the run that wrote the checkpoint loaded it; the cuts that run generated are
+windowed as they were in it.
