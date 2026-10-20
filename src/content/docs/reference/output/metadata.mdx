@@ -214,8 +214,12 @@ single file. The `convergence` block records how the run stopped.
 | `solve_stats.backward_solve_seconds` | number  | Yes      | s     | Cumulative wall-clock seconds in backward-phase LP solves.    |
 | `solve_stats.parallelism`            | integer | Yes      | —     | Degree of parallelism (worker count) used during training.    |
 
-Under MPI each `solve_stats` count and solve time is the total over all ranks,
-with each solve counted once, so the counts do not grow with the rank count.
+Each LP solve of the run is counted once, whichever rank and worker ran it, so a
+study reports the same `total_lp_solves`, `first_try`, `retried` and `failed` for
+any number of MPI ranks, and `first_try + retried + failed` equals
+`total_lp_solves`. The training summary's `LP solves` line prints the same counts.
+Under MPI each solve time is likewise the total over all ranks, with each solve
+counted once.
 
 **`distribution` fields:**
 

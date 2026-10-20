@@ -213,7 +213,7 @@ A warning-free case prints nothing else. When the pipeline raises warnings, a
 `Validation: 0 errors, N warnings in <dir>` summary follows the `Valid case:`
 line (with `<dir>` exactly as passed on the command line), then one `warning:`
 line per finding, the policy load's included (`warning: <output dir>/<policy.path>: …`).
-When `config.json` configures a boundary policy, a
+When `config.json` configures a boundary policy and the run trains, a
 `boundary policy priced at <date>` line and a one-line reconciliation summary
 follow.
 
@@ -224,8 +224,8 @@ followed by each error as an `error:`-prefixed line, and exits as
 which also prints the I/O error on stderr. A case directory that does not
 exist is reported on stderr without the summary.
 
-When `config.json` configures `policy.boundary`, `novomodelo validate` loads and
-reconciles that boundary policy, including the
+When `config.json` configures `policy.boundary` and the run trains, `novomodelo validate` loads and
+reconciles that boundary policy, as `novomodelo run` does, including the
 [version gate](/running/policy-management/#version-gate). A refusal exits `1`,
 as does a boundary checkpoint that cannot be read. Under `--json`, a refusal
 and an unreadable checkpoint both report phase `BoundaryReconciliationError`;
@@ -235,7 +235,8 @@ see
 When the run would load a policy (`policy.mode` `warm_start` or `resume` with
 training enabled, or training disabled with simulation enabled), `novomodelo validate`
 reads it from `<output dir>/<policy.path>` and applies the same checks: a refusal
-exits `1` (phase `WarmStartIncompatible` or `ResumeIncompatible`), and so does a
+exits `1` (phase `WarmStartIncompatible`, `ResumeIncompatible` or
+`SimulationPolicyIncompatible`), and so does a
 case whose policy does not exist yet. `--output` names the output directory.
 
 ### Arguments
@@ -248,7 +249,7 @@ case whose policy does not exist yet. `--output` names the output directory.
 
 | Option   | Type | Default | Description                                                                                                                                                                                                                                                                                                   |
 | -------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json` | flag | off     | Replace the human-readable report with exactly one JSON object on stdout. On success it carries the boundary-policy reconciliation outcome (`configured`, `boundary_date`, `report` — the last two `null` when no boundary policy is configured) plus `policy_load` (`mode`, `unused_stored_bases`) when a policy load is configured; on failure it carries an `error` object with the failing `phase` and `message`. Exit codes are unchanged. |
+| `--json` | flag | off     | Replace the human-readable report with exactly one JSON object on stdout. On success it carries the boundary-policy reconciliation outcome (`configured`, `boundary_date`, `report` — `configured` is `true` when `policy.boundary` is configured and the run applies it, which only a run that trains does, and the last two are `null` when it is `false`) plus `policy_load` (`mode`, `unused_stored_bases`) when a policy load is configured; on failure it carries an `error` object with the failing `phase` and `message`. Exit codes are unchanged. |
 | `--output <DIR>` | Path | `<CASE_DIR>/output/` | The output directory: the policy load reads `<DIR>/<policy.path>`, and `policy.path` is checked against it. |
 
 ### Examples
@@ -340,7 +341,7 @@ None.
 | `3`  | Solver     | An infeasible LP or a solver failure, in training or in simulation, or a solver backend that cannot be initialized |
 | `4`  | Internal   | A communication failure, an unexpected channel closure, or another internal fault; under `novomodelo validate` also the load error that escapes the validation report, an AR-coefficient count mismatch (`novomodelo run`: `1`) |
 | `5`  | Stopped    | `novomodelo run` only: a SIGTERM or SIGINT during training stopped the run at an iteration boundary after writing the training outputs and the checkpoint; the simulation is skipped ([Stopping Rules — Shutdown Requests](/math/stopping-rules/#shutdown-requests)) |
-| `101` | Panic     | A panic, which is a defect rather than a reported failure; under MPI the panicking rank of `novomodelo run` aborts the whole job, so the launcher reports `101` and no rank is left waiting |
+| `101` | Panic     | An internal fault that panicked; the panic message goes to stderr. Under MPI, the rank that panics prints `rank {rank}: panicked; aborting the MPI job` and aborts the whole job with this code ([Runtime errors](/reference/error-codes/#runtime-errors)) |
 
 A dangling reference (an entity ID that refers to a non-existent entity) surfaces
 as an `InvalidReference` line inside a semantic-constraint violation (exit code 1).
