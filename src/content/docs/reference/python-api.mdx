@@ -218,7 +218,7 @@ A trained or loaded policy: the Benders cuts that approximate the future cost of
 
 Every `stage` argument is 0-based: stage `t` of the 1-based numbering used in the methodology is `stage = t - 1`.
 
-`evaluate` and `cut_matrix` read the in-memory cut pool, which holds intercepts and coefficients in the solver's cost scale: the checkpoint's currency-unit values divided by the pool's `cost_scale_factor` (`modeling.cost_scale_factor`, `1000000.0` by default). Multiply by `cost_scale_factor` to get currency units. `final_lower_bound`, `final_upper_bound` and the values returned by [`novomodelo.results.load_policy`](#novomodeloresultsload_policy) are in currency units. For the conversion, see [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization).
+`evaluate` and `cut_matrix` read the in-memory cut pool, which holds intercepts and coefficients in the solver's cost scale: currency units divided by the pool's `cost_scale_factor` (`modeling.cost_scale_factor`, `1000000.0` by default). The checkpoint stores the same scaled values, so [`novomodelo.results.load_policy`](#novomodeloresultsload_policy) returns them too. Multiply by `cost_scale_factor` to get currency units. `final_lower_bound` and `final_upper_bound` are in currency units. For the conversion, see [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization).
 
 #### `novomodelo.Policy.iterations`
 
@@ -316,7 +316,7 @@ print(round(stage0["cuts"][0]["intercept"] / intercepts[0]))
 1000000
 ```
 
-The saved intercept is `cost_scale_factor` times the in-memory one. The `evaluate` result of about `21.65` is therefore about `21650084` in currency units.
+The saved intercept equals the in-memory one: both are in the scale of `cost_scale_factor`. The `evaluate` result of about `21.65` is therefore about `21650084` in currency units.
 
 ### `novomodelo.write_policy_checkpoint`
 
@@ -614,7 +614,7 @@ Reads the policy checkpoint from `<output_dir>/<policy_subdir>` into plain dicts
 - `output_dir`: the output directory.
 - `policy_subdir`: the checkpoint directory under `output_dir`. Pass the configured `policy.path` when it is not `policy`.
 
-**Returns**: a dict with the keys `metadata`, `stage_cuts` and `stage_bases`. `stage_cuts` holds one entry per cut pool, one per stage on a stage chain (four for the 1dtoy case). Intercepts and coefficients are in currency units; see [`novomodelo.Policy`](#novomodelopolicy) for the scaled values of `cut_matrix`.
+**Returns**: a dict with the keys `metadata`, `stage_cuts` and `stage_bases`. `stage_cuts` holds one entry per cut pool, one per stage on a stage chain (four for the 1dtoy case). Intercepts and coefficients are in the scale of the entry's `cost_scale_factor`, the same values [`novomodelo.Policy.cut_matrix`](#novomodelopolicycut_matrix) returns; multiply by `cost_scale_factor` to get currency units.
 
 **Raises**
 

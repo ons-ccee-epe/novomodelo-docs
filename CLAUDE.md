@@ -292,15 +292,15 @@ mutates no LP row, RHS, or bound. A deactivated cut keeps its slot but is
 LP is append-only (rows never removed, bound stays monotone). The only
 `f64::INFINITY` in a cut row is the normal upper bound of the one-sided `≥`
 Benders cut (`cut/row.rs`), present on every active row — **not** a deactivation
-sentinel. Periodic-pruning methods (`level1`/`lml1`/`domination`) deactivate;
-**DCS** keeps the pool whole and loads a bounded resident subset per solve
+sentinel. The periodic-pruning method (`level1`) deactivates;
+the **dynamic** method keeps the pool whole and loads a bounded resident subset per solve
 (`crates/novomodelo-sddp/src/cut/dcs.rs`), and is inadmissible under enumerated
 forward traversal.
 → **Checkpoint format (self-describing)**: `policy/manifest.bin` (a
 `FlatBuffers` `CheckpointManifest` root: study graph, stage count, producer
 provenance + `format_version`) is written LAST as the commit signal and read
 FIRST behind the `format_version` gate. Each `cuts/<pool>.bin` self-describes its
-own `cost_scale_factor` + graph identity. `FORMAT_VERSION` is `3`; every load kind
+own `cost_scale_factor` + graph identity. `FORMAT_VERSION` is `4`; every load kind
 checks in `validate_policy_load`, before any state check, that the checkpoint
 was written by exactly this build (`SoftwareIdentity::THIS_BUILD`: the same
 `SOFTWARE_NAME` at the same `SOFTWARE_VERSION`,
