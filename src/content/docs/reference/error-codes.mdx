@@ -310,6 +310,19 @@ as a `[SchemaViolation]` line; the `schema error in <path>, field <field>: <mess
 format of [`SchemaError`](#schemaerror), which reaches you only for a load error raised after the report is
 complete.
 
+A generic constraint's `slack` object is checked under this kind too, on the
+field `constraints[<i>].slack.penalty` or `constraints[<i>].slack.penalty_basis`:
+an enabled slack needs a positive `penalty` and a `penalty_basis`, and a
+disabled slack carries neither. The missing-basis message names the choice:
+
+```text
+slack.enabled is true but slack.penalty_basis is absent: use "per_hour" for a row in MW or m³/s, "per_unit" for a row in MWh or hm³
+```
+
+A `penalty_basis` other than `per_hour` or `per_unit` is a [`ParseError`](#parseerror)
+(`unknown variant`). See
+[Generic Constraints — Penalty basis](/reference/generic-constraints/#penalty-basis).
+
 #### Configuration load rules
 
 `config.json` loading refuses these values; each prints a `[SchemaViolation] config.json: field <field>: <message>` line, and both commands exit `1`.
@@ -410,11 +423,14 @@ composition rules.
 #### Named-expression inlining term budget exceeded
 
 **When it occurs:** Inlining substitutes every `@name` reference with its
-referenced expression's terms. An acyclic but exponentially-expanding
-declaration — e.g. a doubling chain `@e_k = @e_{k-1} + @e_{k-1}` — is caught
-once the flattened term count would exceed a hard cap of 100,000 terms, far
-above any legitimately authored expression, aborting the blow-up before the
-full vector materializes. The cap applies only when a constraint (or another
+referenced expression and folds the result into one coefficient per variable.
+An acyclic but exponentially-expanding declaration is caught once the
+expansion would exceed 100,000 coefficient operations, far above any
+legitimately authored expression, aborting the blow-up before it
+materializes. A doubling chain whose links are scaled by a scalar
+parameter, `@e_k = @a * @e_{k-1} + @e_{k-1}`, hits the cap; a chain of plain
+self-additions, `@e_k = @e_{k-1} + @e_{k-1}`, folds to one term per variable
+and stays under it. The cap applies only when a constraint (or another
 expression) actually references the runaway declaration — declaring it
 without referencing it is a cheap existence check, not an expansion.
 
@@ -424,7 +440,7 @@ without referencing it is a cheap existence check, not an expansion.
 | --------- | --------------------------------------------------------------------------------|
 | `path`    | Always `constraints/generic_constraints.json`                                   |
 | `field`   | `constraints[i].expression` (or the referencing expression's own field)          |
-| `message` | `named-expression reference "@<name>" expands to more than 100000 inlined terms; this indicates an exponential reference pattern (e.g. a doubling chain "@e = @prev + @prev")` |
+| `message` | `` `@<name>`: named-expression reference "@<name>" expands to more than 100000 coefficient operations; this indicates an exponential reference pattern (e.g. a doubling chain "@e = @prev + @prev")`` |
 
 **Example:**
 
@@ -440,20 +456,29 @@ instead of doubling a reference at each step. See
 [Generic Constraints](/reference/generic-constraints/) for the `@name`
 composition rules.
 
-#### `@parameter` / `@name` reference misuse
+#### Generic-constraint expression rejected
 
-**When it occurs:** The expression grammar accepts at most one `@`-prefixed
-reference per term, and a parenthesized group takes only a literal
-coefficient. Four distinct authoring mistakes are rejected at the same parse
-site (`constraints[i].expression`, or `expressions[i].expression` for a named
-expression's own definition):
+**When it occurs:** An expression in `constraints/generic_constraints.json`
+(`constraints[i].expression`, or `expressions[i].expression` for a named
+expression's own definition) that the grammar or its linearity rule refuses.
+Every message starts with the offending fragment in backticks, as in
+`` `@zz`: unknown name … ``; a problem at the very end of the text ends in
+`(at the end of the expression)` instead.
 
-| Mistake                                                        | Example message                                                                                          |
-| ---------------------------------------------------------------| -----------------------------------------------------------------------------------------------------------|
-| Two `@` references in one term (`@param * @name`, or two `@param`s) | `only one @parameter reference is allowed per term; found "@a" and "@b"`                              |
-| `@param` scaling a parenthesized group (`@param * (...)`)      | `parameter "@a" cannot scale a parenthesized group: a group takes only a literal coefficient, not "@a * (...)"` |
-| `@name` naming no loaded scalar parameter, in a coefficient position | `unknown parameter "@a": no definition with this name was loaded`                                  |
-| `@name` naming no declared expression, in a reference position | `undeclared named-expression reference "@a": no expression with this name was declared`                  |
+| Mistake                                                            | Message after the quoted fragment                                                                                                              |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| An `@name` declared neither as a scalar parameter nor as a named expression | `unknown name "@<name>": no scalar parameter or named expression with this name was declared`                                      |
+| A product of two terms that both hold LP variables                 | `product of LP variables is not linear`; when a factor is a named expression, followed by `("@<name>" is the named expression at expressions[<i>], which contains LP variables)` |
+| A division by a term that holds an LP variable                     | `division by an expression containing LP variables`                                                                                             |
+| A constant built from numbers that divides by zero                 | `division by zero`                                                                                                                              |
+| A numeric literal too large to represent                           | `numeric literal <text> is not finite`                                                                                                          |
+| A constant part in an expression with no relational operator       | `an expression without a relational operator cannot have a constant part; put the bound in generic_constraint_bounds.parquet or use <=, >= or ==` |
+| Two relational operators                                           | `a generic constraint expression carries at most one relational operator (<=, >=, ==); an inline double-relational range is not supported — split into two constraints` |
+| A relational operator inside parentheses                           | `a relational operator is only allowed at the top level`                                                                                        |
+| A bare `<` or `>`                                                  | `bare '<' at position <n> is not a valid operator; use '<=' for a relational bound`                                                              |
+| Parentheses and unary signs nested deeper than 256 levels          | `expression nests deeper than 256 levels`                                                                                                       |
+| A named-expression body with a relational operator                 | `a named expression cannot contain a relational operator`                                                                                       |
+| A named-expression body that reads no LP variable                  | `"<name>" contains no LP variable; declare it in generic_parameters.json as a kind "expression" parameter`                                       |
 
 **Fields:**
 
@@ -461,14 +486,62 @@ expression's own definition):
 | --------- | -----------------------------------------------------------------------|
 | `path`    | Always `constraints/generic_constraints.json`                        |
 | `field`   | `constraints[i].expression` or `expressions[i].expression`            |
-| `message` | One of the four messages in the table above                          |
+| `message` | The quoted fragment followed by one of the messages in the table above |
 
-**Resolution:** A term carries at most one `@` reference, and only a literal
-number may scale a `(...)` group. Check that a bound `@name` matches a
-parameter actually declared in `constraints/generic_parameters.json`, and
-that a reference `@name` matches an entry actually declared in this file's own
-`expressions` array. See [Generic Constraints](/reference/generic-constraints/)
+**Example:** A product of two LP variables:
+
+```text
+[SchemaViolation] constraints/generic_constraints.json: field constraints[0].expression: `hydro_generation(0) * thermal_generation(0)`: product of LP variables is not linear
+```
+
+**Resolution:** Keep every term linear: scale an LP variable only by a
+number, a scalar parameter or an expression built from them, and divide only
+by such a constant. Check that each `@name` matches a parameter declared in
+`constraints/generic_parameters.json` or an entry of this file's own
+`expressions` array; move a body that reads no LP variable into
+`constraints/generic_parameters.json` as an `expression` parameter. See
+[Generic Constraints — Expression grammar](/reference/generic-constraints/#expression-grammar)
 for the full grammar.
+
+#### Scalar parameter entry rejected
+
+**When it occurs:** An entry of `constraints/generic_parameters.json` whose
+fields do not match its `kind`, or an `expression` parameter whose formula is
+refused. The formula messages start with the offending fragment in backticks,
+as for a [generic-constraint expression](#generic-constraint-expression-rejected).
+
+| Mistake                                                          | Field                             | Message                                                                                                   |
+| ---------------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| A payload field of another kind, such as `values` on a `constant` | `scalar_parameters[i].<field>`    | `"values" is only valid for kind "per_stage" or "seasonal", not "constant"`                                 |
+| An `expression` parameter without its formula                     | `scalar_parameters[i].expression` | `"expression" kind requires an "expression" field`                                                         |
+| An LP variable in the formula                                     | `scalar_parameters[i].expression` | `an LP variable cannot appear in a scalar-parameter expression`                                            |
+| An `@name` that is not a scalar parameter                         | `scalar_parameters[i].expression` | `unknown scalar parameter "@<name>"; a named expression cannot appear in a scalar-parameter expression`    |
+| A relational operator in the formula                              | `scalar_parameters[i].expression` | `a scalar-parameter expression cannot contain a relational operator`                                       |
+| A constant that divides by zero                                   | `scalar_parameters[i].expression` | `division by zero`                                                                                        |
+| A reference cycle among `expression` parameters                   | `scalar_parameters`               | `expression-parameter reference cycle detected: <a> -> <b> -> ... -> <a>`                                  |
+
+**Fields:**
+
+| Field     | Description                                         |
+| --------- | --------------------------------------------------- |
+| `path`    | Always `constraints/generic_parameters.json`        |
+| `field`   | The field named in the table above                  |
+| `message` | One of the messages in the table above              |
+
+**Example:** An `expression` parameter that reads an LP variable:
+
+```text
+[SchemaViolation] constraints/generic_parameters.json: field scalar_parameters[0].expression: `hydro_storage(0)`: an LP variable cannot appear in a scalar-parameter expression
+```
+
+**Resolution:** Give each entry only the payload field of its kind. Build an
+`expression` parameter from numbers and other scalar parameters only, with no
+relational operator, and break any cycle among them. A formula over LP
+variables belongs in `constraints/generic_constraints.json` as a named
+expression. See
+[Generic Constraints — `expression` parameters](/reference/generic-constraints/#expression-parameters).
+A formula whose value is not finite only at some stage and block is reported
+by [`GenericConstraintValidationError`](#genericconstraintvalidationerror).
 
 #### Repeated block argument
 
@@ -989,7 +1062,7 @@ rejected whatever its content; the loader never reads it, so a well-formed file 
 ```
 
 **Resolution:** `mkdir -p <case>/constraints && git mv <case>/system/scalar_parameters.json <case>/constraints/generic_parameters.json` — the contents do not change. See
-[Generic Constraints — the five parameter kinds](/reference/generic-constraints/)
+[Generic Constraints — the parameter kinds](/reference/generic-constraints/#generic_parametersjson-the-parameter-kinds)
 for the current file's schema.
 
 #### Commitment on a non-anticipated thermal
@@ -1461,13 +1534,22 @@ trigger it, both emitted by the business-rule check in
    and the warning can be ignored. If you want to bound the advance commitment
    decision itself, replace `thermal_generation(N)` with `anticipated_decision(N)`.
 
-2. **`max_stored_energy(h)` paired with `accumulated_productivity(h)`.** One
-   constraint references both computed tags for the same hydro — in its
-   expression coefficients or in its bounds (an `@emax` on the right-hand side
-   counts). The two are evaluated differently (`accumulated_productivity` at the
-   plant's reference point, `max_stored_energy` over the useful range), so a
-   stored-energy comparison built from them does not cancel. One warning is
-   emitted per such hydro; the case still validates.
+2. **Stored-energy tags that would not cancel.** One constraint references
+   computed tags — in its expression coefficients, in its bounds (an `@emax` on
+   the right-hand side counts) or through an `expression` parameter that reads
+   them — in one of two forms:
+   - a `max_stored_energy(h)` ceiling beside a productivity tag for the same
+     hydro other than `integrated_accumulated_productivity(h)` (or a
+     `max_stored_energy_mwh(h)` ceiling beside an MWh productivity tag other
+     than `integrated_accumulated_productivity_mwh_per_hm3(h)`). The tags differ
+     in scope (one plant or its downstream cascade) or in evaluator (the plant's
+     reference point or the useful-range mean), so a stored-energy comparison
+     built from them does not cancel. One warning is emitted per such pair.
+   - MWh tags (the `_mwh` and `_mwh_per_hm3` family) mixed with raw tags. The
+     two families differ by a factor of $10^6/3600$; the warning reads
+     `Constraint "<name>": mixes MWh tags (<tags>) with raw productivity tags (<tags>); the two units differ by a factor of 10^6/3600. Use one family throughout.`
+
+   The case still validates.
 
    **Example:** A constraint that pairs the two tags for hydro 0:
 
@@ -1478,7 +1560,9 @@ trigger it, both emitted by the business-rule check in
    ```
 
    **Resolution:** Use `integrated_accumulated_productivity` as the coefficient
-   that matches `max_stored_energy`; see
+   that matches `max_stored_energy`, or
+   `integrated_accumulated_productivity_mwh_per_hm3` with
+   `max_stored_energy_mwh`, and keep one constraint in one family; see
    [the security-curve example](/reference/generic-constraints/#worked-example-a-security-curve).
 
 The warning is printed by `novomodelo validate` in its human-readable output; the
@@ -1826,7 +1910,24 @@ An **unresolved `@parameter` scalar** — a generic-constraint parameter
 declared in `constraints/generic_parameters.json` that has no value for a
 season, stage or block the study needs — fails here at `novomodelo validate` time.
 An `@name` that no file declares is reported at load time; see
-[`@parameter` / `@name` reference misuse](#parameter--name-reference-misuse).
+[Generic-constraint expression rejected](#generic-constraint-expression-rejected).
+
+A **non-finite resolved value** fails here too. A coefficient, a bound or an
+`expression` parameter that depends on scalar parameters is evaluated at every
+stage and block it is active in, and one whose value is not finite there (a
+division by a parameter that is zero at that stage, for instance) is refused
+with one of:
+
+```text
+generic constraint <id> '<name>': the coefficient of <variable> resolves to the non-finite value <value> at stage <s>, block <b>
+generic constraint <id> '<name>': the upper bound resolves to the non-finite value <value> at stage <s>, block <b>
+parameter '<name>': expression resolves to the non-finite value <value> at stage <s>, block <b>
+```
+
+The bound message names the lower or the upper bound; an `expression`
+parameter is checked whether or not a constraint reads it. A constant built from
+numbers alone that divides by zero is refused at load instead; see
+[Generic-constraint expression rejected](#generic-constraint-expression-rejected).
 
 **Example:** A `seasonal` parameter whose only value is for season `5`, in a case with
 no season definitions:

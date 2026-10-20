@@ -506,14 +506,15 @@ is omitted entirely when the study has no generic constraints.
 The fully resolved echo of every generic constraint as the LP actually built
 it — one row per `(constraint, stage, block, term)`. Written once, not
 per-scenario (the resolution is deterministic given the case, independent of
-simulation outcome). 13 columns.
+simulation outcome). 14 columns.
 
 `bound_lower`/`bound_upper` are the resolved interval endpoints (lower before
 upper), each `null` where unbounded on that side; `derived_shape` labels the
 shape those endpoints imply: `floor`, `cap`, `band` or `equality`. The
 per-term columns (`term_index`, `variable_kind`, `variable`, `coefficient`)
-are `null` on a term-less constraint's placeholder row, and `slack_penalty` is
-`null` when slack is disabled for the constraint.
+are `null` on a term-less constraint's placeholder row, and `slack_penalty` and
+`slack_penalty_basis` are `null` when slack is disabled for the constraint. A
+term whose coefficient folds to exactly zero is not echoed.
 
 | Name              | Type    | Nullable | Units | Description                                                                                          |
 | ----------------- | ------- | -------- | ----- | ---------------------------------------------------------------------------------------------------- |
@@ -529,4 +530,5 @@ are `null` on a term-less constraint's placeholder row, and `slack_penalty` is
 | `bound_upper`     | Float64 | Yes      | —     | Resolved upper bound of the constraint's interval. `null` when unbounded above.                      |
 | `derived_shape`   | Utf8    | No       | —     | Shape implied by the resolved bounds: `floor`, `cap`, `band` or `equality`.                          |
 | `slack_enabled`   | Boolean | No       | —     | Whether a slack variable is enabled for this constraint.                                             |
-| `slack_penalty`   | Float64 | Yes      | —     | Penalty cost per unit of slack. `null` when slack is disabled.                                       |
+| `slack_penalty`   | Float64 | Yes      | —     | Penalty cost per unit of slack, charged as `slack_penalty_basis` states. `null` when slack is disabled. |
+| `slack_penalty_basis` | Utf8 | Yes     | —     | `per_hour` (charged per hour of the row's period) or `per_unit` (charged once per unit). `null` when slack is disabled. |

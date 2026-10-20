@@ -237,11 +237,12 @@ constraints are added.
 | ----------------------------- | -------------- | ----------- | ------- | ----- | ---------------------------------------------------------------------------------------------------------------------- |
 | `constraints[].id`            | integer        | Yes         | —       | —     | Constraint identifier. Must be unique within the file.                                                                 |
 | `constraints[].name`          | string         | Yes         | —       | —     | Short name used in reports and log output.                                                                             |
-| `constraints[].expression`    | string         | Yes         | —       | —     | Expression string over variable references and constants (see below).                                                  |
+| `constraints[].expression`    | string         | Yes         | —       | —     | Arithmetic expression over variable references, numbers and `@name` references, linear in the variables (see below).  |
 | `constraints[].description`   | string \| null | No          | —       | —     | Optional human-readable description.                                                                                   |
-| `constraints[].slack`         | object         | Yes         | —       | —     | Slack variable configuration: `enabled` (boolean) and `penalty` (number; required and `> 0` when `enabled` is `true`). |
+| `constraints[].slack`         | object         | Yes         | —       | —     | Slack variable configuration: `enabled`, `penalty` and `penalty_basis`.                                                |
 | `constraints[].slack.enabled` | boolean        | Yes         | —       | —     | Whether a slack variable is allowed.                                                                                   |
-| `constraints[].slack.penalty` | number \| null | Conditional | —       | —     | Penalty per unit of violation. Required and `> 0` when `enabled` is `true`.                                            |
+| `constraints[].slack.penalty` | number \| null | Conditional | —       | USD/(row unit·h) or USD/row unit | Penalty per unit of violation, read under `penalty_basis`. Required and `> 0` when `enabled` is `true`; absent when it is `false`. |
+| `constraints[].slack.penalty_basis` | string \| null | Conditional | —  | —     | `"per_hour"` (the penalty is charged per hour of the row's period: use it for a row in MW or m³/s) or `"per_unit"` (charged once per unit of violation: use it for a row in MWh or hm³). Required when `enabled` is `true`; absent when it is `false`. See [Penalty basis](/reference/generic-constraints/#penalty-basis). |
 
 **Named expressions (`expressions[]`):**
 
@@ -249,7 +250,7 @@ constraints are added.
 | --------------------------- | -------------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------- |
 | `expressions`               | array          | No       | —       | —     | Named linear expressions shared by every constraint and referenced by `@name`. Absent means none.       |
 | `expressions[].name`        | string         | Yes      | —       | —     | Name bound to the expression. Must be unique in the file and distinct from every scalar-parameter name. |
-| `expressions[].expression`  | string         | Yes      | —       | —     | Linear expression that `name` stands for, written in the same grammar as `constraints[].expression`.    |
+| `expressions[].expression`  | string         | Yes      | —       | —     | Linear expression that `name` stands for, written in the same grammar as `constraints[].expression` with no relational operator; it must read at least one LP variable. |
 | `expressions[].description` | string \| null | No       | —       | —     | Optional human-readable description.                                                                    |
 
 The `expression` grammar, the variables it can name, named expressions (`@name`) and how a
@@ -294,8 +295,9 @@ Which rows are rejected:
 
 Named scalar parameters that can be referenced from generic-constraint coefficient
 expressions using the `@name` sigil. The file is optional; when absent, no
-parameters are loaded and any `@name` token in a constraint expression causes a
-load error.
+parameters are loaded and any `@name` token that names no named expression
+causes a load error. An `expression` parameter can also read other parameters
+by `@name`.
 
 **Top-level structure:**
 
@@ -319,13 +321,14 @@ load error.
 | -------------------------------------------- | -------------- | ----------- | ------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `scalar_parameters[].id`                     | integer        | Yes         | —       | —     | Unique parameter identifier (int32)                                                                                                                                                                                                                                                                                                 |
 | `scalar_parameters[].name`                   | string         | Yes         | —       | —     | Unique parameter name (non-empty, no leading/trailing whitespace)                                                                                                                                                                                                                                                                   |
-| `scalar_parameters[].kind`                   | string         | Yes         | —       | —     | One of `"constant"`, `"per_stage"`, `"seasonal"`, `"computed"`, `"per_stage_block"`.                                                                                                                                                                                                                                                |
+| `scalar_parameters[].kind`                   | string         | Yes         | —       | —     | One of `"constant"`, `"per_stage"`, `"seasonal"`, `"computed"`, `"per_stage_block"`, `"expression"`.                                                                                                                                                                                                                                |
 | `scalar_parameters[].value`                  | number \| null | Conditional | —       | —     | Finite f64 value. Required for `constant`. Absent otherwise.                                                                                                                                                                                                                                                                        |
 | `scalar_parameters[].values`                 | array \| null  | Conditional | —       | —     | Array of `[index, value]` pairs. Required for `per_stage` and `seasonal`.                                                                                                                                                                                                                                                           |
 | `scalar_parameters[].computed_spec`          | object \| null | Conditional | —       | —     | `{"tag": "<variant>", "hydro_id": <int>}`. Required for `computed`.                                                                                                                                                                                                                                                                 |
-| `scalar_parameters[].computed_spec.tag`      | string         | Yes         | —       | —     | One of `"equivalent_productivity"`, `"accumulated_productivity"`, `"reference_volume"`, `"reference_turbine"`, `"min_storage"`, `"max_storage"`, `"specific_productivity"`, `"integrated_equivalent_productivity"`, `"integrated_accumulated_productivity"`, `"max_stored_energy"`. See the `computed_spec` tag values table below. |
+| `scalar_parameters[].computed_spec.tag`      | string         | Yes         | —       | —     | One of `"equivalent_productivity"`, `"accumulated_productivity"`, `"reference_volume"`, `"reference_turbine"`, `"min_storage"`, `"max_storage"`, `"specific_productivity"`, `"integrated_equivalent_productivity"`, `"integrated_accumulated_productivity"`, `"max_stored_energy"`, `"integrated_equivalent_productivity_mwh_per_hm3"`, `"integrated_accumulated_productivity_mwh_per_hm3"`, `"max_stored_energy_mwh"`. See the `computed_spec` tag values table below. |
 | `scalar_parameters[].computed_spec.hydro_id` | integer        | Yes         | —       | —     | Hydro plant ID.                                                                                                                                                                                                                                                                                                                     |
 | `scalar_parameters[].block_values`           | array \| null  | Conditional | —       | —     | Array of `[stage_id, block_id, value]` triples. Required for `per_stage_block`; each `(stage_id, block_id)` pair within an entry must be unique.                                                                                                                                                                                    |
+| `scalar_parameters[].expression`             | string \| null | Conditional | —       | —     | Arithmetic formula over numbers and other scalar parameters (`@name`), with no LP variable, named expression or relational operator. Required for `expression`.                                                                                                                                                                      |
 
 **`computed_spec` tag values:**
 
@@ -341,6 +344,9 @@ load error.
 | `integrated_equivalent_productivity`  | Useful-range mean equivalent productivity ρ̄_eq (forebay level averaged over the physical storage range)                                 |
 | `integrated_accumulated_productivity` | ρ̄_eq summed along the downstream cascade — the coefficient that pairs with `max_stored_energy`                                          |
 | `max_stored_energy`                   | `integrated_accumulated_productivity` × (`max_storage_hm3` − `min_storage_hm3`) over the physical range, in MW/(m³/s)·hm³ — **not** MWh |
+| `integrated_equivalent_productivity_mwh_per_hm3`  | `integrated_equivalent_productivity` × 10⁶/3600, in MWh/hm³                                                                 |
+| `integrated_accumulated_productivity_mwh_per_hm3` | `integrated_accumulated_productivity` × 10⁶/3600, in MWh/hm³ — the coefficient that pairs with `max_stored_energy_mwh`       |
+| `max_stored_energy_mwh`                           | `max_stored_energy` × 10⁶/3600, in MWh                                                                                      |
 
 The productivity and stored-energy quantities these tags resolve to are defined in
 [Hydro Production Function Models §4](/math/hydro-production-models#4-energy-conversion-quantities).
@@ -350,7 +356,9 @@ The productivity and stored-energy quantities these tags resolve to are defined 
 - `id` values must be unique across all entries.
 - `name` values must be unique (case-sensitive), non-empty, and have no leading
   or trailing whitespace.
-- `kind` must be exactly one of the five legal values.
+- `kind` must be exactly one of the six legal values, and an entry carries only
+  the payload field of its kind (`value`, `values`, `computed_spec`,
+  `block_values` or `expression`); a payload field of another kind is rejected.
 - For `per_stage`: `values` pairs must have contiguous `stage_id` keys starting
   at 0; duplicates and gaps are rejected.
 - For `seasonal`: `season_id` keys within an entry must be unique; duplicates
@@ -360,7 +368,11 @@ The productivity and stored-energy quantities these tags resolve to are defined 
 - For `per_stage_block`: `block_values` must be present, and each
   `(stage_id, block_id)` pair within an entry must be unique; duplicates are
   rejected.
+- For `expression`: `expression` must be present, read only numbers and other
+  scalar parameters, and hold no relational operator; a reference cycle among
+  `expression` parameters is rejected. A formula whose value is not finite at
+  some stage and block is rejected when the study is prepared.
 - Unknown JSON fields on any entry are rejected immediately.
 
 For what each kind means, see
-[The five parameter kinds](/reference/generic-constraints/#generic_parametersjson-the-five-parameter-kinds).
+[The parameter kinds](/reference/generic-constraints/#generic_parametersjson-the-parameter-kinds).
