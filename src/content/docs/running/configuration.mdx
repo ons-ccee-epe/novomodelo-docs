@@ -47,6 +47,7 @@ Every `config.json` key down to the second level, with its type and default; eac
 | `simulation.io_channel_capacity`             | integer         | No       | `64`         | —     | Capacity of the queue between the simulation workers and the output writer. See [`simulation`](#simulation).                                       |
 | `simulation.solver`                          | object \| null  | No       | `null`       | —     | Solver profile of the simulation phase; `null` keeps the built-in profile. See [Solver profile fields](#solver-profile-fields).                                                       |
 | `simulation.scenario_source`                 | object \| null  | No       | `null`       | —     | Scenario source of the simulation phase; `null` reuses `training.scenario_source`. See [`simulation.scenario_source`](#simulationscenario_source). |
+| `simulation.cut_set`                         | string          | No       | `"all"`      | —     | One of `"all"`, `"active"`. Which policy rows the simulation's stage LPs hold. See [`simulation`](#simulation).                                   |
 | `modeling`                                   | object          | No       | `{}`         | —     | Controls physical modeling options. See [`modeling`](#modeling).                                                                                   |
 | `modeling.inflow_non_negativity`             | object          | No       | `{}`         | —     | Treatment of negative PAR model inflow draws. See [`modeling.inflow_non_negativity`](#modelinginflow_non_negativity).                              |
 | `modeling.cost_scale_factor`                 | number \| null  | No       | `1000000.0`  | —     | Divisor on every non-θ objective coefficient; `null` or absent uses the default. See [`modeling.cost_scale_factor`](#modelingcost_scale_factor).   |
@@ -66,7 +67,7 @@ Every `config.json` key down to the second level, with its type and default; eac
 | `upper_bound_evaluation.interval_iterations` | integer \| null | No       | `null`       | —     | Accepted; has no effect. See [`upper_bound_evaluation`](#upper_bound_evaluation).                                                                  |
 | `upper_bound_evaluation.lipschitz`           | object          | No       | `{}`         | —     | Accepted; has no effect. See [`upper_bound_evaluation`](#upper_bound_evaluation).                                                                  |
 | `exports`                                    | object          | No       | `{}`         | —     | Controls which outputs are written to the results directory. See [`exports`](#exports).                                                            |
-| `exports.states`                             | boolean         | No       | `false`      | —     | Writes visited forward-pass trial points to the policy checkpoint. See [`exports`](#exports).                                                      |
+| `exports.states`                             | boolean         | No       | `false`      | —     | Stores each pool's trial states and writes them to the policy checkpoint. See [`exports`](#exports).                                               |
 | `exports.stochastic`                         | boolean         | No       | `false`      | —     | Writes stochastic preprocessing artifacts. See [`exports`](#exports).                                                                             |
 | `exports.fpha_deviation_points`              | boolean         | No       | `false`      | —     | Writes the computed-FPHA fit-deviation table. See [`exports`](#exports).                                                                          |
 | `$schema`                                    | string \| null  | No       | `null`       | —     | Optional schema URI; the loader does not read it. See [Full Example](#full-example).                                                               |
@@ -361,8 +362,8 @@ Groups the result-preserving worker-scheduling knobs that shape how backward-pas
 
 Within a stage, opening-blocks are claimed **hardest-first**: blocks are ranked by the previous iteration's mean simplex-pivot cost per `(stage, block)`, descending (ties broken by ascending block index; the first iteration, and any block with no prior data, sort last). This claim order changes only which worker processes which block, and when — it is **result-neutral**: the produced cut set and the training lower bound are identical to canonical-order claiming.
 
-:::caution[Interaction with Dynamic Cut Selection]
-If [Dynamic Cut Selection](#trainingcut_selection) is enabled (`cut_selection.selection.method = "dynamic"`), the `by_node` scheduler falls back to `by_scenario` scheduling from that method's `start_iteration` (default `2`) onward, so `by_node` has no effect from that point on. No warning is emitted. DCS is **not** the default — this caveat only applies when it is explicitly enabled. See [Performance Accelerators](/running/performance/) for the detailed tuning treatment of `by_node`.
+:::caution[Interaction with the dynamic method]
+If the [`dynamic` selection method](#trainingcut_selection) is set (`cut_selection.selection.method = "dynamic"`), the `by_node` scheduler falls back to `by_scenario` scheduling from that method's `start_iteration` (default `2`) onward, so `by_node` has no effect from that point on. No warning is emitted. The method is **not** the default — this caveat applies only when it is set. See [Performance Accelerators](/running/performance/) for the detailed tuning treatment of `by_node`.
 :::
 
 Example — default (`by_scenario`; no `parallelism` block needed):
@@ -396,12 +397,10 @@ For the backward pass this schedules work within, see [SDDP Algorithm §3.4](/ma
 
 ### `training.cut_selection`
 
-Controls the row management pipeline for managing row pool growth. The
-pipeline has up to two stages: strategy-based selection and budget
-enforcement. Row management periodically scans the row pool and
-deactivates rows that are unlikely to improve the policy, reducing LP
-size without sacrificing convergence quality. For a detailed explanation
-of each stage, see
+Controls the row-management pipeline for the row pool of each stage. The
+pipeline has up to two passes: a selection method and a per-stage cap on active
+rows. Deactivating a row removes it from the stage LPs and keeps it in the pool.
+For a detailed explanation of each pass, see
 [Performance Accelerators](/running/performance/#cut-management-pipeline) and, for the selection methods themselves, [Cut Management](/math/cut-management/).
 
 The block has two always-on knobs at the top level plus a `selection`
@@ -413,55 +412,64 @@ the default.
 
 | Field                    | Type    | Default | Description                                                                                                                                                           |
 | ------------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `row_activity_tolerance` | number  | `0.0`   | Threshold for a constraint row to count as binding at a solution point: the row's dual value, not its magnitude, must be strictly greater than this. Rows whose dual is at or below it are treated as inactive in tracking. Separate from a selection method's `tie_tolerance` / `domination_tolerance`; this value only decides which rows count as binding for activity tracking (the `last_active_iter` / `active_count` the budget pass sorts on). |
-| `max_active_per_stage`   | integer | `null`  | Hard cap on active rows per stage LP, enforced after the selection method runs. `null` = no cap.                                                                      |
+| `row_activity_tolerance` | number  | `1e-6`  | Binding threshold for activity tracking: a row counts as binding at a solution point when its dual multiplier is strictly greater than this value (a signed comparison). The multipliers of a stage's pool rows sum to at most that stage's discount factor, so the threshold is dimensionless. The recorded activity is read only by `max_active_per_stage` and by the `dynamic` method's `seed_window`, and it is recorded, and written to the policy checkpoint, only when one of them is configured. Must be `>= 0`; `null` is a parse error. `0` counts a multiplier at solver rounding level as binding. |
+| `max_active_per_stage`   | integer | `null`  | Cap on the active rows the current run has added to the pool of each stage strictly between the first and the last; each node's pool is capped separately. Rows loaded from a policy neither count nor are evicted, and rows of the current iteration count but are never evicted, so a pool can hold more active rows than the cap. Applied every iteration, after the selection pass. The excess is evicted in ascending order of the iteration in which a row last bound, then of the number of solves in which it bound, then of its pool position. `null` = no cap. Refused with the `dynamic` method and with an enumerated [`training.selection`](#trainingselection). |
 | `selection`              | object  | `null`  | The active selection method and its parameters (see below). `null` (the default) disables row selection.                                                              |
+
+A cap below `training.selection.forward_passes` is accepted with a warning: a
+pool that receives that many rows per iteration then evicts, at every
+iteration, every row the run added in an earlier one.
 
 #### The `selection` object
 
 `selection.method` is the discriminator; each method exposes only its own
 parameters. Supplying a parameter that belongs to a different method is a config
-load error, and a misspelled method is rejected with the list of valid methods.
+load error, a misspelled method is rejected with the list of valid methods, and
+a `selection` given as an array is a parse error. A count parameter set to `0`
+is a parse error naming its key path, for example
+`training.cut_selection.selection.check_frequency must be >= 1 (got 0)`.
 
-- `"level1"` — evaluates all populated rows at every visited state and retains
-  any row whose value is within `tie_tolerance` of the per-state maximum at some
-  state.
+- `"level1"` — Level 1 selection over the pool of each stage strictly between
+  the first and the last. Each such pool stores the trial state of every row
+  the run adds. At each stored state the row with the highest value owns the
+  state, among the pool's scored rows, active or not, and its other loaded
+  rows that are active; of rows whose values are exactly equal, the one at the
+  lowest pool position owns it. Every `check_frequency` iterations a scored row
+  is deactivated when it owns no stored state and reactivated when it is
+  inactive and owns one. Values are compared exactly, and a row of the current
+  iteration is judged like any other. A loaded row is scored when the policy
+  records it so (its writing run stored its trial state, under `level1` or
+  `exports.states`); a loaded row that is not scored keeps the activity it was
+  loaded with.
 
-  | Field             | Type    | Default | Description                                                              |
-  | ----------------- | ------- | ------- | ------------------------------------------------------------------------ |
-  | `tie_tolerance`   | number  | `1e-10` | A row is active at a state when within this of the best row value there. |
-  | `check_frequency` | integer | `5`     | Iterations between periodic pruning checks. Must be `> 0`.               |
+  | Field                 | Type    | Default | Description                                                              |
+  | --------------------- | ------- | ------- | ------------------------------------------------------------------------ |
+  | `check_frequency`     | integer | `5`     | Iterations between selection passes. Must be `>= 1`.                     |
+  | `lookback_iterations` | integer | `null`  | Iterations of the current run whose rows keep their trial states. `null` keeps every state, and memory grows with the row count. A value `w` drops the states of rows older than the last `w` iterations, never a row: a row whose state was dropped stays in the pool and competes at the states that remain. A state loaded under `warm_start` counts as one from before the run's first iteration. Memory per pool is then bounded by `(lookback_iterations + check_frequency)` times the most rows the run can add to that pool in one iteration, times the state dimension, times 8 bytes, plus the loaded states. Must be `>= 1` and `>= check_frequency`. |
 
-- `"lml1"` — at each visited state, retains only the oldest eligible row within
-  `tie_tolerance` of the per-state maximum; the selected set is the union of
-  those per-state survivors. Same fields as `"level1"` (`tie_tolerance`,
-  `check_frequency`).
-
-- `"domination"` — applies the `"level1"` survival test with its own tolerance,
-  `domination_tolerance`, so the two keep the same rows when the two tolerances
-  are equal.
-
-  | Field                  | Type    | Default | Description                                                                      |
-  | ---------------------- | ------- | ------- | ---------------------------------------------------------------------------------- |
-  | `domination_tolerance` | number  | —       | A row survives if within this of the maximum at any visited state. **Required.** |
-  | `check_frequency`      | integer | `5`     | Iterations between periodic pruning checks. Must be `> 0`.                       |
-
-- `"dynamic"` — a per-solve lazy loop that loads only a small resident subset of
-  rows per solve while retaining the full pool. The resident set is seeded from
-  the most recent iterations, and each lazy-solve round adds the most-violated
-  candidate rows. The method is refused under an enumerated [`training.selection`](#trainingselection) at study setup, by `novomodelo validate` and by `novomodelo run` (exit `1`).
+- `"dynamic"` — a per-solve lazy loop, Novomodelo's own lazy row generation. From
+  `start_iteration` on, each training solve starts with the seed rows, adds the
+  candidate rows its solution violates, at most `max_added_per_round` per
+  round, and solves again; it returns when no candidate is violated. After a
+  fixed number of rounds the per-round limit is lifted. A simulation solve
+  starts with every active row, so `seed_window` and `candidate_recency` apply
+  to training only. The method never deactivates a row. It is refused under an
+  enumerated [`training.selection`](#trainingselection) at study setup, by
+  `novomodelo validate` and by `novomodelo run` (exit `1`).
 
   | Field                 | Type    | Default | Description                                                                                                                                                                                                                                                                              |
   | --------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
   | `start_iteration`     | integer | `2`     | First 1-based iteration at which the lazy loop becomes active. Must be `>= 1`.                                                                                                                                                                                                           |
-  | `seed_window`         | integer | `5`     | Number of most-recent iterations whose rows seed the initial resident set. `0` is valid (seeds only the current iteration).                                                                                                                                                              |
-  | `candidate_recency`   | integer | `null`  | Only rows generated within the last `candidate_recency` iterations are scored. `null` (the default) is unbounded — every pool row is a candidate, so the window excludes no row. An integer `n` (must be `>= 1`) makes the loop deliberately inexact: rows older than the window are never added. |
+  | `seed_window`         | integer | `5`     | A solve starts with the active rows whose last binding was at most `seed_window` iterations ago (a row that has not bound counts from the iteration that added it), plus the rows of the current iteration. `0` seeds the rows of the current iteration and those that bound in it. A row loaded under `warm_start`, or from `policy.boundary`, counts from the start of the run. |
+  | `candidate_recency`   | integer | `null`  | `null`: every active row is a candidate and a solve returns the optimum over them. A value `n` (must be `>= 1`) restricts the candidates to the rows added in the last `n` iterations and loaded rows; the result is then the optimum over those rows together with the seed rows. Under `resume` a reloaded row is a loaded row only when the run that wrote the checkpoint loaded it. |
   | `max_added_per_round` | integer | `10`    | Maximum rows added per lazy-solve round. Must be `>= 1`.                                                                                                                                                                                                                                 |
-  | `violation_tolerance` | number  | `1e-10` | Violation tolerance for accepting a candidate row. Must be `> 0`.                                                                                                                                                                                                                        |
+  | `violation_tolerance` | number  | `null`  | A relative factor: a candidate row is added when its value exceeds the future-cost value by more than the factor times the larger of the two magnitudes. `null`: each phase uses the primal feasibility tolerance of its solver profile. A value must be finite, `> 0`, `< 1`, and at least the primal feasibility tolerance of every phase's solver profile. |
 
-The dynamic method is mutually exclusive with the periodic-pruning methods by
-construction — choosing it from the tagged `selection` block means none of
-`level1` / `lml1` / `domination` can run.
+The two methods are exclusive by construction: the tagged `selection` block
+names one. A run that sets `dynamic` and simulates under the default
+[`simulation.cut_set`](#simulation) `"all"` is refused at load when the policy
+it loads, or the `policy.boundary` rows, hold a row that `"all"` includes and
+that is not active.
 
 Example with the dynamic method:
 
@@ -470,20 +478,18 @@ Example with the dynamic method:
   "training": {
     "cut_selection": {
       "row_activity_tolerance": 1e-6,
-      "max_active_per_stage": 4000,
       "selection": {
         "method": "dynamic",
         "start_iteration": 2,
         "seed_window": 5,
-        "max_added_per_round": 10,
-        "violation_tolerance": 1e-10
+        "max_added_per_round": 10
       }
     }
   }
 }
 ```
 
-Example with the `level1` method and a per-stage budget:
+Example with the `level1` method and a per-stage cap:
 
 ```json
 {
@@ -493,8 +499,8 @@ Example with the `level1` method and a per-stage budget:
       "max_active_per_stage": 500,
       "selection": {
         "method": "level1",
-        "tie_tolerance": 1e-10,
-        "check_frequency": 5
+        "check_frequency": 5,
+        "lookback_iterations": 20
       }
     }
   }
@@ -629,6 +635,28 @@ Controls the optional post-training simulation phase.
 | `io_channel_capacity` | integer | `64` | Capacity of the queue between the simulation workers and the output writer; `0` behaves as `1`. |
 | `solver` | object \| null   | `null` | Solver profile of the simulation phase, with the same fields as a `training.solver` phase profile (see [`training.solver`](#trainingsolver)). Absent leaves the phase's built-in profile. |
 | `scenario_source` | object \| null   | `null` | Scenario source of the simulation phase; absent reuses `training.scenario_source` (see [`simulation.scenario_source`](#simulationscenario_source)). |
+| `cut_set` | string | `"all"` | One of `"all"`, `"active"`. Which rows of each stage's row pool the simulation loads into the stage LP (see [Simulation cut set](#simulation-cut-set) below). |
+
+### Simulation cut set
+
+`"all"` loads every row a training run added to the pool, including rows the
+selection method deactivated and rows `max_active_per_stage` evicted, so a
+simulation LP can be larger than the training LPs. `"active"` loads only the
+rows active when training ended.
+
+A run with training disabled loads each row of the policy with the role it had
+in the run that wrote it, so `"all"` loads what that run's `"all"` held and
+`"active"` the rows active when it ended; a `resume` does the same. Under
+`warm_start` and for `policy.boundary` rows, `"all"` loads a row the policy
+records as scored (its writing run stored the row's trial state, under
+`exports.states` or `level1`) whatever its active flag, and any other loaded row
+only when that flag is set. The exported `is_active` flag records the last
+selection.
+
+A run with the `dynamic` method that simulates under `"all"` is refused at load
+when it would hold a row that `"all"` includes and that is not active, in the
+policy it loads under `warm_start` or `resume` or with training disabled, or in
+the `policy.boundary` rows; set `"active"`, or use the `level1` method.
 
 ### `simulation.selection`
 
@@ -853,8 +881,8 @@ Controls policy persistence (checkpoint saving and warm-start loading).
 
 | Field                    | Type                                     | Default      | Description                                                                                                                                 |
 | ------------------------ | ---------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path`                   | string                                   | `"./policy"` | Policy directory, resolved against the run's output directory (`<case>/output` by default); training writes the checkpoint there and warm-start, resume and simulation-only read it. An empty path, `.`, `..` or a path with no named component is refused when the configuration loads; after resolution, and through a symbolic link's target, a path that is the output directory or one of its ancestors, that names or contains a directory whose files a run replaces (such as `simulation/solver` or `training/solver`), or that lies inside one a run removes whole (such as `simulation/costs`) is refused. The checkpoint's files are listed under [Policy Checkpoint](/reference/output/policy/). |
-| `mode`                   | string                                   | `"fresh"`    | One of `"fresh"`, `"warm_start"`, `"resume"`. Initialization mode. `"fresh"` starts from scratch; `"warm_start"` loads cuts from a previous run; `"resume"` continues an interrupted run. |
+| `path`                   | string                                   | `"./policy"` | Policy directory, resolved against the run's output directory (`<case>/output` by default); training writes the checkpoint there and warm-start, resume and simulation-only read it. An empty path, `.`, `..` or a path with no named component is refused when the configuration loads; after resolution, and through a symbolic link's target, a path that is the output directory or one of its ancestors, that names or contains a directory whose files a run replaces (such as `simulation/solver` or `training/solver`), or that lies inside one a run removes whole (such as `simulation/costs`) is refused. This directory holds only whole checkpoints: a run whose training ends in an error writes its policy to the sibling `<path>.partial`, replacing one already there, and leaves this directory as the last whole checkpoint left it. A run reads the sibling only when `policy.path` names it, and a `resume` of it is refused. The checkpoint's files are listed under [Policy Checkpoint](/reference/output/policy/). |
+| `mode`                   | string                                   | `"fresh"`    | One of `"fresh"`, `"warm_start"`, `"resume"`. Initialization mode. `"fresh"` starts from scratch; `"warm_start"` loads cuts from a previous run; `"resume"` continues an interrupted run as it would have continued, restoring the iteration numbering, each row's role, binding record and stored trial state, and each scenario's LP basis. A `resume` is refused when the checkpoint cannot continue the run identically ([Resume](/running/policy-management/#resume)); a `warm_start` is not refused for those reasons. |
 | `boundary`               | object \| null                           | `null`       | Terminal boundary cut configuration for coupling with an outer model's FCF. See below.                                                      |
 
 ### `policy.checkpointing`
@@ -866,8 +894,8 @@ Controls policy persistence (checkpoint saving and warm-start loading).
 | `enabled`             | boolean \| null | `null`  | `true` turns periodic checkpoints on; `null` or `false` leaves them off. |
 | `initial_iteration`   | integer \| null | `null`  | First iteration to write a checkpoint, in absolute iteration numbers; `null` means `interval_iterations`. |
 | `interval_iterations` | integer \| null | `null`  | Iterations between checkpoints; required and at least `1` when `enabled` is `true`. |
-| `store_basis`         | boolean \| null | `null`  | Switch for including the LP basis in the checkpoint. No effect; see [Inert keys](#inert-keys). |
-| `compress`            | boolean \| null | `null`  | Switch for compressing the checkpoint files. No effect; see [Inert keys](#inert-keys). |
+| `store_basis`         | boolean \| null | `null`  | Reserved and not read: a checkpoint holds the LP bases of the run's scenarios whatever its value. See [Inert keys](#inert-keys). |
+| `compress`            | boolean \| null | `null`  | Reserved and not read: checkpoint files are written uncompressed whatever its value. See [Inert keys](#inert-keys). |
 
 ### `policy.boundary`
 
@@ -1009,7 +1037,7 @@ Controls which outputs are written to the results directory.
 
 | Field                   | Type    | Default | Description                                                                                                            |
 | ----------------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `states`                | boolean | `false` | Write visited forward-pass trial points to the policy checkpoint (FlatBuffers).                                        |
+| `states`                | boolean | `false` | Store the trial state of each row the run adds, under every selection method, and write the stored states to the policy checkpoint (`policy/states/<pool>.bin`). Each pool that receives rows stores its own rows' states: the first stage's pool keeps every state, and the pool of each stage strictly between the first and the last keeps, under `level1` with `lookback_iterations`, only the states inside the window. A `level1` run stores and writes the states of the pools it selects whether or not this is set. Storing the states changes no result; the policy then marks its rows scored, which a later `level1` run that loads it selects like its own rows. |
 | `stochastic`            | boolean | `false` | Export stochastic preprocessing artifacts to `output/stochastic/`.                                                     |
 | `fpha_deviation_points` | boolean | `false` | Export the per-grid-point computed-FPHA fit-deviation table to `output/hydro_models/fpha_deviation_points.parquet`. Opt-in because it emits one row per (hydro, stage, V, Q) sample point at spillage = 0. |
 
@@ -1021,7 +1049,7 @@ These keys are accepted when `config.json` loads — their names and value types
 
 | Name                                        | Default | What a run does instead                                                                                                                                                         |
 | ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `policy.checkpointing.store_basis`          | `null`  | A checkpoint written by a training that ended without failure carries its LP bases.                                                                                                           |
+| `policy.checkpointing.store_basis`          | `null`  | A checkpoint holds the LP bases of the run's scenarios.                                                                                                           |
 | `policy.checkpointing.compress`             | `null`  | Checkpoint files are written uncompressed.                                                                                                           |
 | `training.solver.retry_max_attempts`        | `5`     | A solve that does not reach optimality escalates through the solver's built-in retry sequence, not this setting ([Solver Safeguards](/running/performance/#solver-safeguards)). |
 | `training.solver.retry_time_budget_seconds` | `30.0`  | A solve that does not reach optimality escalates through the solver's built-in retry sequence, not this setting ([Solver Safeguards](/running/performance/#solver-safeguards)). |
@@ -1120,7 +1148,6 @@ Train with in-sample noise and simulate with out-of-sample inflow. The `simulati
       "max_active_per_stage": null,
       "selection": {
         "method": "level1",
-        "tie_tolerance": 1e-10,
         "check_frequency": 5
       }
     }

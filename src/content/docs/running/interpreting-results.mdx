@@ -220,8 +220,8 @@ and sit idle waiting for the phase to close. This is exactly what the
 scheduling](/running/performance/#by-node-scheduling)) exists to
 reduce, by shrinking the work unit from a whole trial point to a `(trial
 point, opening block)` pair so an idle worker can steal finer-grained work
-instead of waiting for an entire trial point to free up. Dynamic Cut
-Selection is off by default (`training.cut_selection.selection` is `null`,
+instead of waiting for an entire trial point to free up. Row selection is
+off by default (`training.cut_selection.selection` is `null`,
 [`training.cut_selection`](/running/configuration/#trainingcut_selection));
 when its `method` is `"dynamic"`, the backward pass schedules by scenario from
 its `start_iteration` on, whatever the `by_node` setting.
@@ -258,14 +258,15 @@ the full convergence history. Its schema:
 | `upper_bound_kind` | Utf8    | Bound kind for this row: `"exact"` (enumerated weighted bound) or `"statistical"` (sampled forward-pass mean) |
 | `gap_percent`      | Float64 | Relative gap as a percentage (null when `lower_bound <= 0`)                            |
 | `cuts_added`       | Int32   | Cuts added to the pool in this iteration                                               |
-| `cuts_removed`     | Int32   | Cuts removed by the cut selection strategy                                             |
-| `cuts_active`      | Int64   | Total active cuts across all stages after this iteration                               |
+| `cuts_removed`     | Int32   | Cuts deactivated in this iteration by the selection pass and the `max_active_per_stage` cap, summed over the pools; reactivations are not subtracted |
+| `cuts_active`      | Int64   | Active cuts summed over the pools after this iteration's row management, loaded cuts included |
 | `time_forward_ms`  | Int64   | Wall-clock time for the forward pass in milliseconds                                   |
 | `time_backward_ms` | Int64   | Wall-clock time for the backward pass in milliseconds                                  |
 | `time_total_ms`    | Int64   | Total wall-clock time for the iteration in milliseconds                                |
 | `forward_passes`   | Int32   | Number of forward pass scenarios in this iteration                                     |
 | `lp_solves`        | Int64   | Total LP solves across all ranks in this iteration (forward + backward + bound)        |
-| `mean_rows_in_lp`  | Float64 | Mean cuts loaded per LP solve this iteration under dynamic cut selection (0 otherwise) |
+| `mean_rows_in_lp`  | Float64 | Mean cuts loaded per lazy LP solve this iteration under the `dynamic` method (0 otherwise) |
+| `lazy_round_cap_hits` | Int64 | Lazy solves of the `dynamic` method this iteration that reached the round limit with a cut still violated (0 otherwise) |
 
 ### Python (Polars)
 

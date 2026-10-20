@@ -11,7 +11,7 @@ Artifacts pages.
 
 ## `training/convergence.parquet`
 
-Per-iteration convergence log. One row per training iteration. 15 columns.
+Per-iteration convergence log. One row per training iteration. 16 columns.
 
 **Methodology:** [Stopping Rules](/math/stopping-rules) · [Upper Bound Evaluation](/math/upper-bound-evaluation)
 
@@ -24,14 +24,15 @@ Per-iteration convergence log. One row per training iteration. 15 columns.
 | `upper_bound_kind` | Utf8    | No       | —     | Run-level upper-bound regime, the same on every row: `"exact"` under `enumerated` selection, `"statistical"` under `sampled` selection.                                                                                                                                                                                                                                                                                                                      |
 | `gap_percent`      | Float64 | Yes      | %     | Relative gap between lower and upper bounds as a percentage. `null` when the lower bound is zero or negative.                                                                                                                                                                                                                                                                                                                                                |
 | `cuts_added`       | Int32   | No       | —     | Number of new cuts added to the pool during this iteration's backward pass.                                                                                                                                                                                                                                                                                                                                                                                  |
-| `cuts_removed`     | Int32   | No       | —     | Number of cuts deactivated by the cut selection strategy in this iteration.                                                                                                                                                                                                                                                                                                                                                                                  |
-| `cuts_active`      | Int64   | No       | —     | Total number of active cuts across all stages at the end of this iteration.                                                                                                                                                                                                                                                                                                                                                                                  |
+| `cuts_removed`     | Int32   | No       | —     | Cuts deactivated in this iteration, summed over the pools: those the selection pass deactivated plus those `max_active_per_stage` evicted. Reactivations are not subtracted; [`training/cut_selection/iterations.parquet`](#trainingcut_selectioniterationsparquet) reports them per pool. `0` when neither a selection method nor a cap is configured.                                                                                                            |
+| `cuts_active`      | Int64   | No       | —     | Active cuts summed over the pools at the end of this iteration's row management: after the cap where it applies, otherwise after the selection pass. Loaded cuts are included. The maximum over the run is `row_pool.peak_active` in [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson).                                                                                                                                          |
 | `time_forward_ms`  | Int64   | No       | ms    | Wall-clock time spent in the forward pass, in milliseconds.                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `time_backward_ms` | Int64   | No       | ms    | Wall-clock time spent in the backward pass, in milliseconds.                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `time_total_ms`    | Int64   | No       | ms    | Total wall-clock time for this iteration, in milliseconds.                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `forward_passes`   | Int32   | No       | —     | Number of forward-pass scenario trajectories evaluated in this iteration.                                                                                                                                                                                                                                                                                                                                                                                    |
 | `lp_solves`        | Int64   | No       | —     | Total number of LP solves across all stages and forward passes in this iteration.                                                                                                                                                                                                                                                                                                                                                                            |
-| `mean_rows_in_lp`  | Float64 | No       | —     | Mean number of resident cut rows loaded per LP solve under dynamic cut selection in this iteration; `0` when no dynamic cut selection ran.                                                                                                                                                                                                                                                                                                                   |
+| `mean_rows_in_lp`  | Float64 | No       | —     | Mean number of resident cut rows loaded per lazy LP solve of the `dynamic` method in this iteration; `0` when no lazy solve ran.                                                                                                                                                                                                                                                                                                                             |
+| `lazy_round_cap_hits` | Int64 | No     | —     | Lazy solves of the `dynamic` method in this iteration, over all ranks, that reached the round limit with a candidate cut still violated; such a solve continues with the per-round limit lifted until no candidate is violated. `0` when no lazy solve ran.                                                                                                                                                                                                  |
 
 ---
 
@@ -248,23 +249,29 @@ The JSON is a single top-level object:
 
 ## `training/cut_selection/iterations.parquet`
 
-Per-stage cut selection statistics. One row per `(iteration, stage_id)` pair,
-written only at iterations where selection ran. 10 columns.
+Per-pool row-management statistics. One row per `(iteration, pool_id)` pair, in
+ascending `iteration` then `pool_id`, at every iteration when a selection method
+or `max_active_per_stage` is configured; the file is absent otherwise. 13
+columns. A nullable column is null where the step it reports did not run on the
+pool.
 
 **Methodology:** [Cut Management](/math/cut-management)
 
 | Name                  | Type    | Nullable | Units | Description                                                                       |
 | --------------------- | ------- | -------- | ----- | --------------------------------------------------------------------------------- |
 | `iteration`           | Int32   | No       | —     | Training iteration number (1-based).                                              |
-| `stage_id`            | Int32   | No       | —     | Declared stage id (from `stages.json`).                                           |
-| `cuts_populated`      | Int32   | No       | —     | Total cut slots containing cuts (active + inactive).                              |
-| `cuts_active_before`  | Int32   | No       | —     | Active cuts before this iteration's selection pass.                               |
-| `cuts_deactivated`    | Int32   | No       | —     | Cuts deactivated by the selection pass.                                           |
-| `cuts_reactivated`    | Int32   | No       | —     | Cuts reactivated by the selection pass.                                           |
-| `cuts_active_after`   | Int32   | No       | —     | Active cuts after the selection pass.                                             |
-| `selection_time_ms`   | Float64 | No       | ms    | Wall-clock time of this stage's selection pass.                                   |
-| `budget_evicted`      | Int32   | Yes      | —     | Cuts evicted by the budget pass. `null` when `max_active_per_stage` is not set.   |
-| `active_after_budget` | Int32   | Yes      | —     | Active cuts after the budget pass. `null` when `max_active_per_stage` is not set. |
+| `pool_id`             | Int32   | No       | —     | 0-based row-pool id, the id of `policy/cuts/<pool>.bin`.                          |
+| `stage_id`            | Int32   | No       | —     | Declared stage id (from `stages.json`) of the pool's nodes.                       |
+| `node_id`             | Int32   | Yes      | —     | Declared id of the pool's sole owning node. `null` when several nodes share the pool. |
+| `cuts_in_pool`        | Int32   | No       | —     | Cuts the pool holds, loaded and generated, active and inactive.                   |
+| `cuts_active_before`  | Int32   | No       | —     | Active cuts when this iteration's row management starts.                          |
+| `cuts_deactivated`    | Int32   | Yes      | —     | Cuts the selection pass deactivated. `null` when no selection pass ran on the pool. |
+| `cuts_reactivated`    | Int32   | Yes      | —     | Cuts the selection pass reactivated. `null` when no selection pass ran on the pool. |
+| `cuts_active_after`   | Int32   | No       | —     | Active cuts after the selection pass; equal to `cuts_active_before` when none ran. |
+| `selection_time_ms`   | Float64 | Yes      | ms    | Wall-clock time of the selection pass on the pool. `null` when no selection pass ran on the pool. |
+| `budget_evicted`      | Int32   | Yes      | —     | Cuts `max_active_per_stage` evicted. `null` when the cap was not applied to the pool. |
+| `active_after_budget` | Int32   | Yes      | —     | Active cuts after the cap. `null` when the cap was not applied to the pool.       |
+| `cuts_in_lp`          | Int32   | Yes      | —     | Cut rows of the pool in the LP the next iteration's solves load. `null` under the `dynamic` method, whose solves load a resident subset. |
 
 ---
 

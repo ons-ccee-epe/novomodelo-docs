@@ -68,6 +68,7 @@ Find the kind named on your error line (the word in square brackets, or the `pha
 | [`BusinessRuleViolation`](#businessruleviolation)                       | `[BusinessRuleViolation]` report line     | Error    | `1`                                                                                   |
 | [`WarmStartIncompatible`](#warmstartincompatible)                       | `phase` value (refused policy load); `warning:` line | Error; Warning | `1` (`2` under phase `IoError`); `0` for a warning |
 | [`ResumeIncompatible`](#resumeincompatible)                             | `phase` value (refused policy load); `warning:` line | Error; Warning | `1` (`2` under phase `IoError`); `0` for a warning |
+| [`SimulationPolicyIncompatible`](#simulationpolicyincompatible) | `phase` value (refused policy load); `warning:` line | Error; Warning | `1` (`2` under phase `IoError`); `0` for a warning |
 | [`NotImplemented`](#notimplemented)                                     | `[NotImplemented]` report line            | Error    | `1`                                                                                   |
 | [`UnusedEntity`](#unusedentity)                                         | `warning:` line                           | Warning  | `0`                                                                                   |
 | [`ModelQuality`](#modelquality)                                         | `warning:` line                           | Warning  | `0`                                                                                   |
@@ -108,9 +109,11 @@ The three warning kinds (`UnusedEntity`, `ModelQuality`,
 `SemanticAmbiguity`) never stop a run, and neither does a `BusinessRuleViolation` that `novomodelo validate` prints as a `warning:` line; every other report line is an error that must be resolved
 before the case loads.
 
-`WarmStartIncompatible` and `ResumeIncompatible` are not report-line kinds: each names a refused policy load,
-as the `phase` value, and that load's warnings, `WarmStartIncompatible` for a warm-start or simulation-only
-load and `ResumeIncompatible` for a resume load; see their entries below.
+`WarmStartIncompatible`, `ResumeIncompatible` and `SimulationPolicyIncompatible` are not report-line kinds:
+each names a refused policy load, as the `phase` value, and that load's warnings: `WarmStartIncompatible` for a
+`policy.mode = "warm_start"` load in a run that trains, `ResumeIncompatible` for a `policy.mode = "resume"`
+load in a run that trains, and `SimulationPolicyIncompatible` for the load of a simulation-only run, whatever its
+`policy.mode`; see their entries below.
 
 ### `FileNotFound`
 
@@ -1368,7 +1371,7 @@ PumpingStation {id}: active at stage {stage_id} while its {side} hydro {hid} is 
 ### `WarmStartIncompatible`
 
 {/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:704-709 and 736-741 at novomodelo v0.18.1 */}
-`novomodelo validate` reports a refused warm-start or simulation-only load as its `phase`, with the message labelled
+`novomodelo validate` reports a refused `policy.mode = "warm_start"` load of a run that trains as its `phase`, with the message labelled
 `<output dir>/<policy.path>: `, and exits `1`; a checkpoint the OS refuses to read reports `IoError` and exits `2`.
 The same kind carries the load's warnings, which exit `0`: [Stored bases not used](#stored-bases-not-used),
 `entity manifest absent (source slots: {n}, current slots: {m}); slot identity could not be verified, relying on state_dimension alone`
@@ -1381,7 +1384,7 @@ and
 ### `ResumeIncompatible`
 
 {/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:704-709 and 736-741 at novomodelo v0.18.1 */}
-`novomodelo validate` reports a refused resume load as its `phase`, with the message labelled
+`novomodelo validate` reports a refused `policy.mode = "resume"` load of a run that trains as its `phase`, with the message labelled
 `<output dir>/<policy.path>: `, and exits `1`; a checkpoint the OS refuses to read reports `IoError` and exits `2`.
 The same kind carries the load's warnings, which exit `0`: [Stored bases not used](#stored-bases-not-used),
 `entity manifest absent (source slots: {n}, current slots: {m}); slot identity could not be verified, relying on state_dimension alone`
@@ -1395,19 +1398,35 @@ A full-FCF load uses a stored LP basis only when it fits its stage LP
 ([Policy Management — Stored-basis gate](/running/policy-management/#stored-basis-gate) states the rule); the
 others are left out with one warning, and the load proceeds:
 
-{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:422-446 and crates/novomodelo-cli/src/commands/run/policy.rs:38 at novomodelo v0.18.1 */}
+{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs (UnusedStoredBases) at novomodelo develop a566f123 */}
 
 ```text
-warning: stored bases not used: {n} of {m} do not fit the current LP (first: node {node}, {reason}); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, and its basic count equals its row count; the policy was trained on a different LP
+warning: stored bases not used: {n} of {m} do not fit the current LP (first: node {node}, {reason}); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, its basic count equals its row count, and every recorded cut-row slot holds a loaded cut; the policy was trained on a different LP
 ```
 
-`{reason}` is one of `{found} columns, the LP has {expected}`, `{found} rows, the LP expects {expected}` or
-`{found} basic entries for {expected} rows`.
+`{n}` and `{m}` count stored bases, one per node and forward-pass scenario, and `{node}` is the node of the
+first that does not fit, by node position and then scenario. `{reason}` is one of
+`{found} columns, the LP has {expected}`, `{found} rows, the LP expects {expected}`,
+`{found} basic entries for {expected} rows` or `a cut row at slot {slot}, which holds no loaded cut`.
 
 `novomodelo run` prints it as `warning: {message}` on stderr (`--quiet` hides it); `novomodelo validate` prints
 `warning: <output dir>/<policy.path>: {message}`, and `--json` gives the count as
 `policy_load.unused_stored_bases`. Python prints `novomodelo-python: policy validation warning: {message}`. The exit
 code is unaffected.
+
+### `SimulationPolicyIncompatible`
+
+`novomodelo validate` reports a refused load of a simulation-only run (`training.enabled = false` with simulation
+scenarios) as its `phase`, whatever `policy.mode` is, with the message labelled `<output dir>/<policy.path>: `,
+and exits `1`; a checkpoint the OS refuses to read reports `IoError` and exits `2`. The same kind carries the
+load's warnings, which exit `0`: [Stored bases not used](#stored-bases-not-used) and the two entity-manifest
+warnings quoted under [`WarmStartIncompatible`](#warmstartincompatible).
+[Policy-load errors](#policy-load-errors) gives the refusal messages. For example, a simulation-only run with no
+checkpoint at `policy.path` reports:
+
+```text
+<output dir>/<policy.path>: Policy directory not found: <output dir>/<policy.path>. Cannot run simulation-only mode without a trained policy.
+```
 
 ---
 
@@ -1736,6 +1755,47 @@ setup begins. File label: `config.json`.
 config.json: configuration validation error: gap stopping rule requires at least one of tolerance / relative_tolerance to be present
 ```
 
+#### Cut-selection configuration refusals
+
+`training.cut_selection` is checked in three places. A value its schema refuses prints a `[ParseError]` line
+when the case loads; a rule between two of its fields reports `ConfigValidationError`; a pairing with another
+setting reports [`StudySetupError`](#studysetuperror) (or `BoundaryReconciliationError` with `policy.boundary`
+configured). Each exits `1`. [Configuration — `training.cut_selection`](/running/configuration/#trainingcut_selection)
+states the rules.
+
+{/* capture: novomodelo validate <variant> | novomodelo   develop a566f123 | binary: novomodelo-cli sha256 874d8185 | case: 1dtoy (novomodelo init --template 1dtoy) with training.cut_selection set per row; run with NO_COLOR=1; the Validation summary line and the error: prefix are not quoted, and the line and column suffix of a parse error is cut */}
+
+| Setting | Reported as | Message |
+| --- | --- | --- |
+| `selection` given as an array | `[ParseError]` | `config.json: parse error: invalid type: sequence, expected internally tagged enum SelectionMethod` |
+| A count parameter set to `0` | `[ParseError]` | `config.json: parse error: training.cut_selection.selection.check_frequency must be >= 1 (got 0)`, naming the key set to `0` |
+| `method` `"lml1"` or `"domination"` | `[ParseError]` | ``config.json: parse error: the row-selection method `lml1` was removed: use `level1` (key `training.cut_selection.selection.method`)`` |
+| `tie_tolerance` under `level1` | `[ParseError]` | ``config.json: parse error: the key `tie_tolerance` was removed: `level1` compares row values exactly; delete the key (`training.cut_selection.selection`)`` |
+| `row_activity_tolerance` `null` | `[ParseError]` | `config.json: parse error: invalid type: null, expected f64` |
+| A misspelled `method` | `[SchemaViolation]` | ``config.json: field dynmic: unknown variant `dynmic`, expected `level1` or `dynamic` `` |
+| `lookback_iterations` below `check_frequency` | `ConfigValidationError` | `config.json: configuration validation error: cut_selection config error: cut_selection.lookback_iterations (2) must be >= cut_selection.check_frequency (5)` |
+| `row_activity_tolerance` negative | `ConfigValidationError` | `config.json: configuration validation error: cut_selection config error: cut_selection.row_activity_tolerance must be finite and >= 0 (got -1)` |
+| `violation_tolerance` `1` or more | `ConfigValidationError` | `config.json: configuration validation error: cut_selection config error: cut_selection.violation_tolerance must be < 1 (got 1)` |
+| `violation_tolerance` below a phase's primal feasibility tolerance | `StudySetupError` | `config.json: configuration validation error: training.cut_selection.selection.violation_tolerance (0.000000000001) is a relative factor and must be at least the primal feasibility tolerance of the backward solver profile (0.000000001); raise it, or omit it to use each phase's solver tolerance` |
+| `max_active_per_stage` with `dynamic` | `StudySetupError` | ``config.json: configuration validation error: training.cut_selection.max_active_per_stage is inadmissible with the dynamic cut selection method; a lazy solve takes its candidates from the active rows and dynamic runs no selection pass, so an evicted row never returns — remove the cap, or use the `level1` method`` |
+
+The method `domination` prints its own name in the removed-method message. Two pairings with an enumerated
+[`training.selection`](/running/configuration/#trainingselection) report `StudySetupError` as well:
+
+{/* quoted from source: crates/novomodelo-sddp/src/setup/mod.rs (reject_dynamic_cut_selection_under_enumerated, reject_budget_under_enumerated) at novomodelo develop a566f123 */}
+
+```text
+dynamic cut selection is inadmissible under enumerated forward traversal; the enumerated backward never solves lazily and records no binding activity, so the seed window of the enumerated forward's lazy solve would never advance past a cut's generating iteration — pair enumerated forwards with the `level1` method, or with no selection method
+training.cut_selection.max_active_per_stage is inadmissible under enumerated forward traversal; enumerated traversal records no binding activity, so the cap would evict by generation order alone — remove the cap, or use sampled forward selection
+```
+
+A cap below `training.selection.forward_passes` is accepted with a warning, which `novomodelo validate` prints after
+the `Valid case` line:
+
+```text
+WARN max_active_per_stage (1) is less than forward_passes (4): in a stage whose row pool receives 4 rows per iteration, the cap evicts at every iteration every row this run added in an earlier iteration; rows loaded from a policy are not affected
+```
+
 ---
 
 ### `StochasticPreparationError`
@@ -1890,7 +1950,7 @@ describes the `openings` key.
 
 **When it occurs:** Study construction fails on a case without `policy.boundary`: a scenario library (the
 forward `historical` scheme's included), an external-library check, a solver-profile check, or the admission
-gate of the `gap` rule and of dynamic cut selection. File label: `scenarios/` for a stochastic-model error,
+gate of the `gap` rule and of the `dynamic` selection method and `max_active_per_stage`. File label: `scenarios/` for a stochastic-model error,
 `config.json` otherwise. On a case with `policy.boundary`, the same failures report
 [`BoundaryReconciliationError`](#boundaryreconciliationerror). `novomodelo validate` exits `1`.
 
@@ -2027,15 +2087,15 @@ A full-FCF load runs its checks in the order given under
 [Check order](/running/policy-management/#check-order). The checks of a boundary
 load are listed under
 [Compatibility requirements](/running/policy-management/#compatibility-requirements).
-A `manifest.bin` whose `format_version` is not `3` fails before these checks:
-`failed to read policy checkpoint: serialization error for entity checkpoint_manifest: unsupported checkpoint manifest format_version {n}; expected 3; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`, exit `1`.
+A `manifest.bin` whose `format_version` is not `4` fails before these checks:
+`failed to read policy checkpoint: serialization error for entity checkpoint_manifest: unsupported checkpoint manifest format_version {n}; expected 4; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`, exit `1`.
 
 ### How a policy-load failure reaches you
 
 | Channel | Refusal | Unreadable or missing checkpoint |
 | --- | --- | --- |
 | `novomodelo run`, full-FCF load | Exit 1. `error: {message}` and the validate hint on stderr. | Exit 1: `error: Policy directory not found: {path}. {requirement}` or `error: failed to read policy checkpoint: {e}`. Exit 2 for a checkpoint the OS refuses to read: `error: I/O error in {path}: {source}` and the permissions hint. |
-| `novomodelo validate`, full-FCF load | Exit 1. `Validation: 1 errors, 0 warnings in <case>` and `error: <output dir>/<policy.path>: {message}`; `--json` phase `WarmStartIncompatible` or `ResumeIncompatible`. | Exit 1 (phase as for a refusal), or exit 2 with phase `IoError` for a checkpoint the OS refuses to read. |
+| `novomodelo validate`, full-FCF load | Exit 1. `Validation: 1 errors, 0 warnings in <case>` and `error: <output dir>/<policy.path>: {message}`; `--json` phase `WarmStartIncompatible`, `ResumeIncompatible` or `SimulationPolicyIncompatible`. | Exit 1 (phase as for a refusal), or exit 2 with phase `IoError` for a checkpoint the OS refuses to read. |
 | `novomodelo run` and `novomodelo validate`, boundary load | Exit 1. `novomodelo run` prints `error: {message}` and a hint line. `novomodelo validate` labels the message `policy.boundary: `; under `--json` it reports phase `BoundaryReconciliationError`. | Exit 1. `error: failed to read boundary policy checkpoint at {path}: {e}` and a hint line on stderr. Under `novomodelo validate --json`, phase `BoundaryReconciliationError`. |
 | Python, full-FCF load (`novomodelo.run.run`, `Study.train`, `Study.load_policy`) | `PolicyIncompatibleError`. The message starts `policy validation error: `. | `ValidationError` for a missing directory, `PolicyIncompatibleError` for a read or decode failure, `CaseIoError` for a read the operating system refuses. The message is `Policy directory not found: {path}. {requirement}` or `failed to read policy checkpoint: {e}`, with no prefix. |
 | Python, boundary load (`novomodelo.run.run`, `Study`, `Study.train`) | `novomodelo.run.run` and `Study.train` raise `PolicyIncompatibleError` for a version mismatch, with the message prefix `policy validation error: `, and `ValidationError` for every other refusal, with the message prefix `boundary cut error: `. `Study(...)` constructs without error on a checkpoint it can read. | `ValidationError`. The message starts `setup validation error: `. It is raised when the study is built, before training. |
@@ -2061,7 +2121,7 @@ Some messages carry the extra prefix `configuration validation error: ` after th
 `manifest.bin` records another software or version than the running build: the
 `software` and `software_version` compare exactly, so a different patch or
 pre-release build is refused as well. A checkpoint whose `format_version` is not
-`3` is refused before this check
+`4` is refused before this check
 ([How a policy-load failure reaches you](#how-a-policy-load-failure-reaches-you)).
 [Version gate](/running/policy-management/#version-gate) states the rule.
 
@@ -2140,6 +2200,76 @@ the full-FCF messages, and `ValidationError` with the message prefix
 **Resolution:** Train a new policy for the changed study or restore the matching
 inputs; see [Check order](/running/policy-management/#check-order). For a cost-scale refusal, re-run the program
 that produced the checkpoint with the running novomodelo version, as its message states.
+
+### Resume refusals
+
+**When it occurs:** A `policy.mode = "resume"` load finds that the checkpoint cannot continue the interrupted
+run identically. The five checks run after the structural checks, in the order of
+[Resume refusals](/running/policy-management/#resume-refusals), and the first that fails stops the run with
+phase `ResumeIncompatible`. A `warm_start` load of the same checkpoint makes none of these checks.
+
+**Messages:**
+
+{/* quoted from source: crates/novomodelo-sddp/src/policy/full_fcf_load.rs (check_resume_serves) at novomodelo develop a566f123 */}
+
+```text
+resume needs the forward-pass count the checkpoint was written with: training.selection.forward_passes is {run} here and {stored} in the checkpoint; set it to {stored} or continue with policy.mode = warm_start
+resume needs the trial-state history of training.cut_selection.selection.method = level1; the checkpoint holds none (it was written by a run without level1 or exports.states); continue with policy.mode = warm_start or retrain
+resume needs every trial state of the run under training.cut_selection.selection.method = level1 without lookback_iterations; the checkpoint holds those of the last {stored} iterations only; set lookback_iterations to at most {stored} or continue with policy.mode = warm_start
+resume needs the trial states of the last {window} iterations (training.cut_selection.selection.lookback_iterations = {window}); the checkpoint holds those of the last {stored} iterations only; set lookback_iterations to at most {stored} or continue with policy.mode = warm_start
+resume needs the binding counters read by {reader}; the checkpoint holds none (it was written by a run without max_active_per_stage or the dynamic method); continue with policy.mode = warm_start or retrain
+resume needs a whole checkpoint; the checkpoint's per-scenario bases are not whole (it was written when a run failed); resume from the last whole checkpoint or continue with policy.mode = warm_start
+```
+
+`{reader}` is `training.cut_selection.max_active_per_stage` when the cap is set, and
+`training.cut_selection.selection.method = dynamic` otherwise. A resume of a run that declared `policy.boundary`
+is also refused when the boundary rows differ from the checkpoint's; the message is quoted under
+[Resuming with a boundary](/running/policy-management/#resuming-with-a-boundary).
+
+`novomodelo validate` labels each message `<output dir>/<policy.path>: configuration validation error: `. For example,
+a resume with `training.selection.forward_passes` set to `2` of a checkpoint written with `1` reports:
+
+{/* capture: novomodelo validate rs | novomodelo   develop a566f123 | binary: novomodelo-cli sha256 874d8185 | case: 1dtoy (novomodelo init --template 1dtoy) trained with iteration_limit 3 and simulation disabled, then training.selection.forward_passes 2 and policy.mode resume; run with NO_COLOR=1, exit code 1; the Validation summary line and the error: prefix are not quoted */}
+
+```text
+rs/output/./policy: configuration validation error: resume needs the forward-pass count the checkpoint was written with: training.selection.forward_passes is 2 here and 1 in the checkpoint; set it to 1 or continue with policy.mode = warm_start
+```
+
+**Python class:** `PolicyIncompatibleError`, with the message prefix `policy validation error: `.
+
+**Resolution:** Follow the way out the message names, or continue with `policy.mode = "warm_start"`.
+
+### Stored trial-state refusals
+
+**When it occurs:** A full-FCF load reads a `states/<pool>.bin` file that does not fit the loaded pools: a
+pool the study does not have, a state length that differs from the pool's, or a state stored at a slot that
+holds no loaded cut.
+
+{/* quoted from source: crates/novomodelo-sddp/src/policy/full_fcf_load.rs (place_trial_states) at novomodelo develop a566f123 */}
+
+```text
+pool {pool}: stored trial states for a pool the study does not have
+pool {pool}: stored trial states have {n} values, the study's pool {dimension}
+pool {pool}: a trial state is stored at slot {slot}, which holds no cut
+```
+
+**Resolution:** Load a checkpoint written for the current study, or train a new policy.
+
+### Simulation cut-set refusal
+
+**When it occurs:** A run with the `dynamic` method that simulates under `simulation.cut_set = "all"` loads a
+policy, or `policy.boundary` rows, holding a row that `"all"` includes and that is not active
+([Configuration — Simulation cut set](/running/configuration/#simulation-cut-set)).
+
+{/* quoted from source: crates/novomodelo-sddp/src/policy/full_fcf_load.rs (check_dynamic_simulation_serves) at novomodelo develop a566f123 */}
+
+```text
+training.cut_selection.selection.method = dynamic cannot simulate simulation.cut_set = all over this policy: {pool} holds {held} cuts of which {active} are active (it was written by a run that deactivates cuts), and a dynamic lazy solve reads only the active cuts; set simulation.cut_set = active or use the level1 method
+```
+
+`{pool}` is `pool {id}` for the first such pool of the loaded policy, or `the policy.boundary pool` for the boundary rows.
+
+**Resolution:** Set `simulation.cut_set` to `"active"`, or use the `level1` method.
 
 ### Boundary inflow-lag mismatch
 
@@ -2343,7 +2473,7 @@ A filesystem failure while writing the policy checkpoint or the training and sim
 | `I/O error in {path}: {source}` | `2` | A stale output in `--output`, such as a `_SUCCESS` marker, cannot be removed before training starts; `{path}` is the entry. | Make the entry removable, or point `--output` at a directory without it. |
 | `failed to write hydro model summary: {e}`, `failed to write provenance report: {e}` or `failed to write scaling report: {e}` | `4`       | One of the `training/` files that `novomodelo run` writes before training starts cannot be written; `{e}` is the writer's message, for example `I/O error accessing {path}: {source}`.                                    | Point `--output` at a directory the process can create and write.                                 |
 | `rank 0 pre-training export failed; failing on every rank in lockstep`                                                        | `4`       | On MPI, rank 0 fails one of those writes or removals, and every other process prints this message.                                                                                                                               | Fix the error that rank 0 prints under its `rank 0:` line.                                        |
-| `serialization error for entity {entity}: {message}`                                                                          | `4`       | Encoding an output table fails for the named entity collection.                                                                                                                                                      | Report the case with the message.                                                                 |
+| `serialization error for entity {entity}: {message}`                                                                          | `4`       | Encoding an output table fails for the named entity collection, or a policy checkpoint write refuses its payloads before anything is written: `{entity}` is then `policy_checkpoint_structure`, `policy_checkpoint_dates` or `policy_checkpoint_size`, and `{message}` names the file and the rule it breaks ([Checkpoint Directory Contents](/running/policy-management/#checkpoint-directory-contents)).                                                                                                                                                      | Report the case with the message.                                                                 |
 | `manifest error for {manifest_type}: {message}`                                                                               | `4`       | Building an output manifest fails.                                                                                                                                                                                   | Report the case with the message.                                                                 |
 | `ERROR simulation write error: {e}`                                                                                           | `0`       | The results of one simulation scenario cannot be written. The run continues and exits `0`, and `scenarios.failed` in `simulation/metadata.json` counts the failed scenarios.                                         | Fix the cause named in `{e}`, rerun the simulation, and check `scenarios.failed` after every run. |
 

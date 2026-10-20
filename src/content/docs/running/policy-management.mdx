@@ -3,9 +3,10 @@ title: Policy Management
 description: Policy checkpoints, warm-start and resume modes, the policy load contract, and cross-study boundary cuts.
 ---
 
-Novomodelo stores the trained future-cost function (cuts) and LP basis in a _policy
-directory_, together with the visited states when
-[`exports.states`](/running/configuration/#exports) is `true`. The `policy`
+Novomodelo stores the trained future-cost function (cuts) and the LP bases of each
+forward-pass scenario in a _policy directory_, together with the trial states
+the cuts were computed at when `level1` selection or
+[`exports.states`](/running/configuration/#exports) stores them. The `policy`
 section of `config.json` controls where that directory lives and whether
 training starts from scratch or from a prior checkpoint.
 
@@ -53,6 +54,19 @@ loaded cuts, whereas under [Resume](#resume) the limit also counts the completed
 iterations. A warm-start load reads the whole saved policy, so it must pass every
 check of the [Policy Load Contract](#policy-load-contract).
 
+Each loaded cut keeps the iteration that generated it in the source run. A cut
+the source run _scored_ — its writing run stored the trial state the cut was
+computed at, under `level1` or with `exports.states` — is selected like a cut
+the new run generates: when a `level1` run warm-starts from such a policy, a
+loaded scored cut competes at every trial state the new run stores, the one
+loaded with it included, and is active after a selection pass exactly when it
+owns at least one. With a `lookback_iterations` window `w`, a loaded state
+counts as one from before the run's first iteration, so it leaves the window at
+the run's iteration `w`. A loaded cut the source did not score keeps the
+activity flag it was stored with. The binding counters of the loaded cuts (per
+cut, how often and when it last bound, read by `max_active_per_stage` and
+`dynamic`) restart with the run on a warm start; a resume restores them.
+
 ### Resume
 
 Resume continues training from the checkpoint at `policy.path` (the one written
@@ -87,11 +101,67 @@ forward-pass noise derives from the seed and the iteration number. With the
 training run's seed, a resumed iteration therefore samples the same forward-pass
 noise as that iteration in a run without a resume.
 
-Resume restores the cuts, the stored LP bases that fit, the iteration count, and the lower bound
-of every completed iteration.
-Everything else comes from the current run: the seed, the stopping rules, and
-the wall-clock timer that `time_limit` reads, which starts when the resumed
-training starts.
+Resume restores the cuts, each at the pool slot it held, with its role (loaded
+or generated), activity flag and binding counters; the stored trial states; the
+per-scenario LP bases that fit; the iteration count; and the lower bound of
+every completed iteration. A scenario whose basis the checkpoint does not hold
+starts its first solve cold. Everything else comes from the current run: the
+seed, the stopping rules, its `check_frequency`, `max_active_per_stage` value
+and `modeling.cost_scale_factor`, and the wall-clock timer that `time_limit`
+reads, which starts when the resumed training starts. The checkpoint does not
+depend on the rank count of the run that wrote it, so a resume may use another
+number of MPI ranks.
+
+#### Identical resume
+
+When both runs stop on an iteration limit and the resume uses the settings that
+wrote the checkpoint, a run resumed from the checkpoint of iteration `k` and
+trained to iteration `n` ends in the state of the run trained to `n` without
+interruption. These are identical bit for bit:
+
+- in every pool, the cut values, the activity flags, the iteration and forward
+  pass that generated each cut, the binding counters, the role of each slot,
+  the stored trial states and the ownership record built from them;
+- the final upper bound, the forward and backward simplex counts of the
+  iterations after the checkpoint, and the pool row counts those iterations
+  report;
+- the per-scenario bases the resume seeds, against the ones the checkpoint
+  holds;
+- the final checkpoint, except its `created_at` field and its lower-bound
+  fields.
+
+The lower-bound series, and the checkpoint's copy of it, agree within a relative
+`1e-6` rather than bit for bit: the uninterrupted run rebuilds the lower-bound
+LP warm and the resumed run builds it cold. A stopping rule that reads the lower
+bound can therefore stop the two runs one iteration apart; an iteration limit
+cannot.
+
+#### Resume refusals
+
+A resume checks that the checkpoint carries the state needed to continue the
+interrupted run. Five checks run in a fixed order, after the
+[Policy Load Contract](#policy-load-contract) checks, and the first that fails
+stops the run. Each refusal message starts with `resume needs`, names the
+setting and what the checkpoint holds, and gives the way out. `novomodelo validate`,
+`novomodelo run` and the Python bindings report the same line. A `warm_start` load
+of the same checkpoint reads none of these fields and loads.
+
+| # | The resume is refused when | Way out |
+| - | -------------------------- | ------- |
+| 1 | The study's forward-pass count differs from the count that wrote the checkpoint. The slot layout and the stored scenarios follow the count. | Set `training.selection.forward_passes` to the stored value, or continue with `policy.mode = "warm_start"`. |
+| 2 | The run uses `level1`, the study has a stage strictly between the first and the last, and the checkpoint holds no trial-state history because the run that wrote it stored none (a run without `level1` or `exports.states`). | Continue with `warm_start`, or retrain. |
+| 3 | The run keeps every trial state (`lookback_iterations` unset) and the checkpoint holds a window, or the run's window is longer than the checkpoint's. A stored window longer than the run's is admitted; the extra states leave at the first selection pass. | Set `lookback_iterations` to at most the stored value, or continue with `warm_start`. |
+| 4 | `max_active_per_stage` or the `dynamic` method reads the binding counters, and the checkpoint holds none because the run that wrote it configured neither. | Continue with `warm_start`, or retrain. |
+| 5 | The checkpoint's per-scenario bases are not whole: it was written when a run failed (see [A failed run](#a-failed-run)). | Resume from the last whole checkpoint, or continue with `warm_start`. |
+
+For example, check 2 reads:
+
+```text
+resume needs the trial-state history of training.cut_selection.selection.method = level1; the checkpoint holds none (it was written by a run without level1 or exports.states); continue with policy.mode = warm_start or retrain
+```
+
+A resume of a run that declared `policy.boundary` has one further refusal, on
+the boundary rows; see [Resuming with a boundary](#resuming-with-a-boundary).
 
 ---
 
@@ -103,7 +173,11 @@ training, loads the checkpoint at `policy.path`, and simulates it.
 
 The load is a full-FCF load, so the checkpoint must pass every check of the
 [Policy Load Contract](#policy-load-contract): it comes from the running novomodelo
-version.
+version. Each loaded cut keeps the role it had in the run that wrote it, so
+under [`simulation.cut_set`](/running/configuration/#simulation-cut-set) `"all"`
+(the default) the simulation holds the rows that run's `"all"` held, the rows
+selection deactivated and the cap evicted included, and under `"active"` the
+rows active when its training ended.
 
 Start from the `config.json` that trained the policy and change only
 `training.enabled` and the simulation settings. `training.selection` and
@@ -237,31 +311,41 @@ against the output directory, as described in [Policy Modes](#policy-modes));
 ```text
 policy/
   manifest.bin           -- study-global manifest: study graph, stage count,
-                            provenance + a format_version marker (FlatBuffers,
+                            provenance, the format_version marker and the
+                            producer facts a resume checks (FlatBuffers,
                             written last as the commit signal)
   cuts/
-    000.bin               -- cut coefficients and intercepts for pool 0 (each
-                            self-describing its own cost-scale and graph identity)
-    001.bin               -- cut coefficients and intercepts for pool 1
+    000.bin               -- cuts of pool 0: slots, coefficients, intercepts,
+                            activity flags and binding counters, in the
+                            writing run's scaled cost units (each
+                            self-describing its own cost scale and graph identity)
+    001.bin               -- cuts of pool 1
     ...
   basis/
-    000.bin               -- LP basis for stage 0 (bases are always written with the terminal checkpoint)
+    000.bin               -- LP bases of node 0, one per forward-pass scenario
     001.bin
     ...
-  states/                 -- written only when exports.states is true
-    000.bin               -- visited states, stage 0
+  states/                 -- only for pools that store trial states
+    000.bin               -- trial states of pool 0, one per scored cut, by slot
     001.bin
     ...
 ```
 
-File names are zero-padded to three digits (`NNN.bin`). Under `cuts/`, the id
-is the **pool id**; under `basis/`, it is the policy-graph node's canonical
-0-based position (not its declared node id); under `states/`, it is the 0-based
-stage position. On a stage chain the node position and the stage position
-coincide.
+File names are zero-padded to three digits (`NNN.bin`). Under `cuts/` and
+`states/`, the id is the **pool id**; under `basis/`, it is the policy-graph
+node's canonical 0-based position (not its declared node id). On a stage chain
+each stage is one node with its own pool, so both ids equal the stage position.
 The file name itself is not read for identity — each buffer carries its own
-id internally, and the reader derives pool/stage identity from the payload,
+id internally, and the reader derives pool and node identity from the payload,
 never from the name.
+
+`states/` holds, for every pool that stores trial states, the state each scored
+cut was computed at, keyed by the cut's slot. Under `level1`, every pool of a
+stage strictly between the first and the last stores them (the last
+`lookback_iterations` iterations when a window is set). With
+[`exports.states`](/running/configuration/#exports), every pool that receives
+cuts stores them, the first stage's pool included, whatever the selection
+method.
 
 `manifest.bin` is written **last**. Every write is staged in
 `<policy.path>.staging`; the commit renames an existing `<policy.path>` to
@@ -281,16 +365,43 @@ on disk; a checkpoint holds only `manifest.bin`, `manifest.bin.tmp` and
 A symbolic link at `policy.path` is followed once: the commit runs at its target,
 the siblings are the target's, and the link is kept.
 
+Before anything is written, the payloads themselves are checked, and a refusal
+names the first offending file (`cuts/<pool>.bin`, `basis/<node>.bin`,
+`states/<pool>.bin` or `manifest.bin`) and the rule it breaks. A write is
+refused when two payloads of one kind carry the same id
+(`more than one payload carries this id`), when the checkpoint would be one a
+load rejects (for example, entity manifests whose dates disagree), and when a
+file's encoded size could exceed the 2 GiB FlatBuffers buffer limit:
+
+```text
+{file}: encoded size bound {bound} bytes exceeds the FlatBuffers limit of {limit} bytes
+```
+
 `manifest.bin` is read **first**: its `format_version` marker is checked before
 any cut, basis, or state payload is parsed (step 1 of the
 [check order](#check-order)).
 
 `manifest.bin` records the study graph, the number of stages, the producing
 novomodelo version, and the producer provenance (completed iterations, lower- and
-upper-bound values, forward passes per iteration, and the RNG seed) — see
+upper-bound values, forward passes per iteration, the RNG seed, and the
+trial-state history, binding-counter and whole-basis-store facts that a resume
+checks) — see
 [Policy Checkpoint](/reference/output/policy/#policymanifestbin) for the full
 field-by-field table. Whether a checkpoint loads into the current study is
 decided by the [Policy Load Contract](#policy-load-contract).
+
+### A failed run
+
+A run whose training ends in an error never replaces the policy directory. It
+writes its policy to a sibling directory named after the policy directory with
+`.partial` appended (`./policy.partial` for `./policy`), and the failure message
+names that directory. The policy directory keeps the last whole checkpoint, so
+the next `resume` continues from it. A second failed run replaces the `.partial`
+directory. No load reads it unless `policy.path` names it. A `resume` from a
+`.partial` directory is refused by check 5 of
+[Resume refusals](#resume-refusals), because the bases of a failed run are not
+whole and the failed iteration may be half applied; a `warm_start` from it
+loads.
 
 ---
 
@@ -306,12 +417,12 @@ A [boundary load](#boundary-cuts) runs its own checks, listed under
 
 ### Check order
 
-1. **Read.** `manifest.bin` is present and its wire `format_version` is `3` (the
-   `format_version` gate). A `manifest.bin` stamped with another value is refused
-   with:
-   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs:1528-1529 at novomodelo v0.18.1 */}
+1. **Read.** `manifest.bin` is present and its wire `format_version` is `4` (the
+   `format_version` gate). A `manifest.bin` stamped with another value, a
+   version-3 checkpoint included, is refused with:
+   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs (FORMAT_VERSION = 4) at novomodelo develop a566f123 */}
    ```text
-   unsupported checkpoint manifest format_version {format_version}; expected 3; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
+   unsupported checkpoint manifest format_version {format_version}; expected 4; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
    ```
 2. **Cost scale.** The terminal pool records its `cost_scale_factor` (see
    [Cost-Scale Canonicalization](#cost-scale-canonicalization)).
@@ -373,11 +484,19 @@ the others out with one warning, and proceeds. For example, `novomodelo run` pri
 warning: stored bases not used: 4 of 4 do not fit the current LP (first: node 0, 28 columns, the LP has 29); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, and its basic count equals its row count; the policy was trained on a different LP
 ```
 
-The node and the counts come from an example case and differ per study.
+The node and the counts come from an example case and differ per study. The
+counts are of stored bases, one per node and forward-pass scenario.
 
 A stored LP basis fits when its column count equals its stage LP's, its row
 count equals that LP's template rows (the rows before any cut) plus the cut rows
-the basis itself records, and its count of basic entries equals its row count.
+the basis itself records, its count of basic entries equals its row count, and
+every cut-row slot it records holds a loaded cut. The last rule names the slot
+in the warning: `a cut row at slot {slot}, which holds no loaded cut`. The
+warning ends with the full rule:
+
+```text
+a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, its basic count equals its row count, and every recorded cut-row slot holds a loaded cut; the policy was trained on a different LP
+```
 
 Warm-start and resume check the bases a checkpoint carries, simulation-only
 always checks them, and a [boundary load](#boundary-cuts) checks none.
@@ -392,8 +511,8 @@ the bases the forward pass captures. On CLP every phase starts from them. The
 [LP Warm-Start implementation notes](/math/lp-warm-start/#implementation-in-novomodelo)
 trace the store through each phase.
 
-Every training run writes its stage LP bases with the end-of-training
-checkpoint, and `policy.checkpointing.store_basis` has no effect on that. Any
+Every checkpoint holds the LP bases of the run's forward-pass scenarios, and
+`policy.checkpointing.store_basis` has no effect on that. Any
 change that alters the column count of a stage LP therefore leaves out the
 stored bases of the stages it changes: in training those nodes start their first
 solve cold and then reuse the bases they capture, and in a simulation-only run
@@ -418,26 +537,23 @@ stages the change alters.
 
 Novomodelo's objective cost-scale factor
 ([`modeling.cost_scale_factor`](/running/configuration/#modelingcost_scale_factor))
-is configurable per study. Cut coefficients and intercepts are computed in the
-solving study's internally scaled cost space, so policy export and load
-convert between that scaled space and a canonical, scale-independent
-representation at rest:
+is configurable per study. A checkpoint stores every cut's intercept and
+coefficients exactly as the cut pool holds them in memory, in the **writing**
+study's scaled cost units. Each `cuts/<pool>.bin` (see the field table in
+[Policy Checkpoint](/reference/output/policy/#policymanifestbin)) carries its
+own `cost_scale_factor`, which records that scale, so the checkpoint is
+self-describing per pool.
 
-- **Export** multiplies every cut coefficient and intercept by the
-  **writing** study's `cost_scale_factor`, so a persisted policy holds
-  canonical currency units — not the writer's internal scaled cost space.
-- **Every load path** — warm-start, resume, simulation-only, and boundary-cut
-  injection — divides by the **loading** study's own `cost_scale_factor`, even
-  when it equals the writer's, converting the canonical values back into that
-  study's internal scaled space.
+Every load path — warm-start, resume, simulation-only, and boundary-cut
+injection — converts each pool by its own recorded factor:
 
-Each `cuts/<pool>.bin` (see the field table in
-[Policy Checkpoint](/reference/output/policy/#policymanifestbin)) carries its **own**
-`cost_scale_factor` provenance field recording the writing study's factor — the
-checkpoint is self-describing per pool. Every load path — warm-start, resume,
-simulation-only, and boundary-cut injection — **requires** each resolved pool to
-carry it: a pool whose `cost_scale_factor` reads absent is rejected. A full-FCF
-load refuses with
+| Pool's recorded factor | Behaviour on load |
+| ---------------------- | ----------------- |
+| Bit-equal to the loading study's factor | Values used unchanged; a same-factor round trip, a resume included, is bit for bit. |
+| Any other value | Every value becomes `(value * source) / loading`: multiplied by the source factor first, then divided by the loading factor. |
+
+Every load path **requires** each resolved pool to carry the factor: a pool
+whose `cost_scale_factor` reads absent is rejected. A full-FCF load refuses with
 
 ```text
 policy checkpoint predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
@@ -446,10 +562,11 @@ policy checkpoint predates self-describing cuts (its resolved cuts/<pool>.bin ca
 A [boundary load](#boundary-cuts) refuses with its own message, quoted in item 3
 of the [boundary load order](#compatibility-requirements).
 
-Loading applies one floating-point division to every cut coefficient and
-intercept, moving each value by up to a few units in the last place (ULP). This
-is below solver tolerance, but a bit-exact hash over a loaded policy can differ
-from one over the in-memory policy that wrote it.
+To read a coefficient or an intercept outside Novomodelo in currency units, multiply
+it by the pool's `cost_scale_factor`. A load at another factor rounds twice, once
+in the multiplication and once in the division, so its values can differ in the
+last bits from those of a run that used the loading factor throughout; the
+difference is below solver tolerance.
 
 ---
 
@@ -480,11 +597,33 @@ The imported boundary cuts are **not updated** by the SDDP training algorithm.
 Their coefficients remain fixed throughout training and simulation, and the
 active ones provide a floor on the terminal-stage future cost.
 The `training.cut_selection.max_active_per_stage` setting
-([`cut_selection`](/running/configuration/#trainingcut_selection)) caps the active cuts
-of every pool, including the terminal pool that holds the imported boundary
-cuts, and only cuts generated in the current iteration are exempt, so a cap
-below the number of active imported boundary cuts evicts (deactivates) some of
-them.
+([`cut_selection`](/running/configuration/#trainingcut_selection)) never evicts
+an imported boundary cut: it caps only the pools of stages strictly between the
+first and the last, and counts only the cuts the run generated.
+
+### Which boundary rows a run uses
+
+The boundary pool replaces the terminal stage's row pool. Its rows keep the
+activity flag and the scored mark of their source records, and the run uses
+them as follows:
+
+| Where the run reads the pool | Boundary rows used |
+| ---------------------------- | ------------------ |
+| Training and the lower bound | The active rows. |
+| Simulation with `simulation.cut_set = "active"` | The active rows. |
+| Simulation with `simulation.cut_set = "all"` | The active rows, plus the rows the source scored (for example a `level1` source of a longer horizon), whatever their flag. |
+
+A row the source did not score and left inactive (for example a row a capped
+source evicted) is in neither set. See
+[Simulation cut set](/running/configuration/#simulation-cut-set) for the rules
+of the other loaded rows.
+
+The `dynamic` method's lazy solve reads only active rows. A `dynamic` run that
+simulates with `simulation.cut_set = "all"` is therefore refused when the
+boundary pool holds an inactive row that `"all"` includes, that is, a scored
+inactive row. The message names the method and `simulation.cut_set`, the pool
+with its row counts, and the way out: set `simulation.cut_set = "active"`, or
+use the `level1` method. A run that does not simulate is not checked.
 
 ### Configuration
 
@@ -676,6 +815,38 @@ paths:
   followed by the one-line summary
   `boundary reconciliation: N copied, N fanned out, N defaulted to 0.0, N source slots dropped`.
 
+`novomodelo validate` reconciles `policy.boundary` only when the run trains, as
+`novomodelo run` applies it only then; with `training.enabled` set to `false`, the
+JSON `configured` field is `false`.
+
+### Resuming with a boundary
+
+A run that declared `policy.boundary` trains against the boundary rows in its
+terminal pool, and its checkpoint carries those rows together with the binding
+counters the run recorded for them. A resume of that run must declare the same
+boundary again. Novomodelo compares the declared boundary rows with the terminal rows
+of the checkpoint: the state dimension, the slot count, and then, slot by slot,
+the role, the active flag, and the exact bits of the intercept and of each
+coefficient.
+
+- When the rows match, the resumed run keeps the binding counters the checkpoint
+  holds for them, so `max_active_per_stage` or the `dynamic` method continues as
+  in the interrupted run.
+- When any row differs, the resume is refused:
+
+```text
+resume needs the policy.boundary and modeling.cost_scale_factor the interrupted run used: the boundary pool (pool {n}) differs from the checkpoint's at {difference}; resume with that policy.boundary and cost scale or continue with policy.mode = warm_start
+```
+
+`novomodelo validate`, `novomodelo run` and the Python bindings give the same line. A
+`modeling.cost_scale_factor` that differs from the interrupted run's is refused
+only when the boundary rows it produces then differ from the checkpoint's, which
+happens when the boundary file's factor also differs from the interrupted
+run's: the checkpoint rows are then converted twice and the boundary rows once.
+Otherwise the resume applies its own scale. A warm start and a simulation-only
+load do not compare: a warm start with a new boundary is accepted, and it
+restarts the binding counters of the loaded rows.
+
 ### Production coupling workflow
 
 A chained-study pipeline uses boundary cuts as follows:
@@ -739,13 +910,14 @@ novomodelo.results.load_policy(output_dir, policy_subdir="policy")
 
 `output_dir` is the study's output directory; `load_policy` reads the
 checkpoint from `<output_dir>/<policy_subdir>` (`policy_subdir` defaults to
-`"policy"`). It returns a dict with three top-level keys:
+`"policy"`). It returns a dict with four top-level keys:
 
 | Key           | Type         | Description                                                                                                    |
 | ------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
 | `metadata`    | `dict`       | `format_version`, `software`, `software_version`, `created_at`, `num_stages`, `graph_manifest`, `season_manifest`, `producer` |
 | `stage_cuts`  | `list[dict]` | One entry per cut pool (one per stage on a stage chain) — see below                                            |
-| `stage_bases` | `list[dict]` | One entry per saved LP basis: `stage_id`, `iteration`, `column_status`, `row_status`, `num_cut_rows`           |
+| `stage_bases` | `list[dict]` | One entry per node with stored bases: `stage_id` (the node position), `iteration`, and `entries`, one per forward-pass scenario, each with `scenario`, `column_status`, `row_status` and `piece_row_slots` (the pool slot of each cut row the basis holds) |
+| `stage_states` | `list[dict]` | One entry per pool that stores trial states: `stage_id` (the pool id), `node_id`, `state_dimension`, `count`, `slots` (the slot of the cut written at each state, ascending), `data` (`count * state_dimension` values, row-major) and `entity_manifest`; empty when no pool stores them |
 
 Each `stage_cuts` entry carries:
 
@@ -755,18 +927,20 @@ Each `stage_cuts` entry carries:
 | `state_dimension`   | `int`        | Length every cut's `coefficients` must have                                                                                                                                                            |
 | `capacity`          | `int`        | Cut-pool slot capacity                                                                                                                                                                                 |
 | `warm_start_count`  | `int`        | Cuts loaded from a previous artifact at run start                                                                                                                                                      |
-| `populated_count`   | `int`        | Number of populated cut slots                                                                                                                                                                          |
-| `cost_scale_factor` | `float`      | Cost-scale factor of the writing study, recorded for this pool (see [Cost-Scale Canonicalization](#cost-scale-canonicalization))                                                                       |
+| `populated_count`   | `int`        | Number of populated cut slots; optional on write, where it defaults to the number of `cuts`                                                                                                          |
+| `cost_scale_factor` | `float`      | Cost-scale factor of the values this pool holds (see [Cost-Scale Canonicalization](#cost-scale-canonicalization)); required on write, finite and positive                                             |
 | `node_id`           | `int`        | Policy-graph id of the node that owns the pool; `-1` for a pool with no single owning node                                                                                                             |
 | `graph_stage_id`    | `int`        | Graph-stage id of the node that owns the pool; `-1` when unresolved                                                                                                                                    |
 | `priced_state_date` | `int`        | The owning stage's `end_date` encoded `YYYYMMDD`, the date the pool's cuts price; the int32-minimum sentinel when not recorded. A [boundary load](#boundary-cuts) selects its source pool by this date |
 | `entity_manifest`   | `list[dict]` | Per-slot entity markers — see below                                                                                                                                                                    |
 | `cuts`              | `list[dict]` | Cut records — see below                                                                                                                                                                                |
 
-Each entry in `cuts` carries `cut_id`, `slot_index`, `iteration`,
-`forward_pass_index`, `intercept`, `coefficients`, and `is_active`. The Python
-dict key for a cut's id is `cut_id` (the FlatBuffers _wire_ field is
-`piece_id`; `cut_id` is the record-level name used everywhere in this API).
+Each entry in `cuts` carries `slot_index` (the cut's identity in the pool),
+`iteration`, `forward_pass_index`, `intercept`, `coefficients`, `is_active`, and
+`scored` (whether the writing run stored the trial state the cut was computed
+at), plus `active_count` and `last_active_iteration` when the checkpoint carries
+binding counters. On write, `scored` defaults to `False` and the two counters to
+absent.
 
 `entity_manifest` is a list of per-slot markers,
 `{entity_type, entity_id, subindex, was_active, reference_date, interval_start, interval_end}`,
@@ -797,12 +971,12 @@ lists the failure class of every load path.
 novomodelo.write_policy_checkpoint(path, stage_cuts, metadata, stage_bases=None, stage_states=None, inflow_lag_depth=None)
 ```
 
-`stage_cuts` and `metadata` mirror the `load_policy` shapes above, so a
-checkpoint loaded from disk round-trips through Python without reshaping, with
-one caveat: `active_cut_indices` is written by `write_policy_checkpoint` but not
-returned by `load_policy`, so a load → write cycle resets it, and cut activity
-round-trips through each cut's `is_active` flag instead. `stage_bases` and
-`stage_states` default to empty when omitted.
+`stage_cuts`, `metadata`, `stage_bases` and `stage_states` mirror the
+`load_policy` shapes above, so a checkpoint loaded from disk round-trips through
+Python without reshaping. `stage_bases` and `stage_states` default to empty when
+omitted. A pool dict holding `active_cut_indices`, a cut dict holding `cut_id`,
+or a basis dict holding `num_cut_rows`, `num_columns` or `num_rows` is refused
+with `{position}: key '{key}' is not part of a policy checkpoint (format 4); remove it`.
 
 An authored `metadata` needs `created_at`, `num_stages`, and a `producer` with
 `completed_iterations`, `final_lower_bound`, `max_iterations`, `forward_passes`,
@@ -810,7 +984,12 @@ An authored `metadata` needs `created_at`, `num_stages`, and a `producer` with
 `season_manifest`, and the other `producer` keys (`best_upper_bound`,
 `warm_start_counts`, `total_visited_states`, `training_block_mode`,
 `training_block_mode_per_stage`, `cost_scale_factor`, `lower_bound_history` (a
-list of floats, empty when omitted)) are optional.
+list of floats, empty when omitted), `state_history` (`None`, `"whole"` or a
+positive window), `activity_counters` and `basis_store_complete` (both `False`
+when omitted)) are optional. `basis_store_complete` set to `True` with no basis
+in `stage_bases` is refused. The payloads then pass the checks of a checkpoint
+write ([Checkpoint Directory Contents](#checkpoint-directory-contents)), and a
+refusal raises `ValueError` with its message.
 
 `inflow_lag_depth`, when set to `N > 0`, has Novomodelo reserve `N` canonical
 `HydroInflowLag` state slots per storage hydro in every stage's manifest and
@@ -856,9 +1035,9 @@ stage_cuts = [
         "stage_id": 0,
         "state_dimension": 3,
         "capacity": 10,
+        "cost_scale_factor": 2_500_000.0,
         "cuts": [
             {
-                "cut_id": 1,
                 "slot_index": 0,
                 "iteration": 1,
                 "forward_pass_index": 0,
@@ -867,7 +1046,6 @@ stage_cuts = [
                 "is_active": True,
             },
             {
-                "cut_id": 2,
                 "slot_index": 1,
                 "iteration": 1,
                 "forward_pass_index": 1,
@@ -903,15 +1081,14 @@ metadata = {
 novomodelo.write_policy_checkpoint(f"{parent}/policy", stage_cuts, metadata)
 
 loaded = novomodelo.results.load_policy(parent)
-assert loaded["metadata"]["format_version"] == 3
+assert loaded["metadata"]["format_version"] == 4
 assert loaded["stage_cuts"][0]["populated_count"] == 2
 
 # Edit: append a third cut. Its coefficients must match state_dimension (3).
-# Keep cut_id and slot_index unique, and set populated_count to the new cut count.
+# Keep slot_index unique, and set populated_count to the new cut count.
 cuts = loaded["stage_cuts"][0]["cuts"]
 cuts.append(
     {
-        "cut_id": 3,
         "slot_index": 2,
         "iteration": 2,
         "forward_pass_index": 0,
