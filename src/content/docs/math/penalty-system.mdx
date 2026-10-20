@@ -51,7 +51,7 @@ These penalties provide slack for physical or operational constraints that may b
 | Generation below minimum ($c^{gv-}_h$) | \$/MWh | Generation < min | Contractual or environmental minimum generation |
 | Evaporation above or below target ($c^{ev+}_h$, $c^{ev-}_h$) | \$/(m³/s·h) | Evaporation constraint | Physical constraint (bidirectional, see Section 5) |
 | Withdrawal over- or under-delivery ($c^{wv+}_h$, $c^{wv-}_h$) | \$/(m³/s·h) | Unmet water withdrawal | Human consumption / irrigation commitments |
-| Generic constraint violation (user-set cost) | \$/(constraint unit·h) | Generic constraint violations | User-defined physical or operational constraints |
+| Generic constraint violation (user-set cost) | \$/(constraint unit·h) or \$/constraint unit | Generic constraint violations | User-defined physical or operational constraints |
 
 These penalties create an artificial cost in the objective function that propagates backward through the value function, telling earlier stages to store more water (or dispatch differently) to avoid reaching states where violations are necessary.
 
@@ -153,7 +153,7 @@ The **maximum storage** $\bar{V}_h$ is a hard physical limit (the reservoir capa
 
 ### Generic Constraints
 
-User-defined generic constraints can optionally have slack variables with user-specified penalty costs. These are typically used for physical or operational directives from the system operator, and fall into the **constraint violation** category. A two-sided generic constraint (both a floor and a cap) carries two slack columns, one per endpoint; the reported violation is their signed net, and both are penalised.
+User-defined generic constraints can optionally have slack variables with user-specified penalty costs. These are typically used for physical or operational directives from the system operator, and fall into the **constraint violation** category. A two-sided generic constraint (both a floor and a cap) carries two slack columns, one per endpoint; the reported violation is their signed net, and both are penalised. The cost is declared on one of two bases: per unit and hour for a row whose quantity is a rate (MW, m³/s), charged over the hours of the row's block or, on a stage-level row, of the stage; or per unit for a row whose quantity is an amount (MWh, hm³), charged once whatever the duration ([LP Formulation §10](/math/lp-formulation#10-generic-constraints)).
 
 ### Non-Controllable Sources
 
