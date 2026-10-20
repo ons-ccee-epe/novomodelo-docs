@@ -211,7 +211,7 @@ With these keys in `config.json`, `novomodelo validate` accepts the case.
 Validate reads the checkpoint at `policy.path` and applies the same load, so
 this confirms the config and the policy load:
 
-{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; trained once with novomodelo run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; trained once with novomodelo run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
 
 ```text
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -420,11 +420,12 @@ A [boundary load](#boundary-cuts) runs its own checks, listed under
 1. **Read.** `manifest.bin` is present and its wire `format_version` is `4` (the
    `format_version` gate). A `manifest.bin` stamped with another value, a
    version-3 checkpoint included, is refused with:
-   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs (FORMAT_VERSION = 4) at novomodelo develop a566f123 */}
+   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs:1728-1730 and crates/novomodelo-io/src/output/software.rs:15-16 (FORMAT_VERSION = 4) at novomodelo v0.19.0 */}
    ```text
    unsupported checkpoint manifest format_version {format_version}; expected 4; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
    ```
-2. **Cost scale.** The terminal pool records its `cost_scale_factor` (see
+2. **Cost scale.** Every pool records a `cost_scale_factor` that is a finite
+   positive number (see
    [Cost-Scale Canonicalization](#cost-scale-canonicalization)).
 3. **Software and version.** The recorded `software` and `software_version` equal
    the running software's name and version exactly (see [Version gate](#version-gate)).
@@ -448,7 +449,7 @@ patch or pre-release build (for example 0.17.0 against 0.17.1).
 
 The refusal reads:
 
-{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 at novomodelo v0.18.1 — not capturable (needs a checkpoint written by another software or version) */}
+{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 at novomodelo v0.19.0 — not capturable (needs a checkpoint written by another software or version) */}
 
 ```text
 policy was written by {writer}, but this is novomodelo {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
@@ -478,10 +479,10 @@ covers the wire level.
 A full-FCF load uses a stored LP basis only when it fits its stage LP, leaves
 the others out with one warning, and proceeds. For example, `novomodelo run` prints:
 
-{/* capture: novomodelo run case 2>&1 | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with novomodelo run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
+{/* capture: novomodelo run case 2>&1 | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with novomodelo run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
 
 ```text
-warning: stored bases not used: 4 of 4 do not fit the current LP (first: node 0, 28 columns, the LP has 29); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, and its basic count equals its row count; the policy was trained on a different LP
+warning: stored bases not used: 4 of 4 do not fit the current LP (first: node 0, 28 columns, the LP has 29); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, its basic count equals its row count, and every recorded cut-row slot holds a loaded cut; the policy was trained on a different LP
 ```
 
 The node and the counts come from an example case and differ per study. The
@@ -552,15 +553,24 @@ injection — converts each pool by its own recorded factor:
 | Bit-equal to the loading study's factor | Values used unchanged; a same-factor round trip, a resume included, is bit for bit. |
 | Any other value | Every value becomes `(value * source) / loading`: multiplied by the source factor first, then divided by the loading factor. |
 
-Every load path **requires** each resolved pool to carry the factor: a pool
-whose `cost_scale_factor` reads absent is rejected. A full-FCF load refuses with
+Every load path **requires** each resolved pool to carry a factor that is a
+finite positive number. A full-FCF load refuses a pool whose `cost_scale_factor`
+reads absent with
 
 ```text
-policy checkpoint predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
+policy checkpoint predates self-describing cuts (its cuts/<pool>.bin for pool {pool} carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 ```
 
-A [boundary load](#boundary-cuts) refuses with its own message, quoted in item 3
-of the [boundary load order](#compatibility-requirements).
+and a pool whose factor is not a finite positive number with
+
+```text
+policy checkpoint pool {pool} records cost_scale_factor {factor}, which is not a finite positive number; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
+```
+
+A [boundary load](#boundary-cuts) refuses a pool without the factor with its own
+message, quoted in item 3 of the
+[boundary load order](#compatibility-requirements), and a pool whose factor is
+not a finite positive number with the second message above.
 
 To read a coefficient or an intercept outside Novomodelo in currency units, multiply
 it by the pool's `cost_scale_factor`. A load at another factor rounds twice, once
@@ -676,7 +686,8 @@ failure stops the run:
    where `{e}` is the underlying error.
 2. **Pool selection.** Exactly one pool of the source is priced at the study's
    terminal boundary date.
-3. **Cost scale.** The resolved pool records its `cost_scale_factor` (see
+3. **Cost scale.** The resolved pool records a `cost_scale_factor` that is a
+   finite positive number (see
    [Cost-Scale Canonicalization](#cost-scale-canonicalization)); a pool without
    it is refused with `boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
 4. **Single-node source.** The resolved pool is a single-node terminal pool, not
@@ -1112,24 +1123,34 @@ print(len(reloaded["stage_cuts"][0]["cuts"]), reloaded["metadata"]["software_ver
 The script prints the reloaded cut count and the version that
 `write_policy_checkpoint` stamped:
 
-{/* capture: python round-trip example | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none */}
+{/* capture: python round-trip example | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: none */}
 
 ```text
-3 0.18.1
+3 0.19.0
 ```
 
 ### Input validation
 
 `write_policy_checkpoint` raises `ValueError` when any of the following holds.
-The message locates the problem: the stage and cut for the two per-cut checks,
-the stage for a state-data mismatch, and the hydro for an unplaceable
-inflow-lag coefficient.
+The message locates the problem: the position of a retired key, the stage and
+cut slot for the two per-cut checks, the pool's states file for a state-data
+mismatch, and the hydro for an unplaceable inflow-lag coefficient.
 
+- a pool, cut or basis dict holds a retired key (see
+  [Write a checkpoint](#write-a-checkpoint));
+- a pool's `cost_scale_factor` is missing, not finite or not positive;
 - a cut's `coefficients` length does not match its stage's `state_dimension`;
-- a stage's state data length does not match `count * state_dimension`;
 - a cut carries `inflow_lag_coefficients` without a positive `inflow_lag_depth`;
 - (under `inflow_lag_depth`) a manifest lacks a leading storage block;
-- (under `inflow_lag_depth`) an inflow-lag coefficient is unplaceable; or
+- (under `inflow_lag_depth`) an inflow-lag coefficient is unplaceable;
+- the producer sets `basis_store_complete` with no basis in `stage_bases`;
+- a producer `state_history` is other than `None`, `"whole"` or a positive
+  window;
+- the payloads break a checkpoint rule (slot order, row counts, counter
+  presence, dates, a repeated id, size limits), a `stage_states` entry whose
+  `data` length differs from `count * state_dimension` included; the message is
+  `serialization error for entity {entity}: {message}`, where `{message}` names
+  the file and the rule; or
 - `path` (for a link, its target) or its `.staging` or `.previous` sibling holds an entry no checkpoint writer leaves there (`novomodelo.errors.ValidationError`, a `ValueError`, with the `refusing to write a checkpoint: …` text; nothing on disk changes).
 
 Each snippet below uses `metadata` from the round-trip example. The second also
@@ -1139,7 +1160,7 @@ exception text it raises.
 A cut whose `coefficients` length disagrees with its stage's
 `state_dimension`:
 
-{/* capture: python input-validation snippet 1 of 3 (ValueError text) | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+{/* capture: python input-validation snippet 1 of 3 (ValueError text) | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
 
 ```python
 bad_cuts = [
@@ -1147,9 +1168,9 @@ bad_cuts = [
         "stage_id": 0,
         "state_dimension": 3,
         "capacity": 10,
+        "cost_scale_factor": 2_500_000.0,
         "cuts": [
             {
-                "cut_id": 1,
                 "slot_index": 0,
                 "iteration": 1,
                 "forward_pass_index": 0,
@@ -1162,13 +1183,13 @@ bad_cuts = [
 ]
 
 novomodelo.write_policy_checkpoint("output/policy", bad_cuts, metadata)
-# ValueError: stage 0 cut 1: coefficients has 2 entries, expected state_dimension=3
+# ValueError: stage 0 cut at slot 0: coefficients has 2 entries, expected state_dimension=3
 ```
 
 A `stage_states` entry whose flat `data` length disagrees with
 `count * state_dimension`:
 
-{/* capture: python input-validation snippet 2 of 3 (ValueError text) | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
+{/* capture: python input-validation snippet 2 of 3 (ValueError text) | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
 
 ```python
 stage_states = [
@@ -1176,6 +1197,7 @@ stage_states = [
         "stage_id": 0,
         "state_dimension": 3,
         "count": 2,
+        "slots": [0, 1],
         "data": [1.0, 2.0, 3.0],  # length 3, but count * state_dimension = 6
     }
 ]
@@ -1183,14 +1205,14 @@ stage_states = [
 novomodelo.write_policy_checkpoint(
     "output/policy", stage_cuts, metadata, stage_states=stage_states
 )
-# ValueError: stage 0: states data has 3 entries, expected count*state_dimension=6
+# ValueError: serialization error for entity policy_checkpoint_structure: states/000.bin: data holds 3 values, not count 2 times state_dimension 3
 ```
 
 A cut carrying `inflow_lag_coefficients` with no `inflow_lag_depth` passed to
 reserve the lag slots (keyed by **integer** hydro id; list index `0` = lag
 depth 1):
 
-{/* capture: python input-validation snippet 3 of 3 (ValueError text) | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+{/* capture: python input-validation snippet 3 of 3 (ValueError text) | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
 
 ```python
 stage_cuts = [
@@ -1198,9 +1220,9 @@ stage_cuts = [
         "stage_id": 0,
         "state_dimension": 3,
         "capacity": 10,
+        "cost_scale_factor": 2_500_000.0,
         "cuts": [
             {
-                "cut_id": 1,
                 "slot_index": 0,
                 "iteration": 1,
                 "forward_pass_index": 0,
@@ -1214,7 +1236,7 @@ stage_cuts = [
 ]
 
 novomodelo.write_policy_checkpoint("output/policy", stage_cuts, metadata)
-# ValueError: stage 0 cut 1: inflow_lag_coefficients supplied without inflow_lag_depth; pass inflow_lag_depth=N to reserve the lag slots
+# ValueError: stage 0 cut at slot 0: inflow_lag_coefficients supplied without inflow_lag_depth; pass inflow_lag_depth=N to reserve the lag slots
 ```
 
 ---
