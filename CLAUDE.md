@@ -30,7 +30,7 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.18.1 (2026-10-14).**
+**Synced to: novomodelo v0.19.0 (2026-10-20).**
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -178,7 +178,7 @@ partial filenames so the render split holds.
 ## Quality Gates
 
 ```bash
-# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.18.1/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
+# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.19.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:python-api \
@@ -190,7 +190,7 @@ npm run check:figures && npm run check:voice && npm run check:counts \
 
 - **d2 v0.7.1** on `PATH`: without it `npm run build` and `npm run dev` abort with
   "Could not find D2".
-- **novomodelo v0.18.1** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
+- **novomodelo v0.19.0** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
   The gate exits 2 when the binary is missing, lies under a cargo
   `target/release/` or `target/debug/` directory, or reports a version other
   than `DEFAULT_NOVOMODELO_REF` in `scripts/novomodelo-ref.mjs`.
@@ -219,7 +219,7 @@ When **updating the LP / SDDP / cut / warm-start cluster** (`lp-formulation.md`,
 `delivery_ring.rs`, `entries.rs`, `fpha_cursor.rs`, `generic_constraints.rs`,
 `hydro_state.rs`, `layout.rs`, `patch.rs`, `rows.rs`, `scaling.rs`,
 `state_box.rs`, `template.rs`); `StageGeometry` is at
-`lp/builder/layout.rs:1707`. Other owners: `lp/indexer/entity_positions.rs`,
+`lp/builder/layout.rs:1843`. Other owners: `lp/indexer/entity_positions.rs`,
 `lp/indexer/anticipated_plants.rs`, `lp/indexer/block_row_family.rs`, the
 crate-root `block_clock.rs`, `time_value.rs` and `bucket_topology.rs`, and
 `setup/lp_build_inputs.rs`. The normative contract is novomodelo's
