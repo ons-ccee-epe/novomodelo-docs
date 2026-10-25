@@ -1,0 +1,336 @@
+---
+title: AI Agents (novomodelo-mcp)
+description: Install and configure novomodelo-mcp, the local MCP server that lets an AI agent validate, convert, run and read Novomodelo cases and answer methodology questions from this documentation.
+---
+
+**novomodelo-mcp** is a local [Model Context Protocol](https://modelcontextprotocol.io)
+(MCP) server for Novomodelo. Through it, an AI agent in an MCP client (Claude Code,
+Claude Desktop or Kiro) validates, converts, compares, runs and reads the results of
+cases with a fixed set of tools, and answers methodology questions from the pages of
+this site.
+
+The server is a thin facade over the programs Novomodelo already ships: each tool
+wraps one subcommand of the `novomodelo` CLI or of
+[novomodelo-bridge](/running/case-conversion/) (with `--json` where the subcommand
+has it), or one call of the `novomodelo-python` bindings, and relays the result. It
+carries no conversion, validation, comparison or solving logic of its own, so a
+tool's answer is the answer of the program it wraps.
+
+The server speaks MCP over stdio: the client starts it as a subprocess, and it opens
+no network port. Its messages and response fields are in Portuguese; the bundled
+documentation is this site, in English.
+
+---
+
+## Requirements
+
+| Component                   | Requirement                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
+| Python                      | 3.12 or newer                                                                                   |
+| [uv](https://docs.astral.sh/uv/) | installs the server as an isolated tool                                                    |
+| `novomodelo` (the CLI)      | installed separately (see [Installation](/getting-started/installation/)), or by the agent with the `instalar_novomodelo` tool |
+| `novomodelo-bridge`, `novomodelo-python` | installed with the server                                                          |
+
+The server runs on Windows, macOS and Linux, including containers.
+
+On Linux, check two things before installing the `novomodelo` executable:
+
+- **glibc.** The pre-built Linux archives need the glibc version stated on
+  [Installation](/getting-started/installation/#supported-platforms);
+  `ldd --version` prints yours. On an older system, such as Debian 12 or
+  Ubuntu 22.04, the server installs but the pre-built executable does not run.
+- **xz.** The executable's installer needs `xz` (`xz --version`); install the
+  `xz-utils` or `xz` package if it is missing.
+
+### One version for every component
+
+The server, the `novomodelo` executable, `novomodelo-python` and `novomodelo-bridge`
+share one version number: novomodelo-mcp `X.Y.Z` works with novomodelo `X.Y.Z`, and
+the package pins the bridge and the bindings at that version. A fix to the server
+alone is released as `X.Y.Z.postN`. Keep the `novomodelo` executable at the same
+version too: the solver loads only a policy written by the same version.
+[Version warnings](#version-warnings) reports any component that differs.
+
+---
+
+## Installation
+
+```bash
+uv tool install --compile-bytecode novomodelo-mcp
+```
+
+The command puts the `novomodelo-mcp` executable on your `PATH`, with
+novomodelo-bridge and novomodelo-python in the same isolated environment. On a
+corporate network whose proxy re-signs certificates, `uv` may fail to reach PyPI
+with `UnknownIssuer`; add `--system-certs` (or set `UV_SYSTEM_CERTS=1`) so `uv`
+uses the system certificates.
+
+To upgrade, run `uv tool upgrade novomodelo-mcp`.
+
+---
+
+## Configuring a client
+
+`novomodelo-mcp configurar` writes the server entry into an MCP client's
+configuration file:
+
+```bash
+novomodelo-mcp configurar --cliente claude-code --workspace ~/studies --mostrar  # print the change only
+novomodelo-mcp configurar --cliente claude-code --workspace ~/studies            # write it
+```
+
+| Option                 | Effect                                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--cliente <client>`   | Required. One of `claude-code`, `claude-desktop` or `kiro`.                                                                |
+| `--workspace <folder>` | A folder the server may read and write (see [Workspace](#workspace)). Repeat it for more than one folder; a folder that does not exist is created when the entry is written. |
+| `--irrestrito`         | Write the entry with no workspace: the server reads and writes any folder. Cannot be combined with `--workspace`.          |
+| `--mostrar`            | Print only the part of each file that would change, and touch nothing.                                                     |
+| `--instrucoes`         | Also write a line that tells the agent to use the server for methodology questions (see the table below).                  |
+
+The workspace has no default. Without `--workspace` or `--irrestrito`, the command
+asks for the studies folder when it runs in a terminal; with no terminal it exits
+with code 2 and writes nothing.
+
+The entry is named `novomodelo`. It holds the absolute path of the `novomodelo-mcp`
+executable of the installed package and, when given, the workspace in
+`NOVOMODELO_MCP_WORKSPACE`. The command changes only that entry (and, where the
+client has one, the list of read-only tools it runs without asking) and keeps the
+rest of the file. An existing `novomodelo` entry is replaced whole. Before writing,
+the command saves a backup next to the file as `<file>.bak-YYYYMMDD-HHMMSS`; running
+it again with nothing to change writes nothing. If the client is not installed on
+the machine, the command says so and writes the entry anyway, ready for when the
+client is installed.
+
+| Client         | Configuration file                                                                                                                                                         | Read-only tools                                                                                     | `--instrucoes` writes to        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Claude Code    | `~/.claude.json` (user scope)                                                                                                                                              | one `permissions.allow` rule per tool in `~/.claude/settings.json`                                   | `~/.claude/CLAUDE.md`           |
+| Claude Desktop | macOS `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows `%APPDATA%\Claude\claude_desktop_config.json`; Linux `~/.config/Claude/claude_desktop_config.json` | no list: choose "always allow" on a tool's first call                                               | prints the line, to paste into the preferences |
+| Kiro           | `~/.kiro/settings/mcp.json` (a workspace's `.kiro/settings/mcp.json` takes precedence)                                                                                      | Kiro asks for approval and ignores an `autoApprove` list in the server entry                         | `~/.kiro/steering/novomodelo.md` |
+
+Close Claude Code before writing its entry: it rewrites `~/.claude.json` while it is
+open. After writing, quit the client completely and start it again. To check the
+setup, ask the agent to call the `server_info` tool: it reports the server version,
+the executables it found, the version of each component, the workspace and where the
+documentation comes from.
+
+The client prefixes each tool with the server name, as in
+`mcp__novomodelo__case_validate`.
+
+---
+
+## Tools
+
+Each tool declares, through the MCP annotations `readOnlyHint`, `destructiveHint` and
+`openWorldHint`, whether it only reads or also writes. A client can use these hints
+to run the read-only tools without asking; the client and the organization's policy
+make the final decision.
+
+| Kind                     | Tools                                                                                                                                                                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read only                | `server_info`, `solver_version`, `schema_list`, `schema_get`, `docs_list`, `docs_read`, `docs_search`, `deck_list`, `deck_read_json`, `deck_read_parquet`, `deck_describe_parquet`, `deck_sql`, `case_validate`, `case_summary`, `bridge_check_*`, `results_status`, `results_convergence`, `results_list_entities`, `results_query`, `results_stochastic`, `results_policy`, `run_plan`, `run_status`, `run_logs` |
+| Writes new files         | `case_init`, `schema_export`, `bridge_convert_*`, `bridge_compare_*`, `bridge_dashboard`, `incluir_pastas`                                                                                                                                                                                                     |
+| Changes or stops         | `deck_edit_json`, `deck_edit_parquet`, `run_apply`, `run_start`, `run_cancel`, `instalar_novomodelo`                                                                                                                                                                                                          |
+
+`novomodelo-mcp configurar --cliente claude-code --mostrar` prints the list of
+read-only tools that `configurar` writes, read from the server itself.
+
+By stage of a study:
+
+- **Before a run.** `bridge_check_*` and `bridge_convert_*` check and convert a case
+  from another planning tool with novomodelo-bridge (one tool per source format;
+  see [Case Conversion](/running/case-conversion/)). `case_validate` validates a
+  case through the `novomodelo-python` bindings; with `output_dir`, it also checks
+  the output of an earlier run for a resume. `case_summary` lists the case as
+  Novomodelo loads it: counts per entity type and the `{id, name}` of each entity.
+- **Cases and decks.** `deck_list` maps a case: its input files with their schema
+  type, and one line per run folder. `deck_read_json`, `deck_read_parquet` and
+  `deck_describe_parquet` read input files. `deck_edit_json` and
+  `deck_edit_parquet` edit them with a backup and an atomic write; with
+  `ensure_valid=True`, `deck_edit_json` revalidates the case and reverts the edit if
+  validation fails. `deck_sql` runs read-only DuckDB SQL (`SELECT`, `WITH`,
+  `DESCRIBE`, `SUMMARIZE`) over the Parquet, CSV and JSON files of a case or of its
+  results.
+- **Running.** `case_init` creates a case from a bundled template (`novomodelo init`).
+  `run_plan` writes nothing and runs nothing: it estimates the time and memory of a
+  local run from solve times measured on the same machine, and returns a verdict
+  (`cabe`, `cabe_com_ajustes`, `nao_cabe` or `indeterminado`) with suggested
+  settings. `run_apply` applies those settings to `config.json`. `run_start` starts
+  `novomodelo run` in the background and returns a job id at once; it refuses a case
+  whose plan is `nao_cabe`, unless called with `override=True`. `run_status`,
+  `run_logs` and `run_cancel` follow and stop the job. A job survives a restart of
+  the server.
+- **Results.** `results_status` reads the run status, bounds, gap, iterations and
+  cost; `results_convergence` the convergence record; `results_list_entities` and
+  `results_query` the simulation output; `results_stochastic` the inflow-model
+  coefficients and the opening tree (it needs `exports.stochastic: true` in the
+  run's `config.json`); `results_policy` a summary of the trained policy.
+  `bridge_compare_*` compares a converted case's results with the source tool's
+  published results, and `bridge_dashboard` writes an HTML dashboard of a case.
+- **Reference.** `schema_list` and `schema_get` return the JSON Schemas of the input
+  files (also available as the resource `novomodelo://schema/{type}`);
+  `schema_export` writes them to a folder. `docs_list`, `docs_search` and
+  `docs_read` read the bundled documentation (see
+  [Documentation and changelogs](#documentation-and-changelogs)).
+- **Diagnostics.** `server_info` and `solver_version` describe the installation;
+  `instalar_novomodelo` installs the `novomodelo` executable; `incluir_pastas` adds
+  folders to the workspace.
+
+Responses that carry rows or lists are capped in size; a capped response says so in
+`cortado_por_tamanho`.
+
+---
+
+## Security
+
+### Workspace
+
+The case, deck and result tools take paths chosen by the agent.
+`NOVOMODELO_MCP_WORKSPACE` holds the allowed root folders, separated by `:`, and
+`configurar --workspace` writes it into the client entry. With it set, the server
+refuses any path outside those roots, after resolving symbolic links and `..`.
+Without it, the server runs unrestricted, and `server_info` reports
+`irrestrito`.
+
+A refused path returns exit code 13, the folder of the path in `pasta_sugerida`, and
+an instruction to the agent: do not read the path through other tools, and ask the
+person whether the folder may be added. With the person's consent, the agent calls
+`incluir_pastas` with every folder at once. The folders take effect at once, with no
+client restart, and are stored in `pastas.json` in the server's state folder,
+added to the roots of `NOVOMODELO_MCP_WORKSPACE`. `incluir_pastas` is never on
+the read-only list, so the client asks for approval on every call. It refuses a path
+that is not a folder, the home folder or any folder above it, the root of a disk,
+the configuration folders of programs (names starting with `.`, `AppData`,
+`Library`) and the state folder. An unreadable `pastas.json` allows nothing.
+
+### Approval for writes
+
+The tools that write or change files are not on the read-only list that
+`configurar` writes, so the client asks for approval before each call.
+
+### Forced writes
+
+Three forms of call override a safety check, and each needs
+`NOVOMODELO_MCP_ALLOW_FORCE=1` in the server environment:
+
+| Call                          | Effect                                         |
+| ----------------------------- | ---------------------------------------------- |
+| `deck_edit_json(force=True)`  | writes a file that violates its JSON Schema    |
+| `case_init(force=True)`       | overwrites existing files                      |
+| `bridge_convert_*(force=True)` | deletes the destination case before converting |
+
+### Network
+
+The server uses the network only to check for newer releases (`server_info`, at
+most once every six hours, with a timeout of a few seconds) and to install the
+executable (`instalar_novomodelo`), and only to these destinations:
+`github.com/ons-ccee-epe/*`, `api.github.com/repos/ons-ccee-epe/*`,
+`pypi.org/pypi/novomodelo-bridge/*` and, as a download destination,
+`release-assets.githubusercontent.com`. HTTPS uses the system certificate store,
+so the requests pass a corporate proxy that re-signs certificates. Without a
+network, the tools still answer, and `server_info` says the check could not be made
+and where to look. The documentation and the schemas are bundled and need no
+network.
+
+`instalar_novomodelo` installs the official executable of the expected version with
+the release installer, after checking its SHA-256. Without `confirmar=True` it only
+shows the plan: the URL, the hash, the destination folder and the manual command. On
+Windows, the official `.ps1` installer does not check the hash of the archive it
+downloads.
+
+---
+
+## Version warnings
+
+When the `novomodelo` executable, `novomodelo-python`, novomodelo-bridge or the
+bundled documentation is missing or at a version other than the server's, every
+tool response carries `avisos_de_versao`: one line per component, with the commands
+that align it. The call still runs; the server's instructions ask the agent to tell
+the person and to offer to run the commands, with the person's consent.
+
+- A component **older** than the server is upgraded to the server's version: for
+  the executable, the agent can call `instalar_novomodelo`, or the person runs the
+  release installer of that version; for the others,
+  `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`.
+- A component **newer** than the server has two ways out, because without a network
+  the server cannot tell whether a server of that version exists: upgrade the server
+  (`uv tool upgrade novomodelo-mcp`) or bring the component back to the server's
+  version. The warning includes the component's changes from its release notes.
+
+`server_info` also reports in `versao_nova` whether a newer novomodelo or
+novomodelo-bridge release exists, with the "Changed" and "Fixed" sections of its
+release notes (breaking changes first, capped in length) and a link to the notes.
+It gives no install command, since the server of that version may not be released
+yet.
+
+---
+
+## Documentation and changelogs
+
+The server bundles the pages of this site at the version that matches its own, with
+the input JSON Schemas. The documentation version and commit appear in
+`server_info` under `docs`. The schemas come from the first source that exists:
+`NOVOMODELO_MCP_SCHEMAS_DIR`, then `novomodelo schema export` from the installed
+executable, then the bundled copy.
+
+The server's instructions tell the agent to answer questions about the methodology
+and the use of Novomodelo from these pages, not from the web or from memory, since
+Novomodelo's definitions may differ from the literature:
+
+1. `docs_search(consulta, k)` searches the pages by word and returns the page, the
+   section and an excerpt. Searches work best in English; the Portuguese terms of
+   the [Glossary](/reference/glossary/) are translated.
+2. `docs_read(page, secao)` reads one section of a page (or the whole page without
+   `secao`); `docs_list(section)` lists the pages with their titles.
+3. The answer cites the page and section it came from, as `page#section`. When the
+   pages do not cover the subject, the agent says so.
+
+Two further pages hold the changelogs: `changelog/novomodelo` and
+`changelog/novomodelo-bridge`, with one section per version from 0.18.0 onward. The
+agent reads what changed in a version with `docs_read("changelog/novomodelo", "X.Y.Z")`.
+
+The server also offers the MCP prompt `metodologia(tema)`, a conversation about the
+methodology grounded in these pages. `tema` is optional, a single word; without it,
+the question comes in the next message.
+
+| Client         | Where the prompt appears                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| Claude Code    | `/novomodelo:metodologia CVaR` (or `/mcp__novomodelo__metodologia CVaR`); arguments are separated by spaces |
+| Kiro           | `#` in the chat opens the context menu; the prompt has the MCP icon and a form for `tema`         |
+| Claude Desktop | the **+** menu below the message box, under "novomodelo"                                          |
+
+---
+
+## Environment variables
+
+`configurar` writes `NOVOMODELO_MCP_WORKSPACE`; the other variables are optional and
+go in the `env` of the client entry.
+
+| Variable                           | Default                          | Purpose                                                                                                      |
+| ---------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `NOVOMODELO_MCP_WORKSPACE`         | unset (unrestricted)             | allowed root folders, separated by `:`                                                                       |
+| `NOVOMODELO_MCP_ALLOW_FORCE`       | `0`                              | `1` enables the [forced writes](#forced-writes)                                                              |
+| `NOVOMODELO_MCP_SOLVER_BIN`        | `novomodelo` on `PATH`           | path of the `novomodelo` executable                                                                          |
+| `NOVOMODELO_MCP_BRIDGE_BIN`        | the package's, then `PATH`       | another `novomodelo-bridge` executable; takes precedence over the package's                                   |
+| `NOVOMODELO_MCP_SCHEMAS_DIR`       | unset                            | folder of `*.schema.json` files, first in the schema sources                                                 |
+| `NOVOMODELO_MCP_TIMEOUT`           | `900`                            | timeout, in seconds, of each CLI call                                                                        |
+| `NOVOMODELO_MCP_MAX_JOBS`          | `1`                              | runs that `run_start` allows at the same time                                                                |
+| `NOVOMODELO_MCP_STATE_DIR`         | per operating system (below)     | persistent state: background runs and solve-time calibration                                                 |
+| `NOVOMODELO_MCP_MAX_RESPONSE_KB`   | `50`                             | size cap of a response with rows or lists                                                                    |
+| `NOVOMODELO_MCP_MAX_READ_BYTES`    | `5000000`                        | largest file loaded whole into memory by the JSON readers, `deck_describe_parquet` and `deck_edit_parquet`; a larger one is refused and points to `deck_sql` |
+| `NOVOMODELO_MCP_MAX_POLICY_BYTES`  | `1073741824` (1 GiB)             | largest policy on disk that `results_policy` loads                                                           |
+| `NOVOMODELO_MCP_MAX_DIAGNOSTICS`   | `50`                             | cap on diagnostic items                                                                                      |
+| `NOVOMODELO_MCP_MAX_SUMMARY_CHARS` | `20000`                          | cap on the length of a `summary`                                                                             |
+| `NOVOMODELO_MCP_LOG`               | `0`                              | `1` logs each call to standard error                                                                         |
+
+The default state folder is `%LOCALAPPDATA%\novomodelo-mcp` on Windows,
+`~/Library/Application Support/novomodelo-mcp` on macOS and
+`$XDG_STATE_HOME/novomodelo-mcp` on Linux (`~/.local/state/novomodelo-mcp` when
+`XDG_STATE_HOME` is unset), never the system's temporary folder.
+
+---
+
+## See Also
+
+- **Converting a case:** [Case Conversion (novomodelo-bridge)](/running/case-conversion/) — the program behind the `bridge_*` tools
+- **Running studies:** [Running Studies](/running/running-studies/) — the workflow the run tools drive
+- **Installing the executable:** [Installation](/getting-started/installation/)

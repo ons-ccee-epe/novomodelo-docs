@@ -351,6 +351,7 @@ export default defineConfig({
             "running/performance",
             "running/hpc-deployment",
             "running/case-conversion",
+            "running/mcp-server",
             "running/interpreting-results",
             "running/troubleshooting",
           ],
