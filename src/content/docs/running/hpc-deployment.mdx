@@ -86,11 +86,11 @@ runtime works:
 - MVAPICH2 3.0+
 
 :::caution[glibc / system compatibility]
-The pre-built binary is compiled in the release CI environment. Running it
-unchanged requires a runtime image whose system libraries (glibc and friends)
-are compatible with that build. This is the case on current mainstream Linux
-distributions and on an AWS ParallelCluster custom image tracking a recent
-Amazon Linux / Ubuntu base; on an older base, build from source instead.
+The Linux archives are built on Ubuntu 24.04 and need glibc 2.38 or newer;
+`ldd --version` prints your glibc version. They do not run on an older base such
+as Ubuntu 22.04, Debian 12, RHEL 9 or Amazon Linux 2023. On AWS ParallelCluster,
+use an Ubuntu 24.04 base for the custom image; on an older base, build from
+source instead (Option 2).
 :::
 
 ### Option 2 — Build from source with the `mpi` feature
@@ -110,9 +110,12 @@ includes your MPICH `lib/pkgconfig` directory.
 
 The source tree sets no target features or target CPU, so on x86-64 every build
 of a version, the pre-built archives included, uses one floating-point kernel and
-selects the same cuts. A build given `-C target-feature` or `-C target-cpu`, for
-example through `RUSTFLAGS`, can use another kernel and select different, equally
-valid cuts, so its results can differ from those of the release builds.
+selects the same cuts. The bundled LP solver and qhull C and C++ sources compile
+without fused multiply-adds on every target, so the C compiler's default target
+does not change the results either. A build given `-C target-feature` or
+`-C target-cpu`, for example through `RUSTFLAGS`, can use another kernel and
+select different, equally valid cuts, so its results can differ from those of
+the release builds.
 
 :::note[NUMA topology]
 `novomodelo-cli` has no `numa` feature of its own; the ferrompi NUMA extension is a
@@ -443,8 +446,8 @@ The moving parts:
   no per-job install step.
 - **The binary.** The pre-built `novomodelo-mpi` archive is downloaded from the
   release page to `<shared-path>`. It is the
-  same binary produced by the release CI, and the custom image's system
-  libraries are kept compatible with that build.
+  same binary produced by the release CI, so the custom image needs glibc 2.38
+  or newer (see [Getting an MPI-enabled binary](#getting-an-mpi-enabled-binary)).
 - **Interconnect (EFA).** Because MPICH is built `--with-libfabric=/opt/amazon/efa`
   and `--with-device=ch4:ofi`, the OFI netmod selects the EFA provider on
   EFA-enabled instances automatically. For fabric-level diagnostics or provider

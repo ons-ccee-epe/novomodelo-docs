@@ -58,9 +58,8 @@ slot for the node, which the next iteration's forward solve at the node is
 offered.
 The backward pass reads no stored basis and stores none: each chain's
 first-solved opening starts without a stored basis, and the rest continue from
-the retained factorization.
-Under the default HiGHS profiles an enumerated run therefore starts no solve
-from the store.
+the retained factorization. Under the default HiGHS profiles an enumerated run
+therefore starts no solve from the store.
 
 ### When a stored basis is reused
 
@@ -91,14 +90,18 @@ resume run seeds a trial point from its own basis and leaves a trial point
 without one to start cold; a warm-start run seeds a trial point without its own
 basis from the node's lowest-scenario basis, since the run that wrote the
 checkpoint may have run fewer forward passes. A slot left empty starts its first
-solve cold and then reuses its own captures. Outside the dynamic method, a
-warm-starting forward phase starts the first iteration's seeded solves through
-the reconstruction of
+solve cold and then reuses its own captures. Outside the dynamic method, the
+first iteration's seeded solves of a warm-starting phase start through the
+reconstruction of
 [§4](/math/lp-warm-start#4-cut-aware-basis-reconstruction-by-slot-identity); a
 fresh run has nothing to seed. Under the default HiGHS forward profile the
-forward solves start cold and their captures replace the seeded bases before
-the backward pass reads the slots, so the checkpoint bases seed no training
-solve unless `training.solver.forward` sets `"use_warm_start": true`.
+forward solves start cold, and each forward capture replaces the seeded basis of
+the node it visits before the backward pass reads that slot. On a stage chain,
+where every trial point visits every node, the checkpoint bases therefore seed
+no training solve unless `training.solver.forward` sets
+`"use_warm_start": true`. On a branching graph, a backward pass that reads the
+store also starts from them at the successor nodes that a trial point's
+first-iteration forward path did not visit.
 
 When the simulation phase warm-starts, and outside the dynamic method,
 simulation starts each visited node's solve from that node's basis, taken from
@@ -106,9 +109,8 @@ the preceding training run or, in a simulation-only run, from the node's
 lowest-scenario checkpoint basis for every scenario (a node with none is solved
 without its own stored basis); under the dynamic method simulation solves start
 without a stored basis. Under the default HiGHS simulation profile every
-simulation solve starts cold, so a simulation-only run reads its checkpoint
-bases only when `simulation.solver` sets `"use_warm_start": true`.
-
+simulation solve starts cold, so a simulation-only run uses its checkpoint bases
+only when `simulation.solver` sets `"use_warm_start": true`.
 
 A checkpoint basis is used only when its column count equals the node's
 current stage LP's, its row count equals the LP's template rows plus its
