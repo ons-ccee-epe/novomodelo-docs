@@ -30,7 +30,9 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.19.0 (2026-10-20).**
+**Synced to: novomodelo v0.19.0 (2026-10-20)**, plus unreleased novomodelo
+`main` at `43eb3db1` (2026-10-26). The vendored artifacts and captures stay at
+v0.19.0 until the next tag, whose flip refreshes them.
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -218,8 +220,8 @@ When **updating the LP / SDDP / cut / warm-start cluster** (`lp-formulation.md`,
 `crates/novomodelo-sddp/src/lp/builder/` (`build_inputs.rs`, `columns.rs`,
 `delivery_ring.rs`, `entries.rs`, `fpha_cursor.rs`, `generic_constraints.rs`,
 `hydro_state.rs`, `layout.rs`, `patch.rs`, `rows.rs`, `scaling.rs`,
-`state_box.rs`, `template.rs`); `StageGeometry` is at
-`lp/builder/layout.rs:1843`. Other owners: `lp/indexer/entity_positions.rs`,
+`state_box.rs`, `template.rs`); `StageGeometry` is in
+`lp/builder/layout.rs`. Other owners: `lp/indexer/entity_positions.rs`,
 `lp/indexer/anticipated_plants.rs`, `lp/indexer/block_row_family.rs`, the
 crate-root `block_clock.rs`, `time_value.rs` and `bucket_topology.rs`, and
 `setup/lp_build_inputs.rs`. The normative contract is novomodelo's
@@ -284,10 +286,12 @@ choice and every retry keeps it. CLP has no `use_warm_start`, rejects per-phase
 fields, and warm-starts every phase. The dynamic method neither reads nor writes
 the basis store (`training/forward/stage_solve.rs`,
 `training/backward/by_scenario.rs`); outside it captures happen whatever the
-profile, so under the HiGHS defaults a checkpoint's stored bases seed no
-training solve (the cold forward pass overwrites the slot before the backward
-pass reads it) and simulation-only uses them only with
-`simulation.solver.use_warm_start: true`.
+profile. Under the HiGHS defaults a checkpoint's stored bases seed no training
+solve on a stage chain (the cold forward pass overwrites the slot before the
+backward pass reads it); on a branching graph a warm backward pass also starts
+from them at successor nodes the first forward path did not visit
+(`resolve_backward_basis`, `training/backward/lp_setup.rs`). Simulation-only
+uses them only with `simulation.solver.use_warm_start: true`.
 The math layer says "a phase that warm-starts", never a backend name.
 → **Cut pool**: append-only with stable, deterministic slot indices; deactivation
 is a **pool boolean flag** (`active: Vec<bool>`, `CutPool::set_active`) that
@@ -329,10 +333,19 @@ Warm-start/resume still require an exact state-dimension match
 When **updating hydro production / FPHA** (`hydro-production-models.mdx`):
 
 → Computed-FPHA fit is a **3-D convex hull** of the `(volume, turbined)` cloud at
-spillage = 0 (flow axis starts at 0; **no** spillage axis; **no** synthetic
-closing point — the q=0 column anchors), capped at installed capacity, with a
-least-squares **`α` correction** and a per-plane lateral-flow secant for `γ_S`.
-Per-stage fits; run-of-river supported (`γ_V` snapped to 0). **`reference_volume`**
+spillage = 0 over `[0, turbined_fit_max_m3s]` (default `max_turbined_m3s`; flow
+axis starts at 0; **no** spillage axis; **no** synthetic closing point — the q=0
+column anchors), capped at installed capacity, with a least-squares **`α`
+correction**. Each plane's `γ_S` is the mean, over the spill = 0 grid points
+where that plane binds (within `1e-8` MW of the planes' minimum), of a
+zero-anchored least-squares slope over 101 samples of `[0, S_max]`; `S_max` is
+`spillage_fit_max_m3s`, else 2 × the mean inflow history when above 0, else
+2 × `max_turbined_m3s` (`secant.rs`). Both fit maxima are optional and must be
+finite and `> 0` (`validate_fit_maxima`, SchemaError). Planes are fit only on
+the stages that select `fpha` (`fit_computed_planes_per_stage`), so a plant may
+mix FPHA and other models across stages; on a computed plant every `fpha` entry
+is fit from geometry (`determine_source`). Run-of-river supported (`γ_V`
+snapped to 0). **`reference_volume`**
 (`volume_hm3` XOR `percentile`) is the single source of truth. A plant without
 turbine capacity (`max_turbined_m3s` ≤ `1e-9` m³/s, `Hydro::has_turbine_capacity`)
 whose FPHA source is computed, or precomputed with no hyperplane rows, resolves
@@ -418,7 +431,17 @@ frozen identity, inflow (with the inflow slack, which follows `z`) and maturing
 transit water passed downstream to its short-circuit target. **Spillage** is frozen to 0 in
 PreFilling only, free during Filling and Operating (`columns.rs`; the phase is
 `hydro_phase` in `lp/builder/hydro_state.rs`, over `filling_phase` in
-`crates/novomodelo-core/src/commissioning.rs`).
+`crates/novomodelo-core/src/commissioning.rs`). A dormant (PreFilling) plant keeps its
+initial storage at every dormant stage: its storage floor is not applied and its
+ceiling is never below its own `max_storage_hm3` (`storage_floor_relaxed`,
+`storage_ceiling`, `hydro_state.rs`).
+→ **Initial storage**: an `initial_conditions.json` seed outside the hydro's own
+`[min_storage_hm3, max_storage_hm3]` is refused at load (`semantic.5a.53`,
+InvalidValue), as is a filling hydro under `storage` or a non-filling one under
+`filling_storage` (`semantic.5a.54`); the seed is used as declared, never moved
+into stage 0's `hydro_bounds` storage bounds, which bound the end of that stage,
+and `novomodelo validate` warns when it lies outside them (`semantic.5a.55`,
+ModelQuality; `check_initial_storage_*`, `validation/semantic/hydro.rs`).
 → **Required `operational_start_date`** (ISO) on every `system/*` entity; canonical
 entity order is `(operational_start_date, id)` — rename-invariant, id-renumber
 moves LP/cut/output order (`system/builder.rs` `sort_canonical`).
@@ -461,22 +484,22 @@ When **updating inflow non-negativity** (`inflow-nonnegativity.md`,
 `running/configuration.mdx`, `reference/output/simulation.mdx`):
 
 → The methods are the strategies of Larroyd et al. (2022): the raw PAR
-realization `r` stays on the z row and in the inflow lag under every method,
+realization `a_h` stays on the z row and in the inflow lags under every method,
 never clamped (`transform_inflow_noise`,
 `crates/novomodelo-sddp/src/stochastic/noise.rs`), and the correction is the
 inflow-slack column `σ^inf`, present when `has_slack_columns`
 (`truncates() || slack_is_priced()`, `stochastic/inflow_method.rs`). With the
-truncation amount `l* = max(−r, 0)`: `none` has no column; `penalty` is
-`[0, ∞)`, priced; `truncation` is fixed at `[l*, l*]` at cost 0;
+truncation amount `a^-_h = max(0, −a_h)`: `none` has no column; `penalty` is
+`[0, ∞)`, priced; `truncation` is fixed at `[a^-, a^-]` at cost 0;
 `truncation_with_penalty`, the default (`novomodelo-io/src/config/modeling.rs`),
-is `[0, l*]`, priced at `inflow_nonnegativity_cost` × stage hours. Template bounds
+is `[0, a^-]`, priced at `inflow_nonnegativity_cost` × stage hours. Template bounds
 are `[0, 0]` (`fill_inflow_slack_columns`, `lp/builder/columns.rs`) and every
 solve patches them from its own realization, divided by `col_scale`
 (`apply_inflow_slack_col_bounds`, `noise.rs`). The slack carries exactly z's
 water-row entries, on a PreFilling plant's short-circuit target too
 (`push_local_inflow_coupling`, `lp/builder/entries.rs`). Limitation (Larroyd
 §2.5): under a PAR model with lag terms (an AR order above zero or an annual
-component) `l*` is piecewise-linear in the lags, so the cost-to-go need not be
+component) `a^-` is piecewise-linear in the lags, so the cost-to-go need not be
 convex in them and the lower bound can exceed the upper bound; the gap rule
 compares `max(UB − LB, 0)` (`convergence/stopping_rule.rs`), so it can stop with
 no optimality certificate. The paper has no noise-adjustment variable;
