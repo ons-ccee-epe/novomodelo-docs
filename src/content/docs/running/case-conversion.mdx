@@ -34,7 +34,7 @@ reads Novomodelo's simulation-output parquet files directly.)
 
 A novomodelo-bridge release `X.Y.Z` targets novomodelo `X.Y.Z`: the converted case
 follows that release's input contract. The bridge records its minimum novomodelo
-version (`0.19.0`) in the conversion manifest and uses it to decide whether the
+version (`0.19.1`) in the conversion manifest and uses it to decide whether the
 installed `novomodelo-python` can run `convert --validate`.
 The [Dependencies](#dependencies) section lists the pin that tracks that
 minimum. If the
@@ -118,7 +118,7 @@ found before the failure next to the error, in the conversion notes and in
 the `--json` `diagnostics`.
 
 For the complete flag reference for every command, see the
-[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.0/docs/cli.md).
+[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.1/docs/cli.md).
 
 ### Converting a DECOMP Deck
 
@@ -144,7 +144,7 @@ refused at read by the format check.
 To run the case under another novomodelo release, install the novomodelo-bridge release
 paired with that novomodelo release, which pins its `novomodelo-python`, and convert the
 deck again. The novomodelo-bridge DECOMP guide covers
-[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.0/docs/decomp.md#running-a-case-with-an-imported-boundary).
+[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.1/docs/decomp.md#running-a-case-with-an-imported-boundary).
 :::
 
 ### What Gets Converted
@@ -167,9 +167,9 @@ file, record, and column feeds which output field, and what transformation
 is applied -- see the bridge's own generated data maps. They are produced by
 `scripts/gen-lineage-docs.py`, verified by tests against a real conversion,
 marked "Do not edit by hand," and written in Portuguese:
-[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.0/docs/newave-data-map.md)
+[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.1/docs/newave-data-map.md)
 and
-[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.0/docs/decomp-data-map.md).
+[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.1/docs/decomp-data-map.md).
 
 ### Output Directory Structure
 
@@ -462,9 +462,19 @@ through a removed plant is rewired to the next real plant downstream.
 
 `convert decomp` converts the deck's operated hydros, with the deck's registry
 overrides applied, and its small plants as must-run non-controllable sources.
+The renewable parks of its `renovaveis` file, with their generation on the
+`PEE-GER-PER-PAT-CEN` or the `PEE-GER-PER-PAT` card, also become
+non-controllable sources. A park whose `PEE-CONFIG-PER` operating state is
+`centralizado` can be curtailed below its declared generation; a park in any
+other state is must-run, and so is a park with no state, with a warning.
+`convert decomp` writes a `non_controllable_source.curtailment_cost` of
+`0.0001` per MWh to `penalties.json`, below the bridge's other fixed
+micro-penalties, so curtailing a park is the cheapest way to absorb a surplus.
+A park declared on both generation cards, or with more than one operating
+state, stops the conversion.
 
 For the full list of conversion rules, see the novomodelo-bridge
-[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.0/docs/newave.md).
+[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.19.1/docs/newave.md).
 
 ### Study Settings
 
@@ -522,6 +532,18 @@ merged with sequential integer IDs, and per-stage right-hand-side bounds in
 constraints with a `per_hour` slack and its `RHE` stored-energy constraints with
 a `per_unit` slack.
 
+A LIBS restriction keeps its decision terms in the expression and folds its
+data terms into the bound at each stage and block: the load, the aliases, the
+available power, a `peq_<name>_<subsystem>` term (the generation of that
+subsystem's `PQ` small-plant series) and the `ger_usit` of a `dadgnl` GNL plant
+(the generation its `GL` record commands). A `peq_` term that names no `PQ`
+series drops its restriction, with a warning, and a GNL term stops the
+conversion when the restriction is active at a stage in which no `GL` week
+starts. A restriction declared only by
+`RESTRICAO-ELETRICA-INEQUACAO-PERIODO-PATAMAR` rows applies in the stages and
+blocks those rows cover, and a limit written as `1E+31` leaves that side
+unbounded.
+
 Each soft constraint's slack declares its `penalty_basis`: VminOP is
 `per_unit`, so its penalty is charged per MWh of violation, and the electric
 constraints are `per_hour`. On the DECOMP track, RHE bounds useful stored energy
@@ -532,15 +554,16 @@ the same way as VminOP, one constraint per record, and is `per_unit`; the `RE`,
 
 ## Dependencies
 
-novomodelo-bridge 0.19.0 installs its runtime dependencies with the package. Two
+novomodelo-bridge 0.19.1 installs its runtime dependencies with the package. Three
 pins matter:
 
-- `novomodelo-python==0.19.0`: the pinned version is the bridge's `MIN_NOVOMODELO_VERSION`
-  (`0.19.0`), and a packaging test keeps the pin and that constant in lockstep.
+- `novomodelo-python==0.19.1`: the pinned version is the bridge's `MIN_NOVOMODELO_VERSION`
+  (`0.19.1`), and a packaging test keeps the pin and that constant in lockstep.
 - `inewave>=1.16.2`: the NEWAVE file reader.
+- `idecomp>=1.17.1`: the DECOMP file reader.
 
-The bridge also requires polars 2, pyarrow 26 and typer 0.27.3 or newer, so
-installing it into an existing environment upgrades them.
+The bridge also requires pandas 3.1, polars 2.1, pyarrow 26 and typer 0.27.3 or
+newer, so installing it into an existing environment upgrades them.
 
 The minimum novomodelo version does not make versions interchangeable: an imported boundary
 needs an exact version match (see the caution under
