@@ -18,20 +18,41 @@ travel-time arcs, and recent observations at the start of the study.
 
 | Name                           | Type  | Required | Default | Units | Description                                                                                                                                                      |
 | ------------------------------ | ----- | -------- | ------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage`                      | array | Yes      | —       | —     | Array of `{ "hydro_id": integer, "value_hm3": number }` entries for operating hydros                                                                             |
-| `filling_storage`              | array | Yes      | —       | —     | Array of `{ "hydro_id": integer, "value_hm3": number }` entries for filling hydros                                                                               |
+| `storage`                      | array | Yes      | —       | —     | Array of `{ "hydro_id": integer, "value_hm3": number }` entries for hydros without a `filling` configuration |
+| `filling_storage`              | array | Yes      | —       | —     | Array of `{ "hydro_id": integer, "value_hm3": number }` entries for hydros with a `filling` configuration |
 | `past_defluences`              | array | No       | —       | —     | Array of windowed pre-study release records seeding the in-transit buckets of a declared travel-time arc (see below)                                             |
 | `recent_observations`          | array | No       | —       | —     | Array of observed inflow entries for mid-season study starts (see below)                                                                                         |
 | `past_anticipated_commitments` | array | No       | —       | —     | Array of windowed committed-MW records for anticipated thermals — the plant's pre-study decisions, whether they deliver in-study or past the horizon (see below) |
 
 **`storage[]` and `filling_storage[]` entry fields:**
 
-| Name                          | Type    | Required | Default | Units | Description                                                                                             |
-| ----------------------------- | ------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------- |
-| `storage[].hydro_id`          | integer | Yes      | —       | —     | Hydro plant identifier of an operating hydro; unique within `storage` and absent from `filling_storage` |
-| `storage[].value_hm3`         | number  | Yes      | —       | hm³   | Initial reservoir volume of the operating hydro; `>= 0`                                                 |
-| `filling_storage[].hydro_id`  | integer | Yes      | —       | —     | Hydro plant identifier of a filling hydro; unique within `filling_storage` and absent from `storage`    |
-| `filling_storage[].value_hm3` | number  | Yes      | —       | hm³   | Initial reservoir volume of the filling hydro; `>= 0`                                                   |
+| Name                          | Type    | Required | Default | Units | Description |
+| ----------------------------- | ------- | -------- | ------- | ----- | ----------- |
+| `storage[].hydro_id`          | integer | Yes      | —       | —     | Identifier of a hydro without a `filling` configuration; unique within `storage` and absent from `filling_storage` |
+| `storage[].value_hm3`         | number  | Yes      | —       | hm³   | Initial reservoir volume; `>= 0` and inside the hydro's `[min_storage_hm3, max_storage_hm3]` |
+| `filling_storage[].hydro_id`  | integer | Yes      | —       | —     | Identifier of a hydro with a `filling` configuration; unique within `filling_storage` and absent from `storage` |
+| `filling_storage[].value_hm3` | number  | Yes      | —       | hm³   | Initial reservoir volume; in `[0, min_storage_hm3)`, and `0` when `filling.start_stage_id` is greater than `0` |
+
+**Storage validation.** The array a hydro's entry belongs to follows from its
+`system/hydros.json` record: a hydro with a `filling` configuration listed
+under `storage`, or one without listed under `filling_storage`, is refused at
+load. A `storage` value outside the hydro's own storage range
+`[min_storage_hm3, max_storage_hm3]` is refused at load too, within a relative
+tolerance of `1e-9`, including for a hydro that enters service later in the
+study. The value is the storage at the start of the first stage and is used as
+declared: the stage `min_storage_hm3` and `max_storage_hm3` of
+[`constraints/hydro_bounds.parquet`](/reference/case-format/constraints/#constraintshydro_boundsparquet)
+bound the storage at the end of their stage, not the initial storage. When the
+value lies outside those end-of-stage bounds at the hydro's first operating
+stage, validation warns and names the stage, because that stage must reach the
+bound from its own inflow or release the excess. A hydro dormant at the start
+of the study keeps this storage at every stage before it enters service or
+starts filling ([System Element Modeling Overview](/math/system-elements#not-yet-commissioned-hydros-prefilling)).
+A hydro listed in neither array starts at its `min_storage_hm3`, or at `0` when
+it has a `filling` configuration or is out of service at the first study stage,
+and an entry whose `hydro_id` names no hydro is ignored; neither draws a
+diagnostic. The `filling_storage` rules are listed under **Validation** on
+[Hydro Plant Files](/reference/case-format/hydros/).
 
 The PAR lag chain and the mid-period accumulator are seeded from
 `scenarios/inflow_history.parquet`'s windowed record, shadowed day-wise by

@@ -215,7 +215,10 @@ section reads. Each phase wall (`Forward`/`Backward`) carries a
 **Phase wall vs. worker wait.** A large `wait` relative to its phase wall —
 `forward_wait` or `backward_wait` — signals **load imbalance** across
 workers: some workers finish their share of trial points well before others
-and sit idle waiting for the phase to close. This is exactly what the
+and sit idle waiting for the phase to close. Under MPI, `backward_wait`
+covers the workers of every rank, so it also holds the time a rank waits for
+slower peers to finish a stage's solves; `forward_wait` is rank 0's own. This
+is exactly what the
 `by_node` backward scheduler ([By-node
 scheduling](/running/performance/#by-node-scheduling)) exists to
 reduce, by shrinking the work unit from a whole trial point to a `(trial
@@ -849,8 +852,9 @@ Possible causes:
   across buses) against total thermal capacity. If load exceeds generation
   capacity in some scenarios, deficit is unavoidable.
 - **Hydro reservoir ran dry.** Check `storage_final_hm3` in
-  `simulation/hydros/`. If it hits zero in early stages, subsequent stages
-  have no hydro generation and may resort to deficit.
+  `simulation/hydros/`. If it reaches the plant's minimum storage in early
+  stages, subsequent stages have no hydro generation and may resort to
+  deficit.
 - **Very low deficit penalty.** If `deficit_segments` in `penalties.json`
   are priced below thermal generation cost, the solver will prefer deficit
   over generation. Increase the deficit cost.
@@ -873,7 +877,15 @@ Possible causes:
 - **Hydro: reservoir constraints too tight.** If `min_storage_hm3` is close
   to the initial storage level, the solver cannot turbine water without
   risking a storage violation. Review `initial_conditions.json` and storage
-  bounds in `hydros.json`.
+  bounds in `hydros.json`. The stage-level `min_storage_hm3` and
+  `max_storage_hm3` in `constraints/hydro_bounds.parquet` bound the storage at
+  the end of a stage and do not move the initial storage. When the
+  initial storage lies below the minimum in force at the end of the plant's
+  first operating stage, that stage must reach the minimum from its own
+  inflow, which leaves less water to turbine, and `novomodelo validate` reports a
+  [`ModelQuality`](/reference/error-codes/#modelquality) warning naming the
+  hydro and the stage. An initial storage outside the plant's own
+  `[min_storage_hm3, max_storage_hm3]` in `hydros.json` is refused at load.
 
 ---
 

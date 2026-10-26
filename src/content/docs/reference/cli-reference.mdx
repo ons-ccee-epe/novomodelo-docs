@@ -13,7 +13,7 @@ novomodelo [--color <WHEN>] <SUBCOMMAND> [OPTIONS]
 
 | Option           | Type                          | Default | Description                                                                                                                                                   |
 | ---------------- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Control ANSI color output on stdout and stderr. `auto` colors each stream only when it is a terminal; `always` forces color on both — useful under `mpiexec`, which pipes both streams through a non-TTY. On more than one MPI rank, rank 0 of `novomodelo run` colors both streams unless `--quiet` is given, whatever `--color` says. |
+| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Control ANSI color output on stdout and stderr. `auto` colors each stream only when it is a terminal; `always` forces color on both — useful under `mpiexec`, which pipes both streams through a non-TTY. On two or more MPI processes, rank 0 of `novomodelo run` colors both streams unless `--quiet` is given, whatever `--color` says. |
 
 ## Subcommands
 
@@ -145,7 +145,7 @@ that decomposes the total training wall time into `Forward` / `Backward` /
 Training complete in 4m 12s (42 iterations, converged at iter 38)
   Lower bound:  4.85000e4 $/stage
   Upper bound:  4.90000e4 +/- 2.50000e2 $/stage
-  Gap:          1.03093%
+  Gap:          1.03093% (started at 38.41250%)
   Policy rows:  980000 active / 1250000 generated
   LP solves:    84000 (81900 first-try, 2000 retried, 100 failed)
   Avg iter:     6000ms
@@ -154,14 +154,17 @@ Training complete in 4m 12s (42 iterations, converged at iter 38)
                 Serial   12.0s (5%)   bound 4.0s · selection 2.0s · allreduce 1.0s · sync 500ms · other 4.5s
 ```
 
-The three walls in the `Time split` block sum to the total training time
+The `Gap` line adds, in parentheses, the gap of the first iteration when its
+lower bound is positive. The three walls in the `Time split` block sum to the total training time
 (`Serial = total − Forward − Backward`, clamped at zero). For `Forward`/
 `Backward`, `solve` is the per-worker mean LP-solve wall time for that phase
 (cumulative solve time across all workers divided by parallelism, capped at
 the phase wall); `wait` is that phase's worker wait from load imbalance,
-shown as a percentage of the phase wall; the `Backward` wait covers the
-workers of every rank, so under MPI it includes the time a rank waits for its
-peers. In the `Serial` line, `bound` is
+shown as a percentage of the phase wall. The `Backward` wait is the slowest
+worker's time less the mean worker's time over the workers of every rank, so
+under MPI it includes the time a rank waits for its peers; it is the sum over
+the iterations of the `bwd_load_imbalance_ms` column of
+`training/timing/iterations.parquet`. In the `Serial` line, `bound` is
 lower-bound evaluation time and `selection` is row-selection time;
 `allreduce` (MPI forward-bound synchronization) and `sync` (per-stage
 row-sync `allgatherv`) appear **only** on MPI runs, inserted only when
@@ -215,6 +218,20 @@ A warning-free case prints nothing else. When the pipeline raises warnings, a
 `Validation: 0 errors, N warnings in <dir>` summary follows the `Valid case:`
 line (with `<dir>` exactly as passed on the command line), then one `warning:`
 line per finding, the policy load's included (`warning: <output dir>/<policy.path>: …`).
+For example, an initial storage below the minimum storage that
+`constraints/hydro_bounds.parquet` sets for the end of the hydro's first
+operating stage prints:
+
+{/* quoted from source: check_initial_storage_first_stage_bounds in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo main 43eb3db1 — a 1dtoy case whose hydro_bounds.parquet sets min_storage_hm3 200 for hydro 0 at stage 0 */}
+
+```
+Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
+Validation: 0 errors, 1 warnings in my_study
+warning: initial_conditions.json (Hydro 0): Hydro 0: initial storage (83.222) lies below the minimum storage (200) at the end of stage 0, its first operating stage; that stage must reach it from its own inflow
+```
+
+[`ModelQuality`](/reference/error-codes/#modelquality) lists the
+initial-storage warnings.
 When `config.json` configures a boundary policy and the run trains, a
 `boundary policy priced at <date>` line and a one-line reconciliation summary
 follow.

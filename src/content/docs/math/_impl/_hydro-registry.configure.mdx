@@ -433,5 +433,8 @@ file also carries.
 | Outflow bounds ordering           | Physical feasibility   | When `max_outflow_m3s` is present, it must be `>= min_outflow_m3s`. |
 | Turbine bounds ordering           | Physical feasibility   | `min_turbined_m3s` must be `<= max_turbined_m3s`. |
 | Generation bounds consistency     | Physical feasibility   | `min_generation_mw` must be `<= max_generation_mw`. |
-| Initial conditions exclusivity    | Schema error           | A hydro appears at most once in `storage`, at most once in `filling_storage`, and never in both, in `initial_conditions.json`; a hydro with no entry is not rejected at load. |
+| Initial conditions exclusivity    | Schema error           | A hydro appears at most once in `storage`, at most once in `filling_storage`, and never in both, in `initial_conditions.json`; a hydro with no entry is not rejected at load and starts at its storage floor. |
+| Initial storage array             | Semantic error         | A hydro with a `filling` block has its initial storage in `filling_storage`, one without in `storage`; an entry in the other array is rejected. |
+| Initial storage range             | Semantic error         | A `storage` value must lie in the hydro's own `[min_storage_hm3, max_storage_hm3]`, for a hydro entering service later in the study too. |
+| Initial storage at the first operating stage | Warning | A `storage` value outside the end-of-stage `min_storage_hm3`/`max_storage_hm3` of the hydro's first operating stage (from `constraints/hydro_bounds.parquet`, else the hydro's own) is accepted with a warning; the initial storage is used as declared. |
 | Evaporation array length          | Schema error           | `coefficients_mm` must have exactly 12 values; `reference_volumes_hm3`, when present, must also have exactly 12 values within `[min_storage_hm3, max_storage_hm3]`. |

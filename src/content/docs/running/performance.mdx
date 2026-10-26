@@ -154,7 +154,7 @@ configurations viable without unbounded solve-time growth.
 
 ### Observability
 
-The row management pipeline writes per-stage statistics to
+The row management pipeline writes per-pool statistics to
 [`training/cut_selection/iterations.parquet`](/reference/output/training/#trainingcut_selectioniterationsparquet),
 where each column is defined. The [knob table](#diagnosing-performance) names the
 columns that diagnose backward-time growth.
@@ -320,10 +320,11 @@ simulation the number of LPs a rank solves at the same time is its `--threads`.
 The enumerated backward pass runs on one worker thread per rank.
 
 Rank 0 writes the training outputs. The timing tables and the printed
-`Time split` show rank 0's view: the phase wall, wait, and serial values are
-rank 0's own, not an aggregate over the ranks. The printed solve counts are
-sums over all ranks, and the printed `solve` time is the mean per worker over
-all ranks.
+`Time split` show rank 0's view: the phase wall, forward wait, and serial values
+are rank 0's own, not an aggregate over the ranks. The backward wait
+(`bwd_load_imbalance_ms`) is taken over the workers of every rank. The printed
+solve counts are sums over all ranks, and the printed `solve` time is the mean
+per worker over all ranks.
 
 ### Memory and Case Access
 

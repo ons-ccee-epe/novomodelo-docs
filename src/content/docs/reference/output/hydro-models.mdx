@@ -54,7 +54,7 @@ Top-level object:
 ## `hydro_models/fpha_hyperplanes.parquet`
 
 Fitted FPHA hyperplane coefficients for every hydro whose computed fit produced
-planes in the current run; a plant with no turbine capacity (a computed-FPHA plant, or a precomputed one with no hyperplane rows) has none.
+planes in the current run, with rows only for the stages that select FPHA; a plant with no turbine capacity (a computed-FPHA plant, or a precomputed one with no hyperplane rows) has none.
 The schema is identical to the input file
 `system/fpha_hyperplanes.parquet`: 11 columns, all with the same names, types, and nullability.
 
@@ -113,7 +113,8 @@ Written only when `exports.fpha_deviation_points: true` is set in `config.json`.
 Contains one row per `(hydro, stage, V, Q)` grid point at spillage = 0, recording
 how closely the fitted FPHA plane set approximates the exact production function at
 each sample point. Opt-in because it can be large (one row per grid-point combination
-for each computed-FPHA plant and stage).
+for each FPHA stage of a computed-FPHA plant; a stage of that plant that uses another
+production model has no rows).
 
 **Methodology:** [Hydro Production Function Models](/math/hydro-production-models)
 
@@ -125,7 +126,7 @@ Eight columns:
 | `stage_id`    | Int32   | Yes      | —     | Stage. Nullable in the schema; always set in written output.                                                  |
 | `v`           | Float64 | No       | hm³   | Volume sample point (hm³)                                                                                     |
 | `q`           | Float64 | No       | m³/s  | Turbined-flow sample point (m³/s)                                                                             |
-| `fph_exact`   | Float64 | No       | MW    | Exact production function value at this (V, Q) point (MW)                                                     |
+| `fph_exact`   | Float64 | No       | MW    | Exact production function value at this (V, Q) point, capped at the plant's `max_generation_mw` (MW)         |
 | `fpha_fitted` | Float64 | No       | MW    | Fitted FPHA approximation at this (V, Q) point (MW)                                                           |
 | `deviation`   | Float64 | No       | MW    | Signed residual `fpha_fitted − fph_exact` (MW); positive = fitted cap above the exact surface                 |
 | `relative`    | Float64 | No       | —     | `\|deviation\|` relative to the grid's peak exact generation (dimensionless, ≥ 0); `0` when the grid peak ≤ 0 |

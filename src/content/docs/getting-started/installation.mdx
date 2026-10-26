@@ -46,10 +46,11 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/ons-ccee-epe/novom
 | Linux (ARM64)          | `aarch64-unknown-linux-gnu`   |
 | Windows (x86-64)       | `x86_64-pc-windows-msvc`      |
 
-The Linux archives, which the installer also downloads, need glibc 2.38 or
-newer; `ldd --version` prints your glibc version. On an older system, such as
-Ubuntu 22.04, Debian 12 or RHEL 9, install [from crates.io](#from-cratesio)
-instead, which builds against the system's own glibc.
+The Linux archives, which the installer also downloads, are built on Ubuntu
+24.04 and need glibc 2.38 or newer; `ldd --version` prints your glibc version.
+They do not run on an older system such as Ubuntu 22.04, Debian 12 or RHEL 9;
+there, install [from crates.io](#from-cratesio) instead, which builds against
+the system's own glibc.
 
 You can also download individual archives directly from the
 [GitHub Releases page](https://github.com/ons-ccee-epe/novomodelo/releases/latest).
@@ -181,9 +182,12 @@ Verify:
 
 The build sets no target features or target CPU, so on x86-64 a binary built from
 source, `cargo install` included, uses the same floating-point kernel as the
-pre-built archives of the same version and selects the same cuts. Setting
-`-C target-feature` or `-C target-cpu` through `RUSTFLAGS` can change the kernel,
-and the run can then select different, equally valid cuts.
+pre-built archives of the same version and selects the same cuts. The bundled
+HiGHS, CLP and qhull C and C++ sources compile without fused multiply-adds on
+every target, so a C compiler whose default target has FMA changes neither the
+LP solutions nor the fitted production planes. Setting `-C target-feature` or
+`-C target-cpu` through `RUSTFLAGS` can change the kernel, and the run can then
+select different, equally valid cuts.
 
 :::note[Contributors]
 To run the test suite, use `cargo test --workspace` (default HiGHS backend);

@@ -373,14 +373,18 @@ The productivity and stored-energy quantities these tags resolve to are defined 
   the payload field of its kind (`value`, `values`, `computed_spec`,
   `block_values` or `expression`); a payload field of another kind is rejected.
 - For `per_stage`: `values` pairs must have contiguous `stage_id` keys starting
-  at 0; duplicates and gaps are rejected.
+  at 0, one per study stage; duplicates, gaps and a count other than the number
+  of study stages are rejected.
 - For `seasonal`: `season_id` keys within an entry must be unique; duplicates
-  are rejected.
+  are rejected. Every season that a study stage falls in needs a value; a
+  missing one stops study setup, naming the parameter and the season.
 - For `computed`: `computed_spec` must be present with a valid `tag` and integer
   `hydro_id`. The referenced hydro must exist in `hydros.json`.
 - For `per_stage_block`: `block_values` must be present, and each
   `(stage_id, block_id)` pair within an entry must be unique; duplicates are
-  rejected.
+  rejected. The triples must cover every block of every study stage; a missing
+  cell, or one naming a stage or block the study does not have, stops study
+  setup, naming the parameter and the cell.
 - For `expression`: `expression` must be present, read only numbers and other
   scalar parameters, and hold no relational operator; a reference cycle among
   `expression` parameters is rejected. A formula whose value is not finite at

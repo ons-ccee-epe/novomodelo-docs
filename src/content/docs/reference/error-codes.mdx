@@ -318,13 +318,37 @@ field `constraints[<i>].slack.penalty` or `constraints[<i>].slack.penalty_basis`
 an enabled slack needs a positive `penalty` and a `penalty_basis`, and a
 disabled slack carries neither. The missing-basis message names the choice:
 
+{/* quoted from source: resolve_slack in crates/novomodelo-io/src/constraints/generic.rs at novomodelo main 43eb3db1 */}
+
 ```text
 slack.enabled is true but slack.penalty_basis is absent: use "per_hour" for a row in MW or m³/s, "per_unit" for a row in MWh or hm³
+```
+
+The other slack messages:
+
+```text
+slack.enabled is true but slack.penalty is absent
+slack.penalty must be > 0.0 when enabled, got {value}
+slack.penalty is set but slack.enabled is false
+slack.penalty_basis is set but slack.enabled is false
 ```
 
 A `penalty_basis` other than `per_hour` or `per_unit` is a [`ParseError`](#parseerror)
 (`unknown variant`). See
 [Generic Constraints — Penalty basis](/reference/generic-constraints/#penalty-basis).
+
+A computed FPHA's fit range in `system/hydro_production_models.json` is checked
+under this kind too: an `fpha_config.spillage_fit_max_m3s` or
+`fpha_config.turbined_fit_max_m3s` that is not a finite number above `0` is
+refused on the field
+`production_models[<i>].stage_ranges[<j>].fpha_config.<name>` (or
+`production_models[<i>].seasons[<j>].fpha_config.<name>`):
+
+{/* quoted from source: validate_fit_maxima in crates/novomodelo-io/src/extensions/production_models.rs at novomodelo main 43eb3db1 */}
+
+```text
+<name> must be finite and > 0.0, got <value> for hydro_id <id>
+```
 
 #### Configuration load rules
 
@@ -443,7 +467,7 @@ without referencing it is a cheap existence check, not an expansion.
 | --------- | --------------------------------------------------------------------------------|
 | `path`    | Always `constraints/generic_constraints.json`                                   |
 | `field`   | `constraints[i].expression` (or the referencing expression's own field)          |
-| `message` | `` `@<name>`: named-expression reference "@<name>" expands to more than 100000 coefficient operations; this indicates an exponential reference pattern (e.g. a doubling chain "@e = @prev + @prev")`` |
+| `message` | `` `@<name>`: named-expression reference "@<name>" expands to more than 100000 coefficient operations; this indicates an exponential reference pattern (e.g. a doubling chain "@e = @prev + @prev")`` when the expansion runs inside a referenced named expression, or `` `<fragment>`: expression expands to more than 100000 coefficient operations`` when it runs in the referencing expression's own text, for example `@e15 + @e15` |
 
 **Example:**
 
@@ -873,6 +897,9 @@ block in every study stage's `blocks` array.
 **See also:** a positive `min_diversion_m3s` or `max_diversion_m3s` on a hydro
 with no declared diversion channel is reported under this kind — see
 [Diversion bound without a declared channel](#diversion-bound-without-a-declared-channel).
+An initial storage outside the hydro's storage range, or listed in the wrong
+`initial_conditions.json` array, is reported under this kind too — see
+[Initial storage refused at load](#initial-storage-refused-at-load).
 
 #### Generic-constraint bounds row with neither endpoint and no affine remainder
 
@@ -929,6 +956,47 @@ field.
 the positive `min_diversion_m3s` or `max_diversion_m3s` override for that
 `(hydro, stage)` in `constraints/hydro_bounds.parquet`.
 
+#### Initial storage refused at load
+
+**When it occurs:** `initial_conditions.json` seeds a hydro's storage outside
+its range or in the array that does not match its `filling` configuration:
+
+- A `storage[].value_hm3` of a hydro without a `filling` configuration lies
+  outside that hydro's own `[min_storage_hm3, max_storage_hm3]` from
+  `system/hydros.json`, beyond a relative tolerance of `1e-9` (an absolute one
+  below 1 hm³). A hydro that enters service after the first stage is checked
+  too. The value is refused, never clamped. A hydro whose `min_storage_hm3`
+  exceeds its `max_storage_hm3` reports that [`SchemaViolation`](#schemaviolation)
+  instead.
+- A hydro with a `filling` configuration is listed under `storage`, or a hydro
+  without one is listed under `filling_storage`.
+
+The stage `min_storage_hm3` and `max_storage_hm3` of
+`constraints/hydro_bounds.parquet` bound the end of their stage, not the initial
+storage; a seed outside the bounds of the hydro's first operating stage is the
+[`ModelQuality`](#modelquality) warning, not an error.
+
+**Fields:**
+
+{/* quoted from source: check_initial_storage_range and check_initial_storage_array in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo main 43eb3db1 */}
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[InvalidValue] initial_conditions.json (Hydro <id>): Hydro <id>: initial storage (<value>) must lie in [min_storage_hm3, max_storage_hm3] = [<min>, <max>]` line for a value out of range, or `Hydro <id>: has a filling configuration, so its initial storage belongs in filling_storage, not storage` or `Hydro <id>: has no filling configuration, so its initial storage belongs in storage, not filling_storage` for the wrong array |
+
+**Example:**
+
+{/* quoted from source: check_initial_storage_range in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo main 43eb3db1 — a 1dtoy case whose hydro 0 (storage range [0, 1000]) is seeded with storage 1200 */}
+
+```text
+[InvalidValue] initial_conditions.json (Hydro 0): Hydro 0: initial storage (1200) must lie in [min_storage_hm3, max_storage_hm3] = [0, 1000]
+```
+
+**Resolution:** Set the value inside the hydro's `[min_storage_hm3,
+max_storage_hm3]`, or move the entry to `filling_storage` for a hydro with a
+`filling` configuration and to `storage` for one without. See
+[Initial Conditions](/reference/case-format/initial-conditions/).
+
 ---
 
 ### `CycleDetected`
@@ -977,7 +1045,12 @@ downstream (tailwater discharge). For the policy graph, remove the
 for each study stage in which it is active, and each missing (hydro, stage)
 pair is one error that names the hydro and the stage. A mismatch means an
 optional per-entity file provides data for some entities but not all that
-require it.
+require it. When `system/fpha_hyperplanes.parquet` holds any row, every plant
+configured with the `fpha` model that has turbine capacity needs rows of its
+own, whatever its `source`, and one without them is reported as
+`Hydro <id> is configured with FPHA model but has no FPHA hyperplanes`.
+
+{/* quoted from source: the fpha_hyperplanes check and collect_fpha_hydro_ids in crates/novomodelo-io/src/validation/dimensional.rs at novomodelo main 43eb3db1 */}
 
 **Example:**
 
@@ -1499,8 +1572,9 @@ disabled on every study stage despite supplied autoregressive coefficients, a
 negative value in `scenarios/inflow_history.parquet`, a season with no
 observations in that file, a hydro-season with at least one, but fewer than
 `estimation.min_observations_per_season`, fully covered stage occurrences in that
-file, or an advisory on a hydro's declared `travel_time_hours`. Each is reported as
-a warning.
+file, an advisory on a hydro's declared `travel_time_hours`, or an initial
+storage outside the storage bounds at the end of the hydro's first operating
+stage. Each is reported as a warning.
 
 **Example:**
 
@@ -1540,10 +1614,27 @@ the warning only when the inflow model is estimated from
 `scenarios/inflow_seasonal_stats.parquet` and `scenarios/inflow_ar_coefficients.parquet`)
 and `stages.json` declares `season_definitions`.
 
+The initial-storage messages, reported on `initial_conditions.json` for the hydro:
+
+{/* quoted from source: check_initial_storage_first_stage_bounds in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo main 43eb3db1 */}
+
+```text
+Hydro {id}: initial storage ({value}) lies below the minimum storage ({min}) at the end of stage {stage_id}, its first operating stage; that stage must reach it from its own inflow
+Hydro {id}: initial storage ({value}) lies above the maximum storage ({max}) at the end of stage {stage_id}, its first operating stage; that stage must release the excess
+```
+
+The first operating stage is the first study stage inside the hydro's
+commissioning window. Its bounds are the stage-level row (`block_id` null) of
+`constraints/hydro_bounds.parquet` for that hydro and stage, else the hydro's
+own `min_storage_hm3` and `max_storage_hm3`. A hydro with a `filling`
+configuration is not checked. The initial storage is kept as declared.
+
 **Resolution:** Review the flagged input. For a penalty-ordering warning, see
 [Load-time penalty checks](/math/penalty-system#implementation-in-novomodelo); for the
 inflow-lag warning, see
-[`stages[].state_variables` — Cut Projection](/math/cut-management/#stagesstate_variables--cut-projection).
+[`stages[].state_variables` — Cut Projection](/math/cut-management/#stagesstate_variables--cut-projection);
+for the initial-storage warning, check that the first operating stage can reach
+its storage bounds, or move the initial storage inside them.
 Warnings of this type do not prevent the solver from running.
 
 ---
@@ -1789,8 +1880,8 @@ dynamic cut selection is inadmissible under enumerated forward traversal; the en
 training.cut_selection.max_active_per_stage is inadmissible under enumerated forward traversal; enumerated traversal records no binding activity, so the cap would evict by generation order alone — remove the cap, or use sampled forward selection
 ```
 
-A cap below `training.selection.forward_passes` is accepted with a warning, which `novomodelo validate` prints after
-the `Valid case` line:
+A cap below `training.selection.forward_passes` is accepted with a warning, which `novomodelo validate` and
+`novomodelo run` log on stderr as a `WARN` line, apart from the report on stdout:
 
 ```text
 WARN max_active_per_stage (1) is less than forward_passes (4): in a stage whose row pool receives 4 rows per iteration, the cap evicts at every iteration every row this run added in an earlier iteration; rows loaded from a policy are not affected
@@ -1980,6 +2071,17 @@ model preparation. File label: `system/hydro_production_models.json`.
 system/hydro_production_models.json: configuration validation error: hydro UHE1 (id=0) has generation_model: "fpha" in hydros.json but no entry in hydro_production_models.json. Add an entry with source: "precomputed" to specify the hyperplane source.
 ```
 
+On a plant with a `source: "computed"` entry, every study stage that resolves to
+the `fpha` model needs an entry with an `fpha_config`. A stage that no entry
+covers, on a plant whose `generation.model` is `fpha`, or a season that falls
+back to a `default_model` of `"fpha"`, is refused with:
+
+{/* quoted from source: fit_computed_planes_per_stage in crates/novomodelo-sddp/src/production/hydro_models/production.rs at novomodelo main 43eb3db1 */}
+
+```text
+system/hydro_production_models.json: configuration validation error: hydro <name> (id=<id>) has source: "computed" but no FphaColumnLayout covers stage <stage_id> in hydro_production_models.json
+```
+
 ---
 
 ### `GenericConstraintValidationError`
@@ -1995,6 +2097,23 @@ declared in `constraints/generic_parameters.json` that has no value for a
 season, stage or block the study needs — fails here at `novomodelo validate` time.
 An `@name` that no file declares is reported at load time; see
 [Generic-constraint expression rejected](#generic-constraint-expression-rejected).
+The parameter is refused with one of:
+
+{/* quoted from source: ResolvedParametersError and PerStageBlockCoverageIssue in crates/novomodelo-sddp/src/policy/resolved_parameters.rs at novomodelo main 43eb3db1 */}
+
+```text
+parameter '<name>': no seasonal value for season_id=<season> (needed by stage <t>)
+parameter '<name>': PerStageBlock cell (stage=<s>, block=<b>) is not covered by any triple
+parameter '<name>': PerStageBlock cell (stage=<s>, block=<b>) lies outside the study's (stage, block) grid
+parameter '<name>': no specific productivity (`ρ_esp`) available for hydro_id=EntityId(<id>)
+```
+
+`<t>` and `<s>` are 0-based study stage positions and `<b>` a 0-based block
+index. A `seasonal` parameter needs a value for the season of every study
+stage, and a `per_stage_block` parameter a value for every block of every study
+stage. A `computed` parameter with the `specific_productivity` tag needs a
+`specific_productivity_mw_per_m3s_per_m` for its hydro at every study stage,
+from `system/hydro_energy_productivity.parquet` or from `system/hydros.json`.
 
 A **non-finite resolved value** fails here too. A coefficient, a bound or an
 `expression` parameter that depends on scalar parameters is evaluated at every
@@ -2151,7 +2270,8 @@ describes both routes.
 
 **When it occurs:** A full-FCF load finds a checkpoint pool that records no
 cost scale or one that is not a finite positive number, or a checkpoint that
-describes a different state space or study graph than the current study. The cost-scale check is step 2 of the
+describes a different state space or study graph than the current study. The
+cost-scale check is step 2 of the
 [check order](/running/policy-management/#check-order) and the state and graph
 checks are step 4. The entity-identity and graph checks run only when both sides
 carry the manifest.
@@ -2160,12 +2280,14 @@ carry the manifest.
 
 Cost scale (step 2):
 
-{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:146-162 at novomodelo v0.19.0 */}
+{/* quoted from source: pool_cost_scale_factor in crates/novomodelo-sddp/src/policy/policy_load.rs at novomodelo main 43eb3db1 */}
 
 ```text
 policy checkpoint predates self-describing cuts (its cuts/<pool>.bin for pool {pool} carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 policy checkpoint pool {pool} records cost_scale_factor {factor}, which is not a finite positive number; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
 ```
+
+`{pool}` is the pool's stage id, and the first pool that fails is reported.
 
 State and graph (step 4):
 
@@ -2188,7 +2310,7 @@ A boundary load refuses a resolved pool without a `cost_scale_factor` with its
 own message, and one whose factor is not a finite positive number with the
 `records cost_scale_factor` message above:
 
-{/* quoted from source: crates/novomodelo-sddp/src/policy/policy_load.rs:832-841 and 1287-1290 at novomodelo v0.19.0 */}
+{/* quoted from source: boundary_predates_self_describing_cuts and load_boundary_cuts in crates/novomodelo-sddp/src/policy/policy_load.rs at novomodelo main 43eb3db1 */}
 
 ```text
 boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
@@ -2390,7 +2512,7 @@ A panic, an internal fault, prints its message on stderr and exits `101`. On two
 
 ### Solver failures
 
-A failure inside a training iteration ends training and exits with the code of its error: `3` for an LP or solver failure, `4` for a communication failure, `1` for a refusal. A run without `--quiet` first prints `Training failed after {n} iterations. Partial outputs written to {dir}; the partial policy is in {policy}.`, where `{policy}` is the policy directory with `.partial` appended. The run also logs `ERROR training failed after {n} iterations: {error}` on stderr, with `--quiet` as well. Under MPI, a process that fails first can abort the job before the root process prints these lines. The same LP failures in simulation exit `3`; see [Simulation failures](#simulation-failures).
+A failure inside a training iteration ends training and exits with the code of its error: `3` for an LP or solver failure, `4` for a communication failure, `1` for a refusal. A run without `--quiet` first prints `Training failed after {n} iterations. Partial outputs written to {dir}; the partial policy is in {policy}.` on stderr, where `{policy}` is the policy directory with `.partial` appended: a failed run writes its partial policy beside `policy.path` and never replaces a checkpoint at `policy.path`. The run also logs `ERROR training failed after {n} iterations: {error}` on stderr, with `--quiet` as well. Under MPI, a process that fails first can abort the job before the root process prints these lines. The same LP failures in simulation exit `3`; see [Simulation failures](#simulation-failures).
 
 {/* quoted from source: crates/novomodelo-cli/src/commands/run/mod.rs:306-323, crates/novomodelo-sddp/src/policy/orchestration.rs:464-472, crates/novomodelo-cli/src/commands/run/training.rs:70-75, crates/novomodelo-cli/src/commands/run/simulation.rs:54-61, crates/novomodelo-cli/src/error.rs:279-286, crates/novomodelo-sddp/src/error.rs:28-32 and 46-61, crates/novomodelo-sddp/src/solve/stage_solve.rs:208-222, crates/novomodelo-sddp/src/training/backward_pass_state.rs:608-631 and crates/novomodelo-solver/src/types.rs:470-512 at novomodelo v0.19.0 */}
 

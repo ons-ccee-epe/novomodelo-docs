@@ -699,10 +699,10 @@ no other: a field that belongs to another kind (for example `values` on a
 | `kind`            | Value semantics                                                                                                                                                                                                               |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `constant`        | One value for every stage                                                                                                                                                                                                     |
-| `per_stage`       | Explicit value per stage; `stage_id`s must be a contiguous range from `0`                                                                                                                                                     |
-| `seasonal`        | One value per season; stages inherit their season's value; `season_id`s must be unique                                                                                                                                        |
+| `per_stage`       | Explicit value per study stage; `stage_id`s must be a contiguous range from `0`, one per study stage                                                                                                                         |
+| `seasonal`        | One value per season; stages inherit their season's value; `season_id`s must be unique, and every season a study stage falls in needs a value                                                                                 |
 | `computed`        | Derived from hydro geometry/operational data at LP-build time — one of thirteen hydro-derived tags (e.g. `equivalent_productivity`); see [Constraint Files](/reference/case-format/constraints/#constraintsgeneric_parametersjson) |
-| `per_stage_block` | Explicit value per `(stage_id, block_id)` pair; each pair unique                                                                                                                                                              |
+| `per_stage_block` | Explicit value per `(stage_id, block_id)` pair; each pair unique, and every block of every study stage covered                                                                                                                |
 | `expression`      | A formula over other parameters of the file, evaluated per stage, and per block when a parameter it reads varies by block                                                                                                    |
 
 For editor validation with the vendored
@@ -860,10 +860,14 @@ This is the fully **desugared** form: every named-expression reference is
 already inlined into flat terms, every inline relational RHS has already
 normalized into the `bound_lower`/`bound_upper` pair, and every `@name`
 coefficient or bound has already resolved to its numeric value at that
-`(stage, block)`. It is exactly what the solver saw, apart from the terms that
-add no coefficient (see the note under the [variable catalog](#variable-catalog))
-and a term with an out-of-range block
-([block references](#hydro_evaporation-block-references)) — the tool for
+`(stage, block)`. It is the term list the LP row is built from: each
+`coefficient` is the term's own, before the LP maps the term onto its columns
+(a `hydro_generation` term of a constant-productivity plant lands on its
+turbined columns times the productivity) and sums the terms that land on one
+column ([Inline relational RHS](#inline-relational-rhs)). The echo also lists
+the terms that add no coefficient (see the note under the
+[variable catalog](#variable-catalog)) and a term with an out-of-range block
+([block references](#hydro_evaporation-block-references)). It is the tool for
 auditing an authored expression against the LP that was actually built.
 
 ---
@@ -979,8 +983,8 @@ either side, and a `per_unit` penalty is a price per MWh:
 ```
 
 with the expression `@rho_int_mwh * hydro_useful_volume_final(0) >= 0.3 * @emax_mwh`.
-Use one family throughout a constraint: a constraint that mixes raw and MWh
-stored-energy tags raises the same warning.
+Use one family throughout a constraint: a constraint that mixes raw-unit and
+MWh tags, among the stored-energy and productivity tags, raises the same warning.
 
 ---
 
@@ -1020,7 +1024,7 @@ brackets, as in `error: [SchemaViolation] …`.
 | An evaporation or storage reference naming a block that its stage does not have ([block references](#hydro_evaporation-block-references)) | [`BusinessRuleViolation`](/reference/error-codes/#per-block-generic-constraint-references) |
 | The same bound column (`bound_lower` or `bound_upper`) set twice for one `(constraint_id, stage_id, block_id)` — a `bound_lower` row and a `bound_upper` row for the same triple are distinct keys and legal | [`DuplicateId`](/reference/error-codes/#duplicateid) |
 | A `contract_import` or `contract_export` term naming no declared contract | [`UnusedEntity`](/reference/error-codes/#unusedentity) — warning, the case still validates |
-| A `max_stored_energy(h)` or `max_stored_energy_mwh(h)` tag beside a productivity tag of the same unit for the same hydro other than its matching one (`integrated_accumulated_productivity`, or `integrated_accumulated_productivity_mwh_per_hm3` for the MWh tag), or raw and MWh stored-energy tags in one constraint, read directly or through `expression` parameters | [`SemanticAmbiguity`](/reference/error-codes/#semanticambiguity) — warning, the case still validates |
+| A `max_stored_energy(h)` or `max_stored_energy_mwh(h)` tag beside a productivity tag of the same unit for the same hydro other than its matching one (`integrated_accumulated_productivity`, or `integrated_accumulated_productivity_mwh_per_hm3` for the MWh tag), or raw-unit and MWh tags, among the stored-energy and productivity tags, in one constraint, read directly or through `expression` parameters | [`SemanticAmbiguity`](/reference/error-codes/#semanticambiguity) — warning, the case still validates |
 
 ---
 
