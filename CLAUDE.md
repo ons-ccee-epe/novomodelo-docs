@@ -30,9 +30,7 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.19.0 (2026-10-20)**, plus unreleased novomodelo
-`main` at `43eb3db1` (2026-10-26). The vendored artifacts and captures stay at
-v0.19.0 until the next tag, whose flip refreshes them.
+**Synced to: novomodelo v0.19.1 (2026-10-26).**
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -180,7 +178,7 @@ partial filenames so the render split holds.
 ## Quality Gates
 
 ```bash
-# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.19.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
+# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.19.1/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:python-api \
@@ -192,7 +190,7 @@ npm run check:figures && npm run check:voice && npm run check:counts \
 
 - **d2 v0.7.1** on `PATH`: without it `npm run build` and `npm run dev` abort with
   "Could not find D2".
-- **novomodelo v0.19.0** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
+- **novomodelo v0.19.1** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
   The gate exits 2 when the binary is missing, lies under a cargo
   `target/release/` or `target/debug/` directory, or reports a version other
   than `DEFAULT_NOVOMODELO_REF` in `scripts/novomodelo-ref.mjs`.
