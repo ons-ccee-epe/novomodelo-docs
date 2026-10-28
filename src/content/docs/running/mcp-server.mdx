@@ -167,7 +167,7 @@ By stage of a study:
   `bridge_compare_*` compares a converted case's results with the source tool's
   published results, and `bridge_dashboard` writes an HTML dashboard of a case.
 - **Reference.** `schema_list` and `schema_get` return the JSON Schemas of the input
-  files (also available as the resource `novomodelo://schema/{type}`);
+  files (also available as the resource `novomodelo://schema/{tipo}`);
   `schema_export` writes them to a folder. `docs_list`, `docs_search` and
   `docs_read` read the bundled documentation (see
   [Documentation and changelogs](#documentation-and-changelogs)).
@@ -185,7 +185,8 @@ Responses that carry rows or lists are capped in size; a capped response says so
 ### Workspace
 
 The case, deck and result tools take paths chosen by the agent.
-`NOVOMODELO_MCP_WORKSPACE` holds the allowed root folders, separated by `:`, and
+`NOVOMODELO_MCP_WORKSPACE` holds the allowed root folders, separated by the system
+path separator (`:` on macOS and Linux, `;` on Windows), and
 `configurar --workspace` writes it into the client entry. With it set, the server
 refuses any path outside those roots, after resolving symbolic links and `..`.
 Without it, the server runs unrestricted, and `server_info` reports
@@ -220,11 +221,13 @@ Three forms of call override a safety check, and each needs
 
 ### Network
 
-The server uses the network only to check for newer releases (`server_info`, at
-most once every six hours, with a timeout of a few seconds) and to install the
-executable (`instalar_novomodelo`), and only to these destinations:
+The server uses the network only to check for newer releases of Novomodelo,
+novomodelo-bridge and the server itself (`server_info`, at most once every six hours,
+with a timeout of a few seconds) and to install the executable
+(`instalar_novomodelo`), and only to these destinations:
 `github.com/ons-ccee-epe/*`, `api.github.com/repos/ons-ccee-epe/*`,
-`pypi.org/pypi/novomodelo-bridge/*` and, as a download destination,
+`pypi.org/pypi/novomodelo-bridge/*`, `pypi.org/pypi/novomodelo-mcp/*` and, as a
+download destination,
 `release-assets.githubusercontent.com`. HTTPS uses the system certificate store,
 so the requests pass a corporate proxy that re-signs certificates. Without a
 network, the tools still answer, and `server_info` says the check could not be made
@@ -252,15 +255,20 @@ the person and to offer to run the commands, with the person's consent.
   release installer of that version; for the others,
   `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`.
 - A component **newer** than the server has two ways out, because without a network
-  the server cannot tell whether a server of that version exists: upgrade the server
-  (`uv tool upgrade novomodelo-mcp`) or bring the component back to the server's
-  version. The warning includes the component's changes from its release notes.
+  the server cannot tell whether a server of that version exists: install the server
+  of the component's version, if it is released
+  (`uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`), or bring the
+  component back to the server's version. The warning includes the component's changes from its release notes.
 
-`server_info` also reports in `versao_nova` whether a newer novomodelo or
-novomodelo-bridge release exists, with the "Changed" and "Fixed" sections of its
-release notes (breaking changes first, capped in length) and a link to the notes.
-It gives no install command, since the server of that version may not be released
-yet.
+`server_info` also reports in `versao_nova` whether a newer release of novomodelo,
+novomodelo-bridge or the server exists. For novomodelo and novomodelo-bridge it gives
+the "Changed" and "Fixed" sections of the release notes (breaking changes first,
+capped in length), a link to the notes, and no command of their own: installing one
+component alone would put it out of step with the others, so the note says to
+install the server of that version once it is released, which brings every component
+along. For a newer server it gives the install command,
+`uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`, and the link to
+the release notes.
 
 ---
 
@@ -307,7 +315,7 @@ go in the `env` of the client entry.
 
 | Variable                           | Default                          | Purpose                                                                                                      |
 | ---------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `NOVOMODELO_MCP_WORKSPACE`         | unset (unrestricted)             | allowed root folders, separated by `:`                                                                       |
+| `NOVOMODELO_MCP_WORKSPACE`         | unset (unrestricted)             | allowed root folders, separated by `:` (`;` on Windows)                                                      |
 | `NOVOMODELO_MCP_ALLOW_FORCE`       | `0`                              | `1` enables the [forced writes](#forced-writes)                                                              |
 | `NOVOMODELO_MCP_SOLVER_BIN`        | `novomodelo` on `PATH`           | path of the `novomodelo` executable                                                                          |
 | `NOVOMODELO_MCP_BRIDGE_BIN`        | the package's, then `PATH`       | another `novomodelo-bridge` executable; takes precedence over the package's                                   |
