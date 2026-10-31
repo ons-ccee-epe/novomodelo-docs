@@ -4,10 +4,12 @@ description: Install and configure novomodelo-mcp, the local MCP server that let
 ---
 
 **novomodelo-mcp** is a local [Model Context Protocol](https://modelcontextprotocol.io)
-(MCP) server for Novomodelo. Through it, an AI agent in an MCP client (Claude Code,
-Claude Desktop or Kiro) validates, converts, compares, runs and reads the results of
-cases with a fixed set of tools, and answers methodology questions from the pages of
-this site.
+(MCP) server for Novomodelo. Through it, an AI agent in an MCP client that runs local
+servers validates, converts, compares, runs and reads the results of cases with a
+fixed set of tools, and answers methodology questions from the pages of this site.
+Depending on the client, it works in a terminal (such as Claude Code or Codex), in a
+desktop application (such as Claude Desktop) or in an IDE (such as Kiro, or GitHub
+Copilot in VS Code).
 
 The server is a thin facade over the programs Novomodelo already ships: each tool
 wraps one subcommand of the `novomodelo` CLI or of
@@ -17,8 +19,10 @@ carries no conversion, validation, comparison or solving logic of its own, so a
 tool's answer is the answer of the program it wraps.
 
 The server speaks MCP over stdio: the client starts it as a subprocess, and it opens
-no network port. Its messages and response fields are in Portuguese; the bundled
-documentation is this site, in English.
+no network port. Its messages and response fields are in Portuguese, and the bundled
+documentation is this site, in English. The language model in the client translates
+both ways, so a person can ask in their own language and read the answer in it: the
+server opens Novomodelo to people who do not read the documentation in English.
 
 ---
 
@@ -33,17 +37,9 @@ documentation is this site, in English.
 
 The server runs on Windows, macOS and Linux, including containers.
 
-On Linux, check two things before installing the `novomodelo` executable:
-
-- **glibc.** The pre-built Linux archives need the glibc version stated on
-  [Installation](/getting-started/installation/#supported-platforms);
-  `ldd --version` prints yours. On an older system, such as Debian 12 or
-  Ubuntu 22.04, the server installs but the pre-built executable does not run;
-  install the executable [from crates.io](/getting-started/installation/#from-cratesio)
-  instead, which builds against the system's own glibc. The server finds it in
-  `~/.cargo/bin`.
-- **xz.** The executable's installer needs `xz` (`xz --version`); install the
-  `xz-utils` or `xz` package if it is missing.
+On Linux, the pre-built `novomodelo` executable needs a recent glibc and its
+installer needs `xz`; [Installation](/getting-started/installation/#supported-platforms)
+gives the versions and the crates.io install for older systems.
 
 ### One version for every component
 
@@ -118,6 +114,16 @@ documentation comes from.
 
 The client prefixes each tool with the server name, as in
 `mcp__novomodelo__case_validate`.
+
+`configurar` writes the entry for Claude Code, Claude Desktop and Kiro. Any other client
+that runs local MCP servers takes the same entry by hand, as its own documentation
+describes: the command is the absolute path of the `novomodelo-mcp` executable (the one
+`configurar --mostrar` prints), with no arguments, and `NOVOMODELO_MCP_WORKSPACE` in
+its environment.
+
+Run on its own in a terminal, `novomodelo-mcp` starts the server and waits for a client
+on standard input, so it shows nothing; the client starts it, and a person does not
+need to.
 
 ---
 
@@ -352,7 +358,7 @@ The default state folder is `%LOCALAPPDATA%\novomodelo-mcp` on Windows,
 
 ---
 
-## See Also
+## See also
 
 - **Converting a case:** [Case Conversion (novomodelo-bridge)](/running/case-conversion/) — the program behind the `bridge_*` tools
 - **Running studies:** [Running Studies](/running/running-studies/) — the workflow the run tools drive
