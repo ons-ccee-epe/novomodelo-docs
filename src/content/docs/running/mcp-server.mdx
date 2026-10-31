@@ -55,16 +55,19 @@ version too: the solver loads only a policy written by the same version.
 ## Installation
 
 ```bash
-uv tool install --compile-bytecode novomodelo-mcp
+uv tool install --compile-bytecode novomodelo-mcp    # isolated, on-PATH CLI (recommended)
+pipx install novomodelo-mcp                          # alternative
+pip install novomodelo-mcp                           # into the current environment
 ```
 
-The command puts the `novomodelo-mcp` executable on your `PATH`, with
-novomodelo-bridge and novomodelo-python in the same isolated environment. On a
+The first two put the `novomodelo-mcp` executable on your `PATH`, with
+novomodelo-bridge and novomodelo-python in an environment of its own; `pip` installs
+the three into the active Python environment. On a
 corporate network whose proxy re-signs certificates, `uv` may fail to reach PyPI
 with `UnknownIssuer`; add `--system-certs` (or set `UV_SYSTEM_CERTS=1`) so `uv`
 uses the system certificates.
 
-To upgrade, run `uv tool upgrade novomodelo-mcp`.
+To upgrade, run `uv tool upgrade novomodelo-mcp` (or `pipx upgrade novomodelo-mcp`, or `pip install --upgrade novomodelo-mcp`).
 
 ### Installing with an AI agent
 
@@ -89,7 +92,7 @@ Steps:
    - For Claude Code, Claude Desktop or Kiro, build the command with one --workspace per folder and run it first only to show what would be written:
      novomodelo-mcp configurar --cliente <claude-code, claude-desktop or kiro> --workspace "<folder 1>" --workspace "<folder 2>" --mostrar
      Show me the result. After I approve, run the same command without --mostrar. If you are Claude Code yourself, do not run it: Claude Code rewrites ~/.claude.json while it is open. Give me the command with ! in front, for me to paste here, and then ask me to quit Claude Code and open it again.
-   - For any other client, find in its documentation where it keeps its MCP servers and add an entry named novomodelo: the command is the absolute path of the novomodelo-mcp executable (`uv tool dir --bin` prints its folder), with no arguments, and NOVOMODELO_MCP_WORKSPACE holds my folders, separated by : on macOS and Linux and by ; on Windows. Show me the change before writing it.
+   - For any other client, find in its documentation where it keeps its MCP servers and add an entry named novomodelo: the command is the absolute path of the novomodelo-mcp executable (`which novomodelo-mcp` on macOS and Linux, `where.exe novomodelo-mcp` on Windows), with no arguments, and NOVOMODELO_MCP_WORKSPACE holds my folders, separated by : on macOS and Linux and by ; on Windows. Show me the change before writing it.
 5. Ask me to quit the client, open it again and, in a new conversation, ask "run server_info". If the novomodelo server does not show up, go back to step 4.
 6. If server_info says the novomodelo executable is missing, tell me to ask, in the same conversation: "install the novomodelo executable".
 ```
@@ -114,8 +117,8 @@ depend on the client and are described in its documentation:
 }
 ```
 
-`command` is the absolute path of the `novomodelo-mcp` executable that `uv tool install`
-placed; `uv tool dir --bin` prints its folder. `NOVOMODELO_MCP_WORKSPACE` holds the
+`command` is the absolute path of the `novomodelo-mcp` executable: `which novomodelo-mcp`
+on macOS and Linux, or `where.exe novomodelo-mcp` on Windows, prints it. `NOVOMODELO_MCP_WORKSPACE` holds the
 folders the server may read and write (see [Workspace](#workspace)). The agent in the
 client can also be asked to add the entry.
 
