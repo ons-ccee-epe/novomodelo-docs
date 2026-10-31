@@ -21,8 +21,8 @@ tool's answer is the answer of the program it wraps.
 The server speaks MCP over stdio: the client starts it as a subprocess, and it opens
 no network port. Its messages and response fields are in Portuguese, and the bundled
 documentation is this site, in English. The language model in the client translates
-both ways, so a person can ask in their own language and read the answer in it: the
-server opens Novomodelo to people who do not read the documentation in English.
+both ways, so a person can ask in their own language and read the answer in it, which
+makes Novomodelo easier to use.
 
 ---
 
@@ -70,8 +70,36 @@ To upgrade, run `uv tool upgrade novomodelo-mcp`.
 
 ## Configuring a client
 
-`novomodelo-mcp configurar` writes the server entry into an MCP client's
-configuration file:
+Every MCP client starts the server from one entry in its configuration. The entry is
+the same in every client; the file that holds it, and the key that lists the servers,
+depend on the client and are described in its documentation:
+
+```json
+{
+  "mcpServers": {
+    "novomodelo": {
+      "command": "/absolute/path/to/novomodelo-mcp",
+      "args": [],
+      "env": { "NOVOMODELO_MCP_WORKSPACE": "/path/to/your/studies" }
+    }
+  }
+}
+```
+
+`command` is the absolute path of the `novomodelo-mcp` executable that `uv tool install`
+placed; `uv tool dir --bin` prints its folder. `NOVOMODELO_MCP_WORKSPACE` holds the
+folders the server may read and write (see [Workspace](#workspace)). The agent in the
+client can also be asked to add the entry.
+
+Run on its own in a terminal, `novomodelo-mcp` starts the server and waits for a client
+on standard input, so it shows nothing; the client starts it, and a person does not
+need to.
+
+### Writing the entry with `configurar`
+
+For Claude Code, Claude Desktop and Kiro, `novomodelo-mcp configurar` writes the entry,
+and the list of read-only tools where the client has one. With Claude Code as the
+example:
 
 ```bash
 novomodelo-mcp configurar --cliente claude-code --workspace ~/studies --mostrar  # print the change only
@@ -90,9 +118,7 @@ The workspace has no default. Without `--workspace` or `--irrestrito`, the comma
 asks for the studies folder when it runs in a terminal; with no terminal it exits
 with code 2 and writes nothing.
 
-The entry is named `novomodelo`. It holds the absolute path of the `novomodelo-mcp`
-executable of the installed package and, when given, the workspace in
-`NOVOMODELO_MCP_WORKSPACE`. The command changes only that entry (and, where the
+The entry is named `novomodelo`. The command changes only that entry (and, where the
 client has one, the list of read-only tools it runs without asking) and keeps the
 rest of the file. An existing `novomodelo` entry is replaced whole. Before writing,
 the command saves a backup next to the file as `<file>.bak-YYYYMMDD-HHMMSS`; running
@@ -106,24 +132,16 @@ client is installed.
 | Claude Desktop | macOS `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows `%APPDATA%\Claude\claude_desktop_config.json`; Linux `~/.config/Claude/claude_desktop_config.json` | no list: choose "always allow" on a tool's first call                                               | prints the line, to paste into the preferences |
 | Kiro           | `~/.kiro/settings/mcp.json` (a workspace's `.kiro/settings/mcp.json` takes precedence)                                                                                      | Kiro asks for approval and ignores an `autoApprove` list in the server entry                         | `~/.kiro/steering/novomodelo.md` |
 
-Close Claude Code before writing its entry: it rewrites `~/.claude.json` while it is
-open. After writing, quit the client completely and start it again. To check the
-setup, ask the agent to call the `server_info` tool: it reports the server version,
-the executables it found, the version of each component, the workspace and where the
-documentation comes from.
+Claude Code rewrites `~/.claude.json` while it is open: close it before `configurar`
+writes its entry.
 
-The client prefixes each tool with the server name, as in
+### Checking the setup
+
+After adding the entry, quit the client completely and start it again. Then ask the
+agent to call the `server_info` tool: it reports the server version, the executables
+it found, the version of each component, the workspace and where the documentation
+comes from. The client prefixes each tool with the server name, as in
 `mcp__novomodelo__case_validate`.
-
-`configurar` writes the entry for Claude Code, Claude Desktop and Kiro. Any other client
-that runs local MCP servers takes the same entry by hand, as its own documentation
-describes: the command is the absolute path of the `novomodelo-mcp` executable (the one
-`configurar --mostrar` prints), with no arguments, and `NOVOMODELO_MCP_WORKSPACE` in
-its environment.
-
-Run on its own in a terminal, `novomodelo-mcp` starts the server and waits for a client
-on standard input, so it shows nothing; the client starts it, and a person does not
-need to.
 
 ---
 
