@@ -38,7 +38,10 @@ On Linux, check two things before installing the `novomodelo` executable:
 - **glibc.** The pre-built Linux archives need the glibc version stated on
   [Installation](/getting-started/installation/#supported-platforms);
   `ldd --version` prints yours. On an older system, such as Debian 12 or
-  Ubuntu 22.04, the server installs but the pre-built executable does not run.
+  Ubuntu 22.04, the server installs but the pre-built executable does not run;
+  install the executable [from crates.io](/getting-started/installation/#from-cratesio)
+  instead, which builds against the system's own glibc. The server finds it in
+  `~/.cargo/bin`.
 - **xz.** The executable's installer needs `xz` (`xz --version`); install the
   `xz-utils` or `xz` package if it is missing.
 
@@ -234,11 +237,23 @@ network, the tools still answer, and `server_info` says the check could not be m
 and where to look. The documentation and the schemas are bundled and need no
 network.
 
+The release check and the installer read the GitHub API without a token, and GitHub
+allows a limited number of such requests per hour from one IP address. On a network
+where many people share one address, a call can be refused for a while: the tools
+still answer, `instalar_novomodelo` reports `não foi possível consultar o release
+oficial` with the manual command, and a later call works again.
+
 `instalar_novomodelo` installs the official executable of the expected version with
 the release installer, after checking its SHA-256. Without `confirmar=True` it only
 shows the plan: the URL, the hash, the destination folder and the manual command. On
 Windows, the official `.ps1` installer does not check the hash of the archive it
 downloads.
+
+The official installer also adds the executable's folder to the `PATH`: on Linux and
+macOS it edits the shell profile (such as `.bashrc` or `.profile`), and on Windows the
+user's `PATH`. The plan reports this in `altera_path`. To leave the profile untouched,
+set `NOVOMODELO_CLI_NO_MODIFY_PATH=1` in the `env` of the client entry; the server
+still finds the executable in `~/.cargo/bin`, the installer's default folder.
 
 ---
 
@@ -342,3 +357,4 @@ The default state folder is `%LOCALAPPDATA%\novomodelo-mcp` on Windows,
 - **Converting a case:** [Case Conversion (novomodelo-bridge)](/running/case-conversion/) — the program behind the `bridge_*` tools
 - **Running studies:** [Running Studies](/running/running-studies/) — the workflow the run tools drive
 - **Installing the executable:** [Installation](/getting-started/installation/)
+- **Source code, issues and release notes:** [ons-ccee-epe/novomodelo-mcp](https://github.com/ons-ccee-epe/novomodelo-mcp)
