@@ -66,6 +66,34 @@ uses the system certificates.
 
 To upgrade, run `uv tool upgrade novomodelo-mcp`.
 
+### Installing with an AI agent
+
+The agent in the client can install and configure the server for the person. Paste
+this request into the agent:
+
+```text
+I want to install the Novomodelo MCP server (the novomodelo-mcp package, on PyPI) on this machine. Follow the steps below, in order.
+
+How to work:
+- Answer in the language I usually use with you. If you are not sure which one I prefer, ask me first.
+- If you can run commands on this machine, run them yourself, but show each command first and wait for my approval.
+- If you cannot, guide me step by step: one command at a time, waiting for me to paste the output before going on.
+- If a step fails, stop and explain the error before trying anything else.
+
+Steps:
+1. Find out the operating system: Windows, macOS or Linux. On Windows, use PowerShell.
+   On Linux, also run `ldd --version` and `xz --version`. If glibc is older than the version the Novomodelo installation page asks for (https://docs.modelossetoreletrico.org.br/getting-started/installation/), tell me that the MCP server installs but the pre-built novomodelo executable does not run, and point me to that page. If xz is missing, tell me to install the xz-utils or xz package.
+2. Check whether uv is installed (`uv --version`). If it is missing, install it with the official installer (https://docs.astral.sh/uv/getting-started/installation/) and reload the terminal.
+3. Install the server: `uv tool install --compile-bytecode novomodelo-mcp`. If uv cannot reach PyPI and reports UnknownIssuer (a corporate proxy that re-signs certificates), run it again with `--system-certs`. If novomodelo-mcp is not found afterwards, reload the terminal.
+4. Ask me which MCP client I use, and which folders the server may read and write: where my studies, decks and cases are. There can be several. Do not suggest or choose folders for me: wait for my paths and check that they exist.
+   - For Claude Code, Claude Desktop or Kiro, build the command with one --workspace per folder and run it first only to show what would be written:
+     novomodelo-mcp configurar --cliente <claude-code, claude-desktop or kiro> --workspace "<folder 1>" --workspace "<folder 2>" --mostrar
+     Show me the result. After I approve, run the same command without --mostrar. If you are Claude Code yourself, do not run it: Claude Code rewrites ~/.claude.json while it is open. Give me the command with ! in front, for me to paste here, and then ask me to quit Claude Code and open it again.
+   - For any other client, find in its documentation where it keeps its MCP servers and add an entry named novomodelo: the command is the absolute path of the novomodelo-mcp executable (`uv tool dir --bin` prints its folder), with no arguments, and NOVOMODELO_MCP_WORKSPACE holds my folders, separated by : on macOS and Linux and by ; on Windows. Show me the change before writing it.
+5. Ask me to quit the client, open it again and, in a new conversation, ask "run server_info". If the novomodelo server does not show up, go back to step 4.
+6. If server_info says the novomodelo executable is missing, tell me to ask, in the same conversation: "install the novomodelo executable".
+```
+
 ---
 
 ## Configuring a client
