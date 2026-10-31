@@ -10,8 +10,13 @@ starts at `q = 0`; that zero-flow column is generation-zero by construction
 and anchors the lower closure of the cloud, so the fitter needs neither a
 synthetic closing point nor a spillage axis in the cloud itself — spillage
 sensitivity is captured separately by the per-plane lateral-flow secant
-(§2.7), not by adding a third grid dimension. That secant uses
-nine evenly spaced samples of the lateral flow.
+(§2.7), not by adding a third grid dimension. The secant samples the lateral
+flow at `101` evenly spaced values of `[0, S_max]`, both ends included (`N = 100`
+in §2.7), at every point of the same (volume, turbined-flow) grid, and a grid
+point counts for a plane when that plane lies within `1e-8` MW of the
+pointwise minimum there. The upper end `turbined_fit_max_m3s` of the flow
+axis and the upper end `spillage_fit_max_m3s` of the lateral-flow sample are
+set per production-model entry (Configure tab).
 
 The 3-D convex hull's upper-envelope facets are corrected by a single
 least-squares $k_{FPHA}$ scalar. That correction scales the **whole affine
@@ -59,7 +64,7 @@ error.
 
 A warning names the plant; `novomodelo validate` and `novomodelo run` both print it:
 
-{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json hydro 0: generation.model fpha, generation.max_turbined_m3s and unit_groups[0].max_turbined_m3s 0.0, specific_productivity_mw_per_m3s_per_m 0.0091 added, tailrace polynomial with coefficients [5.0, 0.001] added, hydraulic_losses factor 0.03 added, efficiency constant 0.93 added; system/hydro_production_models.json: the one stage range set to model fpha with fpha_config.source computed, productivity_mw_per_m3s removed; system/hydro_geometry.parquet added with hydro_id [0, 0, 0], volume_hm3 [0, 500, 1000], height_m [100, 110, 120], area_km2 [10, 15, 20], zstd compression; run with NO_COLOR=1) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.19.1 | binary: novomodelo-cli sha256 e2a3b8cd | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json hydro 0: generation.model fpha, generation.max_turbined_m3s and unit_groups[0].max_turbined_m3s 0.0, specific_productivity_mw_per_m3s_per_m 0.0091 added, tailrace polynomial with coefficients [5.0, 0.001] added, hydraulic_losses factor 0.03 added, efficiency constant 0.93 added; system/hydro_production_models.json: the one stage range set to model fpha with fpha_config.source computed, productivity_mw_per_m3s removed; system/hydro_geometry.parquet added with hydro_id [0, 0, 0], volume_hm3 [0, 500, 1000], height_m [100, 110, 120], area_km2 [10, 15, 20], zstd compression; run with NO_COLOR=1; exit 0; excerpt: the WARN line is quoted, the closing Valid case line is not) */}
 
 ```text
  WARN hydro UHE1 (id=0) requests FPHA but has no turbine capacity (max_turbined_m3s = 0); modeling it with zero productivity
@@ -90,8 +95,9 @@ FPHA fit for hydro UHE Example (stage 3) deviates 6.2% from the exact production
 
 The warning is informational — the run continues with the fitted planes. A
 high deviation typically indicates a strongly non-concave production surface
-that no single $k_{FPHA}$ scalar can track well; narrowing `fitting_window`
-or raising the discretization point counts are the usual remedies.
+that no single $k_{FPHA}$ scalar can track well; narrowing `fitting_window`,
+lowering `turbined_fit_max_m3s` or raising the discretization point counts are
+the usual remedies.
 
 ### Determinism guarantees
 
@@ -130,7 +136,7 @@ for the water-balance treatment of the resulting flux.
 
 ### Commissioning: the PreFilling state
 
-A hydro's `entry_stage_id`/`exit_stage_id` commissioning window is honored even for a **non-filling** hydro (one with no `filling` block). At any stage outside its window — before `entry_stage_id`, or from `exit_stage_id` onward — the plant is **PreFilling**: the site is not in service, so its turbine, spillage, and diversion columns are pinned to zero, its storage is frozen by the identity $v_h = v^{in}_h$, and its local inflow, the upstream releases, the flows diverted in and the in-transit water maturing into it are routed past the site to the first downstream plant that is not PreFilling (or leaves the modelled system if there is none). Unlike the generic outside-window zero-pin used for the other entity types, the river is never trapped or duplicated at a site that is not in service. See [LP Formulation — Lifecycle Phases](/math/lp-formulation#lifecycle-phases) for every phase and [Penalty System](/math/penalty-system) for the spillage-frozen-versus-costed distinction.
+A hydro's `entry_stage_id`/`exit_stage_id` commissioning window is honored even for a **non-filling** hydro (one with no `filling` block). At any stage outside its window — before `entry_stage_id`, or from `exit_stage_id` onward — the plant is **PreFilling**: the site is not in service, so its turbine, spillage, and diversion columns are pinned to zero, its storage is frozen by the identity $v_h = v^{in}_h$, and its local inflow with its inflow non-negativity slack, the upstream releases, the flows diverted in and the in-transit water maturing into it are routed past the site to the first downstream plant that is not PreFilling (or leaves the modelled system if there is none). A plant dormant before its `entry_stage_id` therefore keeps its `initial_conditions.json` storage at every dormant stage. At a PreFilling stage the storage column has a floor of `0` and a ceiling never below the plant's own `max_storage_hm3`, so a stage `max_storage_hm3` in `constraints/hydro_bounds.parquet` below the kept storage does not make that stage infeasible. Unlike the generic outside-window zero-pin used for the other entity types, the river is never trapped or duplicated at a site that is not in service. See [LP Formulation — Lifecycle Phases](/math/lp-formulation#lifecycle-phases) for every phase and [Penalty System](/math/penalty-system) for the spillage-frozen-versus-costed distinction.
 
 ### Water travel time: in-transit seed and validation
 

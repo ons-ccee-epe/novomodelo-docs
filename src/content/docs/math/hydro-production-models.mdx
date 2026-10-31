@@ -167,14 +167,14 @@ The plane is fitted once per plant (§2.1–§2.8); a plant split across buses e
 
 ### 2.6 Computed FPHA Fitting Pipeline
 
-The computed-FPHA path produces hyperplanes from topology data in four stages: convex-hull fit → $k_{FPHA}$ correction → lateral-flow secant → optional plane reduction. The fit is resolved **per production-model entry** (per season or stage range), so planes can differ across the horizon for the same plant. Results are expanded to per-stage hyperplane rows.
+The computed-FPHA path produces hyperplanes from topology data in four stages: convex-hull fit → $k_{FPHA}$ correction → lateral-flow secant → optional plane reduction. The fit is resolved **per production-model entry** (per season or stage range), so planes can differ across the horizon for the same plant. Only the stages whose entry selects FPHA are fit; a stage of the same plant that uses another production model carries no planes. Results are expanded to per-stage hyperplane rows.
 
 #### 2.6.1 Grid and Cloud
 
 The fitter evaluates the exact production function $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ on a uniform two-dimensional grid over the fitting window, **with spillage $s = 0$ and lateral flow $= 0$**. The grid has:
 
 - **Volume axis**: a configurable number of uniformly spaced values spanning the fitting window $[v_{min}, v_{max}]$. The window lies within the plant's forebay storage range (the full range unless narrowed) and is distinct from the reference volume (§4.1), which fixes an operating point, not this window. The point counts and the window are set on the Configure tab.
-- **Flow axis**: a configurable number of uniformly spaced values spanning $[0, q_{max}]$. The axis **starts at $q = 0$**, where generation is zero; this zero-flow column anchors the lower closure of the cloud and eliminates the need for any synthetic closing point.
+- **Flow axis**: a configurable number of uniformly spaced values spanning $[0, q^{fit}_{max}]$, where the upper end $q^{fit}_{max}$ of the turbined-flow fit range is the plant's maximum turbined flow $q_{max}$ unless another upper end is set on the Configure tab. The axis **starts at $q = 0$**, where generation is zero; this zero-flow column anchors the lower closure of the cloud and eliminates the need for any synthetic closing point.
 
 Each cloud point is capped at the plant's installed capacity $\bar{G}_h$. Spillage is not a cloud dimension — it is fixed at zero throughout.
 
@@ -214,13 +214,35 @@ The figure below shows a synthetic plant with normalized axes: storage, flow and
 
 ### 2.7 Lateral-Flow Secant
 
-Spillage raises the tailrace level, lowering net head and generation. The $\gamma_s^m$ coefficient for each plane is fit by a **per-plane 1-D ordinary-least-squares secant** of generation vs lateral flow (the plant's own spillage $s$) over evenly spaced samples of $q_{lat} \in [0, S_{max}]$, evaluated at the plane's representative (active-maximum) operating point:
+Spillage raises the tailrace level, lowering net head and generation. The $\gamma_s^m$ coefficient of each plane is the mean, over the spill$=0$ grid points where that plane binds, of a **zero-anchored least-squares slope** of generation against lateral flow $q_{lat}$ (the plant's own spillage $s$).
+
+**Pointwise slope.** At each grid point $(V_i, Q_j)$ of §2.6.1, the lateral flow is sampled at $N$ evenly spaced values $s_n = n \, S_{max} / N$, $n = 1, \ldots, N$, of $[0, S_{max}]$, and a line through the spill$=0$ generation is fit to the samples:
 
 $$
-S_{max} = \begin{cases}2 \cdot \text{MLT} & \text{if MLT} > 0 \\ 2 \cdot q_{max} & \text{if MLT} = 0\end{cases}
+\sigma_{ij} = \frac{\sum_{n=1}^{N} s_n \big[\phi(V_i, Q_j, s_n) - \phi(V_i, Q_j, 0)\big]}{\sum_{n=1}^{N} s_n^2}
 $$
 
-where MLT is the long-term mean inflow (m³/s). The **representative operating point** for each plane is the spill$=0$ grid point where that plane is the active (tightest) upper bound and attains the largest generation — the operating region the plane actually governs. The secant samples the **uncapped** production function $\phi$ (not clipped at installed capacity $\bar{G}_h$), so the spillage sensitivity is read from the raw head curve and is not flattened wherever the capacity ceiling binds — unlike the cloud and the $k_{FPHA}$ regression (§2.6), which both use the capacity-capped output.
+The line is anchored at $\phi(V_i, Q_j, 0)$ instead of carrying a free intercept, because the plane already holds the spill$=0$ generation in its other terms. The slope samples the **uncapped** production function $\phi$ (not clipped at installed capacity $\bar{G}_h$), so the spillage sensitivity is read from the raw head curve and is not flattened wherever the capacity ceiling binds — unlike the cloud and the $k_{FPHA}$ regression (§2.6), which both use the capacity-capped output.
+
+**Binding points.** A grid point counts for plane $m$ when that plane is the binding bound there, the pointwise minimum over the planes of §2.6.3 at spill $= 0$, up to a small tolerance $\epsilon$, so a point on a facet edge counts for every plane that meets there:
+
+$$
+\mathcal{A}_m = \Big\{ (i, j) : \hat{g}^m(V_i, Q_j) - \min_{m'} \hat{g}^{m'}(V_i, Q_j) \le \epsilon \Big\}, \qquad \hat{g}^m(V, Q) = \gamma_0^m + \gamma_v^m V + \gamma_q^m Q
+$$
+
+$$
+\gamma_s^m = \frac{1}{\lvert\mathcal{A}_m\rvert} \sum_{(i, j) \in \mathcal{A}_m} \sigma_{ij}, \qquad \gamma_s^m = 0 \ \text{ when } \mathcal{A}_m = \emptyset
+$$
+
+The minimum selects the points, not the maximum: the LP applies $g \le \hat{g}^m$ for every plane, so a plane governs generation only where it is the tightest bound, the min-envelope that the $k_{FPHA}$ regression also reads. Averaging where a plane is the loosest bound would read its slope where it does not govern.
+
+**Sample range.** The lateral flow is sampled up to
+
+$$
+S_{max} = \begin{cases} \bar{S}^{fit} & \text{if the spillage fit range has a configured upper end } \bar{S}^{fit} \\ 2 \cdot \text{MLT} & \text{otherwise, if MLT} > 0 \\ 2 \cdot q_{max} & \text{otherwise} \end{cases}
+$$
+
+where MLT is the plant's long-term mean inflow (m³/s), the mean of its recorded inflow history, and $q_{max}$ is the plant's maximum turbined flow, whatever the turbined-flow fit range of §2.6.1. The upper end $\bar{S}^{fit}$ is set on the Configure tab.
 
 **Sign**: $\gamma_s^m \le 0$ (more lateral flow raises the tailrace, reduces generation). A slope that is non-negative or negligibly negative is **snapped to exactly 0** (Implementation notes, "Computed-FPHA fitting behavior") to protect LP column scaling from near-zero structural coefficients.
 

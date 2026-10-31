@@ -106,8 +106,8 @@ For domain terms, see [Glossary](/reference/glossary).
   The PAR(p)-A model: the periodic autoregressive model augmented with an annual component, a regression term on the rolling annual average (the mean of the twelve previous monthly inflows), which extends the model's memory to long dry and wet periods.
   _Cited in [PAR(p) Inflow Model](/math/par-inflow-model) §7._
 
-- **Larroyd, P.V., Pedrini, R., Beltran, F., Teixeira, G., Finardi, E.C. & Picarelli, L.B.** (2022). Dealing with Negative Inflows in the Long-Term Hydrothermal Scheduling Problem. _Energies_, 15(3), 1115. [doi:10.3390/en15031115](https://doi.org/10.3390/en15031115)
-  Penalty, truncation and truncation-with-penalty strategies for negative PAR(p) inflows: the correction is added to the inflow while the PAR state keeps the raw realization; §2.5 shows the non-convexity truncation induces in the cost-to-go.
+- **Larroyd, P.V., Pedrini, R., Beltrán, F., Teixeira, G., Finardi, E.C. & Picarelli, L.B.** (2022). Dealing with Negative Inflows in the Long-Term Hydrothermal Scheduling Problem. _Energies_, 15(3), 1115. [doi:10.3390/en15031115](https://doi.org/10.3390/en15031115)
+  Penalty, truncation and truncation-combined-with-penalty strategies for negative PAR(p) inflows in SDDP: under each, the PAR state keeps the raw realization and a correction adds water to the inflow the water balance receives, bounded by the truncation amount under the truncation strategies. Its §2.5 shows the stage problems' values falling below the master problems built from the cuts under truncation, so the lower bound can exceed an upper bound evaluated on the stage problems.
   _Cited in [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) §6.2, §7, §9._
 
 - **Maceira, M.E.P., Terry, L.A., Costa, F.S., Damázio, J.M. & Melo, A.C.G.** (2002). Chain of optimization models for setting the energy dispatch and spot price in the Brazilian system. In _Proceedings of the 14th Power Systems Computation Conference (PSCC)_, Seville, Spain.

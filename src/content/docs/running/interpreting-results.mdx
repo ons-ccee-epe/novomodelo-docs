@@ -42,7 +42,7 @@ conv = pl.from_arrow(novomodelo.results.load_convergence_arrow("results"))
 print(conv.select("iteration", "upper_bound", "upper_bound_kind", "gap_percent").tail(1))
 ```
 
-{/* capture: python loading convergence (novomodelo.results) | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: python loading convergence (novomodelo.results) | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```text
 iteration: 128
@@ -101,7 +101,7 @@ mean_generation = (
 print(mean_generation)
 ```
 
-{/* capture: python loading simulation with plant names (novomodelo.results) | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: python loading simulation with plant names (novomodelo.results) | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```text
 shape: (4, 3)
@@ -140,7 +140,7 @@ checkpoint header. The key fields for convergence assessment are the
 `iterations` and `convergence` objects. The excerpt below is from a `novomodelo run`
 of the 1dtoy template:
 
-{/* capture: excerpt of training/metadata.json after novomodelo run | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: excerpt of training/metadata.json after novomodelo run | novomodelo   v0.19.1 | binary: novomodelo-cli sha256 e2a3b8cd | case: 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```json
 {
@@ -215,7 +215,10 @@ section reads. Each phase wall (`Forward`/`Backward`) carries a
 **Phase wall vs. worker wait.** A large `wait` relative to its phase wall —
 `forward_wait` or `backward_wait` — signals **load imbalance** across
 workers: some workers finish their share of trial points well before others
-and sit idle waiting for the phase to close. This is exactly what the
+and sit idle waiting for the phase to close. Under MPI, `backward_wait`
+covers the workers of every rank, so it also holds the time a rank waits for
+slower peers to finish a stage's solves; `forward_wait` is rank 0's own. This
+is exactly what the
 `by_node` backward scheduler ([By-node
 scheduling](/running/performance/#by-node-scheduling)) exists to
 reduce, by shrinking the work unit from a whole trial point to a `(trial
@@ -301,7 +304,7 @@ final = df.filter(pl.col("iteration") == df["iteration"].max())
 print(final.select(["iteration", "lower_bound", "upper_bound", "gap_percent"]))
 ```
 
-{/* capture: python convergence snippet | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on 1dtoy */}
+{/* capture: python convergence snippet | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on 1dtoy */}
 
 ```text
 shape: (1, 4)
@@ -406,7 +409,7 @@ df = pl.read_parquet("results/simulation/costs/")
 print(df.head())
 ```
 
-{/* capture: python read-whole-table | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: python read-whole-table | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```text
 shape: (5, 29)
@@ -468,7 +471,7 @@ mean_gen = (
 print(mean_gen)
 ```
 
-{/* capture: python aggregating across scenarios (mean and percentiles) | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python aggregating across scenarios (mean and percentiles) | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 5)
@@ -532,7 +535,7 @@ costs_s0 = (
 print(costs_s0)
 ```
 
-{/* capture: python single-scenario read (scan_parquet, hive_partitioning=True) | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python single-scenario read (scan_parquet, hive_partitioning=True) | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 5)
@@ -589,7 +592,7 @@ expected = (
 print(expected)
 ```
 
-{/* capture: python common task (a) expected generation by hydro plant | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (a) expected generation by hydro plant | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (1, 2)
@@ -621,7 +624,7 @@ thermal_cost = (
 print(thermal_cost)
 ```
 
-{/* capture: python common task (b) expected thermal generation cost | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (b) expected thermal generation cost | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (2, 2)
@@ -681,7 +684,7 @@ deficit_prob = (
 print(deficit_prob)
 ```
 
-{/* capture: python common task (c) deficit probability per bus | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (c) deficit probability per bus | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 3)
@@ -743,7 +746,7 @@ water_value = (
 print(water_value)
 ```
 
-{/* capture: python common task (d) water value, hours-weighted | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (d) water value, hours-weighted | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 3)
@@ -792,7 +795,7 @@ per_bus = (
 print(per_bus)
 ```
 
-{/* capture: python common task (e) per-bus dispatch for a hydro plant | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 f5c7ee93) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+{/* capture: python common task (e) per-bus dispatch for a hydro plant | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
 
 ```text
 shape: (4, 4)
@@ -849,8 +852,9 @@ Possible causes:
   across buses) against total thermal capacity. If load exceeds generation
   capacity in some scenarios, deficit is unavoidable.
 - **Hydro reservoir ran dry.** Check `storage_final_hm3` in
-  `simulation/hydros/`. If it hits zero in early stages, subsequent stages
-  have no hydro generation and may resort to deficit.
+  `simulation/hydros/`. If it reaches the plant's minimum storage in early
+  stages, subsequent stages have no hydro generation and may resort to
+  deficit.
 - **Very low deficit penalty.** If `deficit_segments` in `penalties.json`
   are priced below thermal generation cost, the solver will prefer deficit
   over generation. Increase the deficit cost.
@@ -873,7 +877,15 @@ Possible causes:
 - **Hydro: reservoir constraints too tight.** If `min_storage_hm3` is close
   to the initial storage level, the solver cannot turbine water without
   risking a storage violation. Review `initial_conditions.json` and storage
-  bounds in `hydros.json`.
+  bounds in `hydros.json`. The stage-level `min_storage_hm3` and
+  `max_storage_hm3` in `constraints/hydro_bounds.parquet` bound the storage at
+  the end of a stage and do not move the initial storage. When the
+  initial storage lies below the minimum in force at the end of the plant's
+  first operating stage, that stage must reach the minimum from its own
+  inflow, which leaves less water to turbine, and `novomodelo validate` reports a
+  [`ModelQuality`](/reference/error-codes/#modelquality) warning naming the
+  hydro and the stage. An initial storage outside the plant's own
+  `[min_storage_hm3, max_storage_hm3]` in `hydros.json` is refused at load.
 
 ---
 

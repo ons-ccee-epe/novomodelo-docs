@@ -97,7 +97,7 @@ The forward pass produces: (a) trial points $\{\hat{x}_t\}$ at each stage for ea
 
 **Parallelization**: Forward trajectories are independent — Novomodelo distributes $M$ trajectories across MPI ranks, with threads solving individual stage LPs within each rank.
 
-**Warm-starting**: The forward pass LP solution at stage $t$ provides a near-optimal basis for the backward pass solves at the same stage, significantly reducing solve times.
+**Warm-starting**: When the backward pass warm-starts, the basis of the forward solve at stage $t$ seeds the backward pass solves of stage $t$ at the same trial point, reducing their solve times ([LP Warm-Start](/math/lp-warm-start)).
 
 **State canonicalization**: The recorded outgoing state $\hat{x}_t$ is not the raw LP primal but its projection onto the resolved admissible bounds. Each bounded coordinate — end-of-stage storage, in-transit water volume, and any anticipated-thermal commitment hold — is clamped into its resolved interval, while the unbounded inflow (AR) lags pass through unchanged. The projection is the identity for an in-box optimum, so a solve whose state stays within bounds is unaffected by it. It is applied **once**, at read-back, and every consumer reads that one canonical vector: the forward trajectory, the backward-pass trial state $\hat{x}_{t-1}$, and the cut intercept anchored at it (see [Cut Management](/math/cut-management)). This is what makes $\hat{x}_t$ a well-defined function of the stage's optimal value and its resolved bounds — independent of which degenerate optimal vertex the solve terminated at or of round-off. See [Determinism & Provenance](/math/determinism-guarantees#3-methodology-mechanisms).
 

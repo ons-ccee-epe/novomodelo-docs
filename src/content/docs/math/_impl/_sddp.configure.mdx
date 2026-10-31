@@ -9,8 +9,14 @@ the methodology sections above
 
 The scheduler decides how backward-pass work is split across workers: one trial
 point per work unit by default, or one `(trial point, opening block)` pair per
-work unit with `by_node`. The choice changes neither the cut set nor the
-training lower bound. The example selects `by_node` with four openings per block:
+work unit with `by_node`. Under either scheduler the cut set and the training
+lower bound do not depend on the worker count or on the order in which workers
+claim the units. The two schedulers chain a trial point's openings differently,
+so a solve can start from another basis
+([LP Warm-Start §2](/math/lp-warm-start#2-per-scenario-node-basis-store)) and,
+where a stage LP has several optimal solutions, end at another one; the cuts
+of the two can then differ. The example selects `by_node` with four openings
+per block:
 
 ```json
 {

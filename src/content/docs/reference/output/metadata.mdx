@@ -46,18 +46,18 @@ single file. The `convergence` block records how the run stopped.
 
 **Example (a `novomodelo run` of the 1dtoy template; hostname and timestamps replaced):**
 
-{/* capture: novomodelo run toy --quiet, then toy/output/training/metadata.json | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, unchanged) */}
+{/* capture: novomodelo run toy --quiet, then toy/output/training/metadata.json | novomodelo   v0.19.1 | binary: novomodelo-cli sha256 e2a3b8cd | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, unchanged) */}
 
 ```json
 {
   "software": "novomodelo",
-  "software_version": "0.19.0",
+  "software_version": "0.19.1",
   "hostname": "<hostname>",
   "solver": "highs",
   "solver_version": "1.13.1",
   "started_at": "<timestamp>",
   "completed_at": "<timestamp>",
-  "duration_seconds": 0.684,
+  "duration_seconds": 0.702,
   "status": "complete",
   "configuration": {
     "seed": null,
@@ -103,16 +103,16 @@ single file. The `convergence` block records how the run stopped.
     "first_try": 5632,
     "retried": 0,
     "failed": 0,
-    "forward_solve_seconds": 0.24650456700000023,
-    "backward_solve_seconds": 0.25314835200000024,
+    "forward_solve_seconds": 0.2523994450000001,
+    "backward_solve_seconds": 0.26005986700000033,
     "parallelism": 1
   },
   "setup": {
-    "load_seconds": 0.001276093,
-    "stochastic_fit_seconds": 0.000112616,
-    "production_fit_seconds": 0.000018543,
-    "evaporation_fit_seconds": 4.229e-6,
-    "broadcast_seconds": 0.000214832
+    "load_seconds": 0.001276791,
+    "stochastic_fit_seconds": 0.000107008,
+    "production_fit_seconds": 0.000021863,
+    "evaporation_fit_seconds": 4.08e-7,
+    "broadcast_seconds": 0.000223513
   },
   "distribution": {
     "backend": "local",
@@ -135,7 +135,7 @@ single file. The `convergence` block records how the run stopped.
 | Name                       | Type   | Nullable | Units | Description                                                                                                                                                        |
 | -------------------------- | ------ | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `software`                 | string | No       | —     | Name of the software that produced this output: `"novomodelo"`.                                                                                                         |
-| `software_version`         | string | No       | —     | Version of that software, for example `"0.19.0"`.                                                                                                                  |
+| `software_version`         | string | No       | —     | Version of that software, for example `"0.19.1"`.                                                                                                                  |
 | `hostname`                 | string | No       | —     | Hostname of the machine that ran training.                                                                                                                         |
 | `solver`                   | string | No       | —     | LP solver backend: `"highs"` or `"clp"`.                                                                                                                           |
 | `solver_version`           | string | Yes      | —     | Version string of the linked LP solver library. Omitted when not available.                                                                                        |
@@ -186,12 +186,12 @@ single file. The `convergence` block records how the run stopped.
 | --------------------------------- | ------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `row_pool.total_generated`        | integer | No       | —     | Total cut rows generated over the entire run.                                                                                                |
 | `row_pool.total_active`           | integer | No       | —     | Cut rows still active in the pool at termination.                                                                                            |
-| `row_pool.peak_active`            | integer | No       | —     | Highest number of simultaneously active cut rows observed.                                                                                   |
-| `row_pool.cuts_active`            | integer | No       | —     | Cut rows currently active in the LP at termination.                                                                                          |
+| `row_pool.peak_active`            | integer | No       | —     | Highest number of active cut rows, summed over the pools, at an iteration's cut exchange or after its selection pass and cap. At least the largest `cuts_active` in [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet), which counts after row management only. |
+| `row_pool.cuts_active`            | integer | No       | —     | Cut rows active at termination; the same value as `total_active`.                                                                            |
 | `row_pool.rows_in_lp_total`       | integer | No       | —     | Sum of resident rows-in-LP over every lazy-selection solve in the run. Zero when no lazy selection ran.                                      |
 | `row_pool.rows_in_lp_solve_count` | integer | No       | —     | Number of lazy-selection solves in the run. Zero when no lazy selection ran.                                                                 |
 | `row_pool.rows_in_lp_max`         | integer | No       | —     | Largest resident rows-in-LP over any single lazy-selection solve. Zero when no lazy selection ran.                                           |
-| `row_pool.total_loaded`           | integer | No       | —     | Cut rows loaded at run start rather than generated by this run: the cuts a warm-start or resume run loads from `policy.path`, plus any `policy.boundary` cuts (the sum of every pool's `warm_start_count`); a subset of `total_generated`. `0` on a fresh run without `policy.boundary`. |
+| `row_pool.total_loaded`           | integer | No       | —     | Cut rows loaded at run start rather than generated by training (the sum of every pool's `warm_start_count`): the cuts a warm-start run loads from `policy.path`, plus any `policy.boundary` cuts. A resume run keeps the recorded run's count, because the cuts that run generated stay counted as generated. A subset of `total_generated`. `0` on a fresh run without `policy.boundary`. |
 
 **`bounds` fields:**
 
@@ -212,14 +212,15 @@ single file. The `convergence` block records how the run stopped.
 | `solve_stats.failed`                 | integer | Yes      | —     | Number of LP solves that failed terminally.                   |
 | `solve_stats.forward_solve_seconds`  | number  | Yes      | s     | Cumulative wall-clock seconds in forward-phase LP solves.     |
 | `solve_stats.backward_solve_seconds` | number  | Yes      | s     | Cumulative wall-clock seconds in backward-phase LP solves.    |
-| `solve_stats.parallelism`            | integer | Yes      | —     | Degree of parallelism (worker count) used during training.    |
+| `solve_stats.parallelism`            | integer | Yes      | —     | Worker count used during training: the worker threads per rank times the number of MPI ranks. |
 
 Each LP solve of the run is counted once, whichever rank and worker ran it, so a
 study reports the same `total_lp_solves`, `first_try`, `retried` and `failed` for
 any number of MPI ranks, and `first_try + retried + failed` equals
 `total_lp_solves`. The training summary's `LP solves` line prints the same counts.
-Under MPI each solve time is likewise the total over all ranks, with each solve
-counted once.
+Under MPI, `forward_solve_seconds` and `backward_solve_seconds` are likewise
+totals over every rank and worker, with each solve counted once. The
+lower-bound solves count in the outcome counts but in neither time field.
 
 **`distribution` fields:**
 
@@ -286,18 +287,18 @@ LP solver statistics, and distribution information.
 
 **Example (the same `novomodelo run` of the 1dtoy template; hostname and timestamps replaced):**
 
-{/* capture: novomodelo run toy --quiet, then toy/output/simulation/metadata.json | novomodelo   v0.19.0 | binary: novomodelo-cli sha256 f5c7ee93 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, unchanged) */}
+{/* capture: novomodelo run toy --quiet, then toy/output/simulation/metadata.json | novomodelo   v0.19.1 | binary: novomodelo-cli sha256 e2a3b8cd | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, unchanged) */}
 
 ```json
 {
   "software": "novomodelo",
-  "software_version": "0.19.0",
+  "software_version": "0.19.1",
   "hostname": "<hostname>",
   "solver": "highs",
   "solver_version": "1.13.1",
   "started_at": "<timestamp>",
   "completed_at": "<timestamp>",
-  "duration_seconds": 0.379,
+  "duration_seconds": 0.469,
   "status": "complete",
   "scenarios": {
     "total": 100,
@@ -313,7 +314,7 @@ LP solver statistics, and distribution information.
     "first_try": 400,
     "retried": 0,
     "failed": 0,
-    "solve_seconds": 0.2814000140000004,
+    "solve_seconds": 0.2820324490000001,
     "parallelism": 1
   },
   "distribution": {
@@ -337,7 +338,7 @@ LP solver statistics, and distribution information.
 | Name               | Type   | Nullable | Units | Description                                                                 |
 | ------------------ | ------ | -------- | ----- | --------------------------------------------------------------------------- |
 | `software`         | string | No       | —     | Name of the software that produced this output: `"novomodelo"`.                  |
-| `software_version` | string | No       | —     | Version of that software, for example `"0.19.0"`.                           |
+| `software_version` | string | No       | —     | Version of that software, for example `"0.19.1"`.                           |
 | `hostname`         | string | No       | —     | Hostname of the machine that ran simulation.                                |
 | `solver`           | string | No       | —     | LP solver backend: `"highs"` or `"clp"`.                                    |
 | `solver_version`   | string | Yes      | —     | LP solver library version string. Omitted when not available.               |
@@ -370,7 +371,9 @@ LP solver statistics, and distribution information.
 | `solve_stats.retried`         | integer | Yes      | —     | Number of LP solves that succeeded after one or more retries. |
 | `solve_stats.failed`          | integer | Yes      | —     | Number of LP solves that failed terminally.                   |
 | `solve_stats.solve_seconds`   | number  | Yes      | s     | Cumulative wall-clock seconds spent in simulation LP solves.  |
-| `solve_stats.parallelism`     | integer | Yes      | —     | Degree of parallelism (worker count) used during simulation.  |
+| `solve_stats.parallelism`     | integer | Yes      | —     | Worker count used during simulation: the worker threads per rank times the number of MPI ranks. |
+
+Under MPI the counts and `solve_seconds` are sums over every rank.
 
 The `distribution` object has the same field structure as in `training/metadata.json`.
 See the **`distribution` fields** table above.

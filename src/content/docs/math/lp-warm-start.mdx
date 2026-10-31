@@ -68,11 +68,12 @@ first-solved opening when the backward pass warm-starts, and the backward pass
 stores that opening's optimal basis in its place. The next iteration's forward
 solve at the node starts from that backward capture when the forward pass
 warm-starts; a cold forward solve leaves it unread and replaces it with its own
-capture. Either way, the slot the backward pass reads holds the forward
-capture of its own iteration. One backward scheduling option reads the forward
-capture without storing its own; under an enumerated forward pass the backward
-pass uses no stored basis; and while the dynamic method of cut selection is
-active no solve uses the store (see the implementation notes).
+capture. Either way, the slot the backward pass reads at that node holds the
+forward capture of its own iteration. One backward
+scheduling option reads the forward capture without storing its own; under an
+enumerated forward pass the backward pass uses no stored basis; and while the
+dynamic method of cut selection is active no solve uses the store (see the
+implementation notes).
 
 ```d2
 shape: sequence_diagram
@@ -91,10 +92,9 @@ Each _seeds_ arrow applies when that phase warm-starts; each _stores_ arrow
 applies whichever phases warm-start.
 
 Within each chain of openings that a warm-starting backward pass solves in
-sequence, the store is read at most once, by the first-solved opening; the
-remaining openings continue from the basis and factorization the previous
-opening left in place, since consecutive openings differ only in their
-realization.
+sequence, the store is read at most once, by the first-solved opening; the remaining openings continue from the
+basis and factorization the previous opening left in place, since consecutive
+openings differ only in their realization.
 
 The basis a solve starts from therefore depends on the order in which its
 chain's openings are solved. That order is fixed in advance, and it changes the
@@ -111,8 +111,10 @@ basis and leaves a trial point without one cold; a warm-start run seeds a trial
 point without its own saved basis from the node's lowest-scenario saved basis.
 A saved basis that does not fit its stage LP is left out, and a node left with
 none starts its first iteration cold. When the forward pass starts cold, its
-captures replace the seeded bases before the backward pass reads the store, so
-the saved bases seed no training solve.
+captures replace the seeded bases of the nodes it visits before the backward
+pass reads the store. On a stage chain the saved bases then seed no training
+solve; on a branching graph they seed only the warm-starting backward solves at the
+successor nodes that a trial point's first-iteration forward path did not visit.
 
 ## 3. Cut-Set Changes
 

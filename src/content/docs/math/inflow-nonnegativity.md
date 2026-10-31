@@ -15,27 +15,27 @@ $$
 a_h = \underbrace{b_{h,m}}_{\text{deterministic base}} + \underbrace{\sum_{\ell=1}^{p} \psi_{m,\ell} \cdot \hat{a}_{h,\ell}}_{\text{lag contribution}} + \underbrace{\sigma_m \cdot \varepsilon}_{\text{noise term}}
 $$
 
-When the [innovation](/overview/notation-conventions#35-inflow-model-parameters) $\varepsilon$ is negative enough, $\varepsilon < -\big(b_{h,m} + \sum_{\ell} \psi_{m,\ell}\, \hat{a}_{h,\ell}\big) / \sigma_m$, the total is negative. That is not itself a physical impossibility: $a_h$ is _incremental_ inflow — a plant's natural flow minus its upstream plants' — so a genuinely negative value is real hydrology (a reach that loses water over the period), and the same $a_h < 0$ case arises whether the realization comes from PAR(p) noise or from replaying a negative window of historical or observed data directly (see [PAR(p) Inflow Model](/math/par-inflow-model)). What the methods below solve is the LP's water-balance consequence of $a_h < 0$: absorbing it without the other water-balance variables (storage, release, spillage — all bounded $\geq 0$) being driven infeasible.
+When the [innovation](/overview/notation-conventions#35-inflow-model-parameters) $\varepsilon$ is negative enough, $\sigma_m \varepsilon < -\big(b_{h,m} + \sum_{\ell} \psi_{m,\ell}\, \hat{a}_{h,\ell}\big)$, the total is negative; at $\sigma_m = 0$ it is negative whenever its deterministic part is. That is not itself a physical impossibility: $a_h$ is _incremental_ inflow — a plant's natural flow minus its upstream plants' — so a genuinely negative value is real hydrology (a reach that loses water over the period), and the same $a_h < 0$ case arises whether the realization comes from PAR(p) noise or from replaying a negative window of historical or observed data directly (see [PAR(p) Inflow Model](/math/par-inflow-model)). What the methods below solve is the LP's water-balance consequence of $a_h < 0$: absorbing it without the other water-balance variables (storage, release, spillage — all bounded $\geq 0$) being driven infeasible.
 
-No method alters the realization itself. Under every method $a_h$ stays on the realized-inflow row ([LP Formulation §5](/math/lp-formulation#5-realized-inflow-definition-rows)) and becomes the lag that the next stage's inflow equation reads, so the inflow process is the one the PAR(p) model defines, negative values included. The methods differ in the water they add to the water balance beside $a_h$. The two truncation methods bound that water by the **truncation amount**, the negative part of the realization:
+No method alters the realization itself. Under every method $a_h$ stays on the realized-inflow row ([LP Formulation §5](/math/lp-formulation#5-realized-inflow-definition-rows)) and the inflow lags of later stages are built from it, aggregated over the lag's period when that period spans several stages ([Multi-Resolution Studies §2](/math/multi-resolution-studies#2-lag-accumulation)), so the inflow process is the one the PAR(p) model defines, negative values included. The methods differ in the water they add to the water balance beside $a_h$. The two truncation methods bound that water by the **truncation amount**, the negative part of the realization:
 
 $$
 a^-_h = \max(0, -a_h)
 $$
 
-the water that lifts the realization to zero, $a_h + a^-_h = \max(a_h, 0)$.
+the water that lifts the realization to zero, $a_h + a^-_h = \max(a_h, 0)$. It is evaluated at every solve from that solve's noise and the incoming lags $\hat{a}_{h,\ell}$ pinned for it, so it depends on the trial state; at $\sigma_m = 0$ it is the negative part of the deterministic value $b_{h,m} + \sum_{\ell} \psi_{m,\ell}\, \hat{a}_{h,\ell}$.
 
-Below, PAR(p > 0) denotes a PAR model with a non-zero lag coefficient $\psi_{m,\ell}$ at the stage's season: an order above zero, or an annual component ([PAR(p) Inflow Model §7](/math/par-inflow-model#7-annual-component-extension-parp-a)), whose regressor on the mean of the twelve previous inflows puts a coefficient on each of those lags whatever the order.
+Below, PAR(p > 0) denotes a PAR model with lag terms (an order above zero or an annual component). The annual component ([PAR(p) Inflow Model §7](/math/par-inflow-model#7-annual-component-extension-parp-a)) regresses on the mean of the twelve previous inflows, so it puts a coefficient on each of those lags whatever the order.
 
 ## 2. The Inflow Non-Negativity Slack
 
-Every method except `none` adds one slack column $\sigma^{inf}_h \geq 0$ per hydro, in m³/s. It enters the hydro's water balance beside the realized inflow, with the coefficients of $z_h$, every term on the left-hand side ([LP Formulation §4](/math/lp-formulation#4-hydro-water-balance)):
+Every method except `none` adds one slack column $\sigma^{inf}_h \geq 0$ per hydro, in m³/s. It enters the hydro's water balance beside the realized inflow $z_h = a_h$, with the coefficients of $z_h$, every term on the left-hand side ([LP Formulation §4](/math/lp-formulation#4-hydro-water-balance)):
 
 $$
 -\zeta \,\big( z_h + \sigma^{inf}_h \big) \;\; \text{(parallel stage)}, \qquad -\zeta_k \,\big( z_h + \sigma^{inf}_h \big) \;\; \text{(block } k \text{ of a chronological stage)}
 $$
 
-so the slack adds $\zeta\,\sigma^{inf}_h$ hm³ of water over the stage, $\zeta_k\,\sigma^{inf}_h$ in block $k$, and the water reaching the balance is $a_h + \sigma^{inf}_h$. The realized-inflow row is unchanged. For a PreFilling hydro the slack follows its local inflow onto the row of the first non-PreFilling plant downstream ([LP Formulation — PreFilling Pass-Through](/math/lp-formulation#prefilling-pass-through)); with no such plant it enters no row.
+so the slack adds $\zeta\,\sigma^{inf}_h$ hm³ of water over the stage, $\zeta_k\,\sigma^{inf}_h$ in block $k$, and the water reaching the balance is $a_h + \sigma^{inf}_h$. The realized-inflow row is unchanged. For a PreFilling hydro the slack follows its local inflow onto the rows of the first non-PreFilling plant downstream ([LP Formulation — PreFilling Pass-Through](/math/lp-formulation#prefilling-pass-through)), so the water it adds reaches that plant's balance; with no such plant it enters no row, and it never enters the hydro's own frozen identity row.
 
 The method sets the slack's bounds and its price:
 
@@ -46,7 +46,7 @@ The method sets the slack's bounds and its price:
 | `truncation`              | $[a^-_h, a^-_h]$           | $0$               |
 | `truncation_with_penalty` | $[0, a^-_h]$               | $c^{inf}_h$       |
 
-Under the two truncation methods the bounds are set at every solve from that solve's realization, which depends on its pinned incoming lags and its noise, so they differ across trial points, openings and scenarios (§7).
+Under the two truncation methods the bounds are set at every solve of the stage problem, in training and simulation alike, from that solve's realization, which depends on its pinned incoming lags and its noise, so they differ across trial points, openings and scenarios (§7).
 
 Under `penalty` and `truncation_with_penalty` the slack is a **Category 1 recourse slack** ([Penalty System — Category 1](/math/penalty-system#category-1-recourse-slacks-lp-feasibility)): the water it adds keeps the balance feasible when a negative inflow realization would leave it without a solution. Its cost is ordered with the constraint-violation penalties: converted to an energy-equivalent cost in \$/MWh, it lies above the thermal and contract costs and below deficit ([Penalty System — Penalty Priority Ordering](/math/penalty-system#penalty-priority-ordering)). Since inflow $a_h$ is defined per stage (not per block), the penalty appears **outside** the block summation in the objective, alongside storage violation penalties:
 
@@ -104,9 +104,10 @@ so the water reaching the reservoir is $a_h + a^-_h = \max(a_h, 0)$: a negative 
 
 **Advantages**:
 
-- LP always feasible under the inflow alone
+- A negative realization cannot by itself leave the water balance without a solution: the balance receives $\max(a_h, 0)$, as it would a zero inflow
 - No penalty to calibrate: the lift costs nothing
 - The inflow process stays the PAR(p) process, since the lags carry the raw realization
+- Defined for any residual standard deviation, $\sigma_m = 0$ included (§1)
 
 **Disadvantages**:
 
@@ -140,23 +141,26 @@ It shares the dependence of the cap on the incoming lags with `truncation` (§7)
 
 ### 6.2 Relation to Larroyd et al. (2022)
 
-[Larroyd et al. (2022)](/reference/bibliography/#inflow-modelling) state the methods on a PAR state $x$ decomposed into the incremental inflows of the plants it covers, $y_h = c_h x + d_h$, and add the correction $l$ to the inflow, not to the PAR state: $y_h - c_h (x + l) = d_h$, with $x$ unchanged. With one model per hydro ($c_h = 1$, $d_h = 0$), which the paper recommends, $x$ is $a_h$, $y_h$ is the water reaching the balance, $a_h + \sigma^{inf}_h$, and $l$ is $\sigma^{inf}_h$:
+[Larroyd et al. (2022)](/reference/bibliography/#inflow-modelling) state the strategies on a PAR state $x$ whose realization is decomposed into the incremental inflows of the plants it covers, $y_h = c_h x + d_h$. Under every strategy the PAR state keeps the raw realization, and the correction $l$ is added to the water the balance receives, never to $x$: as a slack in the water balance under the penalty strategy, and through the decomposition, $y_h - c_h (x + l) = d_h$, under the truncation strategies. The paper recommends one model per reservoir ($c_h = 1$). For the per-hydro PAR(p) model of this chapter, fit on the incremental inflow itself ($c_h = 1$, $d_h = 0$), $x$ is the realization $a_h$, $l$ is $\sigma^{inf}_h$, and the water reaching the balance is $a_h + \sigma^{inf}_h$:
 
-| Strategy of the paper                                                 | Method of this chapter    |
-| --------------------------------------------------------------------- | ------------------------- |
-| Penalty: $l \geq 0$, priced                                           | `penalty`                 |
-| Truncation: $l = \max(-x^*, 0)$, unpriced                             | `truncation`              |
-| Truncation combined with penalty: $0 \le l \le \max(-x^*, 0)$, priced | `truncation_with_penalty` |
+| Strategy of the paper                                                        | Method of this chapter    |
+| ---------------------------------------------------------------------------- | ------------------------- |
+| Penalty (§2.2): $l \geq 0$, priced                                           | `penalty`                 |
+| Truncation (§2.3): $l = \max(-x^*, 0)$, unpriced                             | `truncation`              |
+| Truncation combined with penalty (§2.4): $0 \le l \le \max(-x^*, 0)$, priced | `truncation_with_penalty` |
 
-where $x^*$ is the realization at the solve's incoming lags, so $\max(-x^*, 0)$ is the truncation amount $a^-_h$. Under every strategy the PAR state keeps the raw realization, and the inflow lags of later stages are built from it. The paper's optimal-value strategy, which solves a separate allocation problem for the inflow and applies only in the forward pass, has no counterpart among these methods.
+where $x^*$ is the realization at the solve's incoming lags, so $\max(-x^*, 0)$ is the truncation amount $a^-_h$. The inflow lags of later stages are built from the raw realization under every strategy. The paper's optimal-value strategy (§2.1) solves a separate water-allocation problem for the slack when the stage problem has no solution; its cost function is non-convex, so the paper applies it in the forward pass only, and it has no counterpart among these methods.
 
 ## 7. Truncation and the Lower Bound
 
-Under a PAR(p > 0) model the realization $a_h$ is affine in the incoming lags $\hat{a}_{h,\ell}$ (§1), so the truncation amount $a^-_h$, and with it the bounds of $\sigma^{inf}_h$ under both truncation methods, is a piecewise-linear function of the incoming state. A stage solve fixes those bounds at the value of its own trial point. The cut the solve yields ([Cut Management](/math/cut-management)) is exact at the trial point and lies below the successor's value with the bounds held at that point's truncation amount, but it carries no term for the change of $a^-_h$ with the lags: its coefficients are the reduced costs of the pinned incoming-state columns, and the slack bounds are constants of the solved LP. At an incoming state with a different truncation amount the cut can lie above the true successor value: where the truncation is deeper, because the held bounds admit less water than that state's own; and, under `truncation`, whose slack is fixed, where it is shallower, when the extra water cannot leave the reservoir at no cost: a spillage or turbined-flow cost, a spillage bound or a priced outflow limit.
+Under a PAR(p > 0) model the realization $a_h$ is affine in the incoming lags $\hat{a}_{h,\ell}$ (§1), so the truncation amount $a^-_h$, and with it the bounds of $\sigma^{inf}_h$ under both truncation methods, is a piecewise-linear function of the incoming state. A stage solve fixes those bounds at the value of its own trial point. The cut the solve yields ([Cut Management](/math/cut-management)) is tight at the trial point and lies below the stage problem with the bounds held at that point's truncation amount, but it carries no term for the change of $a^-_h$ with the lags: its coefficients are the reduced costs of the pinned incoming-state columns, and the slack bounds are constants of the solved LP. At an incoming state with a different truncation amount the cut can lie above the true successor value:
 
-The truncation methods therefore break the hypotheses of [Cut Management — Tier 1](/math/cut-management#tier-1-valid-lower-bound) in the inflow-lag components: the lower bound $\underline{z}^k$ is not guaranteed to stay below the optimal value, and it can exceed an upper bound evaluated on the stage problems ([Larroyd et al., 2022](/reference/bibliography/#inflow-modelling), §2.5, which evaluates both bounds on master problems built from the cuts instead). A gap stopping rule compares the gap clamped at zero ([Stopping Rules §5](/math/stopping-rules#5-gap-based-stopping-recommended)), so it can stop with no optimality certificate.
+- **Where the truncation is deeper**, under both methods: the held bounds admit less water than that state's own.
+- **Where the truncation is shallower**, under `truncation` only: its fixed slack forces more water than that state's own, which raises the cost when the extra water cannot leave the reservoir at no cost, against a spillage cost or a spillage bound for example. Under `truncation_with_penalty` the bounds held at the trial point contain that state's own $[0, a^-_h]$, a relaxation of its stage problem, so the cut stays below there.
 
-The bounds depend on the state only through the lags, and at a stage only through the lag coefficients $\psi_{m(t),\ell}$ of that stage's season. When all of them are zero, at a season of order zero without an annual component, the truncation amount at that stage depends on the noise alone. The bounds of `penalty` do not depend on the state.
+The truncation methods therefore break the hypotheses of [Cut Management — Tier 1](/math/cut-management#tier-1-valid-lower-bound) in the inflow-lag components: the lower bound $\underline{z}^k$ is not guaranteed to stay below the optimal value, and it can exceed an upper bound evaluated on the stage problems ([Larroyd et al., 2022](/reference/bibliography/#inflow-modelling), §2.5, which finds the stage problems' values below the master problems built from the cuts and estimates both bounds on those master problems instead). The gap stopping rule, admissible only under an enumerated forward pass, compares the gap clamped at zero ([Stopping Rules §5](/math/stopping-rules#5-gap-based-stopping-recommended)), so it can stop with no optimality certificate. Each cut stays below the stage problem with the bounds held at its own trial point.
+
+The bounds depend on the incoming state only through its inflow lags, and at a stage only through the lag coefficients $\psi_{m(t),\ell}$ of that stage's season. When all of them are zero, at a season of order zero without an annual component, the truncation amount at that stage depends on the noise alone. The bounds of `penalty` do not depend on the state.
 
 ## 8. Comparison Summary
 
@@ -178,7 +182,7 @@ Every method keeps the raw realization in the lag state (§1).
 - [LP Formulation](/math/lp-formulation) — Objective function structure and penalty taxonomy, where $c^{inf}_h$ prices a Category 1 recourse slack
 - [PAR(p) Inflow Model](/math/par-inflow-model) — Defines the PAR(p) model that produces the inflow realizations handled here
 - [Penalty System](/math/penalty-system) — Penalty hierarchy and cascade resolution
-- [Scenario Generation](/math/scenario-generation) — The noise term $\varepsilon$ in the inflow equation comes from the fixed opening tree (pre-generated noise vectors), not from per-iteration random sampling
+- [Scenario Generation](/math/scenario-generation) — Where the noise term $\varepsilon$ in the inflow equation comes from: the fixed opening tree (pre-generated noise vectors) the backward pass solves, and the forward sampling schemes
 - [Cut Management](/math/cut-management) — The Tier 1 hypotheses the truncation methods break in the inflow-lag components
 - [Stopping Rules](/math/stopping-rules) — The gap rule whose clamped comparison a lower bound above the upper bound defeats
 - [Configuring inflow non-negativity](/running/configuration#modelinginflow_non_negativity) — the software-layer setting that selects which of these four methods a study uses and where the penalty cost $c^{inf}_h$ is authored

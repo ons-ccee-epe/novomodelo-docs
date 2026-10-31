@@ -20,7 +20,7 @@ Conventions used by every entry:
 __version__: str
 ```
 
-The package version string, for example `0.19.0`.
+The package version string, for example `0.19.1`.
 
 ### `novomodelo.version_info`
 
@@ -32,7 +32,7 @@ Describes the running build. The dict has the keys `version` (equal to `novomode
 
 **Returns**: the build description dict.
 
-{/* capture: python t231-version-info | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: none */}
+{/* capture: python t231-version-info | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: none */}
 
 ```python
 import novomodelo
@@ -41,7 +41,7 @@ print(novomodelo.version_info())
 ```
 
 ```text
-{'version': '0.19.0', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
+{'version': '0.19.1', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
 ```
 
 ### `novomodelo.Study`
@@ -288,7 +288,7 @@ Returns the active cuts of one stage as two NumPy arrays, in ascending slot orde
 - `OverflowError` (builtin) when `stage` is negative.
 - `ImportError` (builtin) when NumPy is not installed.
 
-{/* capture: python t232-policy-units | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t232-policy-units | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo
@@ -331,7 +331,7 @@ def write_policy_checkpoint(
 ) -> None: ...
 ```
 
-Writes a policy checkpoint to `path` from plain Python dicts. `stage_cuts` and `metadata` mirror the `"stage_cuts"` and `"metadata"` keys that [`novomodelo.results.load_policy`](#novomodeloresultsload_policy) returns, so a loaded checkpoint round-trips. `stage_bases` and `stage_states` default to empty. The checkpoint always records the running novomodelo version; `software`, `software_version` or `novomodelo_version` keys in `metadata` are ignored. For the dict shapes, see [Write a checkpoint](/running/policy-management/#write-a-checkpoint), [Round-trip example](/running/policy-management/#round-trip-example) and [Input validation](/running/policy-management/#input-validation).
+Writes a policy checkpoint to `path` from plain Python dicts. `stage_cuts`, `metadata`, `stage_bases` and `stage_states` take the shapes of the keys that [`novomodelo.results.load_policy`](#novomodeloresultsload_policy) returns, so a loaded checkpoint round-trips; keys a loaded result carries beyond those the writer reads are ignored. `stage_bases` and `stage_states` default to empty. Every `stage_cuts` entry requires a `cost_scale_factor`, finite and positive: the entry's intercepts and coefficients are in the units of that factor, so a policy authored in currency units passes `1.0`. The `cost_scale_factor` of `metadata["producer"]` is provenance only and never stands in for a missing pool factor. The checkpoint always records the running novomodelo version; `software`, `software_version` or `novomodelo_version` keys in `metadata` are ignored. For the dict shapes, see [Write a checkpoint](/running/policy-management/#write-a-checkpoint), [Round-trip example](/running/policy-management/#round-trip-example) and [Input validation](/running/policy-management/#input-validation).
 
 `inflow_lag_depth = N` with `N > 0` reserves `N` inflow-lag state slots per storage hydro in every stage and places each cut's `inflow_lag_coefficients` at their `(hydro, depth)` positions. Use it to author a boundary policy for a converted case with no PAR model to infer the depth from. Absent or `0`, the checkpoint is identical to one written without the argument.
 
@@ -339,7 +339,11 @@ Writes a policy checkpoint to `path` from plain Python dicts. `stage_cuts` and `
 
 **Raises**
 
-- `ValueError` (builtin) when a cut's `coefficients` length differs from its stage's `state_dimension`, when a stage's state data length differs from `count * state_dimension`, when a cut carries `inflow_lag_coefficients` without a positive `inflow_lag_depth`, or, with `inflow_lag_depth` set, when a stage manifest lacks a leading storage block or an inflow-lag coefficient has no slot to be placed in.
+- `ValueError` (builtin) when a dict holds a key that is not part of a policy checkpoint: `active_cut_indices` on a `stage_cuts` entry, `cut_id` on a cut, or `num_cut_rows`, `num_columns` or `num_rows` on a `stage_bases` entry (`stage_cuts[0]: key 'active_cut_indices' is not part of a policy checkpoint (format 4); remove it`, naming the position). These keys are checked before `stage_cuts` and `stage_bases` are read.
+- `ValueError` (builtin) when a `stage_cuts` entry's `cost_scale_factor` is absent, not finite or not positive (`stage_cuts[{index}] (stage_id {id}): cost_scale_factor is required; the intercepts and coefficients are in the units of this factor (pass 1.0 for values in currency units)`, or `must be finite and positive, got {value}` in place of `is required`).
+- `ValueError` (builtin) when a cut's `coefficients` length differs from its stage's `state_dimension`, when a cut carries `inflow_lag_coefficients` without a positive `inflow_lag_depth`, or, with `inflow_lag_depth` set, when a stage manifest lacks a leading storage block or an inflow-lag coefficient has no slot to be placed in.
+- `ValueError` (builtin) when `metadata["producer"]["basis_store_complete"]` is `True` and `stage_bases` holds no basis, or when the producer's `state_history` is other than `None`, `"whole"` or a positive integer (a `bool` is refused).
+- `ValueError` (builtin), with the rule's message, when the payloads break a checkpoint rule before anything is written: slot order, row counts (a stage's state data length other than `count * state_dimension` included), counter presence, dates, a repeated id or a size limit ([Input validation](/running/policy-management/#input-validation)).
 - [`novomodelo.errors.ValidationError`](#novomodeloerrorsvalidationerror) (a `ValueError`) when `path` (for a link, its target) or its `.staging` or `.previous` sibling holds an entry no checkpoint writer leaves there (`refusing to write a checkpoint: ...`); nothing on disk changes.
 - A [`novomodelo.errors`](#novomodeloerrors) class mapped from the underlying write failure for any other error, such as [`novomodelo.errors.OutputError`](#novomodeloerrorsoutputerror).
 
@@ -385,7 +389,7 @@ A stop requested by `on_iteration` records `convergence.termination_reason` as `
 - The classes listed for [`novomodelo.Study`](#novomodelostudy), [`novomodelo.Study.train`](#novomodelostudytrain) and [`novomodelo.Study.simulate`](#novomodelostudysimulate), according to the phase that fails.
 - Any exception raised by the callback, re-raised verbatim after the artifacts are written.
 
-{/* capture: python t231-run-on-iteration | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-run-on-iteration | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo.run
@@ -400,9 +404,9 @@ novomodelo.run.run("case", output_dir="output", on_iteration=on_iteration)
 ```
 
 ```text
-{'kind': 'iteration', 'iteration': 1, 'lower_bound': 5060208.389407688, 'upper_bound': 17125951.86504142, 'gap': 2.3844360838756016, 'wall_time_ms': 3}
+{'kind': 'iteration', 'iteration': 1, 'lower_bound': 5060208.389407688, 'upper_bound': 17125951.86504142, 'gap': 2.3844360838756016, 'wall_time_ms': 4}
 {'kind': 'iteration', 'iteration': 2, 'lower_bound': 6970347.641468819, 'upper_bound': 583065.760305419, 'gap': -0.9163505480219416, 'wall_time_ms': 7}
-{'kind': 'iteration', 'iteration': 3, 'lower_bound': 7171550.050534341, 'upper_bound': 12565763.664663631, 'gap': 0.752168440033041, 'wall_time_ms': 10}
+{'kind': 'iteration', 'iteration': 3, 'lower_bound': 7171550.050534341, 'upper_bound': 12565763.664663631, 'gap': 0.752168440033041, 'wall_time_ms': 11}
 ```
 
 `wall_time_ms` varies between runs. The stop requested at iteration 3 takes effect at a later iteration boundary, so the run can finish after more than three iterations.
@@ -453,7 +457,7 @@ Runs the full validation pipeline (case structure, schema, configuration, stocha
 
 - `ValueError` (builtin) only when `config_overrides` is malformed.
 
-{/* capture: python t231-io-validate | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-io-validate | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo.io
@@ -514,7 +518,7 @@ Reads `training/convergence.parquet`; for the columns, see [`training/convergenc
 - `FileNotFoundError` (builtin) when `output_dir` or `training/convergence.parquet` is missing.
 - `OSError` (builtin) for other I/O failures and Parquet decoding failures.
 
-{/* capture: python t232-load-convergence | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t232-load-convergence | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo.results
@@ -614,7 +618,7 @@ Reads the policy checkpoint from `<output_dir>/<policy_subdir>` into plain dicts
 - `output_dir`: the output directory.
 - `policy_subdir`: the checkpoint directory under `output_dir`. Pass the configured `policy.path` when it is not `policy`.
 
-**Returns**: a dict with the keys `metadata`, `stage_cuts` and `stage_bases`. `stage_cuts` holds one entry per cut pool, one per stage on a stage chain (four for the 1dtoy case). Intercepts and coefficients are in the scale of the entry's `cost_scale_factor`, the same values [`novomodelo.Policy.cut_matrix`](#novomodelopolicycut_matrix) returns; multiply by `cost_scale_factor` to get currency units.
+**Returns**: a dict with the keys `metadata`, `stage_cuts`, `stage_bases` and `stage_states`, the four arguments of [`novomodelo.write_policy_checkpoint`](#novomodelowrite_policy_checkpoint), so writing them back reproduces the checkpoint. `stage_states` holds one entry per pool that stores trial states, and is an empty list when no pool stores any. `stage_cuts` holds one entry per cut pool, one per stage on a stage chain (four for the 1dtoy case). Intercepts and coefficients are in the scale of the entry's `cost_scale_factor`, the same values [`novomodelo.Policy.cut_matrix`](#novomodelopolicycut_matrix) returns; multiply by `cost_scale_factor` to get currency units.
 
 **Raises**
 
@@ -707,7 +711,7 @@ The loaded system: entity counts and one list per entity class.
 | `pumping_stations` | `list[PumpingStation]` | The pumping stations, in canonical order. Empty when the case has none. |
 | `non_controllable_sources` | `list[NonControllableSource]` | The non-controllable sources, in canonical order. Empty when the case has none. |
 
-{/* capture: python t231a-load-case | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231a-load-case | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo.io
@@ -908,7 +912,7 @@ An internal software or environment fault, such as a worker-thread panic. Raised
 
 Some failures raise a builtin exception that is not a `NovomodeloError`: a missing case directory (`OSError`), `threads=0` and a malformed `config_overrides` mapping (`ValueError`), and a callback's own exception.
 
-{/* capture: python t231-validation-error | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-validation-error | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo
@@ -947,7 +951,7 @@ Writes the JSON Schema file of every case-directory input type into `output_dir`
 - `ValueError` (builtin) when schema generation or serialisation fails.
 - `OSError` (builtin) when the directory cannot be created or a file cannot be written.
 
-{/* capture: python t232-schema-export | novomodelo-python 0.19.0 (PyPI wheel sha256 561f9dfb) | python 3.12.3 | case: none */}
+{/* capture: python t232-schema-export | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: none */}
 
 ```python
 import novomodelo.schema

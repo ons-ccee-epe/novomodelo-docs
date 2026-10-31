@@ -28,11 +28,11 @@ Each checked fence is spliced alone (D-179-2). A fresh copy of the base case (th
 
 ## Provenance
 
-- Version line (`novomodelo version`, line 1): `novomodelo   v0.19.0`
-- Release archive `novomodelo-cli-x86_64-unknown-linux-gnu.tar.xz`: sha256 prefix `f5c7ee93` (the archive's hash)
-- Extracted `novomodelo` binary: sha256 `54ec4e751b95ec279d58a4c767ff8e0ba41d8a3f4272df78ece7e870a3b805c1` (the binary's hash, not the archive's)
+- Version line (`novomodelo version`, line 1): `novomodelo   v0.19.1`
+- Release archive `novomodelo-cli-x86_64-unknown-linux-gnu.tar.xz`: sha256 prefix `e2a3b8cd` (the archive's hash)
+- Extracted `novomodelo` binary: sha256 `949e2ce4f9762f9202a35ca135fae5f2f9c91f859ec7c65591a431b43e6d9d5e` (the binary's hash, not the archive's)
 - Parquet writer: pyarrow 25.0.1, `compression="zstd"`
-- Source record: ticket-179 (overlay and per-fence results), captured 2026-10-20
+- Source record: ticket-179 (overlay and per-fence results), captured 2026-10-26
 
 ## Regenerate
 

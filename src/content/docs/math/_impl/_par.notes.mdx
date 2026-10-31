@@ -34,19 +34,19 @@ The closure sets $r_m^2 = 1 - \sum_\ell \psi^*_{m,\ell}\rho_m(\ell)$, the standa
 
 **Supplied coefficients: the stationarity gate.** A case that supplies `inflow_ar_coefficients.parquet` is checked by the PAR stationarity gate, which rejects a season whose $r_m^2$ is at or below `1e-12` (its other checks are listed in the Inputs & Outputs tab):
 
-{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:376-380 at novomodelo v0.19.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:376-380 at novomodelo v0.19.1 */}
 ```text
 Hydro {hydro_id} season {season}: PAR stationarity gate rejected inflow_ar_coefficients.parquet -- implied residual variance r² = {r_squared} is at or below the numerical floor
 ```
 
 **Every load path: the derivation guard.** After the model is assembled, the closure derivation of $r_m$ runs whatever the origin of the coefficients. It rejects the load when the closure system is singular, and when a derived $r_m$ is non-finite, which a negative implied variance $r_m^2$ produces:
 
-{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:141 at novomodelo v0.19.0 */}
+{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:141 at novomodelo v0.19.1 */}
 ```text
 residual_std_ratio closure is singular for hydro_id={hydro_id}
 ```
 
-{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:145-151 at novomodelo v0.19.0 */}
+{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:145-151 at novomodelo v0.19.1 */}
 ```text
 derived residual_std_ratio is non-finite for hydro_id={hydro_id} season={season}: the coefficients imply a non-stationary process (implied residual variance 1 - sum(psi*rho) is negative)
 ```

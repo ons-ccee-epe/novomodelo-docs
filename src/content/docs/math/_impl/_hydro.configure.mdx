@@ -155,8 +155,12 @@ synthetic closing point and no spillage axis in the cloud — takes the 3-D
 convex hull of the resulting cloud with vendored qhull, applies a
 least-squares $k_{FPHA}$ correction that scales the **whole affine plane**
 (intercept and slopes together, not just the intercept), and fits a per-plane
-lateral-flow secant. Fits are resolved independently per stage range or
-season. Run-of-river plants (a single fitting volume) are supported: the
+lateral-flow secant. Planes are fit only on the stages whose entry selects
+`"fpha"`, independently per stage range or season, so the plant's other stages
+may use constant productivity; each FPHA stage needs an entry that carries an
+`fpha_config` (see
+[Production Model Files](/reference/case-format/production-models/#systemhydro_production_modelsjson)).
+Run-of-river plants (a single fitting volume) are supported: the
 fitter synthesizes two nearby volume samples to keep the hull non-degenerate,
 then snaps the resulting `gamma_v` to exactly `0`. See Implementation notes
 for the full fitting-pipeline summary and methodology §2.6–§2.7 for the
@@ -174,7 +178,9 @@ run-of-river plants (a constant forebay, so `gamma_v = 0`).
   "turbine_discretization_points": 5,
   "spillage_discretization_points": 5,
   "max_planes_per_hydro": 10,
-  "fitting_window": null
+  "fitting_window": null,
+  "turbined_fit_max_m3s": null,
+  "spillage_fit_max_m3s": null
 }
 ```
 
@@ -187,6 +193,8 @@ All fields except `source` are optional:
 | `spillage_discretization_points` | 5       | Validated (must be `>= 2`) but does **not** add a spillage axis to the fitting grid — the cloud and the $k_{FPHA}$ regression fix spillage at `0`, and the lateral-flow secant sweeps its own sample range independently (§2.7). The field is retained for input round-tripping. |
 | `max_planes_per_hydro`           | 10      | Accepted and validated (`>= 1`) but does not trim the plane set — the hull fitter emits exactly the upper-envelope facets. |
 | `fitting_window`                 | null    | Optional volume range for fitting; absent uses the full forebay range of the plant's `system/hydro_geometry.parquet` volume-height curve. |
+| `turbined_fit_max_m3s`           | null    | Upper end (m³/s) of the turbined-flow axis of the fitting grid, $q^{fit}_{max}$ in §2.6.1; the axis starts at `0`. Finite and `> 0`, else rejected at load. Absent uses the plant's `max_turbined_m3s`. It may lie below or above `max_turbined_m3s`; the LP turbined-flow bounds stay the plant's own. |
+| `spillage_fit_max_m3s`           | null    | Upper end (m³/s) of the lateral-flow sample of the secant, $\bar{S}^{fit}$ in §2.7. Finite and `> 0`, else rejected at load. Absent uses twice the mean of the plant's `scenarios/inflow_history.parquet` values, or twice its `max_turbined_m3s` when that mean is not positive. |
 
 `fitting_window` restricts which portion of the operating range builds the
 grid — useful when the plant rarely operates near one extreme:
@@ -312,6 +320,8 @@ planned-outage stage, as
 | Rule                            | Error Class          | Description |
 | -------------------------------- | --------------------- | ----------- |
 | FPHA geometry coverage            | Dimensional error      | When `system/hydro_geometry.parquet` holds any row, every `fpha` plant must have at least 1 row of its own (a single row is valid for run-of-river plants); with no row in the file this rule does not run. |
-| FPHA plane coverage               | Dimensional error      | Every `(hydro_id, stage_id)` group in `system/fpha_hyperplanes.parquet` must have at least 1 plane. |
+| FPHA hyperplane coverage          | Dimensional error      | When `system/fpha_hyperplanes.parquet` holds any row, every `fpha` plant with turbine capacity must have rows of its own, whatever its `source`; with no row in the file this rule does not run. |
+| FPHA fit ranges                   | Schema error           | `turbined_fit_max_m3s` and `spillage_fit_max_m3s`, when set, must be finite and `> 0`. |
+| FPHA stage coverage (computed)    | Setup error            | On a plant with any `source: "computed"` entry, every stage whose entry selects `"fpha"` must resolve to an entry with an `fpha_config`; an uncovered stage or a `default_model` of `"fpha"` is rejected when the study is set up. |
 | FPHA coefficient signs            | Semantic error         | `gamma_v` must be non-negative (`>= 0`; run-of-river plants have `gamma_v = 0`); `gamma_s` must be non-positive. |
 | Geometry monotonicity             | Semantic error         | `volume_hm3` must be strictly increasing; `height_m` and `area_km2` must be non-decreasing. |
