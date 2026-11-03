@@ -2498,13 +2498,13 @@ solver profile field "primal_feasibility_tolerance" (1e-7) for phase "forward" i
 **Resolution:** Remove the override field from `config.json` on a CLP-built
 binary, or switch to the default HiGHS backend if the override is required.
 
-### HiGHS backend: seven per-field range checks
+### HiGHS backend: six per-field range checks
 
 The default (`highs`) backend accepts every solver-profile field. The closed
 enums (`dual_edge_weight`, `scale`, `price`, `presolve`) and `use_warm_start`
 are unconditionally valid — every variant is checked when `config.json` is
 read, so there is no separate runtime range check for them. The remaining
-seven numeric fields are range-checked at study setup; each failure names the
+six numeric fields are range-checked at study setup; each failure names the
 field, the rejected value, and the phase (`forward` / `backward` /
 `simulation`) whose profile set it.
 
@@ -2514,7 +2514,6 @@ field, the rejected value, and the phase (`forward` / `backward` /
 | `dual_feasibility_tolerance` | must be finite and `>= 0.0000000001` | `unsupported dual_feasibility_tolerance {value} for backend "highs" in phase "{phase}": value must be finite and >= 0.0000000001` |
 | `simplex_update_limit` | must be `<= 2147483647` | `unsupported simplex_update_limit {value} for backend "highs" in phase "{phase}": value must be <= 2147483647` |
 | `cost_perturbation` | must be finite and `>= 0` | `unsupported cost_perturbation {value} for backend "highs" in phase "{phase}": value must be finite and >= 0` |
-| `refactor_error_tolerance` | must be finite and `>= 0` | `unsupported refactor_error_tolerance {value} for backend "highs" in phase "{phase}": value must be finite and >= 0` |
 | `factor_pivot_threshold` | must be in `[0.0008, 0.5]` | `unsupported factor_pivot_threshold {value} for backend "highs" in phase "{phase}": value must be in [0.0008, 0.5]` |
 | `steepest_edge_devex_fallback_threshold` | must be finite and `>= 1.0` | `unsupported steepest_edge_devex_fallback_threshold {value} for backend "highs" in phase "{phase}": value must be finite and >= 1.0` |
 
@@ -2572,6 +2571,24 @@ error: LP infeasible at stage 0, iteration 1, scenario 0
   -> check constraint bounds (hydros may have conflicting min/max storage)
   -> run `novomodelo validate <CASE_DIR>` for a full diagnostic report
 ```
+
+### Solves that miss a row bound
+
+When any LP solve of the run returned an optimal primal solution that misses a
+row bound, `novomodelo run` prints one line on stderr when the run ends (rank 0
+only; `--quiet` does not suppress it). The run still succeeds and the exit code
+does not change:
+
+```text
+warning: LP solves returned a primal solution that misses a row bound by more than the primal feasibility tolerance plus 1e-11 of the row's magnitude: {n} of {m} (forward {f}, backward {b}, lower bound {l}, simulation {s}); per-stage counts are in the lp_row_violations column of solver/iterations.parquet
+```
+
+A row counts when its violation exceeds the solver's primal feasibility
+tolerance plus `1e-11` times the row's magnitude: the sum of the absolute values
+of its terms at the returned solution, taken as at least 1. The Python
+`novomodelo.run` prints the same text prefixed by `novomodelo-python: `. A count
+above zero means outputs recomputed from that solve (balances, duals, cuts) may
+not close; report it with the case.
 
 ### Simulation failures
 

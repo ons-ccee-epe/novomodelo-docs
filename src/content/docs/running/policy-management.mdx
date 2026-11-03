@@ -505,12 +505,13 @@ always checks them, and a [boundary load](#boundary-cuts) checks none.
 
 A stored basis that fits seeds a solve only in a phase that warm-starts
 ([`use_warm_start`](/running/configuration/#solver-profile-fields)). Under the
-built-in HiGHS profiles forward and simulation solves start cold, so a
-simulation-only run starts from its checkpoint bases only with
+built-in HiGHS profiles simulation solves start cold, so a simulation-only run
+starts from its checkpoint bases only with
 `simulation.solver.use_warm_start: true`. On a stage chain a warm-start or
-resume run starts from them only with
-`training.solver.forward.use_warm_start: true`, because the backward pass reads
-the bases the forward pass captures; on a branching graph the backward pass also
+resume run starts from them through the forward pass, which warm-starts by
+default, because the backward pass reads the bases the forward pass captures;
+setting `training.solver.forward.use_warm_start: false` leaves them unread. On a
+branching graph the backward pass also
 starts from them at the successor nodes a scenario's first forward path did not
 visit. On CLP every phase starts from them. The
 [LP Warm-Start implementation notes](/math/lp-warm-start/#implementation-in-novomodelo)
