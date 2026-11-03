@@ -340,6 +340,11 @@ The file name itself is not read for identity — each buffer carries its own
 id internally, and the reader derives pool and node identity from the payload,
 never from the name.
 
+`basis/` is written even when no node holds a basis. A load reads a checkpoint
+without `basis/` as one with no stored bases, so a checkpoint unpacked from an
+archive that dropped the empty directory still loads; every node then starts
+without a stored basis.
+
 `states/` holds, for every pool that stores trial states, the state each scored
 cut was computed at, keyed by the cut's slot. Under `level1`, every pool of a
 stage strictly between the first and the last stores them (the last
