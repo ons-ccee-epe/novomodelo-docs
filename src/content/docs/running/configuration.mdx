@@ -545,7 +545,6 @@ template is built — and every rank resolves the same profile from the broadcas
 | `dual_feasibility_tolerance` | number |
 | `simplex_update_limit` | integer |
 | `cost_perturbation` | number |
-| `refactor_error_tolerance` | number |
 | `factor_pivot_threshold` | number |
 | `use_warm_start` | boolean |
 | `steepest_edge_devex_fallback_threshold` | number |
@@ -553,11 +552,12 @@ template is built — and every rank resolves the same profile from the broadcas
 - `presolve` affects only a genuinely cold solve — a warm-started solve
   skips presolve regardless of the setting.
 - `use_warm_start` chooses whether a phase's HiGHS solves start from the stored
-  basis. The built-in profiles set it to `true` for `training.solver.backward` and
-  to `false` for `training.solver.forward` and `simulation.solver`. Under `false`,
-  HiGHS ignores the stored basis and solves cold, with presolve (on in every
-  built-in profile). Set `"use_warm_start": true` in `training.solver.forward` or
-  `simulation.solver` to warm-start that phase. A cold solve can stop at a
+  basis. The built-in profiles set it to `true` for `training.solver.forward` and
+  `training.solver.backward`, and to `false` for `simulation.solver`. Under
+  `false`, HiGHS ignores the stored basis and solves cold, with presolve (on in
+  every built-in profile). Set `"use_warm_start": true` in `simulation.solver` to
+  warm-start the simulation; on a large LP a warm simulation can be slower than a
+  cold one, because a warm solve skips presolve. A cold solve can stop at a
   different, equally optimal vertex than a warm-started one: the same objective
   value, possibly different duals. HiGHS retry escalation keeps the phase's
   `use_warm_start` at every retry level. The CLP backend has no such setting:
@@ -579,14 +579,13 @@ single-unscaling identity does not account for.
 
 #### Validation
 
-Seven fields are range-checked; a value outside its range is rejected at
+Six fields are range-checked; a value outside its range is rejected at
 study setup, by `novomodelo validate` and by `novomodelo run` (exit `1`), with an error naming the phase and the offending field:
 
 - `primal_feasibility_tolerance` — must be finite.
 - `dual_feasibility_tolerance` — must be finite and `>= 1e-10`.
 - `simplex_update_limit` — must be `<= 2147483647` (`i32::MAX`).
 - `cost_perturbation` — must be finite and `>= 0`.
-- `refactor_error_tolerance` — must be finite and `>= 0`.
 - `factor_pivot_threshold` — must be in `[8e-4, 0.5]`.
 - `steepest_edge_devex_fallback_threshold` — must be finite and `>= 1.0`.
 

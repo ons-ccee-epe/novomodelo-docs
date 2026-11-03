@@ -275,8 +275,10 @@ only.
 software-layer/devguide concern; keep the math backend-generic.)
 → **Warm start per phase**: each phase's solver profile
 (`solve/solver_phase.rs`) sets `use_warm_start`. The HiGHS profiles warm-start
-the backward pass (`true`) and start forward and simulation solves cold
-(`false`); a cold HiGHS solve uses neither the offered basis nor the one the
+the forward and backward passes (`true`) and start simulation solves cold
+(`false`); HiGHS refactorizes before reporting a solve optimal, and every
+solve counts the rows its primal solution misses (`lp_row_violations`, end-of-run
+warning); a cold HiGHS solve uses neither the offered basis nor the one the
 previous solve left (`backends/highs/interface.rs` drops the basis, which keeps
 `basis_offered` at 0; HiGHS `run()` clears the solver), the dynamic method's
 inner re-solves included. A phase's `use_warm_start` override changes either
@@ -284,9 +286,10 @@ choice and every retry keeps it. CLP has no `use_warm_start`, rejects per-phase
 fields, and warm-starts every phase. The dynamic method neither reads nor writes
 the basis store (`training/forward/stage_solve.rs`,
 `training/backward/by_scenario.rs`); outside it captures happen whatever the
-profile. Under the HiGHS defaults a checkpoint's stored bases seed no training
-solve on a stage chain (the cold forward pass overwrites the slot before the
-backward pass reads it); on a branching graph a warm backward pass also starts
+profile. Under the HiGHS defaults a checkpoint's stored bases seed the first
+iteration's forward solves on a stage chain (with a cold forward pass they seed
+no training solve: the forward capture overwrites the slot before the backward
+pass reads it); on a branching graph a warm backward pass also starts
 from them at successor nodes the first forward path did not visit
 (`resolve_backward_basis`, `training/backward/lp_setup.rs`). Simulation-only
 uses them only with `simulation.solver.use_warm_start: true`.
