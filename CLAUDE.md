@@ -30,7 +30,9 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.19.1 (2026-10-26).**
+**Synced to: novomodelo v0.19.1 (2026-10-26)**, plus unreleased novomodelo
+`main` at `2e324c4a` (2026-11-03). The vendored artifacts and captures stay at
+v0.19.1 until the next tag, whose flip refreshes them.
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -475,6 +477,46 @@ only (`par/fitting/cycle_positions.rs`). The `historical_residuals` noise method
 opening-tree library and constructs `StudySetup` for every deck (`validate_study`,
 `crates/novomodelo-sddp/src/validate_phases.rs`), so it also builds the forward
 scheme's library and reports the refusals `run` reports for it.
+
+When **updating spatial correlation estimation or opening-tree moment matching**
+(`par-inflow-model.mdx` §6.1, `scenario-generation.mdx` §2.3,
+`multi-resolution-studies.md` §4, `_impl/_par.configure.mdx`,
+`_impl/_scenario.*`, `running/configuration.mdx`):
+
+→ `estimation.correlation_target` (`inflows` default | `residuals`,
+`crates/novomodelo-io/src/config/estimation.rs`) picks the series
+`compute_correlation_series` correlates
+(`crates/novomodelo-stochastic/src/par/fitting/correlation.rs`): the standardized
+inflow `(a − μ_m)/s_m` (population statistics, 0 when `s_m = 0`), or that minus
+the PAR lag terms (`ψ*` lag coefficients only, never the annual term). Both feed
+the same pairwise-complete Pearson estimates: a pooled `default` profile and a
+per-season `season_XX` profile where every pair has ≥ 30 periods
+(`MIN_CORRELATION_PAIRS`). Estimation runs only on `full_estimation`,
+`partial_estimation` and `user_ar_history_stats` without `correlation.json`;
+`correlation_source` is `user_file` whenever the file is present.
+→ `training.scenario_source.openings.moment_matching` (`per_coordinate` default |
+`none`; `generated` only, refused under `file`;
+`crates/novomodelo-io/src/config/scenario_source.rs`) runs `match_stage_moments`
+(`crates/novomodelo-stochastic/src/tree/moment_matching.rs`) after the
+correlation, per generated stage, on inflow coordinates only: population mean 0
+and variance `Σ_j D_cj²` (`implied_class_variances`, `correlation/resolve.rs`;
+1 unless an eigenvalue was clipped). It skips `historical_residuals` stages,
+`file` trees, one-opening stages and constant coordinates; load and NCS noise and
+out-of-sample draws are never matched; the exported tree is the matched one.
+→ **Noise groups** are adjacent study stages sharing `(season_id, start year)`.
+`reject_group_stage_larger_than_first` (`tree/generate.rs`) refuses a later stage
+with more openings, counted after the historical-window and external clamps,
+than the group's first stage (`StochasticError::InsufficientData`, exit 1;
+`validate` labels it `scenarios/inflow_history.parquet`); one with fewer copies
+the first openings, with a warning under moment matching.
+→ **MPI**: `novomodelo run` compares `OpeningTree::fingerprint` (FNV-1a) as
+min/max across ranks (`crates/novomodelo-cli/src/commands/run/setup.rs`) and
+exits 4 on a mismatch; non-root ranks drop every log event below ERROR
+(`keeps_event`, `crates/novomodelo-cli/src/main.rs`).
+→ Python `StochasticSummary` and `ProvenanceReport` carry `correlation_target`
+and `opening_tree_moment_matching`; `reference/python-api.mdx` gets their rows
+when the pin flip refreshes `scripts/pystubs/`, since `check:python-api` rejects
+rows the vendored stubs lack.
 
 When **updating inflow non-negativity** (`inflow-nonnegativity.md`,
 `lp-formulation.md` §4/§10, `penalty-system.mdx`, the Tier 1 convexity bullet of
