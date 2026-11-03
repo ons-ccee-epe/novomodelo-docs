@@ -31,7 +31,7 @@ diverge from the code, the spec must be updated — not the other way around.
 ## Current State
 
 **Synced to: novomodelo v0.19.1 (2026-10-26)**, plus unreleased novomodelo
-`main` at `2e324c4a` (2026-11-03). The vendored artifacts and captures stay at
+`main` at `da0c4f85` (2026-11-03). The vendored artifacts and captures stay at
 v0.19.1 until the next tag, whose flip refreshes them.
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
@@ -320,7 +320,10 @@ was written by exactly this build (`SoftwareIdentity::THIS_BUILD`: the same
 `PolicySoftwareMismatch`; Python
 `write_policy_checkpoint` stamps `THIS_BUILD`. A full-FCF load never fails over
 a stored basis: one that does not fit its LP is left out with one warning
-(`build_basis_cache_from_checkpoint`, `admit_stored_basis`, `UnusedStoredBases`). Boundary
+(`build_basis_cache_from_checkpoint`, `admit_stored_basis`, `UnusedStoredBases`),
+and the reader takes a checkpoint without `basis/` (which archive tools drop
+when empty) as one with no stored bases, as it does for `states/`
+(`read_checkpoint_dir`, `crates/novomodelo-io/src/output/policy/checkpoint.rs`). Boundary
 injection reconciles a differing-state-shape source per slot by ENTITY IDENTITY:
 a target storage or inflow-lag slot with no source counterpart is rejected
 (`RebindOp::Reject`), only forward-dated families are relaxed by interval
