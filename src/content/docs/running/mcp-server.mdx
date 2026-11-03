@@ -11,12 +11,13 @@ Depending on the client, it works in a terminal (such as Claude Code or Codex), 
 desktop application (such as Claude Desktop) or in an IDE (such as Kiro, or GitHub
 Copilot in VS Code).
 
-The server is a thin facade over the programs Novomodelo already ships: each tool
-wraps one subcommand of the `novomodelo` CLI or of
-[novomodelo-bridge](/running/case-conversion/) (with `--json` where the subcommand
-has it), or one call of the `novomodelo-python` bindings, and relays the result. It
-carries no conversion, validation, comparison or solving logic of its own, so a
-tool's answer is the answer of the program it wraps.
+The server is a facade over the programs Novomodelo already ships. The tools that
+validate, summarize, convert, compare and run a case call a subcommand of the
+`novomodelo` CLI or of [novomodelo-bridge](/running/case-conversion/) (with `--json`
+where the subcommand has it), or the `novomodelo-python` bindings, and relay the
+result: the server carries no conversion, validation, comparison or solving logic of
+its own. The other tools read the case files, the run outputs and the bundled
+documentation, and `run_plan` computes its own estimate of a run's time and memory.
 
 The server speaks MCP over stdio: the client starts it as a subprocess, and it opens
 no network port. Its messages and response fields are in Portuguese, and the bundled
@@ -44,8 +45,9 @@ gives the versions and the crates.io install for older systems.
 ### One version for every component
 
 The server, the `novomodelo` executable, `novomodelo-python` and `novomodelo-bridge`
-share one version number: novomodelo-mcp `X.Y.Z` works with novomodelo `X.Y.Z`, and
-the package pins the bridge and the bindings at that version. A fix to the server
+share one version number: novomodelo-mcp `X.Y.Z` works with novomodelo `X.Y.Z`. The
+package pins novomodelo-bridge at that version, and the bridge pins
+`novomodelo-python` at it. A fix to the server
 alone is released as `X.Y.Z.postN`. Keep the `novomodelo` executable at the same
 version too: the solver loads only a policy written by the same version.
 [Version warnings](#version-warnings) reports any component that differs.
@@ -189,8 +191,9 @@ make the final decision.
 | Writes new files         | `case_init`, `schema_export`, `bridge_convert_*`, `bridge_compare_*`, `bridge_dashboard`, `incluir_pastas`                                                                                                                                                                                                     |
 | Changes or stops         | `deck_edit_json`, `deck_edit_parquet`, `run_apply`, `run_start`, `run_cancel`, `instalar_novomodelo`                                                                                                                                                                                                          |
 
-`novomodelo-mcp configurar --cliente claude-code --mostrar` prints the list of
-read-only tools that `configurar` writes, read from the server itself.
+`novomodelo-mcp configurar --cliente claude-code --workspace <folder> --mostrar`
+prints the list of read-only tools that `configurar` writes, read from the server
+itself.
 
 By stage of a study:
 
@@ -214,7 +217,10 @@ By stage of a study:
   (`cabe`, `cabe_com_ajustes`, `nao_cabe` or `indeterminado`) with suggested
   settings. `run_apply` applies those settings to `config.json`. `run_start` starts
   `novomodelo run` in the background and returns a job id at once; it refuses a case
-  whose plan is `nao_cabe`, unless called with `override=True`. `run_status`,
+  whose plan is `nao_cabe`, unless called with `override=True`. It also refuses an
+  output folder that holds a finished run, because running there again deletes that
+  run: the refusal (exit code 17) gives a free folder in `output_sugerido`, and
+  `overwrite=True` replaces the earlier run. `run_status`,
   `run_logs` and `run_cancel` follow and stop the job. A job survives a restart of
   the server.
 - **Results.** `results_status` reads the run status, bounds, gap, iterations and
@@ -280,8 +286,8 @@ Three forms of call override a safety check, and each needs
 ### Network
 
 The server uses the network only to check for newer releases of Novomodelo,
-novomodelo-bridge and the server itself (`server_info`, at most once every six hours,
-with a timeout of a few seconds) and to install the executable
+novomodelo-bridge and the server itself (`server_info`, at most once every six hours
+in a running server, with a timeout of a few seconds) and to install the executable
 (`instalar_novomodelo`), and only to these destinations:
 `github.com/ons-ccee-epe/*`, `api.github.com/repos/ons-ccee-epe/*`,
 `pypi.org/pypi/novomodelo-bridge/*`, `pypi.org/pypi/novomodelo-mcp/*` and, as a
@@ -314,21 +320,27 @@ still finds the executable in `~/.cargo/bin`, the installer's default folder.
 
 ## Version warnings
 
-When the `novomodelo` executable, `novomodelo-python`, novomodelo-bridge or the
-bundled documentation is missing or at a version other than the server's, every
-tool response carries `avisos_de_versao`: one line per component, with the commands
-that align it. The call still runs; the server's instructions ask the agent to tell
+When the `novomodelo` executable, `novomodelo-python` or novomodelo-bridge is
+missing, or one of them or the bundled documentation is at a version other than the
+server's, every tool response carries `avisos_de_versao`: one line per component,
+with the commands that align it. The call still runs; the server's instructions ask the agent to tell
 the person and to offer to run the commands, with the person's consent.
 
 - A component **older** than the server is upgraded to the server's version: for
   the executable, the agent can call `instalar_novomodelo`, or the person runs the
-  release installer of that version; for the others,
-  `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`.
+  release installer of that version; for `novomodelo-python`, the bundled
+  documentation and the package's own novomodelo-bridge,
+  `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`, which brings
+  them along; for a novomodelo-bridge found through `NOVOMODELO_MCP_BRIDGE_BIN` or
+  on `PATH`, `uv tool install --force novomodelo-bridge==X.Y.Z`.
 - A component **newer** than the server has two ways out, because without a network
   the server cannot tell whether a server of that version exists: install the server
   of the component's version, if it is released
   (`uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`), or bring the
-  component back to the server's version. The warning includes the component's changes from its release notes.
+  component back to the server's version. For the executable and novomodelo-bridge,
+  the warning ends with the release notes of the component's version: its changes,
+  when a `server_info` call in the same running server fetched them in the last six
+  hours, or else a link to the notes.
 
 `server_info` also reports in `versao_nova` whether a newer release of novomodelo,
 novomodelo-bridge or the server exists. For novomodelo and novomodelo-bridge it gives
@@ -388,14 +400,15 @@ go in the `env` of the client entry.
 | ---------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `NOVOMODELO_MCP_WORKSPACE`         | unset (unrestricted)             | allowed root folders, separated by `:` (`;` on Windows)                                                      |
 | `NOVOMODELO_MCP_ALLOW_FORCE`       | `0`                              | `1` enables the [forced writes](#forced-writes)                                                              |
-| `NOVOMODELO_MCP_SOLVER_BIN`        | `novomodelo` on `PATH`           | path of the `novomodelo` executable                                                                          |
+| `NOVOMODELO_MCP_SOLVER_BIN`        | `novomodelo` on `PATH`, then in `~/.cargo/bin` | path of the `novomodelo` executable                                                            |
 | `NOVOMODELO_MCP_BRIDGE_BIN`        | the package's, then `PATH`       | another `novomodelo-bridge` executable; takes precedence over the package's                                   |
 | `NOVOMODELO_MCP_SCHEMAS_DIR`       | unset                            | folder of `*.schema.json` files, first in the schema sources                                                 |
+| `NOVOMODELO_MCP_DOCS_DIR`          | unset                            | for documentation development only: a folder of this site's pages, read instead of the bundled documentation; every response then carries a line in `avisos_de_versao` |
 | `NOVOMODELO_MCP_TIMEOUT`           | `900`                            | timeout, in seconds, of each CLI call                                                                        |
 | `NOVOMODELO_MCP_MAX_JOBS`          | `1`                              | runs that `run_start` allows at the same time                                                                |
 | `NOVOMODELO_MCP_STATE_DIR`         | per operating system (below)     | persistent state: background runs and solve-time calibration                                                 |
 | `NOVOMODELO_MCP_MAX_RESPONSE_KB`   | `50`                             | size cap of a response with rows or lists                                                                    |
-| `NOVOMODELO_MCP_MAX_READ_BYTES`    | `5000000`                        | largest file loaded whole into memory by the JSON readers, `deck_describe_parquet` and `deck_edit_parquet`; a larger one is refused and points to `deck_sql` |
+| `NOVOMODELO_MCP_MAX_READ_BYTES`    | `5000000`                        | largest file loaded whole into memory by the JSON readers, `deck_describe_parquet` and `deck_edit_parquet`; a larger one is refused, and the two Parquet tools, which also refuse a folder, point to `deck_sql` |
 | `NOVOMODELO_MCP_MAX_POLICY_BYTES`  | `1073741824` (1 GiB)             | largest policy on disk that `results_policy` loads                                                           |
 | `NOVOMODELO_MCP_MAX_DIAGNOSTICS`   | `50`                             | cap on diagnostic items                                                                                      |
 | `NOVOMODELO_MCP_MAX_SUMMARY_CHARS` | `20000`                          | cap on the length of a `summary`                                                                             |
