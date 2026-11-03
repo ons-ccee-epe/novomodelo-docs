@@ -30,7 +30,7 @@ The σ = 0 rule of §4.3 compares the standard deviation with `0.0` exactly. At 
 
 ### Warnings
 
-Novomodelo logs these six warnings and continues. Each text below is fixed apart from the values at its placeholders.
+Novomodelo logs these eight warnings and continues. Each text below is fixed apart from the values at its placeholders. Under `novomodelo run` on two or more MPI processes, only rank 0 prints them.
 
 - **Clamp by external scenarios.** A class on the external scheme has fewer raw external scenarios at a stage than the stage's `branching_factor`, and no tighter clamp applies:
   {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:137-145 at novomodelo v0.19.1 */}
@@ -66,6 +66,16 @@ Novomodelo logs these six warnings and continues. Each text below is fixed apart
   ```
 
   The `{class}` placeholder reads `inflow`, `load` or `ncs`.
+- **Constant coordinates under moment matching.** Moment matching finds hydros whose openings at a generated stage are all equal, and leaves them as drawn; the counts cover the whole tree:
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:163-171 at novomodelo main 2e324c4a */}
+  ```text
+  moment matching left {coordinates} inflow coordinate(s) in {stages} stage(s) as drawn: every opening is equal there
+  ```
+- **Shorter noise-group copies under moment matching.** A stage of a noise group has fewer openings than the matched first stage of its group, so the openings it copies are not matched as a set:
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:172-178 at novomodelo main 2e324c4a */}
+  ```text
+  {stages} stage(s) copy a noise-group stage with a different opening count; their copied openings are not moment-matched
+  ```
 
 ### Sobol dimension limit
 
@@ -76,3 +86,13 @@ The Sobol direction numbers cover `SOBOL_MAX_DIM: usize = 21201` dimensions. A s
 {/* quoted from source: crates/novomodelo-stochastic/src/error.rs:46 at novomodelo v0.19.1 */}
 
 `noise dimension {dim} exceeds maximum supported dimension {max_dim} for {method}`
+
+### Opening tree across MPI ranks
+
+{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-401 and crates/novomodelo-stochastic/src/tree/opening_tree.rs:258-275 at novomodelo main 2e324c4a */}
+
+On two or more MPI processes, `novomodelo run` checks after setup that every rank built the same opening tree. Each rank hashes its tree with 64-bit FNV-1a over the stage count, the noise dimension, the per-stage opening counts, the bit pattern of every noise value and the solve order, and the ranks exchange the smallest and the largest digest. When the two differ, the run stops with exit `4` before training ([Communication failures](/reference/error-codes/#communication-failures)):
+
+```text
+opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same tree from the broadcast inputs
+```

@@ -1902,11 +1902,13 @@ in this phase, such as a load error (after the label, its message begins
 it traces to.
 
 **Example:** A historical library that holds no complete window, a
-non-stationary fitted inflow model (non-finite innovation scale), or an
-autoregressive stage whose standard deviation is zero, or a declared
+non-stationary fitted inflow model (non-finite innovation scale), an
+autoregressive stage whose standard deviation is zero, a stage with more
+openings than the first stage of its noise group, or a declared
 opening-tree file that is absent.
 [Historical-library refusals](#historical-library-refusals),
-[Inflow-model refusals](#inflow-model-refusals) and
+[Inflow-model refusals](#inflow-model-refusals),
+[Noise-group opening count](#noise-group-opening-count) and
 [Opening-tree file missing](#opening-tree-file-missing) quote the messages.
 
 #### Historical-library refusals
@@ -2003,6 +2005,36 @@ study. Two refusals carry a fixed message:
   with the `scenarios/` file label and exits `1`. `novomodelo run` prints it without
   the `I/O error: ` prefix, followed by a hint to run `novomodelo validate`, and also
   exits `1`.
+
+#### Noise-group opening count
+
+**When it occurs:** A study stage has more openings than the first stage of its
+noise group, the run of adjacent study stages with the same `season_id` whose
+start dates fall in one calendar year
+([Scenario Generation §2.3](/math/scenario-generation/#23-opening-tree)). The
+counts compared are the ones the opening tree uses: `num_openings` after the
+clamps by a historical window pool and by an external scenario library (the
+clamp warnings of the Implementation notes tab of
+[Scenario Generation](/math/scenario-generation/#implementation-in-novomodelo)),
+so a clamp on the first stage alone can bring it about. The check runs before
+any noise is drawn. The message names both stages:
+
+{/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:160-187 and crates/novomodelo-stochastic/src/error.rs:28 at novomodelo main 2e324c4a */}
+
+```text
+insufficient data: stage {dst_id} has {k_dst} openings but shares a noise group with stage {src_id}, which has {k_src}; a stage cannot have more openings than the first stage of its noise group: lower num_openings of stage {dst_id} in stages.json to {k_src}
+```
+
+This is a stochastic-model error. `novomodelo validate` prints it after the
+`scenarios/inflow_history.parquet: stochastic error: ` prefix and exits `1`.
+`novomodelo run` prints it as `error: stochastic error: insufficient data: stage …`
+with the validate hint, and exits `1`.
+
+**Resolution:** Lower `num_openings` of the named stage in `stages.json` to the
+count the message gives. When a clamp lowered the first stage's count, more
+historical windows or external scenarios for that stage also clear the refusal.
+A later stage with fewer openings than the first stage is accepted and copies
+the first of them.
 
 #### Opening-tree file missing
 
@@ -2559,6 +2591,8 @@ A stage-LP failure in simulation exits `3`, and every other simulation failure e
 
 ### Communication failures
 
+{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-401 at novomodelo main 2e324c4a */}
+
 {/* quoted from source: crates/novomodelo-cli/src/error.rs:264-270 and 289-307, crates/novomodelo-comm/src/types.rs:25-70 and 73-120, crates/novomodelo-comm/src/factory.rs:256-293, crates/novomodelo-comm/src/ferrompi.rs:87-93, crates/novomodelo-sddp/src/error.rs:36-38 and 48-51, crates/novomodelo-sddp/src/cut/wire.rs:176-180, crates/novomodelo-sddp/src/workspace/workspace.rs:229-234, crates/novomodelo-sddp/src/training/training.rs:492-494, 524-526 and 541-544, crates/novomodelo-cli/src/commands/broadcast.rs:415-433, crates/novomodelo-cli/src/commands/run/mod.rs:306-323, crates/novomodelo-cli/src/commands/run/setup.rs:361-371, crates/novomodelo-cli/src/commands/run/training.rs:93-107 and 126-128, crates/novomodelo-cli/src/commands/run/simulation.rs:388-390 and crates/novomodelo-sddp/src/training/session/mod.rs:383-394, 631 and 712 at novomodelo v0.19.1 */}
 
 | Message                                                                                                                                                                                                                                                                                                                                                                                                               | Exit code | When it occurs                                                                                                                                                                                                                                                                                                                                     | Resolution                                                                                                                                            |
@@ -2571,6 +2605,8 @@ A stage-LP failure in simulation exits `3`, and every other simulation failure e
 | `gather_basis_store: rank {rank} sent more than its {passes} rows at node {node}`, `gather_basis_store: rank {rank} sent {count} f64 values its rows at node {node} do not read` or `{operation}: rank {rank}'s basis payload at node {node} does not fit an i32 count` | `1` | Rank 0 cannot decode the stored LP bases it gathers from every process at a periodic checkpoint or at the end of training, or the bases one process holds for a node exceed an MPI count; `{operation}` is `gather_basis_store_i32` or `gather_basis_store_f64`. The `novomodelo validate` hint after it does not apply. | Report the case with the message. |
 | `rank 0 signaled broadcast failure (length 0)`                                                                                                                                                                                                                                                                                                                                                                        | `4`       | Rank 0 fails while loading the case, before it broadcasts the study, so the other processes receive an empty broadcast; rank 0 exits with the code of its own error.                                                                                                                                                                               | Fix the error that rank 0 prints under its `rank 0:` line.                                                                                            |
 | `hydro model preprocessing error on non-root rank: {e}`                                                                                                                                                                                                                                                                                                                                                               | `4`       | A process other than rank 0 fails to prepare the hydro models, which it rebuilds from the case directory.                                                                                                                                                                                                                                          | Give every process read access to the same case directory, and read `{e}` for the cause.                                                              |
+| `opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same tree from the broadcast inputs`                                                                                                                                                                                                                                                                      | `4`       | On two or more MPI processes, the digests of the opening tree that the ranks built differ after setup, so they would train against different trees; `{min}` and `{max}` are the smallest and the largest digest, each `0x` and 16 hexadecimal digits ([Opening tree across MPI ranks](/math/scenario-generation/#implementation-in-novomodelo)).   | Report the case with the message.                                                                                                                     |
+| `opening tree fingerprint exchange failed: {e}`                                                                                                                                                                                                                                                                                                                                                                       | `4`       | The exchange of the opening-tree digests across the MPI processes fails; `{e}` is the communication error.                                                                                                                                                                                                                                         | Read `{e}` for the failing operation.                                                                                                                 |
 | `enumerated training at world >= 2 requires a graph with no interior branching (a deterministic trunk + terminal fan): node {node_id} is a non-leaf node not shared by every root→leaf path — the enumerated forward's per-rank state exchange is elided for it, so the replicated backward would cut against a zeroed incoming state on any rank that never visits it, pending the interior-node state-exchange fix` | `1`       | Enumerated training (`training.selection.method` `"enumerated"`) runs on two or more MPI processes over a policy graph with an interior branching node; the message has no prefix and is followed by ``-> run `novomodelo validate <CASE_DIR>` for a full diagnostic report``, although `novomodelo validate` does not check this and exits `0` on the case. | Keep all branching at the last stage, run on one process, or use sampled selection.                                                                   |
 
 Requesting the MPI backend from a binary built without MPI support prints:

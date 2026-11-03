@@ -56,6 +56,7 @@ Every `config.json` key down to the second level, with its type and default; eac
 | `estimation.order_selection`                 | string          | No       | `"pacf"`     | —     | One of `"pacf"`, `"pacf_annual"`. Order selection criterion. See [`estimation`](#estimation).                                                      |
 | `estimation.min_observations_per_season`     | integer         | No       | `30`         | —     | Recommended minimum of fully covered stage occurrences per season and hydro. See [`estimation`](#estimation).                                      |
 | `estimation.max_coefficient_magnitude`       | number \| null  | No       | `null`       | —     | Reduces a fit to order 0 when any coefficient exceeds this magnitude. See [`estimation`](#estimation).                                             |
+| `estimation.correlation_target`              | string          | No       | `"inflows"`  | —     | One of `"inflows"`, `"residuals"`. Series an estimated inflow correlation is computed from. See [`estimation`](#estimation).                       |
 | `policy`                                     | object          | No       | `{}`         | —     | Controls policy persistence. See [`policy`](#policy).                                                                                              |
 | `policy.path`                                | string          | No       | `"./policy"` | —     | Policy directory, resolved against the run's output directory. See [`policy`](#policy).                                                            |
 | `policy.mode`                                | string          | No       | `"fresh"`    | —     | One of `"fresh"`, `"warm_start"`, `"resume"`. Initialization mode. See [`policy`](#policy).                                                        |
@@ -165,7 +166,7 @@ pre-generated opening tree).
 | `load`             | object            | `in_sample`   | Sampling scheme for bus load. Object with `"scheme"` key.                                               |
 | `ncs`              | object            | `in_sample`   | Sampling scheme for NCS availability. Object with `"scheme"` key.                                       |
 | `historical_years` | array \| object   | auto-discover | Restrict the pool of historical windows. When absent, every year of the history is a candidate. List (`[1940, 1953]`) or range (`{"from": 1940, "to": 2010}`). Each listed year names the window whose first study stage falls in that year's occurrence of its season; eligibility follows [Historical Window Pool](/math/scenario-generation/#historical-window-pool), and a year that fails it is dropped without a message. An empty result is the "no valid historical windows found" error ([Error Codes](/reference/error-codes/#stochasticpreparationerror)). The same pool supplies the `historical_residuals` openings. |
-| `openings`         | object            | `{"source": "generated"}` | Backward opening-tree source. `{"source": "generated"}` builds the tree internally; `{"source": "file"}` reads a user-supplied tree from `scenarios/noise_openings.parquet` (sampled selection only, and not with a `policy_graph.nodes[]` declared in `stages.json`; either combination is rejected when the case is validated). Training only. A declared file that is missing stops the run in its stochastic phase ([Opening-tree file missing](/reference/error-codes/#opening-tree-file-missing)). |
+| `openings`         | object            | `{"source": "generated"}` | Backward opening-tree source. `{"source": "generated"}` builds the tree internally, with the optional `moment_matching` of [`training.scenario_source.openings`](#trainingscenario_sourceopenings); `{"source": "file"}` reads a user-supplied tree from `scenarios/noise_openings.parquet` (sampled selection only, and not with a `policy_graph.nodes[]` declared in `stages.json`; either combination is rejected when the case is validated). Training only. A declared file that is missing stops the run in its stochastic phase ([Opening-tree file missing](/reference/error-codes/#opening-tree-file-missing)). |
 
 Valid values for `"scheme"`: `"in_sample"`, `"out_of_sample"`, `"external"` for every class;
 `"historical"` for `inflow` only.
@@ -222,6 +223,34 @@ Example — out-of-sample inflow with in-sample load and NCS:
 
 See [Scenario Generation §3](/math/scenario-generation#3-sampling-scheme-abstraction)
 for a full description of each scheme and of historical windows.
+
+### `training.scenario_source.openings`
+
+Where the backward opening tree comes from and how a generated tree is corrected
+([Scenario Generation §2.3](/math/scenario-generation/#23-opening-tree)). When
+`openings` is absent, the tree is generated with `moment_matching` at its default.
+
+| Field             | Type   | Default            | Description |
+| ----------------- | ------ | ------------------ | ----------- |
+| `source`          | string | `"generated"`      | One of `"generated"`, `"file"`. `"generated"` builds the tree from the stages' `sampling_method`; `"file"` reads it from `scenarios/noise_openings.parquet`. |
+| `moment_matching` | string | `"per_coordinate"` | One of `"per_coordinate"`, `"none"`; accepted with `"source": "generated"` only. `"per_coordinate"` shifts and scales the inflow openings of each generated stage so that, for every hydro, their mean is 0 and their variance is the one the stage's correlation gives that hydro's noise (step 4 of [§2.3](/math/scenario-generation/#23-opening-tree)); `"none"` keeps the openings as drawn. A `historical_residuals` stage, a stage with one opening, and the load and NCS noise are never matched. |
+
+```json
+{
+  "training": {
+    "scenario_source": {
+      "openings": { "source": "generated", "moment_matching": "none" }
+    }
+  }
+}
+```
+
+`moment_matching` with `"source": "file"`, or a value outside the two, is refused
+when `config.json` loads. The in-sample forward pass and the exported
+`stochastic/noise_openings.parquet` use the matched tree; out-of-sample forward
+draws are not matched. `training/model_provenance.json` records the mode of a
+generated tree as `inflow.opening_tree_moment_matching`
+([Metadata Files](/reference/output/metadata/#trainingmodel_provenancejson)).
 
 ### `training.stopping_rules`
 
@@ -851,6 +880,7 @@ instead of requiring pre-computed `inflow_ar_coefficients.parquet`.
 | `order_selection`             | string  | `"pacf"` | One of `"pacf"`, `"pacf_annual"`. Order selection criterion: PACF-based, or PACF with an annual component. |
 | `min_observations_per_season` | integer | `30`     | Recommended minimum number of fully covered stage occurrences of each season, per hydro. An occurrence is a stage in `stages.json` (study or pre-study) that carries the season; it counts only when the rows of `inflow_history.parquet` that start inside its window cover all of it, so history outside every stage window is not counted. When estimation runs, a (hydro, season) group with at least one such occurrence but fewer than this draws a [`ModelQuality`](/reference/error-codes/#modelquality) warning naming the hydro and the season, and estimation proceeds. |
 | `max_coefficient_magnitude`   | number \| null | `null`   | Safety net: reduce to order 0 if any coefficient exceeds this magnitude.                          |
+| `correlation_target`          | string  | `"inflows"` | One of `"inflows"`, `"residuals"`. Series the spatial inflow correlation is estimated from when the inflow model is fitted, in whole or in part, from `inflow_history.parquet` and the case supplies no `scenarios/correlation.json`: the standardized inflows (`"inflows"`) or the residuals of the fitted autoregression (`"residuals"`); see [PAR(p) Inflow Model §6.1](/math/par-inflow-model/#61-correlation-estimation). `training/model_provenance.json` records it as `inflow.correlation_target`. |
 
 Example:
 
@@ -1005,7 +1035,10 @@ weekly dispatch inside a monthly stage through chronological blocks.
 - Stages share a noise group when they have the same `season_id` and their
   start dates fall in the same calendar year. The opening tree copies a group's
   openings only between adjacent stages of the group; an `out_of_sample` forward
-  class gives every stage of the group the same draw, adjacent or not.
+  class gives every stage of the group the same draw, adjacent or not. A later
+  stage of the group may have fewer openings than the group's first stage, and
+  then copies the first of them; one with more is refused
+  ([Noise-group opening count](/reference/error-codes/#noise-group-opening-count)).
 - When stages move from monthly to quarterly, the lag rebuild
   takes each monthly stage's month from its season's `month_start` and averages the monthly
   values over calendar quarters (January-March, April-June, July-September,

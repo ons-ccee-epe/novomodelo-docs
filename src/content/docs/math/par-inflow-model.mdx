@@ -234,13 +234,13 @@ coefficient is negative, after the initial fit or any re-fit, or when its
 initial fit has a coefficient of magnitude above the optional magnitude bound.
 A season with a negative composed influence loses one lag of its order ceiling
 and is re-selected and re-fitted, until no season fails; the coefficients are
-then stored ([§3.7](#37-stored-standardized-coefficients)), and the residual
+then stored ([§3.7](#37-stored-standardized-coefficients)), and the spatial
 correlation is estimated when the case supplies none
 ([§6.1](#61-correlation-estimation)). Supplied coefficients pass the
 stationarity gate of invariant 2 ([§5](#5-validation-invariants)) instead, and a
 set that fails it is rejected. When the case supplies only the coefficients, or
 only the seasonal statistics, alongside the history, the history provides the
-other part and the residual correlation is estimated as above. Every model,
+other part and the spatial correlation is estimated as above. Every model,
 fitted or supplied, then passes through the closure that derives its innovation
 scale $r_m$ ([§4.1](#41-deriving-the-innovation-scale)), which rejects a
 singular closure system or a negative implied residual variance; the runtime
@@ -260,7 +260,7 @@ pacf: "Periodic PACF\norder selection"
 yw: "Yule-Walker fit\nstandardized ψ*"
 resets: "Order-0 resets\nψ*ₘ,₁ < 0\ninitial fit: magnitude bound"
 check: "Composed influence ≥ 0\nfor every season?" {shape: diamond}
-store: "Store ψ*\nresidual correlation"
+store: "Store ψ*\nspatial correlation"
 supplied: "Supplied ψ*" {shape: parallelogram}
 gate: "Stationarity gate\nsolvable, |ρ| ≤ 1,\nr² above floor,\nmonodromy < 1" {shape: diamond}
 rejected: "Rejected" {shape: oval}
@@ -587,19 +587,25 @@ supplied coefficients pass the stationarity gate of invariant 2.
 
 ## 6. Spatial Correlation Factorisation
 
-The residuals of the fitted autoregression are correlated across hydro plants: §6.1 estimates that correlation, and the rest of the section factorises it. Generating spatially correlated scenarios requires factorising the cross-hydro correlation matrix $C$ so that a vector of independent standard normal draws can be mapped to correlated noise. This section documents the choice of factorisation method and the rationale.
+Inflows are correlated across hydro plants: §6.1 estimates the cross-hydro correlation from the inflow history, and the rest of the section factorises it. Generating spatially correlated scenarios requires factorising the cross-hydro correlation matrix $C$ so that a vector of independent standard normal draws can be mapped to correlated noise. This section documents the choice of factorisation method and the rationale.
 
 ### 6.1 Correlation Estimation
 
-When the inflow model is fitted from the inflow history, in whole or in part, and the case supplies no correlation, the correlation matrix is estimated from the historical residuals of the autoregression. The standardized residual of hydro $h$ at historical period $t$ is
+When the inflow model is fitted from the inflow history, in whole or in part, and the case supplies no correlation, the correlation matrix is estimated from the history, from one of two standardized series chosen per study. The **standardized inflow** of hydro $h$ at historical period $t$ is
+
+$$
+\tilde{a}_{h,t} = \frac{a_{h,t} - \hat{\mu}_{m(t)}}{\hat{s}_{m(t)}}
+$$
+
+the inflow standardized by the seasonal statistics of §3.2, set to zero when $\hat{s}_{m(t)} = 0$; every observed period has one. The **standardized residual** of the autoregression is
 
 $$
 \tilde{\varepsilon}_{h,t} = \tilde{a}_{h,t} - \sum_{\ell=1}^{p_{m(t)}} \psi^*_{m(t),\ell}\, \tilde{a}_{h,t-\ell}
 $$
 
-where $\tilde{a}_{h,t} = (a_{h,t} - \hat{\mu}_{m(t)}) / \hat{s}_{m(t)}$ is the inflow standardized by the seasonal statistics of §3.2, set to zero when $\hat{s}_{m(t)} = 0$, and $\psi^*_{m,\ell}$ are the model's standardized coefficients (§1.2). A period contributes a residual only when all $p_{m(t)}$ of its lagged inflows are observed. On the PAR(p)-A path the residual uses the lag coefficients only: the annual term of §7.1 does not enter it.
+where $\psi^*_{m,\ell}$ are the model's standardized coefficients (§1.2). A period has a residual only when all $p_{m(t)}$ of its lagged inflows are observed. On the PAR(p)-A path the residual uses the lag coefficients only: the annual term of §7.1 does not enter it. The residual series measures the correlation of the innovations $\varepsilon_t$ of §1, the noise the scenario generator correlates; the standardized-inflow series measures the correlation of the inflows themselves. The two coincide in a season in which every hydro has order zero.
 
-Two estimates are formed from these residuals: the pooled estimate $\hat{C}$ from the residuals of every season, and the per-season estimate $\hat{C}_m$ from the residuals of the periods in season $m$. Each off-diagonal entry is the Pearson correlation of the two hydros' residuals over the periods at which both hydros have a residual (a pairwise-complete estimate), with the covariance and the standard deviations taken with the Bessel divisor, one less than the number of such periods, unlike the population divisor of §3.2. The entry is zero when fewer than two such periods exist or when either residual standard deviation is below machine epsilon, and it is clamped to $[-1, 1]$; every diagonal entry is one.
+Two estimates are formed from the chosen series: the pooled estimate $\hat{C}$ from its values in every season, and the per-season estimate $\hat{C}_m$ from its values at the periods in season $m$. Each off-diagonal entry is the Pearson correlation of the two hydros' values over the periods at which both hydros have one (a pairwise-complete estimate), with the covariance and the standard deviations taken with the Bessel divisor, one less than the number of such periods, unlike the population divisor of §3.2. The entry is zero when fewer than two such periods exist or when either standard deviation over them is below machine epsilon, and it is clamped to $[-1, 1]$; every diagonal entry is one. On the standardized-inflow series, a hydro whose seasonal standard deviation is zero in season $m$ has the value zero at every period of that season, so its off-diagonal entries of $\hat{C}_m$ are zero.
 
 The stages of season $m$ use $\hat{C}_m$ when every pair of hydros has at least 30 such periods in season $m$; all other stages use $\hat{C}$. Because each entry is computed over its own set of periods, neither estimate need be positive semidefinite; §6.3 handles an indefinite matrix.
 

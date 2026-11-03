@@ -86,13 +86,11 @@ and depend on no other Python package.
 pip install novomodelo-python
 ```
 
-The package requires CPython 3.12 or newer. Each wheel is built for the CPython
-stable ABI (`abi3`), so one wheel per platform serves every supported Python
-version; the release smoke-tests the Linux x86-64 (glibc), macOS Apple Silicon
-and Windows wheels on Python 3.12, 3.13 and 3.14. PyPI publishes wheels for the
-platforms below and no source distribution, so on any other platform, or on
-Python 3.11 or older, `pip` reports
-`No matching distribution found for novomodelo-python`:
+The package requires CPython 3.12 or newer; on Python 3.11 or older, `pip`
+reports `No matching distribution found for novomodelo-python`. Each wheel is
+built for the CPython stable ABI (`abi3`), so one wheel per platform serves every
+supported Python version, and the release tests every wheel on its own platform
+on Python 3.12, 3.13 and 3.14. PyPI publishes wheels for these platforms:
 
 | Platform              | Wheel platform tag       |
 | --------------------- | ------------------------ |
@@ -105,9 +103,15 @@ Python 3.11 or older, `pip` reports
 
 `pip` selects the wheel that matches your system, so you do not choose a tag
 yourself. On Linux with glibc (the C library most distributions use), the x86-64
-wheel needs glibc 2.34 or newer and the ARM64 wheel glibc 2.28 or newer;
+wheel needs glibc 2.34 or newer (RHEL and Rocky Linux 9 or newer, Ubuntu 22.04
+or newer, Debian 12 or newer) and the ARM64 wheel glibc 2.28 or newer;
 `ldd --version` prints your glibc version. Alpine Linux and other musl systems
 use the `musllinux` wheel.
+
+Where no wheel fits, such as on Linux x86-64 with a glibc older than 2.34
+(RHEL 8, Ubuntu 20.04), `pip` builds the package from the source distribution
+(sdist) that PyPI publishes beside the wheels. The build needs a Rust toolchain
+(1.88 or newer), CMake and a C++ compiler.
 
 ### Verify the Python Package
 
