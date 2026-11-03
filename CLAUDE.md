@@ -31,7 +31,7 @@ diverge from the code, the spec must be updated — not the other way around.
 ## Current State
 
 **Synced to: novomodelo v0.19.1 (2026-10-26)**, plus unreleased novomodelo
-`main` at `da0c4f85` (2026-11-03). The vendored artifacts and captures stay at
+`main` at `f5c76838` (2026-11-03). The vendored artifacts and captures stay at
 v0.19.1 until the next tag, whose flip refreshes them.
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
