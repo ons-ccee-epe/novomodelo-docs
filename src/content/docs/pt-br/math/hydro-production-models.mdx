@@ -1,0 +1,512 @@
+---
+title: "Modelos de função de produção hidrelétrica"
+description: Modelos de produtibilidade constante e FPHA (ajuste linear por partes por envoltória convexa) para as restrições de geração hidrelétrica — com o processo de ajuste, a integração ao PL e os escalares de conversão de energia.
+---
+
+import FphaPlot from "../../../../components/FphaPlot.astro";
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+import { Content as HydroConfigure } from "./_impl/_hydro.configure.mdx";
+import { Content as HydroIO } from "./_impl/_hydro.io.mdx";
+import { Content as HydroNotes } from "./_impl/_hydro.notes.mdx";
+
+## Objetivo
+
+Este capítulo define os modelos de restrição de geração hidrelétrica suportados pelo Novo Modelo, que relacionam a vazão turbinada e o armazenamento do reservatório à potência elétrica produzida. Duas funções de produção determinam o despacho: produtibilidade constante e FPHA. A escolha entre produtibilidade constante e FPHA envolve um compromisso entre precisão e custo computacional, e pode variar por estágio para cada usina.
+
+Todas as variáveis de decisão usam **unidades de taxa** (MW, m³/s) — ver a Convenção de Unidades das Variáveis em [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements). Para as definições das variáveis, ver [Convenções de notação](/pt-br/overview/notation-conventions); para a integração ao PL, ver [Formulação do PL](/pt-br/math/lp-formulation); para a descrição dos elementos hidrelétricos, ver [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements).
+
+## 1. Modelo de Produtibilidade Constante
+
+O modelo mais simples supõe uma relação linear:
+
+$$
+g_{h,k} = \rho_{h,t} \cdot q_{h,k}
+$$
+
+em que $\rho_{h,t}$ (MW por m³/s) é a produtibilidade da usina no estágio $t$:
+
+$$
+\rho_{h,t} = \frac{9.81 \times \eta_h \times H^{ref}_{h,t}}{1000}
+$$
+
+com:
+
+- $\eta_h$ = rendimento da turbina (fator adimensional em $(0, 1]$)
+- $H^{ref}_{h,t}$ = queda líquida de referência (metros), avaliada no nível de armazenamento de referência e variável por estágio
+
+**Produtibilidade por estágio**: o coeficiente de produtibilidade é informado **por (usina, estágio)**, e não por usina. Uma usina pode, portanto, ter uma produtibilidade constante variável por estágio — útil quando a queda de referência difere entre os estágios próximos e os estágios distantes de um mesmo estudo, ou quando o modelo constante é usado como aproximação grosseira que requer pontos de operação diferentes ao longo do horizonte. A seção 4.1 descreve como esse valor por (usina, estágio) é fornecido.
+
+**Tratamento no PL**: a produtibilidade constante não acrescenta coluna de geração nem restrição de produção: a coluna de vazão turbinada de cada célula (usina, barramento) (§2.9) entra no balanço de carga do seu barramento com coeficiente $\rho_{h,t}$ em todos os patamares, de modo que $g_{h,k} = \rho_{h,t} \cdot q_{h,k}$ vale por construção. É simples e rápido, mas ignora a variação da queda com o armazenamento **dentro de um estágio**.
+
+**Dados necessários**: um escalar de produtibilidade por estágio para cada usina hidrelétrica. Não são necessários dados de geometria nem de hiperplanos.
+
+## 2. FPHA (Função de Produção Hidrelétrica Aproximada)
+
+Para modelar com precisão a geração hidrelétrica, a FPHA (Função de Produção Hidrelétrica Aproximada) representa a relação não linear entre armazenamento, vazão, vertimento e geração por meio de uma aproximação linear por partes. A abordagem segue o modelo linear por partes de produção hidrelétrica de [Diniz & Maceira (2008)](/pt-br/reference/bibliography/#producao-hidreletrica); esse modelo é quadridimensional (montante/queda, vazão turbinada e jusante/vertimento), ao passo que o Novo Modelo ajusta uma variante reduzida sobre armazenamento e vazão turbinada com vertimento = 0, representando o efeito do vertimento pela secante de vazão lateral por plano da §2.7, em vez de um eixo explícito de vertimento.
+
+### 2.1 Notação
+
+Esta seção usa a notação da [Formulação do PL](/pt-br/math/lp-formulation); para os termos equivalentes em outras ferramentas de planejamento, ver o [Glossário](/pt-br/reference/glossary#termos-equivalentes-em-outras-ferramentas-de-planejamento).
+
+:::note[Observação sobre a vazão lateral]
+O nível de jusante depende da vazão defluente abaixo da usina, que este modelo toma como $q_{out} = q + s$ (vazões turbinada e vertida da própria usina). A secante de vazão lateral (§2.7) representa o efeito do vertimento, e as defluências de montante ou outras afluências abaixo da barragem não entram em $q_{out}$.
+:::
+
+### 2.2 Função de Produção Exata
+
+A **função de produção hidrelétrica exata** relaciona a geração ao estado operativo:
+
+$$
+\phi(v, q, s) = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}
+$$
+
+em que:
+
+- $v$ = volume armazenado no reservatório (hm³)
+- $q$ = vazão turbinada (m³/s)
+- $s$ = vazão vertida (m³/s)
+- $h_{net}$ = queda líquida (m), limitada a $\ge 0$
+- $\eta_h$ = rendimento da turbina (seção 1), constante por usina; o fator $9.81\,\eta_h/1000$ (MW·s/m⁴) converte potência hidráulica em potência elétrica
+
+A **queda líquida** é calculada como:
+
+$$
+h_{net}(v, q, s) = h_{fore}(v) - h_{tail}(q + s) - h_{loss}
+$$
+
+limitada a $\max(h_{net}, 0)$, em que:
+
+- $h_{fore}(v)$ = nível de montante (reservatório) em função do armazenamento
+- $h_{tail}(q + s)$ = nível de jusante (canal de fuga) em função da vazão defluente total
+- $h_{loss}$ = perdas hidráulicas (do modelo de fator ou do modelo constante)
+
+**Por que a linearização é necessária**: $\phi$ é não linear em $(v, q)$ devido ao produto bilinear $q \times h_{net}$, às funções de topologia não lineares $h_{fore}(v)$ e $h_{tail}(q_{out})$ e às perdas hidráulicas dependentes da vazão. Para a formulação em PL, o Novo Modelo aproxima $\phi$ por um conjunto de hiperplanos lineares.
+
+### 2.3 Funções de Topologia
+
+O Novo Modelo usa **dados tabulares com interpolação linear** para a curva de montante — mais transparentes e mais fáceis de validar contra dados levantados em campo do que ajustes polinomiais.
+
+#### Nível de Montante $h_{fore}(v)$
+
+O nível d'água de montante é lido da curva cota-volume da usina. Para um armazenamento $v$ com $v^{(i)} \leq v < v^{(i+1)}$:
+
+$$
+h_{fore}(v) = h^{(i)} + \frac{h^{(i+1)} - h^{(i)}}{v^{(i+1)} - v^{(i)}} \times (v - v^{(i)})
+$$
+
+#### Nível de Jusante $h_{tail}(q_{out})$
+
+O nível d'água de jusante depende da vazão defluente total. São suportadas três representações:
+
+**Modelo polinomial**:
+
+$$
+h_{tail}(q_{out}) = c_0 + c_1 q_{out} + c_2 q_{out}^2 + c_3 q_{out}^3 + c_4 q_{out}^4
+$$
+
+**Modelo linear por partes**: pontos de quebra tabulados com interpolação linear entre os pontos.
+
+**Famílias quárticas por partes (canal de fuga exato)**: uma tabela opcional de canal de fuga por usina fornece segmentos polinomiais de grau 4 por partes (avaliados pelo método de Horner), agrupados em famílias de remanso indexadas pelo nível de montante de referência do reservatório de jusante — ver §2.3.1.
+
+**Vazão total a jusante no PL**: $q_{out} = q + s$ (vazão turbinada + vertimento). No ajuste da FPHA, o vertimento é fixado em $s = 0$ na construção da nuvem de geração; a secante de vazão lateral (§2.7) representa a correção do vertimento em cada plano.
+
+#### 2.3.1 Famílias Quárticas por Partes do Canal de Fuga (Acoplamento por Remanso)
+
+Quando as usinas estão hidraulicamente próximas, o nível de jusante da usina $h$ depende do nível de montante do reservatório de jusante. Uma tabela opcional de canal de fuga por usina fornece segmentos de canal de fuga **quárticos por partes**: o domínio de vazão $[Q_{jus,lo}, Q_{jus,hi}]$ é dividido em segmentos contíguos, cada um um polinômio de grau 4
+
+$$
+h_{tail}^{(n)}(q_{jus}) = c_0^{(n)} + c_1^{(n)} q_{jus} + c_2^{(n)} q_{jus}^2 + c_3^{(n)} q_{jus}^3 + c_4^{(n)} q_{jus}^4
+$$
+
+avaliado pelo método de Horner para estabilidade numérica. Segmentos consecutivos são contíguos em vazão defluente e coincidem em nível na fronteira comum (continuidade C0) dentro da precisão de calibração (Notas de implementação, "Comportamento do ajuste da FPHA calculada"). Esses segmentos são agrupados em **famílias de remanso** indexadas pelo nível de montante de referência do reservatório de jusante ($HrefJus$, em metros). No momento do ajuste, a família ativa é **interpolada linearmente** pelo nível de referência do estágio resolvido para a usina de jusante — limitado à faixa de níveis calibrada, nunca extrapolado. Usinas com uma única família sem chave (sem acoplamento por remanso) avaliam essa família diretamente, qualquer que seja o nível de jusante. Usinas sem tabela de canal de fuga usam o polinômio ou a curva linear por partes de canal de fuga definidos na própria entidade.
+
+#### Perdas Hidráulicas $h_{loss}$
+
+São suportados dois modelos:
+
+**Modelo de fator** — proporcional à queda bruta:
+
+$$
+h_{loss} = k_{loss} \times (h_{fore} - h_{tail})
+$$
+
+em que $k_{loss}$ é uma pequena fração adimensional da queda bruta.
+
+**Modelo constante** — perda hidráulica fixa:
+
+$$
+h_{loss} = \Delta h_{const} \quad \text{(metres)}
+$$
+
+### 2.4 Produtibilidade
+
+A função de produção exata converte potência hidráulica em potência elétrica pelo fator $9.81\,\eta_h/1000$ (MW por (m³/s · m)), de modo que $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ em MW. O Novo Modelo usa rendimento constante $\eta_h$ por usina. A **produtibilidade específica** $\rho_{esp}$, na mesma unidade, é um dado de entrada separado da usina, que não é usado pela função de produção exata nem pelo ajuste da FPHA.
+
+Uma usina representada por FPHA não tem uma produtibilidade escalar única $\rho$. Os planos ajustados decorrem apenas de $\eta_h$ e das funções de topologia, enquanto a produtibilidade equivalente $\rho_{eq}$ no ponto de operação de referência é **derivada** de uma produtibilidade específica $\rho_{esp}$ fornecida para a usina (substituível por estágio) e da geometria cota-área-volume; a derivação está documentada na seção 4.1.
+
+### 2.5 Hiperplanos da FPHA
+
+A aproximação FPHA substitui a função de produção não linear $\phi(v, q, s)$ por um conjunto de $M$ hiperplanos lineares que formam uma **aproximação côncava** da superfície exata (uma aproximação externa da nuvem limitada pela capacidade, antes da correção $k_{FPHA}$ da §2.6.3). Cada hiperplano $m$ define um limite superior para a geração:
+
+$$
+g_{h,k} \leq \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_q^m \cdot q_{h,k} + \gamma_s^m \cdot s_{h,k}
+$$
+
+O plano é ajustado uma única vez por usina (§2.1–§2.8); uma usina repartida entre barramentos o avalia **por célula (usina, barramento)** na integração ao PL, rateando seus termos independentes da vazão turbinada pela participação de cada célula na capacidade de turbinamento da usina — ver §2.9 para a forma exata por célula.
+
+**Interpretação física dos coeficientes**:
+
+| Coeficiente | Sinal | Significado |
+| ----------- | ---- | ------------------------------------------------- |
+| $\gamma_0^m$ | —    | Intercepto (MW com armazenamento, vazão e vertimento nulos); seu sinal não é validado |
+| $\gamma_v^m$ | ≥ 0  | Maior armazenamento → maior nível de montante → mais geração |
+| $\gamma_q^m$ | ≥ 0 (> 0 em pelo menos um plano por estágio, para planos pré-calculados) | Mais vazão turbinada → mais geração |
+| $\gamma_s^m$ | ≤ 0  | Mais vertimento → maior nível de jusante → menor queda líquida |
+
+**Origem dos hiperplanos**: os planos são pré-calculados (fornecidos com o caso) ou calculados a partir dos dados de topologia durante o pré-processamento. O ajuste calculado é descrito na §2.6.
+
+### 2.6 Processo de Ajuste da FPHA Calculada
+
+O caminho da FPHA calculada produz hiperplanos a partir dos dados de topologia em quatro etapas: ajuste por envoltória convexa → correção $k_{FPHA}$ → secante de vazão lateral → redução opcional de planos. O ajuste é resolvido **por entrada do modelo de produção** (por período sazonal ou intervalo de estágios), de modo que os planos podem diferir ao longo do horizonte para uma mesma usina. Somente os estágios cuja entrada seleciona FPHA são ajustados; um estágio da mesma usina que usa outro modelo de produção não tem planos. Os resultados são expandidos em linhas de hiperplanos por estágio.
+
+#### 2.6.1 Grade e Nuvem
+
+O ajustador avalia a função de produção exata $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ em uma grade bidimensional uniforme sobre a janela de ajuste, **com vertimento $s = 0$ e vazão lateral $= 0$**. A grade tem:
+
+- **Eixo de volume**: um número configurável de valores uniformemente espaçados abrangendo a janela de ajuste $[v_{min}, v_{max}]$. A janela está contida na faixa de armazenamento da curva de montante da usina (a faixa completa, salvo se reduzida) e é distinta do volume de referência (§4.1), que fixa um ponto de operação, e não essa janela. As quantidades de pontos e a janela são definidas na aba Configurar.
+- **Eixo de vazão**: um número configurável de valores uniformemente espaçados abrangendo $[0, q^{fit}_{max}]$, em que o extremo superior $q^{fit}_{max}$ da faixa de ajuste da vazão turbinada é a vazão turbinada máxima da usina $q_{max}$, a menos que outro extremo superior seja definido na aba Configurar. O eixo **começa em $q = 0$**, onde a geração é nula; essa coluna de vazão nula ancora o fechamento inferior da nuvem e elimina a necessidade de qualquer ponto de fechamento sintético.
+
+Cada ponto da nuvem é limitado à capacidade instalada da usina $\bar{G}_h$. O vertimento não é uma dimensão da nuvem — ele é fixado em zero em todos os pontos.
+
+**Usinas sem capacidade de turbinamento**: quando $q_{max} = 0$, o eixo de vazão se reduz a $q = 0$, onde a geração é nula, de modo que a nuvem não contém produção e nenhum plano sobrevive à envoltória. Essa usina é modelada com produtibilidade nula em todos os estágios, em vez de um conjunto de planos; as [notas de implementação](#implementacao-no-novo-modelo) informam o limiar de capacidade e como a usina é reportada.
+
+**Usinas a fio d'água**: quando a usina tem um único volume de ajuste ($v_{min} \approx v_{max}$, ou quando é solicitada uma única amostra de volume), duas amostras de volume próximas são sintetizadas para manter a envoltória 3-D não degenerada (Notas de implementação, "Suporte a usinas a fio d'água"). O $\gamma_v^m$ resultante é **ajustado para exatamente 0** quando sua magnitude é desprezível, impondo a semântica de fio d'água ($\gamma_v^m = 0$).
+
+**Determinismo**: os pontos da nuvem e a saída da envoltória são ordenados de forma canônica, de modo que os hiperplanos ajustados são idênticos bit a bit, independentemente da ordem da entrada e do número de processos (ranks MPI).
+
+#### 2.6.2 Envoltória Convexa
+
+A envoltória convexa 3-D da nuvem $(V, Q, \text{generation})$ é calculada pela biblioteca qhull. São selecionadas as **facetas da envoltória superior** — aquelas cuja normal externa tem componente de geração positiva. Cada uma é lida como $\text{generation} = \gamma_0^m + \gamma_v^m V + \gamma_q^m Q$. Antes da correção $k_{FPHA}$ da §2.6.3, o resultado é uma **aproximação externa côncava** (a menor função côncava situada acima de $\min(\phi, \bar{G}_h)$ nos pontos limitados da nuvem); regiões não côncavas de $\phi$ ficam no interior da envoltória e suas facetas são descartadas. Facetas coplanares quase paralelas oriundas da triangulação da envoltória são eliminadas como duplicatas por comparação exata dos coeficientes.
+
+#### 2.6.3 Correção $k_{FPHA}$ por Mínimos Quadrados
+
+A envoltória bruta $FPHA_0$ é otimista onde $\phi$ é não côncava e pessimista onde é côncava. Um único escalar $k_{FPHA}$ corrige esse viés minimizando o erro quadrático médio entre $k_{FPHA} \cdot FPHA_0$ e a produção limitada $\min(\phi, \bar{G}_h)$ sobre a grade com vertimento $=0$:
+
+$$
+k_{FPHA} = \frac{\sum_{i,j} FPHA_0(V_i,Q_j)\,\min\big(\phi(V_i,Q_j), \bar{G}_h\big)}{\sum_{i,j} FPHA_0(V_i,Q_j)^2}, \qquad FPHA = k_{FPHA}\cdot FPHA_0
+$$
+
+Propriedades principais:
+
+- A regressão usa o **mínimo ponto a ponto** sobre os planos brutos da envoltória como $FPHA_0(V_i, Q_j)$, porque o PL aplica os planos como $g \le \gamma_0^m + \gamma_v^m V + \gamma_q^m Q$ para todo $m$; portanto, o limite ativo é o mínimo, e não o máximo.
+- A regressão é feita apenas sobre a grade com vertimento $=0$ — acrescentar um eixo de vertimento puxaria $k_{FPHA}$ para a região com vertimento, de maiores desvios, e degradaria a região de operação sem vertimento.
+- $k_{FPHA}$ escala a **função afim inteira** ($\gamma_0^m, \gamma_v^m, \gamma_q^m$ igualmente), e não apenas o intercepto. Por isso, difere do fator $\kappa$ dos planos pré-calculados, que escala apenas o intercepto.
+- $k_{FPHA}$ pode ser **maior ou menor que 1** (um equilíbrio de erro quadrático médio, e não uma redução unilateral). A validação exige $k_{FPHA} > 0$. Um denominador degenerado (produção toda nula) resulta no valor neutro $k_{FPHA} = 1$.
+- A validação também exige $\gamma_v^m \ge 0$, $\gamma_q^m \ge 0$, $\gamma_s^m \le 0$.
+
+**Diagnóstico de qualidade do ajuste**: após o processo completo, calcula-se o desvio absoluto médio relativo entre a envoltória mínima emitida e a produção limitada $\min(\phi, \bar{G}_h)$ sobre a grade com vertimento $=0$. Um aviso é emitido (na ordem canônica de usinas/estágios) quando esse desvio excede um limiar (Notas de implementação, "Aviso de qualidade do ajuste") — o que tipicamente indica uma superfície fortemente não côncava, que nenhum $k_{FPHA}$ único consegue acompanhar bem.
+
+**Entrada pré-calculada**: planos pré-calculados podem ter um fator de intercepto $\kappa \in (0, 1]$ (aba Configurar) que escala apenas o intercepto de cada plano ($\gamma_0^m \leftarrow \gamma_0^m \cdot \kappa$), ao contrário do $k_{FPHA}$, que escala a função afim inteira. O caminho calculado não usa $\kappa$; sua correção $k_{FPHA}$ cumpre esse papel.
+
+A figura abaixo mostra uma usina sintética com eixos normalizados: armazenamento, vazão e geração são frações de $v_{max}$, $q_{max}$ e $\bar{G}_h$. Ela corta o ajuste em um volume da grade, que o exemplo toma como o volume de referência $V^{ref}$ da §4.1, e traça cinco séries em função da vazão turbinada: os pontos da nuvem nesse volume; a produção exata $\phi$ limitada a $\bar{G}_h$; a envoltória bruta $FPHA_0$, o mínimo sobre os planos da envoltória, que fica sobre ou acima de todos os pontos da nuvem; a envoltória corrigida $k_{FPHA} \cdot FPHA_0$, que reescala a envoltória pelo escalar único desta seção; e a reta tracejada $\rho_{eq}\,q$ da §4.1, que, como o exemplo fixa $\rho_{esp}$ em $9.81\,\eta_h/1000$, encontra a $\phi$ não limitada em $q_{max}$, acima da curva limitada onde a capacidade é ativa.
+
+<FphaPlot />
+
+### 2.7 Secante de Vazão Lateral
+
+O vertimento eleva o nível de jusante, reduzindo a queda líquida e a geração. O coeficiente $\gamma_s^m$ de cada plano é a média, sobre os pontos da grade com vertimento $=0$ nos quais esse plano é ativo, de uma **inclinação de mínimos quadrados ancorada em zero** da geração em função da vazão lateral $q_{lat}$ (o próprio vertimento $s$ da usina).
+
+**Inclinação pontual.** Em cada ponto da grade $(V_i, Q_j)$ da §2.6.1, a vazão lateral é amostrada em $N$ valores igualmente espaçados $s_n = n \, S_{max} / N$, $n = 1, \ldots, N$, de $[0, S_{max}]$, e ajusta-se às amostras uma reta que passa pela geração com vertimento $=0$:
+
+$$
+\sigma_{ij} = \frac{\sum_{n=1}^{N} s_n \big[\phi(V_i, Q_j, s_n) - \phi(V_i, Q_j, 0)\big]}{\sum_{n=1}^{N} s_n^2}
+$$
+
+A reta é ancorada em $\phi(V_i, Q_j, 0)$ em vez de ter intercepto livre, porque o plano já contém a geração com vertimento $=0$ em seus outros termos. A inclinação amostra a função de produção **não limitada** $\phi$ (sem corte na capacidade instalada $\bar{G}_h$), de modo que a sensibilidade ao vertimento é lida da curva de queda bruta e não é achatada onde o teto de capacidade é ativo — ao contrário da nuvem e da regressão $k_{FPHA}$ (§2.6), que usam ambas a produção limitada pela capacidade.
+
+**Pontos ativos.** Um ponto da grade conta para o plano $m$ quando esse plano é o limite ativo ali, o mínimo ponto a ponto sobre os planos da §2.6.3 com vertimento $= 0$, a menos de uma pequena tolerância $\epsilon$, de modo que um ponto situado em uma aresta de faceta conta para todos os planos que ali se encontram:
+
+$$
+\mathcal{A}_m = \Big\{ (i, j) : \hat{g}^m(V_i, Q_j) - \min_{m'} \hat{g}^{m'}(V_i, Q_j) \le \epsilon \Big\}, \qquad \hat{g}^m(V, Q) = \gamma_0^m + \gamma_v^m V + \gamma_q^m Q
+$$
+
+$$
+\gamma_s^m = \frac{1}{\lvert\mathcal{A}_m\rvert} \sum_{(i, j) \in \mathcal{A}_m} \sigma_{ij}, \qquad \gamma_s^m = 0 \ \text{ when } \mathcal{A}_m = \emptyset
+$$
+
+É o mínimo que seleciona os pontos, e não o máximo: o PL aplica $g \le \hat{g}^m$ para todo plano, de modo que um plano governa a geração apenas onde é o limite mais apertado, a envoltória mínima que a regressão $k_{FPHA}$ também lê. Calcular a média onde um plano é o limite mais folgado leria sua inclinação onde ele não governa.
+
+**Faixa de amostragem.** A vazão lateral é amostrada até
+
+$$
+S_{max} = \begin{cases} \bar{S}^{fit} & \text{if the spillage fit range has a configured upper end } \bar{S}^{fit} \\ 2 \cdot \text{MLT} & \text{otherwise, if MLT} > 0 \\ 2 \cdot q_{max} & \text{otherwise} \end{cases}
+$$
+
+em que MLT é a vazão média de longo termo da usina (m³/s), a média do seu histórico de vazões, e $q_{max}$ é a vazão turbinada máxima da usina, qualquer que seja a faixa de ajuste da vazão turbinada da §2.6.1. O extremo superior $\bar{S}^{fit}$ é definido na aba Configurar.
+
+**Sinal**: $\gamma_s^m \le 0$ (mais vazão lateral eleva o nível de jusante e reduz a geração). Uma inclinação não negativa ou negativa desprezível é **ajustada para exatamente 0** (Notas de implementação, "Comportamento do ajuste da FPHA calculada") para proteger o escalonamento das colunas do PL contra coeficientes estruturais próximos de zero.
+
+**Eixo lateral**: o próprio vertimento da usina ($q_{lat} = s$); as defluências de montante e as afluências pós-incrementais não entram nele.
+
+### 2.8 Redução de Hiperplanos Semelhantes
+
+Uma etapa opcional pós-ajuste funde planos consecutivos **quase paralelos ou quase coincidentes** em seu **hiperplano médio**, para reduzir o PL. São suportados dois métodos mutuamente exclusivos:
+
+- **Ângulo**: funde pares consecutivos cujo ângulo entre os vetores normais $\theta = \arccos(\mathbf{n}_1 \cdot \mathbf{n}_2 / \|\mathbf{n}_1\|\|\mathbf{n}_2\|)$ satisfaz $\theta < \varepsilon$ (estrito), com $\theta$ e a tolerância $\varepsilon$ em graus. Totalmente determinístico a partir dos coeficientes.
+- **Distância**: funde pares consecutivos cuja diferença quadrática média de geração normalizada $\delta = \text{EQM}/\phi_{\max}^2 < \varepsilon/100$, em que $\phi_{\max}$ é o maior valor da produção exata $\phi$ (não limitada) sobre a grade de ajuste, com a tolerância $\varepsilon$ em percentual e o EQM estimado sobre pontos de operação amostrados. Usa um gerador pseudoaleatório com semente determinística (derivada da identidade estável usina/estágio/par de planos, nunca do relógio do sistema nem do processo MPI), de modo que os resultados são idênticos bit a bit independentemente da ordem da entrada e do número de processos.
+
+**Invariante do plano pela origem**: o plano que passa pela origem ($\gamma_0^m \approx 0 \wedge \gamma_v^m \approx 0$, com geração nula para turbinamento nulo) **nunca é fundido**. Isso garante o piso de geração nula.
+
+A redução é opcional e só se aplica quando selecionada (aba Configurar).
+
+### 2.9 Integração ao PL
+
+Uma usina hidrelétrica é particionada em uma ou mais **células (usina, barramento)** — uma para cada barramento distinto entre seus grupos de unidades geradoras declarados (ver [Visão geral da modelagem dos elementos do sistema §5](/pt-br/math/system-elements)) — e a FPHA é avaliada **por célula**, e não por usina: o conjunto de hiperplanos ajustado da usina (§2.1–§2.8) é ajustado uma única vez por usina e usado por todas as suas células, com o rateio descrito abaixo. Para uma usina de célula única, a restrição por célula é a própria restrição da usina.
+
+#### Restrição Final da FPHA
+
+Para cada célula $(h, b)$ de uma usina $h$ que usa FPHA, patamar $k$ e plano $m \in \mathcal{M}_h$:
+
+$$
+g_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot s_{h,k} \leq \lambda_{h,b} \, \gamma_0^m
+$$
+
+Todas as variáveis ficam à esquerda, com o coeficiente do plano com sinal trocado, e o intercepto rateado é o limite superior da restrição; a restrição é o teto $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot s_{h,k} \big) + \gamma_q^m \cdot q_{h,b,k}$.
+
+Os coeficientes já estão escalados por $k_{FPHA}$ — não há etapa separada de pré-escalonamento. São **restrições rígidas** — sem variáveis de folga.
+
+$\lambda_{h,b}$ rateia a parcela **independente da vazão turbinada** do plano — o intercepto $\gamma_0^m$, o termo de armazenamento e o termo de vertimento — pela participação da célula $(h,b)$ na capacidade de turbinamento declarada da usina:
+
+$$
+\lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
+$$
+
+($0$ quando o total declarado da usina é $0$), uma constante do estudo derivada da vazão turbinada máxima declarada de cada grupo de unidades geradoras — nunca recalculada por estágio ou patamar, e nunca rederivada de uma substituição por estágio já resolvida, o que contaria duas vezes uma redução de disponibilidade já imposta ao caminho da vazão pelos limites de coluna próprios de cada célula. Ela satisfaz $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$, e uma usina de célula única tem $\lambda_{h,b} = 1$ exatamente. O coeficiente de vazão $\gamma_q^m$ permanece sobre a própria $q_{h,b,k}$ da célula **sem escalonamento** — é o único termo homogêneo na partição em células, e é isso que faz com que $\sum_{b} g_{h,b,k}$, com $v^{avg}_h$, $s_{h,k}$ e $\sum_b q_{h,b,k}$ fixos, recupere o limite da usina que esta forma por célula substitui.
+
+#### Cálculo do Armazenamento Médio
+
+O armazenamento médio $v^{avg}_h$ no estágio:
+
+$$
+v^{avg}_h = \frac{v^{in}_h + v_h}{2}
+$$
+
+em que $v^{in}_h$ é a variável do PL de armazenamento inicial (fixada em $\hat{v}_h$ por limites de coluna — ver [Aumento do espaço de estados §2](/pt-br/math/state-augmentation#2-fixacao-por-limites-de-coluna)) e $v_h$ é o armazenamento ao fim do estágio — uma única grandeza da usina, compartilhada por todas as células, já que o armazenamento não é particionado. Ambas são variáveis do PL; assim, $v^{in}_h$ aparece na restrição FPHA de cada célula com coeficiente $-\lambda_{h,b} \, \gamma_v^m / 2$ no lado esquerdo, assim como $v_h$, em um estágio paralelo; em um estágio cronológico, nas restrições do patamar 1, e $v_h$ nas do patamar $|\mathcal{K}|$. O solver de PL considera isso automaticamente no custo reduzido da coluna fixada $v^{in}_h$.
+
+Em um estágio cronológico, a restrição do patamar $k$ usa o armazenamento médio do próprio patamar $(v_{h,k-1} + v_{h,k})/2$ no lugar de $v^{avg}_h$, com $v_{h,0} = v^{in}_h$ (ver [Variantes de formulação dos patamares](/pt-br/math/block-formulations)).
+
+#### Geração como Variável Independente
+
+Com a FPHA, a variável de geração $g_{h,b,k}$ **não** é calculada diretamente a partir da vazão turbinada. Em vez disso:
+
+1. A geração é uma variável livre do PL por célula, limitada a $[0, \bar{G}_{h,b}]$, em que $\bar{G}_{h,b}$ soma a geração máxima declarada dos grupos de unidades geradoras da própria célula e é limitada pelo máximo resolvido da própria usina (ver [Formulação do PL §6](/pt-br/math/lp-formulation))
+2. As restrições FPHA (uma por plano $m$, por célula) fornecem limites superiores que relacionam a geração ao armazenamento, à vazão e ao vertimento
+3. Onde a geração tem valor, o otimizador a eleva até que um plano da FPHA ou um limite mais apertado, como $\bar{G}_{h,b}$, se torne ativo
+4. Em um ótimo no qual a geração tem valor, a geração de cada célula fica sobre uma das facetas de hiperplano da FPHA ou sobre um limite mais apertado, como $\bar{G}_{h,b}$
+
+**Ponto-chave**: como minimizar o custo inclui maximizar a geração hidrelétrica (que tem custo de combustível nulo), o otimizador naturalmente leva a geração até a fronteira da superfície FPHA ou até um limite mais apertado, como $\bar{G}_{h,b}$. Onde a geração não tem valor, a vazão turbinada além do que os planos convertem não produz nada, e o custo de turbinamento da seção 2.10 decide entre turbinar essa água e vertê-la; em um plano ativo com $\gamma_q^m = 0$, o vertimento ainda rebaixa o plano por meio de $\gamma_s^m$ (seção 2.7), o que o PL pondera contra esse custo.
+
+### 2.10 Custo de Turbinamento
+
+Um pequeno custo de regularização $c^{tc}_h$ é cobrado sobre a vazão turbinada de todas as células de todas as usinas hidrelétricas, qualquer que seja o seu modelo de produção:
+
+$$
+\sum_{k} \tau_k \sum_{b \in \mathcal{B}_h} c^{tc}_h \, q_{h,b,k}
+$$
+
+Onde a geração não tem valor, o PL é indiferente entre turbinar a água sem gerar e vertê-la; um custo acima do custo de vertimento, $c^{tc}_h > c^{spill}_h$, faz o PL pender para o vertimento. Em um plano ativo com $\gamma_q^m = 0$, mais vazão turbinada não acrescenta geração, mas cada unidade de vertimento rebaixa o plano em $\lambda_{h,b} \lvert \gamma_s^m \rvert$ (seções 2.7 e 2.9), de modo que o PL verte essa água somente onde $c^{tc}_h - c^{spill}_h$ excede o valor da geração perdida. Uma usina que usa FPHA exige $c^{tc}_h \geq 0$ ([Sistema de penalidades — Categoria 3](/pt-br/math/penalty-system#categoria-3-custos-de-regularizacao-orientacao-da-solucao)).
+
+Para a taxonomia completa das penalidades e sua ordem de prioridade, ver [Sistema de penalidades](/pt-br/math/penalty-system).
+
+### 2.11 Impacto nos Cortes de Benders
+
+A formulação FPHA afeta o cálculo do valor da água. Como a variável de armazenamento inicial $v^{in}_h$ aparece nas restrições FPHA de **todas as células da usina** (por meio de $v^{avg}_h = (v^{in}_h + v_h)/2$, cada uma rateada pelo $\lambda_{h,b}$ da célula, seção 2.9) — em um estágio paralelo; em um estágio cronológico, nas restrições do patamar 1 —, as variáveis duais dos hiperplanos da FPHA de todas as células contribuem para o valor marginal do armazenamento inicial. No entanto, a implementação **não** exige combinar manualmente as duais do balanço hídrico e das restrições FPHA. Em vez disso, fixar $v^{in}_h$ em $\hat{v}_h$ por limites de coluna (ver [Aumento do espaço de estados §2](/pt-br/math/state-augmentation#2-fixacao-por-limites-de-coluna)) faz com que seu custo reduzido capture automaticamente a sensibilidade total $\beta^v_h$ — o solver de PL propaga a contribuição FPHA de cada célula pela única variável compartilhada $v^{in}_h$.
+
+O coeficiente do corte para o armazenamento é simplesmente o custo reduzido da coluna fixada $v^{in}_h$:
+
+$$
+\beta^v_h = \bar{c}^{in}_h / d^{col}_h
+$$
+
+Esse custo reduzido inclui implicitamente a contribuição do balanço hídrico (a da restrição que lê $v^{in}_h$: $\pi^{wb}_h$ em um estágio paralelo, $\pi^{wb}_{h,1}$ em um estágio cronológico), a contribuição da FPHA somada sobre todas as células da usina ($\frac{1}{2} \sum_{b \in \mathcal{B}_h} \lambda_{h,b} \sum_m \pi_{h,b,m}^{fpha} \cdot \gamma_v^m$, com $\pi_{h,b,m}^{fpha}$ somado sobre os patamares cujas restrições leem $v^{in}_h$: todos os patamares em um estágio paralelo, o patamar 1 em um estágio cronológico), a dual da restrição de evaporação ([Formulação do PL — Restrição de Evaporação](/pt-br/math/lp-formulation#linha-de-evaporacao)) ponderada por $\gamma^{ev}_{v,h}/2$ para uma usina com modelo de evaporação (apenas a restrição do patamar 1 em um estágio cronológico) e eventuais contribuições de restrições genéricas — tudo resolvido pelo solver de PL sem combinação explícita de duais.
+
+Para o cálculo completo dos coeficientes dos cortes, ver [Gerenciamento de cortes](/pt-br/math/cut-management).
+
+#### Modelo de Produção e Validade dos Cortes
+
+Um modelo de produção que varia por estágio ou período sazonal faz parte do modelo sobre o qual a política é treinada: seus cortes aproximam inferiormente a função de custo futuro desse modelo, qualquer que seja o modelo de produção usado em cada estágio ([Gerenciamento de cortes — quando valem os limites e os certificados](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem)). Uma política simulada sob um modelo de produção diferente daquele com que foi treinada é uma heurística, sem garantia de limite: o limite inferior do treinamento não precisa limitar o valor ótimo do modelo simulado, e o gap entre os dois não certifica nada.
+
+## 3. Diretrizes para Seleção do Modelo
+
+### Treinamento (Construção da Política)
+
+No treinamento (training), a escolha é entre produtibilidade constante e FPHA. Essa escolha envolve um compromisso entre precisão e custo computacional:
+
+| Cenário | Modelo recomendado | Justificativa |
+| ------------------------------ | --------------------- | ---------------------------------- |
+| Reservatórios de acumulação com queda elevada | FPHA                  | Variação significativa da queda |
+| Usinas com grande variação de armazenamento | FPHA                  | Operação em ampla faixa de volume |
+| Usinas a fio d'água            | FPHA ou Constante     | O ajuste por envoltória trata usinas a fio d'água (§2.6.1) |
+| Testes iniciais do algoritmo   | Produtibilidade constante | Iteração rápida, foco em depuração |
+| Estágios próximos              | FPHA                  | Precisão para decisões operativas |
+| Estágios distantes             | Produtibilidade constante | Eficiência computacional |
+
+### Simulação (Avaliação da Política)
+
+Na simulação, a produtibilidade constante e a FPHA se comportam como no treinamento:
+
+| Cenário | Modelo recomendado | Justificativa |
+| -------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Usinas treinadas com FPHA                                | FPHA                                | Coerência com o modelo do treinamento |
+| Usinas treinadas com produtibilidade constante e pouca variação de queda | Produtibilidade constante | Nenhum ganho com a correção da queda |
+| Validação pós-otimização                                 | Comparar todos os modelos           | Verificar a qualidade da aproximação |
+
+Simular uma usina sob um modelo de produção diferente daquele com que foi treinada avalia a política de forma heurística (§2.11).
+
+O modelo de produção pode variar por estágio ou por período sazonal para cada usina (aba Configurar).
+
+## 4. Grandezas de Conversão de Energia
+
+Os dois modelos de produção das seções 1–2 descrevem como a geração depende do estado operativo. Para fins de contabilização — energia natural afluente (ENA), energia armazenada nos reservatórios (EARM) e relatórios por estágio em MW/MWh —, o Novo Modelo reduz o modelo de produção de cada usina a um pequeno conjunto de escalares por (usina, estágio), produzidos por **dois avaliadores**: um avaliado em um ponto de operação de referência representativo (§4.1–§4.2) e outro calculado como média sobre a faixa física de armazenamento da usina (§4.3). Esses escalares são calculados uma única vez na preparação do estudo e reutilizados em todos os estágios de todos os cenários.
+
+### 4.1 Produtibilidade Equivalente
+
+A **produtibilidade equivalente** $\rho_{eq,h,t}$ (MW por m³/s) é a produtibilidade escalar única que a usina teria no ponto de operação de referência $(V^{ref}_{h,t},\, Q^{ref}_{h,t})$. A derivação depende do modelo de geração declarado da usina, e não do modelo selecionado em cada estágio:
+
+| Modelo de geração | Derivação de $\rho_{eq,h,t}$ |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Produtibilidade constante | Valor numérico por (usina, estágio) informado pelo caso (ver abaixo). |
+| FPHA                    | $\rho_{eq,h,t} = \rho_{esp,h,t} \cdot h_{eq}(V^{ref}_{h,t},\, Q^{ref}_{h,t})$, em que $h_{eq}$ é a queda líquida calculada a partir da geometria cota-área-volume (seção 2.3) no ponto de referência e $\rho_{esp,h,t}$ é resolvida por estágio: uma substituição por estágio; na falta dela, uma substituição padrão por usina; na falta desta, o próprio valor da usina. Usinas com FPHA não informam um escalar $\rho_{eq}$ separado — ele é derivado, e aceita-se uma substituição desse valor no ponto de referência (ver abaixo). |
+
+**Volume de referência**: o volume operativo de referência $V^{ref}_{h,t}$ é declarado uma vez por entrada do modelo de produção (um intervalo de estágios ou um período sazonal), seja como volume absoluto, seja como fração do volume útil entre $V^{min}_h$ e $V^{max}_h$; na sua ausência, aplica-se uma fração padrão do volume útil (aba Configurar). Essa declaração única é a fonte oficial para a derivação de $\rho_{eq}$ acima e para o nível de referência do reservatório no qual são interpoladas as famílias quárticas por partes de canal de fuga da FPHA calculada (§2.3.1 — o volume de referência de uma usina define o nível de montante a jusante percebido pela usina imediatamente a montante). Ele **não** define a janela de ajuste de volume da FPHA calculada $[V_{min}, V_{max}]$: essa janela é configurada separadamente na aba Configurar e, por padrão, é a faixa completa de armazenamento da curva de montante da usina (§2.6.1).
+
+A vazão de referência $Q^{ref}_{h,t}$, na qual ambos os avaliadores calculam a queda líquida, é a capacidade instalada de vazão turbinada da usina.
+
+**Informação dos dados**: a produtibilidade equivalente $\rho_{eq,h,t}$ de uma usina sem FPHA é informada por usina e estágio. A produtibilidade equivalente de uma usina com FPHA é derivada como na tabela acima e pode ser substituída; a substituição define apenas o valor no ponto de referência aqui descrito. O valor médio na faixa útil da §4.3 tem sua própria substituição. Uma produtibilidade equivalente nula em um estágio no qual a usina não usa o modelo FPHA representa uma indisponibilidade programada: a usina não gera nada nesse estágio. Em um estágio que usa o modelo FPHA, a geração segue os planos ajustados, e não esse escalar. As fontes dos dados, sua ordem de resolução e as verificações na carga estão na aba Configurar.
+
+### 4.2 Produtibilidade Acumulada na Cascata
+
+A **produtibilidade acumulada** $\rho_{acum,h,t}$ (MW por m³/s) é a energia que 1 m³/s de vazão incremental na usina $h$ produz ao ser turbinado na usina $h$ e em todas as usinas a jusante de $h$ ao longo da cascata:
+
+$$
+\rho_{acum,h,t} \;=\; \rho_{eq,h,t} \;+\; \sum_{h' \,\in\, \text{downstream}(h)} \rho_{eq,h',t}
+$$
+
+A soma é feita em ordem topológica sobre a cascata (ver [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) para a topologia da cascata). Usinas sem usinas a jusante têm $\rho_{acum} = \rho_{eq}$. A acumulação é feita por estágio porque cada parcela pode variar por estágio.
+
+### 4.3 Produtibilidade Média na Faixa Útil
+
+Os escalares no ponto de referência das §4.1–§4.2 valoram a água em um único volume operativo. Uma grandeza que valora **todo** o volume armazenado — a energia armazenada, ou um piso sobre ela — precisa de uma produtibilidade representativa de todos os volumes que o reservatório pode ocupar. O segundo avaliador a fornece, calculando a média do nível de montante sobre a faixa física de armazenamento da usina.
+
+**Faixa física de armazenamento.** Cada usina tem uma faixa física de armazenamento $[V^{min}_h, V^{max}_h]$: uma propriedade da usina invariante no tempo (seu piso de volume morto e seu teto de reservatório cheio). Ela é distinta dos limites operativos por estágio $[\underline V_h, \bar V_h]$ da variável de armazenamento, que podem ser mais apertados em determinado estágio (por exemplo, sob um teto de controle de cheias). Todas as grandezas desta subseção e da §4.4 leem a faixa física, nunca os limites operativos, de modo que uma restrição operativa ativa nunca trunca um valor de energia armazenada.
+
+**Nível de montante médio.** O nível de montante é calculado como média sobre a faixa física:
+
+$$
+\bar h_{fore,h} \;=\; \frac{1}{V^{max}_h - V^{min}_h} \int_{V^{min}_h}^{V^{max}_h} h_{fore}(v)\, dv
+$$
+
+Como $h_{fore}$ é a curva cota-volume linear por partes da §2.3, essa integral é avaliada exatamente (por uma regra do trapézio composta sobre os pontos de quebra da curva), e não aproximada por quadratura.
+
+**Produtibilidade equivalente média.** Com $h_{eq}(h_f, Q) = h_f - h_{tail}(Q) - h_{loss}$, a função de queda líquida da §4.1, avaliada a partir de um nível de montante $h_f$ e da vazão de referência $Q$:
+
+$$
+\bar\rho_{eq,h,t} \;=\; \rho_{esp,h,t} \cdot h_{eq}\big(\bar h_{fore,h},\; Q^{ref}_{h,t}\big)
+$$
+
+O que se calcula como média é o **nível de montante**, e não a queda líquida: o nível de jusante e as perdas hidráulicas são então avaliados em $Q^{ref}_{h,t}$ exatamente como o avaliador no ponto de referência os avalia. Os dois avaliadores diferem, portanto, apenas no nível de montante que fornecem à mesma função de queda líquida.
+
+**Ordem de resolução.** Para cada (usina $h$, estágio $t$):
+
+1. Uma substituição explícita da produtibilidade média na faixa útil define $\bar\rho_{eq,h,t}$ diretamente. Ela atende a um caso cuja convenção de energia armazenada difere da integração da geometria da usina sobre sua faixa física.
+2. Caso contrário, uma usina com geometria cota-volume e produtibilidade específica $\rho_{esp,h,t}$, sobre uma faixa física não degenerada ($V^{min}_h < V^{max}_h$), recebe o valor integrado acima. Uma substituição da produtibilidade no ponto de referência $\rho_{eq,h,t}$ (§4.1) não dispensa esta etapa.
+3. Caso contrário, $\bar\rho_{eq,h,t} = \rho_{eq,h,t}$, o valor no ponto de referência: uma usina sem geometria ou sem produtibilidade específica não tem integral a avaliar, e uma faixa de largura nula reduz a média a uma avaliação pontual.
+
+O avaliador por integração é condicionado pela geometria da usina, e não pelo seu modelo de geração: aplica-se a **qualquer** usina com geometria cota-volume e produtibilidade específica, seja seu modelo de produção no PL a FPHA ou a produtibilidade constante. Uma queda líquida média não positiva na etapa 2 é rejeitada na preparação do estudo, com ou sem substituição no ponto de referência; uma substituição da produtibilidade média (etapa 1) evita a rejeição. A regra da faixa degenerada é a forma pela qual uma usina a fio d'água decorre naturalmente dos dados: com faixa degenerada, ela se comporta de forma idêntica sob qualquer dos avaliadores.
+
+**Produtibilidade acumulada média.** $\bar\rho_{acum,h,t}$ decorre dos termos médios próprios pela mesma recorrência para jusante da §4.2:
+
+$$
+\bar\rho_{acum,h,t} \;=\; \bar\rho_{eq,h,t} \;+\; \sum_{h' \,\in\, \text{downstream}(h)} \bar\rho_{eq,h',t}
+$$
+
+**Energia armazenada máxima.** O conteúdo energético do volume útil completo da usina é
+
+$$
+E^{max}_{h,t} \;=\; \bar\rho_{acum,h,t}\,\big(V^{max}_h - V^{min}_h\big)
+$$
+
+Sua unidade é o produto bruto MW/(m³/s) × hm³ — **não** MWh (não se aplica nenhum fator de conversão de hm³ para horas).
+
+**Identidade da curva de segurança.** Uma curva de segurança é um piso de energia armazenada por estágio, expresso como fração $p$ da energia armazenada máxima. Escrita sobre o armazenamento final $v_h$, com ambos os lados no avaliador médio,
+
+$$
+\bar\rho_{acum,h,t}\,\big(v_h - V^{min}_h\big) \;\ge\; p\,E^{max}_{h,t}
+\;\;\Longleftrightarrow\;\;
+v_h - V^{min}_h \;\ge\; p\,\big(V^{max}_h - V^{min}_h\big)
+$$
+
+ela expressa "pelo menos uma fração $p$ do volume útil, em termos de energia". O coeficiente por usina se cancela somente porque ambos os lados usam o mesmo avaliador (médio) e a mesma unidade bruta; misturar o coeficiente no ponto de referência em um lado com $E^{max}_{h,t}$ no outro, ou converter apenas um dos lados para MWh, não se reduziria à fração do volume útil. A forma de definir essa restrição é descrita em [Formulação do PL §10](/pt-br/math/lp-formulation#10-restricoes-genericas).
+
+### 4.4 Afluência e Armazenamento em Unidades de Energia
+
+$\rho_{acum}$ e $\bar\rho_{acum}$ convertem grandezas hidráulicas nas unidades de energia esperadas pelos relatórios subsequentes:
+
+**Energia da afluência incremental** (MW):
+
+$$
+\text{ENA}_{h,k} \;=\; \rho_{acum,h,t} \cdot a_{h,k}
+$$
+
+Esta é a **energia natural afluente** na forma de taxa, em MW. A energia do estágio (MWh) é obtida multiplicando-se pela duração do patamar $\tau_k$ em horas.
+
+**Energia armazenada no reservatório** (MWh):
+
+$$
+\text{EARM}^{\,\text{init}}_h \;=\; (V^{init}_h - V^{min}_h) \cdot \bar\rho_{acum,h,t} \cdot \frac{10^6}{3600}
+\qquad
+\text{EARM}^{\,\text{final}}_h \;=\; (V^{final}_h - V^{min}_h) \cdot \bar\rho_{acum,h,t} \cdot \frac{10^6}{3600}
+$$
+
+em que $V^{min}_h$ é o armazenamento mínimo **físico** da §4.3 (e não o limite inferior operativo do estágio) e $\bar\rho_{acum,h,t}$ é a produtibilidade acumulada média na faixa útil. O fator de conversão $10^6 / 3600$ converte hm³ em m³ e segundos em horas, de modo que o armazenamento em hm³ multiplicado pela produtibilidade em MW/(m³/s) resulta em MWh; nenhuma duração de estágio entra no cálculo, de modo que a EARM independe da duração do estágio.
+
+**Energia armazenada no reservatório, forma de potência** (MW):
+
+$$
+\text{EARM}^{\,\text{MW}}_h \;=\; \frac{\text{EARM}_h}{\sum_{k \in \mathcal{K}} \tau_k}
+$$
+
+tanto para o valor inicial quanto para o final, em que o divisor é o total de horas dos patamares do estágio — o mesmo divisor para todos os patamares do estágio.
+
+A EARM e a ENA usam avaliadores diferentes de propósito: a ENA valora uma afluência no ponto de operação representativo da usina, enquanto a EARM valora o volume armazenado sobre toda a faixa que ele pode ocupar.
+
+Essas grandezas não entram no PL — são saídas de contabilização derivadas da solução do PL. Sua relevância metodológica é tornar o modelo de produção auditável nas mesmas unidades de energia usadas pela previsão de carga e pela função objetivo de custo.
+
+### 4.5 Por Que Existe uma Redução a Escalares
+
+A função de produção FPHA completa (seção 2) é multidimensional e côncava; a produtibilidade constante é um escalar, mas por usina. Nenhuma das duas pode ser somada ao longo de uma cascata nem escalada pela afluência sem um ponto de operação de referência. Os escalares de conversão de energia resolvem isso: cada modelo é reduzido a dois números por (usina, estágio) — um do avaliador no ponto de referência e outro do avaliador médio na faixa útil —, e são esses números que as fórmulas de soma na cascata, ENA, EARM e energia armazenada máxima acima podem consumir de maneira uniforme. O modelo de produção do PL não usa esses escalares; ele continua a impor o modelo de produção completo. São grandezas de contabilização que também podem ser usadas como coeficientes de restrições genéricas definidas pelo usuário, como a curva de segurança da §4.3 (ver [Formulação do PL §10](/pt-br/math/lp-formulation#10-restricoes-genericas)).
+
+## Implementação no Novo Modelo
+
+A metodologia acima define os modelos de produção hidrelétrica; as abas abaixo tratam de como a interface do software Novo Modelo os configura, alimenta e reporta.
+
+<Tabs>
+  <TabItem label="Configurar">
+    <HydroConfigure />
+  </TabItem>
+  <TabItem label="Entradas e saídas">
+    <HydroIO />
+  </TabItem>
+  <TabItem label="Notas de implementação">
+    <HydroNotes />
+  </TabItem>
+</Tabs>
+
+## Referências Cruzadas
+
+- [Convenções de notação](/pt-br/overview/notation-conventions) — definições de variáveis e conjuntos ($g_h$, $q_h$, $v_h$, $s_h$, $\rho_h$)
+- [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) — descrição do elemento usina hidrelétrica, variáveis de decisão, Convenção de Unidades das Variáveis
+- [Formulação do PL](/pt-br/math/lp-formulation) — como as restrições de produção se integram ao PL montado
+- [Sistema de penalidades](/pt-br/math/penalty-system) — regularização pelo custo de turbinamento, ordem de prioridade das penalidades
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — geração de cortes de Benders afetada pelas variáveis duais da FPHA
+- [Formulações específicas por equipamento](/pt-br/math/equipment-formulations) — padrões de restrição dos equipamentos térmicos e hidrelétricos

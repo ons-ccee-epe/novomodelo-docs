@@ -1,0 +1,75 @@
+---
+title: Non-controllable sources
+description: How Novomodelo treats wind, solar and small run-of-river hydro — availability as data, curtailment and must-run.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import NonControllableSource from '../../../../components/entity/illustrations/NonControllableSource.astro';
+
+<EntityHero family="equipment" icon="solar" lead="A non-controllable source represents intermittent generation (wind farms, solar plants, small run-of-river hydros) whose available output depends on external conditions, such as weather and river flow, rather than on dispatch decisions." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'Availability is data', text: 'The model takes the available generation as given and can only curtail generation below that amount. It cannot dispatch upward beyond what nature provides.' },
+  { title: 'Nearly free energy', text: 'Non-controllable sources have near-zero marginal cost. Curtailing available generation discards free energy, so the model prices it with a small regularization cost, like the spillage cost of a hydro.' },
+  { title: 'Uncertain by scenario', text: 'When the source has an availability model, its availability is drawn for each scenario. Otherwise the model uses the available generation of the stage.' },
+]} />
+
+## Availability, curtailment and must-run
+
+<NonControllableSource lang="en" />
+
+## What the model decides
+
+<DecisionChips family="equipment" items={[
+  { label: 'Generation', unit: 'MW' },
+]} note="Generation in each block lies between zero and the available generation, and these limits are hard, with no slack. Curtailment is not a separate decision: it is the available generation minus the generation dispatched. A must-run source has no decision to make, since its generation equals its availability." />
+
+## What you provide
+
+- The bus where the generation is injected.
+- The installed capacity, in MW. It scales the stochastic availability and does not cap the available generation.
+- Whether the source can be curtailed. The default is that it can; the alternative is must-run.
+- Optionally, a curtailment cost for the source. When absent, the case default in the penalties file applies.
+- Entry and exit stages, when the source does not exist throughout the study.
+- The availability model, when the source has one: the mean and the standard deviation of the availability factor for each stage. From them the model draws the availability ratio of each stage and scenario, between 0 and 1.
+- Block factors, when the availability differs across the blocks of a stage, as with a daily solar irradiance profile. When none is given, the factor is 1.
+- For a source without an availability model, the available generation of a stage. When a stage does not set it, the installed capacity applies.
+
+## How the available generation is built
+
+For each stage and scenario, the available generation of a block is the installed capacity, times the availability ratio, times the block factor. A source without an availability model uses the available generation of the stage in place of the capacity times the ratio, and the block factor still applies. A source that draws its availability from the model or from supplied scenarios ignores the stage values.
+
+## Curtailable and must-run
+
+- **Curtailable (default).** Generation is free between zero and the available generation. The model curtails when that is worthwhile, and curtailment is priced by the curtailment cost. This is the standard model for stand-alone wind and solar plants, where reducing output is physically feasible.
+- **Must-run.** Generation is pinned to the available generation in every scenario. Nothing is curtailed.
+
+Must-run is required when the scenario pipeline feeds the model with an aggregate already netted from demand by an upstream model, such as a total of non-simulated generation (small hydro, distributed thermal, wind, solar, distributed micro-generation). Letting the model curtail such an aggregate would discount the contribution twice and understate the hydrothermal cost.
+
+Like other equipment, a non-controllable source follows its commissioning window: outside it, generation is zero in every block, must-run or not.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'System elements overview — non-controllable sources', href: '/math/system-elements/#6-non-controllable-generation-sources' },
+  { kind: 'Methodology', title: 'System elements overview — curtailable vs. must-run', href: '/math/system-elements/#curtailable-vs-must-run' },
+  { kind: 'Methodology', title: 'Equipment formulations §6 — non-controllable generation sources', href: '/math/equipment-formulations/#6-non-controllable-generation-sources' },
+  { kind: 'Methodology', title: 'Must-run sources and the double-discount trap', href: '/math/equipment-formulations/#must-run-ncs-and-the-double-discount-trap' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'system/non_controllable_sources.json', href: '/reference/case-format/system/#systemnon_controllable_sourcesjson' },
+  { dir: 'in', path: 'scenarios/non_controllable_stats.parquet', href: '/reference/case-format/scenarios/#scenariosnon_controllable_statsparquet' },
+  { dir: 'in', path: 'scenarios/non_controllable_factors.json', href: '/reference/case-format/scenarios/#scenariosnon_controllable_factorsjson' },
+  { dir: 'in', path: 'penalties.json', href: '/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'constraints/ncs_bounds.parquet', href: '/reference/case-format/constraints/#constraintsncs_boundsparquet' },
+  { dir: 'out', path: 'simulation/non_controllables/', href: '/reference/output/simulation/#simulationnon_controllables' },
+]} />

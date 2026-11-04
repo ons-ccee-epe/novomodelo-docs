@@ -1,0 +1,124 @@
+Comportamento não normativo do software para o gerenciamento de cortes — o que o Novo Modelo faz
+em tempo de execução, além das equações acima. Esta aba remete ao corpo da metodologia
+para as deduções, em vez de reproduzi-las.
+
+### A remoção do escalonamento do custo reduzido divide pela escala da coluna
+
+A §2 da metodologia deduz cada coeficiente do corte a partir do custo reduzido de uma
+coluna de estado de entrada fixada, sem o escalonamento dado pelo fator de pré-escalonamento
+dessa coluna. Em termos de código, a remoção do escalonamento é uma **divisão**:
+`coefficient = reduced_cost / col_scale[col]` (`col_scale` vazio ⇒ o custo reduzido
+bruto, sem escalonamento).
+
+### Projeção dos cortes apenas no armazenamento
+
+Quando as defasagens de afluência são eliminadas por projeção dos cortes em um estágio sob um
+modelo PAR com termos de defasagem, não há garantia de que $\underline{z}^k$ seja um limite
+inferior para o valor ótimo do modelo tal como treinado, e o gap não constitui um certificado
+([condição 4](/pt-br/math/cut-management#4-validade-dos-cortes)). Projetar os cortes também sobre
+as defasagens de afluência, mantendo o armazenamento, em todos os estágios satisfaz
+a condição 4; as hipóteses restantes são as do
+[Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido). A projeção é
+escolhida por estágio: a chave e seu valor padrão estão em
+[`stages[].state_variables`](#stagesstate_variables--projecao-dos-cortes) da aba
+Configurar, e os componentes sobre os quais cada opção projeta estão em
+[Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte).
+
+### Os checkpoints armazenam os cortes nas unidades escalonadas do estudo que os gravou
+
+Um checkpoint armazena o termo independente e os coeficientes de cada corte tal como o
+conjunto de cortes os mantém, no espaço de custos escalonado do estudo que os gravou, e o
+arquivo de cada conjunto registra o fator de escala de custo desse espaço. Uma carga usa o
+conjunto inalterado quando seu fator é igual, bit a bit, ao do estudo que o carrega; assim,
+uma ida e volta com o mesmo fator, incluindo uma retomada, reproduz o conjunto exatamente.
+Com outro fator, cada valor passa a `(value * source) / loading`, com a multiplicação
+primeiro. Isso é **ortogonal** à remoção do escalonamento do custo reduzido por `col_scale`
+descrita acima: `col_scale` é um pré-escalonamento por coluna do PL aplicado dentro de uma
+única resolução, enquanto o fator de escala de custo é o escalonamento global da função
+objetivo de um estudo. Veja [Gerenciamento da política — Canonicalização da escala de
+custo](/pt-br/running/policy-management/#canonicalizacao-da-escala-de-custo)
+para a regra aplicada na carga.
+
+### Conjunto incremental (append-only), posições determinísticas
+
+Todo corte já gerado é mantido durante toda a execução em um índice de posição
+estável — uma função fixa da iteração e do índice da simulação forward que
+o gerou (§5 da metodologia). O conjunto nunca é compactado, e nada é
+jamais excluído dele; "desativação" sempre significa algo mais restrito que
+remoção (abaixo).
+
+### A desativação exclui um corte do modelo-base; o PL do limite inferior é apenas incremental
+
+O pipeline de gerenciamento de linhas do Novo Modelo atua sobre dois PLs diferentes, e "desativar"
+um corte significa algo ligeiramente diferente em cada um:
+
+- No **PL do estágio das simulações forward/backward de cada iteração** — reconstruído a partir
+  do modelo-base (template) do estágio no início de cada resolução — um corte desativado é simplesmente
+  omitido da reconstrução do modelo-base daquela iteração. Apenas os cortes ativos são codificados
+  como linhas do PL em cada resolução forward/backward; não há linha a alternar, pois a
+  linha nunca foi emitida.
+- No **PL persistente do limite inferior**, o conjunto é **apenas incremental** (append-only): somente
+  cortes ativos são acrescentados, e um corte já presente não é acrescentado novamente;
+  as linhas acrescentadas **nunca são removidas**, de modo que o limite inferior do treinamento
+  (training) permanece monótono e toda linha acrescentada continua restringindo.
+  A desativação não afeta nenhuma linha aqui; ela apenas muda quais cortes a
+  reconstrução do modelo-base forward/backward codifica. O único $+\infty$ em uma linha de corte é
+  o limite superior comum do corte unilateral `≥`, presente em toda
+  linha ativa — não um sentinela de desativação.
+
+Ambos os caminhos preservam o índice de posição, o que torna a reativação exata:
+um corte restaurado por uma seleção posterior é reincorporado ao modelo-base, na
+mesma posição, com os mesmos coeficientes com que foi gerado.
+
+### Etapa de seleção e etapa de orçamento
+
+O pipeline de gerenciamento de linhas é executado após a simulação backward e a sincronização de
+cortes de cada iteração, em duas etapas sobre os conjuntos **interiores** — aqueles estritamente
+entre o conjunto raiz e o conjunto terminal:
+
+1. **Etapa de seleção** (`level1`) — executada nas iterações que são múltiplas de
+   `check_frequency`. Ela descarta os estados visitados mais antigos que a janela
+   `lookback_iterations`, registra o dono de cada estado armazenado e define
+   o indicador de cada corte avaliado a partir desse registro, incluindo os cortes da
+   iteração corrente. O conjunto raiz nunca passa por seleção, e a simulação backward não
+   acrescenta corte ao conjunto terminal. Dentro de um conjunto, os estados visitados são avaliados
+   em blocos paralelos. `dynamic` nunca executa esta etapa e nunca desativa um corte do conjunto.
+2. **Etapa de orçamento** (`max_active_per_stage`) — executada em **toda** iteração após
+   a etapa de seleção. Ela conta e descarta apenas os cortes gerados nesta execução: um
+   corte carregado não é contado nem descartado, e um corte da iteração corrente
+   é contado, mas nunca descartado; assim, a quantidade de cortes ativos de um conjunto pode
+   exceder o limite pelo número de seus cortes carregados. Sob `level1`, um corte descartado que
+   ainda é dono de um estado é reativado pela etapa de seleção seguinte, e o limite é aplicado
+   novamente nessa iteração. O limite é recusado na carga com `dynamic`, cujos candidatos são
+   os cortes ativos, de modo que um corte descartado nunca voltaria a ser candidato, e
+   com uma simulação forward enumerada, cuja simulação backward não registra quais cortes ficaram ativos
+   (binding), de modo que o descarte seguiria apenas a ordem de geração.
+   [Etapa 2: Aplicação do Orçamento](/pt-br/running/performance/#etapa-2-imposicao-do-orcamento)
+   apresenta a ordem de descarte.
+
+### O método dinâmico é preguiçoso (lazy), não uma etapa de desativação
+
+O método dinâmico (§8 da metodologia) nunca desativa um corte do conjunto. Em vez disso,
+cada resolução de estágio parte de um pequeno subconjunto residente — os cortes ativos que
+estiveram ativos (binding) nas últimas `seed_window` iterações mais todos os cortes gerados nesta
+iteração — e o amplia avaliando os candidatos omitidos e acrescentando os
+mais violados. Após 50 rodadas (valor não configurável pelo usuário), o limite por rodada
+é removido e todo candidato violado é acrescentado a cada rodada até não restar
+nenhum; assim, uma resolução sempre retorna o ótimo sobre os candidatos, a menos da
+tolerância de violação, e dispensa uma resolução final. Cada resolução que atinge a 50ª
+rodada com algum candidato ainda violado é contabilizada na coluna `lazy_round_cap_hits`
+de [`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet).
+A simulação final inicializa o subconjunto com todos os cortes ativos, de modo que sua
+resolução preguiçosa não acrescenta nenhum.
+
+O método dinâmico é recusado na preparação sob uma simulação forward enumerada
+(§8 da metodologia): a simulação backward enumerada não registra atividade (binding) dos cortes,
+de modo que o relógio de atividade da janela inicial nunca avança além da iteração
+que gerou cada corte.
+
+Um corte carregado no conjunto por `policy.mode = "warm_start"` ou `"resume"`
+(aba Entradas e saídas) mantém a iteração que o gerou na execução de origem.
+Sob uma janela `candidate_recency` finita, um corte carregado é sempre candidato,
+como um corte de fronteira. Sob `resume`, um corte recarregado conta como carregado somente se
+a execução que gravou o checkpoint o tiver carregado; os cortes gerados por essa execução
+são tratados pela janela como eram nela.

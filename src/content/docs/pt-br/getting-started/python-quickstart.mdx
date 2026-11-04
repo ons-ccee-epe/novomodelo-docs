@@ -1,0 +1,228 @@
+---
+title: Guia rápido em Python
+description: Instale o pacote Python novomodelo, execute o caso de exemplo 1dtoy com novomodelo.run.run() e leia e plote seus resultados.
+---
+
+Instale o pacote Python `novomodelo`, gere o caso de exemplo 1dtoy, execute-o com `novomodelo.run.run()` e, em seguida, leia e plote os resultados. As seções seguintes alteram a configuração, validam um caso e tratam erros.
+
+## Instalação
+
+```bash
+pip install novomodelo-python polars pyarrow matplotlib
+```
+
+O pacote é importado como `novomodelo`; `polars`, `pyarrow` e `matplotlib` atendem às etapas de leitura e de gráficos. [Instalação](/pt-br/getting-started/installation/) lista as versões de Python e as plataformas suportadas.
+
+## Criar um caso
+
+O pacote Python não tem comando para gerar casos. Crie o caso de exemplo 1dtoy com a ferramenta de linha de comando `novomodelo`, descrita em [Instalação](/pt-br/getting-started/installation/):
+
+```bash
+novomodelo init --template 1dtoy my_study
+```
+
+Alternativamente, copie o diretório [examples/1dtoy](https://github.com/ons-ccee-epe/novomodelo/tree/v0.20.0/examples/1dtoy) do repositório, na tag `v0.20.0`, para `my_study/`. Execute os trechos abaixo, em ordem, a partir do diretório que contém `my_study/`.
+
+## Executar o estudo
+
+`novomodelo.run.run()` carrega o caso, treina uma política PDDE (SDDP), simula 100 cenários e grava os resultados em `my_study/output`. A função retorna um dict:
+
+{/* capture: python run | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
+
+```python
+import novomodelo
+
+result = novomodelo.run.run("my_study")
+print(f"converged:   {result['converged']}")
+print(f"iterations:  {result['iterations']}")
+print(f"lower_bound: {result['lower_bound']:.6g}")
+print(f"upper_bound: {result['upper_bound']:.6g}")
+print(f"gap_percent: {result['gap_percent']:.1f}")
+print(f"simulation:  {result['simulation']}")
+print(f"output_dir:  {result['output_dir']}")
+```
+
+```text
+converged:   False
+iterations:  128
+lower_bound: 2.06161e+07
+upper_bound: 579592
+gap_percent: -97.2
+simulation:  {'n_scenarios': 100, 'completed': 100}
+output_dir:  my_study/output
+```
+
+As chaves impressas fazem parte do dict de resultado; consulte [`RunResult`](/pt-br/reference/python-api/#novomodelo_typesrunresult) para a estrutura completa e [`novomodelo.run.run`](/pt-br/reference/python-api/#novomodelorunrun) para os parâmetros. `converged` é `True` quando um critério `gap` ou `bound_stalling` encerra o treinamento (training). Aqui, o limite de 128 iterações o encerrou; portanto, `False` é o esperado. Os limites e o gap negativo coincidem com os do guia rápido da CLI, que os explica em [O que você acabou de executar](/pt-br/getting-started/quickstart/#o-que-voce-acabou-de-executar).
+
+## Ler os resultados
+
+Leia o registro de convergência e os custos da simulação final a partir do diretório de saída:
+
+{/* capture: python read | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
+
+```python
+import novomodelo
+import polars as pl
+
+conv = pl.from_arrow(novomodelo.results.load_convergence_arrow("my_study/output"))
+print(conv.select("iteration", "lower_bound", "upper_bound", "gap_percent").tail(3))
+
+costs = pl.from_arrow(
+    novomodelo.results.load_simulation_arrow("my_study/output", entity_type="costs")
+)
+per_scenario = costs.group_by("scenario_id").agg(
+    (pl.col("discount_factor") * pl.col("immediate_cost")).sum().alias("cost")
+)
+print(per_scenario.select(
+    pl.col("cost").mean().alias("mean"),
+    pl.col("cost").median().alias("median"),
+))
+```
+
+```text
+shape: (3, 4)
+┌───────────┬─────────────┬───────────────┬─────────────┐
+│ iteration ┆ lower_bound ┆ upper_bound   ┆ gap_percent │
+│ ---       ┆ ---         ┆ ---           ┆ ---         │
+│ i32       ┆ f64         ┆ f64           ┆ f64         │
+╞═══════════╪═════════════╪═══════════════╪═════════════╡
+│ 126       ┆ 2.0616e7    ┆ 615923.497494 ┆ -97.012421  │
+│ 127       ┆ 2.0616e7    ┆ 615923.497494 ┆ -97.012421  │
+│ 128       ┆ 2.0616e7    ┆ 579592.198622 ┆ -97.188649  │
+└───────────┴─────────────┴───────────────┴─────────────┘
+shape: (1, 2)
+┌──────────┬───────────────┐
+│ mean     ┆ median        │
+│ ---      ┆ ---           │
+│ f64      ┆ f64           │
+╞══════════╪═══════════════╡
+│ 1.2865e7 ┆ 615923.497494 │
+└──────────┴───────────────┘
+```
+
+Os dois carregadores de [`novomodelo.results`](/pt-br/reference/python-api/#novomodeloresults) retornam objetos `pyarrow.Table`, que `polars.from_arrow` encapsula. O custo de um cenário é a soma de `discount_factor * immediate_cost` sobre suas linhas de `costs`, aqui uma por estágio; a média coincide com a linha `Expected cost` do resumo da execução na CLI, e a mediana, muito abaixo da média, mostra que a maioria dos cenários é barata.
+
+## Plotar a convergência
+
+Plote os dois limites em função da iteração:
+
+{/* capture: python plot | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
+
+```python
+import novomodelo
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import polars as pl
+
+conv = pl.from_arrow(novomodelo.results.load_convergence_arrow("my_study/output"))
+fig, ax = plt.subplots()
+ax.plot(conv["iteration"], conv["lower_bound"], label="lower bound")
+ax.plot(conv["iteration"], conv["upper_bound"], label="upper bound")
+ax.set_yscale("log")
+ax.set_xlabel("iteration")
+ax.set_ylabel("expected cost")
+ax.legend()
+fig.savefig("convergence.png")
+print("saved convergence.png")
+```
+
+```text
+saved convergence.png
+```
+
+O arquivo `convergence.png` gerado usa eixo logarítmico. O limite inferior sobe a partir de cerca de 1,2e7 e se estabiliza perto de 2,06e7. O limite superior é o custo de uma simulação forward por iteração; fica perto de 6e5, com picos acima de 1e8. `matplotlib.use("Agg")` desenha em arquivo, de modo que o script não precisa de tela.
+
+## Alterar a configuração
+
+`config_overrides` altera parâmetros do `config.json` para uma única chamada, sem editar o arquivo. Esta chamada executa novamente o estudo com outra semente:
+
+{/* capture: python seed | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
+
+```python
+import novomodelo
+
+result = novomodelo.run.run(
+    "my_study",
+    output_dir="my_study/output-seed7",
+    config_overrides={"training.tree_seed": 7},
+)
+print(f"lower_bound: {result['lower_bound']:.6g}")
+```
+
+```text
+lower_bound: 2.06197e+07
+```
+
+As chaves são caminhos do `config.json` separados por pontos. `training.tree_seed` é a semente da árvore de aberturas e dos sorteios dentro da amostra (in-sample) (padrão 42); assim, outra semente produz outra árvore e outro limite inferior: 2,06197e+07 aqui, contra 2,06161e+07 na primeira execução. Informe parâmetros aninhados como chaves com pontos: um dict sob uma chave sem pontos substitui o objeto inteiro. `output_dir` mantém esta execução separada da primeira. [Resolução de sementes](/pt-br/running/configuration/#resolucao-das-sementes) descreve as sementes.
+
+Uma execução com o treinamento desativado simula a política já existente no diretório de saída, aqui a gravada pela primeira execução:
+
+{/* capture: python simonly | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
+
+```python
+import novomodelo
+
+result = novomodelo.run.run("my_study", config_overrides={"training.enabled": False})
+print(f"iterations:  {result['iterations']}")
+print(f"upper_bound: {result['upper_bound']}")
+print(f"gap_percent: {result['gap_percent']}")
+```
+
+```text
+iterations:  0
+upper_bound: 579592.1986224449
+gap_percent: None
+```
+
+Com o treinamento desativado e a simulação final ativada, `iterations` é `0`, `gap_percent` é `None` e `upper_bound` é o último limite superior do treinamento registrado no checkpoint da política que a execução carrega (`None` se nele não houver nenhum valor finito). Com as duas fases desativadas, `lower_bound` é `0.0` e `upper_bound`, `gap_percent` e `simulation` são `None`. O argumento `threads` de `novomodelo.run.run` define o número de workers (padrão 1); `0` lança `ValueError`.
+
+## Validar um caso
+
+`novomodelo.io.validate` verifica um diretório de caso sem executá-lo:
+
+{/* capture: python validate | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
+
+```python
+import novomodelo
+
+print(novomodelo.io.validate("my_study"))
+```
+
+```text
+{'valid': True, 'errors': [], 'warnings': []}
+```
+
+O dict tem as chaves `valid`, `errors` e `warnings`; cada entrada de `errors` é um dict com `kind` e `message`. `novomodelo.Study("my_study").validate()` retorna um dict com as mesmas chaves.
+
+## Tratamento de erros
+
+Um parâmetro que falha na validação lança uma exceção tipada. Esta chamada grafa incorretamente uma chave de configuração:
+
+{/* capture: python errors | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy (novomodelo init --template 1dtoy) as my_study; snippets run in page order */}
+
+```python
+import novomodelo
+
+try:
+    novomodelo.run.run("my_study", config_overrides={"training.tree_seeds": 7})
+except novomodelo.errors.NovomodeloError as err:
+    print(type(err).__name__, isinstance(err, ValueError))
+```
+
+```text
+ValidationError True
+```
+
+As exceções tipadas ficam em `novomodelo.errors`. Cada classe específica deriva da classe base `NovomodeloError` e de uma exceção nativa (`ValueError`, `OSError` ou `RuntimeError`), de modo que um `except ValueError` existente também captura esta `ValidationError`. Verificações de argumentos, como `threads=0` ou um diretório de caso inexistente, lançam diretamente a exceção nativa. Consulte [`novomodelo.errors`](/pt-br/reference/python-api/#novomodeloerrors) para as classes, [Códigos de erro](/pt-br/reference/error-codes/) para as mensagens e [Erros de carregamento da política](/pt-br/reference/error-codes/#erros-de-carga-da-politica) para saber qual caminho de carregamento lança qual classe.
+
+## Checkpoints da política
+
+Carregue uma política treinada com `novomodelo.results.load_policy`, edite seus cortes e grave um checkpoint que o Novo Modelo consiga carregar com
+`novomodelo.write_policy_checkpoint`. O passo a passo da ida e volta está em
+[Ler e gravar checkpoints a partir do Python](/pt-br/running/policy-management/#ler-e-gravar-checkpoints-a-partir-do-python).
+
+## Próximos passos
+
+- Consulte [Formato do caso](/pt-br/reference/case-format/) para as especificações dos arquivos de entrada.
+- Explore os [Exemplos resolvidos](/pt-br/examples/toy-single-reservoir/) para casos pequenos, inteiramente resolvidos.

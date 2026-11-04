@@ -1,0 +1,68 @@
+---
+title: Penalidades e custo de déficit
+description: Os custos que mantêm o problema do estágio sempre viável e sinalizam a gravidade de uma violação — as três finalidades das penalidades, sua ordem de prioridade e como os valores são resolvidos.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import PenaltyLadder from '../../../../../components/entity/illustrations/PenaltyLadder.astro';
+
+<EntityHero family="rules" icon="penalties" lead="Penalidades são custos de variáveis de folga que entram na função objetivo de cada estágio. Elas mantêm o problema sempre viável, mesmo em cenários extremos, e sinalizam a gravidade de cada violação. O déficit, o custo da carga não atendida, é a penalidade mais conhecida." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'O problema precisa ter sempre solução', text: 'Secas e falhas de equipamento podem tornar impossível atender a certas restrições. As folgas com custos graduados mantêm o problema viável e, ao mesmo tempo, sinalizam a gravidade das violações. É o que dá à PDDE (SDDP) o recurso relativamente completo: todo subproblema é viável, qualquer que seja o cenário.' },
+  { title: 'Três finalidades distintas', text: 'Folgas de recurso garantem a viabilidade do problema (déficit, excesso, não negatividade da afluência). Penalidades por violação de restrições conformam a política. Custos de regularização orientam a solução quando o problema seria indiferente; não são custos reais e devem ser ordens de grandeza menores que qualquer custo econômico.' },
+  { title: 'A ordem entre os custos faz parte do desenho', text: 'Os custos seguem uma ordem de prioridade na qual o déficit supera as folgas das restrições operativas. O modelo verifica os valores configurados na carga do caso e emite um aviso, sem interromper a execução, quando a ordem não é respeitada. Essa verificação compara os valores como informados; portanto, um caso pode passá-la e ainda assim inverter a ordenação equivalente em energia. Duas regras rejeitam o caso: um custo de turbinamento negativo em uma usina com FPHA e um cronograma de enchimento que não consegue atingir o volume morto (veja a validação da ordem, em Aprofundar).' },
+]} />
+
+## A escada de prioridades
+
+<PenaltyLadder lang="pt-BR" />
+
+O déficit, cobrado por segmentos de profundidade de custos crescentes, é detalhado na página [Déficit](/pt-br/entities/network/deficit/). Acima dele está a violação do armazenamento mínimo de uma usina em enchimento: manter o reservatório acima do volume morto é mais crítico do que atender à carga, porque operar abaixo dele põe em risco a segurança da barragem. A meta de enchimento fica em um degrau separado, abaixo do déficit. Sua posição em relação às restrições operativas fica a cargo da calibração do estudo.
+
+Os custos têm unidades diferentes (R\$/MWh, R\$/hm³, R\$/(m³/s·h)). A ordenação é expressa em custos equivalentes em energia, em R\$/MWh. A verificação feita no carregamento do caso compara os valores como informados, sem essa conversão; portanto, um caso pode passar nela e ainda assim inverter a ordenação equivalente em energia.
+
+## O que o modelo decide
+
+<DecisionChips family="rules" items={[
+  { label: 'Déficit de carga, por segmento', unit: 'MW' },
+  { label: 'Violação de cada restrição flexível, quando ocorre', unit: 'unidade de cada restrição' },
+]} note="Cada violação é cobrada ao custo da sua penalidade. O detalhamento de custos por estágio traz cada componente em uma coluna própria, como déficit, excesso, vertimento e violações de vazão." />
+
+## O que você informa
+
+- Os valores padrão globais de cada custo, em `penalties.json`, com quatro seções obrigatórias: barramentos, linhas, usinas hidrelétricas e fontes não despacháveis. Os custos obrigatórios devem ser positivos, com a exceção do custo de turbinamento, que pode ser zero.
+- Opcionalmente, substituições esparsas por estágio, em arquivos separados para barramentos, linhas, usinas hidrelétricas e fontes não despacháveis. Só há linhas para os pares entidade-estágio em que o valor difere do padrão.
+- Os segmentos de déficit: no cadastro de cada barramento ou, quando o barramento não declara nenhum, no padrão do caso.
+
+## Como o valor de cada custo é resolvido
+
+A cascata tem três níveis de especificidade. A sobreposição por estágio, definida para uma entidade em um estágio, é a mais específica. Em seguida vem a sobreposição por entidade e, por fim, o padrão global do caso, que é o valor de último recurso. Prevalece o valor mais específico presente.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Sistema de penalidades §1 — resolução em cascata', href: '/pt-br/math/penalty-system/#1-resolucao-em-cascata' },
+  { kind: 'Metodologia', title: 'Sistema de penalidades §2 — categorias de penalidades', href: '/pt-br/math/penalty-system/#2-categorias-de-penalidades' },
+  { kind: 'Metodologia', title: 'Sistema de penalidades — ordem de prioridade', href: '/pt-br/math/penalty-system/#ordem-de-prioridade-das-penalidades' },
+  { kind: 'Metodologia', title: 'Sistema de penalidades — validação da ordem', href: '/pt-br/math/penalty-system/#validacao-da-ordem-das-penalidades' },
+  { kind: 'Metodologia', title: 'Sistema de penalidades §4 — cobertura das violações de restrições', href: '/pt-br/math/penalty-system/#4-cobertura-das-violacoes-de-restricoes' },
+  { kind: 'Referência', title: 'Arquivos de penalidades — penalties.json', href: '/pt-br/reference/case-format/penalties/#penaltiesjson' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'penalties.json', href: '/pt-br/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'constraints/penalty_overrides_bus.parquet', href: '/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_busparquet' },
+  { dir: 'in', path: 'constraints/penalty_overrides_line.parquet', href: '/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_lineparquet' },
+  { dir: 'in', path: 'constraints/penalty_overrides_hydro.parquet', href: '/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_hydroparquet' },
+  { dir: 'in', path: 'constraints/penalty_overrides_ncs.parquet', href: '/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_ncsparquet' },
+  { dir: 'out', path: 'simulation/costs/', href: '/pt-br/reference/output/simulation/#simulationcosts' },
+]} />

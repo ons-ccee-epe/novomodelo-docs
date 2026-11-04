@@ -1,0 +1,68 @@
+---
+title: Contratos de energia
+description: Como o Novo Modelo trata contratos de energia — importações e exportações unidirecionais em um barramento, com limites contratados, preço por MWh e pisos take-or-pay.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import EnergyContract from '../../../../../components/entity/illustrations/EnergyContract.astro';
+
+<EntityHero family="network" icon="contract" lead="Um contrato de energia é um acordo unidirecional de importação de potência para o sistema modelado, ou de exportação para fora dele, em um barramento. Tem limites na potência contratada e um preço por MWh." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Importação injeta, exportação retira', text: 'Um contrato de importação injeta potência no seu barramento e um de exportação a retira. Cada contrato é de importação ou de exportação, nunca os dois.' },
+  { title: 'O sinal do preço', text: 'Os preços de importação são positivos, um custo. Os de exportação são negativos, uma receita. Um único somatório na função objetivo soma os custos de importação e subtrai a receita de exportação.' },
+  { title: 'Take-or-pay', text: 'Um limite inferior positivo é uma obrigação rígida do tipo take-or-pay: o modelo deve despachar pelo menos essa potência ao preço do contrato, mesmo quando houver oferta mais barata.' },
+]} />
+
+## Importação entra, exportação sai
+
+<EnergyContract lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="network" items={[
+  { label: 'Potência contratada', unit: 'MW' },
+]} note="Em cada patamar, a potência contratada fica entre o mínimo e o máximo do contrato, e esses limites são rígidos. Nos resultados a potência é sempre não negativa, tanto para importação quanto para exportação: o sentido vem do tipo do contrato e do sinal do preço. Fora da sua janela de operação, o contrato é fixado em zero." />
+
+## O que você informa
+
+- O barramento em que a potência é injetada (importação) ou retirada (exportação).
+- O tipo do contrato: importação ou exportação.
+- O preço por MWh: positivo para uma importação, negativo para uma exportação.
+- A potência mínima e a máxima, em MW. Use zero como mínimo, a menos que se aplique um piso take-or-pay.
+- Estágios de entrada e de saída de operação, quando o contrato não existe durante todo o estudo.
+- Opcionalmente, limites e preços que variam por estágio e, se desejado, por patamar, que substituem os do cadastro.
+
+O arquivo de contratos é opcional: quando ausente, nenhum contrato é modelado.
+
+## Sem estado
+
+Um contrato não tem variável de estado e não contribui para os cortes de Benders.
+
+## Nos resultados
+
+Cada contrato e patamar informa sua potência em MW, sua energia em MWh, seu preço e seu custo total, positivo para importações e negativo para exportações. O detalhamento de custos por estágio tem uma coluna com o custo dos contratos, com os mesmos sinais.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Visão geral da modelagem dos elementos — contratos de importação/exportação', href: '/pt-br/math/system-elements/#8-contratos-de-importacaoexportacao' },
+  { kind: 'Metodologia', title: 'Formulações por equipamento §3 — contratos de importação/exportação', href: '/pt-br/math/equipment-formulations/#3-contratos-de-importacaoexportacao' },
+  { kind: 'Metodologia', title: 'Contratos não têm estado', href: '/pt-br/math/equipment-formulations/#contratos-nao-tem-estado' },
+  { kind: 'Referência', title: 'Glossário — termos do sistema elétrico', href: '/pt-br/reference/glossary/#sistema-eletrico' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'system/energy_contracts.json', href: '/pt-br/reference/case-format/system/#systemenergy_contractsjson' },
+  { dir: 'in', path: 'constraints/contract_bounds.parquet', href: '/pt-br/reference/case-format/constraints/#constraintscontract_boundsparquet' },
+  { dir: 'out', path: 'simulation/contracts/', href: '/pt-br/reference/output/simulation/#simulationcontracts' },
+  { dir: 'out', path: 'simulation/costs/', href: '/pt-br/reference/output/simulation/#simulationcosts' },
+]} />

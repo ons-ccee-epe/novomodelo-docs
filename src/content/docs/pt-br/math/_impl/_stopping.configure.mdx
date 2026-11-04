@@ -1,0 +1,84 @@
+As configurações de parada do Novo Modelo são duas chaves do objeto `training` do
+`config.json`: `stopping_rules`, a lista de critérios pelos quais uma execução pode parar, e
+`stopping_mode`, a forma como eles se combinam. Esta aba apresenta um conjunto combinado e remete
+às entradas de configuração que listam todos os campos e valores padrão; a condição de parada
+de cada critério permanece nas seções de metodologia acima
+([§2 Limite de iterações](/pt-br/math/stopping-rules#2-limite-de-iteracoes),
+[§3 Limite de tempo](/pt-br/math/stopping-rules#3-limite-de-tempo),
+[§4 Estagnação do limite](/pt-br/math/stopping-rules#4-estagnacao-do-limite) e
+[§5 Parada por gap](/pt-br/math/stopping-rules#5-parada-por-gap-recomendada)).
+
+### `training.stopping_rules` — Critérios
+
+A referência de configuração lista os campos de cada critério
+([`iteration_limit`](/pt-br/running/configuration/#iteration_limit),
+[`time_limit`](/pt-br/running/configuration/#time_limit),
+[`bound_stalling`](/pt-br/running/configuration/#bound_stalling) e
+[`gap`](/pt-br/running/configuration/#gap)), além dos valores e do padrão de
+[`training.stopping_mode`](/pt-br/running/configuration/#trainingstopping_mode).
+
+### `training.stopping_mode` — Combinação
+
+O conjunto a seguir para quando o gap se fecha ou ao atingir 500 iterações, o que
+ocorrer primeiro:
+
+```json
+{
+  "training": {
+    "stopping_rules": [
+      { "type": "iteration_limit", "limit": 500 },
+      { "type": "gap", "tolerance": 1.0, "relative_tolerance": 0.1 }
+    ],
+    "stopping_mode": "any"
+  }
+}
+```
+
+O critério `gap` exige uma simulação forward enumerada no treinamento (training); uma execução amostrada para
+conforme descrito em [Execuções amostradas](#execucoes-amostradas).
+
+### Solicitações de encerramento
+
+Uma solicitação de encerramento não é uma entrada de `stopping_rules`, e `stopping_mode`
+não se aplica a ela. Durante o treinamento, `novomodelo run` converte um SIGTERM ou SIGINT
+em uma solicitação, que o treinamento lê
+uma vez por iteração, após o limite inferior e antes da decisão de parada: o treinamento
+para ao final da iteração que a lê, grava as saídas do treinamento
+e o checkpoint da política, pula a simulação final configurada e termina com código `5`
+([Referência da CLI — Códigos de saída](/pt-br/reference/cli-reference/#codigos-de-saida)). Um sinal
+que atinja qualquer processo (rank MPI) de uma execução com vários processos interrompe todos eles na mesma
+iteração, e um segundo SIGINT encerra imediatamente uma execução de processo único. Antes
+do início do treinamento e durante a simulação final, ambos os sinais têm sua ação
+padrão. A API Python emite uma solicitação quando o callback `on_iteration`
+retorna um valor verdadeiro (truthy) ou lança uma exceção
+([API Python](/pt-br/reference/python-api/)); a parada é assíncrona, de modo que a execução termina
+em uma fronteira de iteração posterior que não é fixa; uma execução encerrada dessa forma
+registra `graceful_shutdown`, a menos que os critérios de parada ou o limite de iterações também a tenham encerrado
+naquela iteração
+([O que uma execução interrompida registra](#o-que-uma-execucao-interrompida-registra)).
+
+### O que uma execução interrompida registra
+
+Os blocos `convergence`, `bounds` e `iterations` de
+[`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson)
+registram como a execução parou:
+
+- `convergence.termination_reason` indica o primeiro critério acionado, na
+  ordem em que `stopping_rules` os lista (sob `"all"`, entre os critérios diferentes de
+  `iteration_limit`), quando os critérios de parada encerraram a execução; caso contrário, é `iteration_limit`
+  quando a execução atingiu seu limite de iterações e, caso contrário, `graceful_shutdown`
+  quando uma solicitação de encerramento a encerrou. É `error` após um treinamento que falhou.
+- `convergence.achieved` é `true` quando os critérios de parada encerraram a execução e
+  um critério `gap` ou `bound_stalling` foi acionado naquela iteração.
+- `convergence.final_gap_percent` é `null` quando o limite inferior final não é
+  positivo.
+- `bounds.final_lower_bound` e `bounds.final_upper_bound` são os limites na
+  última iteração, e `iterations.completed` é o número de iterações em que
+  a execução terminou, incluindo execuções anteriores.
+
+**Limite inferior e gap com cortes projetados.** Com um modelo PAR com termos de defasagem
+e as defasagens de afluência projetadas para fora dos cortes, o limite inferior e o gap estão sujeitos à
+ressalva de
+[Projeção dos cortes apenas no armazenamento](/pt-br/math/cut-management/#projecao-dos-cortes-apenas-no-armazenamento);
+a chave e seu valor padrão estão em
+[`stages[].state_variables`](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes).

@@ -1,0 +1,193 @@
+O bloco de nível superior `estimation` do `config.json` do Novo Modelo, os arquivos de entrada do PAR(p)
+em `scenarios/` e o `scenarios/correlation.json` configuram o processo de estimação e
+de correlação descrito na metodologia acima. Esta aba mostra quais entradas do PAR
+fornecer e como a estimação e a correlação são configuradas; as
+equações que esses campos alimentam estão nas seções acima.
+
+### `config.json` — Bloco `estimation`
+
+O bloco `estimation` é uma chave de nível superior do `config.json` (no mesmo nível de
+`training`) e controla o processo de ajuste do PAR(p) nos caminhos de estimação
+(linhas 4–6 da tabela da próxima seção):
+
+```json
+{
+  "estimation": {
+    "max_order": 6,
+    "order_selection": "pacf",
+    "min_observations_per_season": 30,
+    "max_coefficient_magnitude": null,
+    "correlation_target": "inflows"
+  }
+}
+```
+
+A seção [`estimation`](/pt-br/running/configuration/#estimation) da
+referência de configuração lista todos os campos e seus valores padrão e descreve o
+comportamento de `min_observations_per_season`.
+
+`correlation_target` seleciona a série da §6.1 da metodologia a partir da qual uma
+correlação estimada é calculada: `"inflows"`, o padrão, para as afluências padronizadas,
+ou `"residuals"` para os resíduos da autorregressão ajustada. Ele não tem efeito em um
+caminho que não estima correlação (linhas 1–3 e 7 da tabela abaixo) nem quando
+`scenarios/correlation.json` é fornecido.
+
+Definir `"order_selection": "pacf_annual"` ativa a componente anual do PAR(p)-A
+(§7 da metodologia): o sistema periódico de Yule-Walker é estendido com
+o termo de correlação cruzada anual, as estatísticas amostrais por período sazonal da
+média móvel de 12 meses são calculadas, e a tripla ajustada
+($\psi^{A*}_m$, média anual, desvio-padrão anual) é gravada em `inflow_annual_component.parquet`
+— ver a aba Entradas e saídas. Quando ausente (ou definido como `"pacf"`), apenas o
+caminho clássico do PAR(p) é executado e nenhuma tripla anual é produzida.
+
+### Resolução da Origem das Afluências — Escolha dos Arquivos a Fornecer
+
+O modelo de afluências PAR(p) é construído a partir de até cinco arquivos em `scenarios/`. Três
+deles determinam a **resolução do caminho** — sua presença ou ausência seleciona qual
+dos sete caminhos de estimação o Novo Modelo executa:
+
+| Símbolo | Arquivo | Papel |
+| :----: | ------------------------------------------- | ---------------------------------------- |
+| **H**  | `scenarios/inflow_history.parquet`          | Observações históricas por janela, para o ajuste |
+| **S**  | `scenarios/inflow_seasonal_stats.parquet`   | Média/desvio-padrão sazonais fornecidos pelo usuário |
+| **R**  | `scenarios/inflow_ar_coefficients.parquet`  | Coeficientes AR fornecidos pelo usuário |
+
+Os outros dois arquivos atuam de forma **ortogonal** sobre o caminho resolvido:
+`scenarios/correlation.json` prevalece em todos os caminhos quando presente (correlação
+identidade, caso contrário, a menos que o caminho a estime); e
+`scenarios/inflow_annual_component.parquet` só é respeitado nos
+caminhos de repasse (linhas 2, 3 e 7 abaixo) — os caminhos de estimação (4, 5 e 6)
+sempre o sobrescrevem com os valores ajustados.
+
+| # | H | S | R | Caminho | Estatísticas sazonais | Coeficientes AR | Correlação |
+| - | - | - | - | ---- | --------------- | ----------------- | ------------ |
+| 1 | 0 | 0 | 0 | `Deterministic` | sem modelo PAR | nenhum | identidade, a menos que `correlation.json` seja fornecido |
+| 2 | 0 | 1 | 0 | `UserStatsWhiteNoise` | arquivo do usuário | ordem 0 (ruído branco) | identidade, a menos que `correlation.json` seja fornecido |
+| 3 | 0 | 1 | 1 | `UserProvidedNoHistory` | arquivo do usuário | arquivo do usuário | identidade, a menos que `correlation.json` seja fornecido |
+| 4 | 1 | 0 | 0 | `FullEstimation` | ajustadas a partir de H | ajustados a partir de H (PACF + Yule-Walker + Maceira & Damázio) | estimada a partir de H, a menos que `correlation.json` seja fornecido |
+| 5 | 1 | 0 | 1 | `UserArHistoryStats` | ajustadas a partir de H | arquivo do usuário | estimada a partir de H (com `"residuals"`, os resíduos dos coeficientes do usuário), a menos que `correlation.json` seja fornecido |
+| 6 | 1 | 1 | 0 | `PartialEstimation` | arquivo do usuário (o ajuste usa estatísticas estimadas a partir de H) | ajustados a partir de H | estimada a partir de H, a menos que `correlation.json` seja fornecido |
+| 7 | 1 | 1 | 1 | `UserProvidedAll` | arquivo do usuário | arquivo do usuário | identidade, a menos que `correlation.json` seja fornecido (o histórico não é reutilizado) |
+
+Casos com `R = 1`, mas `H = 0` e `S = 0`, recaem na linha 1 — coeficientes AR
+sozinhos não conseguem conduzir a estimação.
+
+Uma correlação estimada (linhas 4–6, quando nenhum `correlation.json` é fornecido)
+contém um perfil agregado `"default"`. Em um ciclo com mais de um período sazonal, contém também
+um perfil `season_<id>` para cada período sazonal em que todo par de usinas tem
+pelo menos 30 períodos com valor das duas usinas — o `id` do período sazonal completado com zeros à esquerda até a largura do
+maior id, como em `season_03` em um ciclo de doze períodos sazonais — e um cronograma que
+associa cada estágio desse período sazonal ao seu perfil. Todos os demais estágios usam o
+perfil agregado (§6.1 da metodologia).
+
+**Receitas práticas:**
+
+| Objetivo | Arquivos a fornecer | Caminho |
+| ----------------------------------------------------------- | -------------------------------------------------------------------- | ---- |
+| Teste rápido do PL sem estocasticidade                      | _(nenhum arquivo de cenários)_                                        | 1    |
+| Níveis sazonais determinísticos, sem autorregressão         | `inflow_seasonal_stats.parquet`                                       | 2    |
+| PAR(p) totalmente especificado pelo usuário, sem arquivo de histórico | `inflow_seasonal_stats.parquet`, `inflow_ar_coefficients.parquet` e, para ordem AR acima de 0, `recent_observations` cobrindo as posições de defasagem | 3    |
+| Automático: ajustar tudo a partir das observações brutas    | `inflow_history.parquet`                                              | 4    |
+| Ajustar as estatísticas a partir do histórico e substituir a estrutura AR | `inflow_history.parquet`, `inflow_ar_coefficients.parquet` | 5    |
+| Substituir os níveis (média/desvio-padrão), mas deixar o Novo Modelo ajustar o AR | `inflow_history.parquet`, `inflow_seasonal_stats.parquet` | 6    |
+| Fornecer todos os parâmetros, inclusive o termo anual do PAR(p)-A | Os três arquivos H, S e R (e, opcionalmente, o arquivo anual) | 7    |
+| Fixar uma correlação espacial personalizada em qualquer caminho | Acrescentar `correlation.json`                                   | qualquer |
+
+### `scenarios/inflow_history.parquet` — Observações Históricas por Janela
+
+O registro por janelas é obrigatório para conduzir qualquer um dos caminhos de estimação (H = 1
+acima) e, sempre que presente, é a camada base a partir da qual se constrói a tendência
+hidrológica derivada (ver "Inicialização das defasagens e do acumulador" abaixo).
+
+Toda usina hidrelétrica em `hydros.json` deve ter pelo menos uma janela de observação
+neste arquivo quando a estimação está ativa. As colunas, as regras das janelas e os papéis do
+arquivo estão em
+[`scenarios/inflow_history.parquet`](/pt-br/reference/case-format/scenarios/#scenariosinflow_historyparquet).
+
+### Inicialização das defasagens e do acumulador — `recent_observations`
+
+Independentemente de qual caminho de estimação (se houver) o `inflow_history.parquet`
+conduz, seu registro por janelas é a semente das posições de defasagem do PAR do primeiro
+estágio do estudo e do acumulador de afluência do período em curso. O vetor opcional
+`recent_observations` de `initial_conditions.json` condiciona essa semente: as entradas têm o mesmo
+formato `hydro_id` / `start_date` / `end_date` / `value_m3s` de
+`inflow_history.parquet` e o substituem **dia a dia** onde os dois se sobrepõem
+(as duas séries nunca são mescladas). `value_m3s` aceita valores negativos nos
+dois arquivos: a grandeza é a vazão incremental, de modo que uma janela negativa é hidrologia
+real (ver [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity)).
+
+Quando `scenarios/inflow_ar_coefficients.parquet` é fornecido, o registro deve
+cobrir integralmente cada posição de defasagem até a ordem AR máxima e, com componente
+anual, cada posição da janela anual de doze períodos que os próprios períodos
+concluídos do estudo não substituem; caso contrário, o caso é recusado na carga
+([`BusinessRuleViolation`](/pt-br/reference/error-codes/#businessruleviolation)). Uma
+lacuna em uma posição mais profunda, que os próprios períodos concluídos do estudo empurram para fora da
+janela de defasagens antes do fim do estudo, gera apenas um aviso.
+
+Quando os coeficientes são estimados, essa verificação de cobertura não é executada: um período
+de defasagem que o registro cobre apenas parcialmente é inicializado com a média dos dias
+cobertos, e um período sem nenhum dia coberto é inicializado com zero.
+
+Em qualquer dos caminhos, um período do primeiro estágio já em curso no início do estudo
+que o registro cobre apenas parcialmente é aceito, com um aviso; sem nenhum
+dia coberto, seu acumulador é inicializado com zero.
+
+### `scenarios/correlation.json` — Configuração da Correlação Espacial
+
+Perfis nomeados de grupos de correlação, com um cronograma opcional de associação
+de estágios a perfis:
+
+```json
+{
+  "method": "spectral",
+  "profiles": {
+    "default": {
+      "correlation_groups": [
+        {
+          "name": "basin_south",
+          "entities": [
+            { "type": "inflow", "id": 0 },
+            { "type": "inflow", "id": 1 }
+          ],
+          "matrix": [
+            [1.0, 0.7],
+            [0.7, 1.0]
+          ]
+        }
+      ]
+    },
+    "wet_season": {
+      "correlation_groups": [
+        {
+          "name": "basin_south",
+          "entities": [
+            { "type": "inflow", "id": 0 },
+            { "type": "inflow", "id": 1 }
+          ],
+          "matrix": [
+            [1.0, 0.85],
+            [0.85, 1.0]
+          ]
+        }
+      ]
+    }
+  },
+  "schedule": [{ "stage_id": 0, "profile_name": "wet_season" }]
+}
+```
+
+A correlação é modelada **de forma independente por classe de entidade** — afluência, carga e
+NCS têm, cada uma, sua própria estrutura de correlação espacial, e **não** há
+termo de correlação entre classes (ver
+[Geração de cenários §2.1](/pt-br/math/scenario-generation/#21-geracao-de-ruidos-correlacionados)).
+
+Todos os campos e regras de carga do arquivo estão em
+[`scenarios/correlation.json`](/pt-br/reference/case-format/scenarios/#scenarioscorrelationjson).
+
+### Alternativa fora da amostra
+
+Sob o esquema forward `out_of_sample`, um estágio cujo `sampling_method` seja
+`historical_residuals` ou `selective` sorteia ruído por Monte Carlo simples, e a execução
+registra um aviso que identifica a classe de entidade e os ids dos estágios afetados. Para a
+mensagem, ver
+[Geração de cenários — aba Notas de implementação, Avisos](/pt-br/math/scenario-generation/#implementacao-no-novo-modelo).

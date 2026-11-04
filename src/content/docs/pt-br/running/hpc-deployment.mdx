@@ -1,0 +1,577 @@
+---
+title: Implantação em HPC e clusters
+description: Execute o Novo Modelo em vários nós com MPI — obtenha ou compile o binário com suporte a MPI, compile o MPICH a partir do código-fonte, lance a execução sob SLURM e implante no AWS ParallelCluster.
+---
+
+Esta página descreve o caminho completo para executar o Novo Modelo em um cluster com vários nós: como
+obter um binário com suporte a MPI, como compilar o MPICH que o cluster carrega em
+tempo de execução, como lançar a execução sob SLURM e uma arquitetura de referência
+resolvida no AWS ParallelCluster.
+
+Se você executa apenas em uma única máquina, **não** precisa de nada disso — use
+`--threads` (veja [Executando estudos](/pt-br/running/running-studies/#multithreading))
+e vá direto para [Próximos passos](#veja-tambem).
+
+---
+
+## Quando o MPI é necessário
+
+O Novo Modelo paraleliza em dois níveis, que se combinam:
+
+- **MPI entre processos (ranks)** — distribui o lote de cenários da simulação forward e os
+  estados visitados da simulação backward entre processos, tipicamente um rank por nó. Esta
+  é a única forma de escalar além de uma única máquina.
+- **Threads rayon dentro de um rank** — resolve subproblemas de PL concorrentemente dentro de
+  cada rank. Controlado por `--threads`.
+
+O modelo paralelo — como o trabalho é particionado entre ranks e threads, quais
+operações coletivas interligam os ranks, as regras de threads e a memória e o acesso ao
+caso — está resumido em
+[Aceleradores de desempenho — Modelo de execução paralela](/pt-br/running/performance/#modelo-de-execucao-paralela);
+os detalhes internos do escalonador e da comunicação estão no
+[README do `novomodelo-sddp`](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md).
+Esta página é a contraparte operacional: como compilar e lançar a execução.
+
+Um `novomodelo run` isolado usa o backend local (processo único). Lançar a execução com um
+lançador MPI (`srun`, `mpiexec` ou `mpirun`) faz o Novo Modelo passar ao backend MPI.
+Por padrão, `--comm-backend auto` detecta o lançador, de modo que nenhuma flag é necessária —
+veja [Backend de comunicação](/pt-br/running/running-studies/#backend-de-comunicacao).
+
+:::note[O MPI é um recurso definido na compilação]
+O backend MPI é incluído na compilação pelo recurso (feature) Cargo `mpi` e fica **desativado
+por padrão**. O binário padrão `novomodelo` (do [instalador ou do crates.io](/pt-br/getting-started/installation/))
+executa apenas em processo único; o cabeçalho de seu `novomodelo version` exibe `comm: local`. Para
+execuções em vários nós, é necessário o binário com suporte a MPI descrito abaixo, cujo cabeçalho
+exibe `comm: mpi`.
+:::
+
+---
+
+## Obtenção de um binário com suporte a MPI
+
+### Opção 1 — Arquivo pré-compilado `novomodelo-mpi` (recomendado)
+
+Cada versão do Novo Modelo inclui um arquivo MPI separado, ao lado dos binários
+padrão, com o nome:
+
+```
+novomodelo-mpi-<version>-<target>.tar.gz
+```
+
+Baixe-o da [página de Releases do GitHub](https://github.com/ons-ccee-epe/novomodelo/releases/latest).
+O arquivo contém o binário (chamado `novomodelo-mpi` para distingui-lo do
+`novomodelo` de processo único da mesma versão), os arquivos de licença/aviso e um
+`README.txt`. O README apresenta as linhas de lançamento SLURM com `srun --mpi=pmi2`;
+sua seção sobre interrupção antes do limite de tempo do SLURM e suas notas de solução de problemas
+usam `srun --mpi=pmix`. Com
+um MPICH compilado para PMIx, como nesta página, lance com `srun --mpi=pmix` (veja
+[Execução sob SLURM](#execucao-sob-slurm)).
+
+| Plataforma            | Target triple                 |
+| --------------------- | ----------------------------- |
+| Linux (x86-64)        | `x86_64-unknown-linux-gnu`    |
+| Linux (ARM64)         | `aarch64-unknown-linux-gnu`   |
+| macOS (Apple Silicon) | `aarch64-apple-darwin`        |
+
+Windows e macOS Intel não têm arquivo MPI pré-compilado — compile a partir do código-fonte
+(Opção 2) nessas plataformas.
+
+Os binários Linux são ligados dinamicamente a `libmpi.so.12` (a ABI do MPICH
+4.x). Eles **não** incluem um runtime MPI — você fornece um em tempo de execução (veja
+[Compilação do MPICH a partir do código-fonte](#compilacao-do-mpich-a-partir-do-codigo-fonte)). Qualquer runtime compatível com
+a ABI do MPICH funciona:
+
+- MPICH 4.0+ (recomendado)
+- Intel MPI 2021+
+- MVAPICH2 3.0+
+
+:::caution[Compatibilidade de glibc / sistema]
+Os arquivos Linux são compilados no Ubuntu 24.04 e exigem glibc 2.38 ou mais recente;
+`ldd --version` exibe a versão da sua glibc. Eles não funcionam em uma base mais antiga,
+como Ubuntu 22.04, Debian 12, RHEL 9 ou Amazon Linux 2023. No AWS ParallelCluster,
+use uma base Ubuntu 24.04 para a imagem personalizada; em uma base mais antiga, compile a partir do
+código-fonte (Opção 2).
+:::
+
+### Opção 2 — Compilação a partir do código-fonte com o recurso `mpi`
+
+Para uma plataforma sem arquivo pré-compilado, ou quando quiser ligar a uma
+implementação MPI específica, compile a CLI com o recurso `mpi`:
+
+```bash
+# O MPICH (mpicc) precisa estar no PATH e ser localizável via pkg-config antes —
+# veja "Compilação do MPICH a partir do código-fonte" abaixo.
+cargo build --release --features mpi -p novomodelo-cli
+```
+
+O binário é gravado em `target/release/novomodelo`. A compilação lê os cabeçalhos
+e as flags de ligação do MPI por meio do `pkg-config`, portanto garanta que `PKG_CONFIG_PATH`
+inclua o diretório `lib/pkgconfig` do seu MPICH.
+
+A árvore de código-fonte não define target features nem target CPU, de modo que, em x86-64, toda compilação
+de uma versão, incluídos os arquivos pré-compilados, usa um mesmo kernel de ponto flutuante e
+seleciona os mesmos cortes. Os códigos-fonte C e C++ do solver de PL embutido e do qhull são compilados
+sem multiplicação-adição fundida (fused multiply-add) em todos os alvos, de modo que o alvo padrão do compilador C
+também não altera os resultados. Uma compilação com `-C target-feature` ou
+`-C target-cpu`, por exemplo via `RUSTFLAGS`, pode usar outro kernel e
+selecionar cortes diferentes, igualmente válidos, de modo que seus resultados podem diferir dos
+das compilações oficiais.
+
+:::note[Topologia NUMA]
+`novomodelo-cli` não tem um recurso `numa` próprio; a extensão NUMA do ferrompi é um
+recurso do crate `novomodelo-comm` (`numa = ["mpi", "ferrompi/numa"]`). Ative-o
+por meio da dependência:
+
+```bash
+cargo build --release --features mpi,novomodelo-comm/numa -p novomodelo-cli
+```
+
+Com ele ativado, a topologia também inclui os metadados do job SLURM (ID do job, lista
+de nós, CPUs por tarefa): o bloco `Execution` do cabeçalho da execução exibe uma linha `SLURM:` e
+`distribution.slurm_job_id` em `training/metadata.json` /
+`simulation/metadata.json` é preenchido. Ele é opcional e desativado por padrão. O
+arquivo pré-compilado `novomodelo-mpi` é compilado sem esse recurso, de modo que suas execuções não exibem
+a linha `SLURM:` nem gravam `distribution.slurm_job_id`.
+:::
+
+---
+
+## Compilação do MPICH a partir do código-fonte
+
+Em um cluster HPC, quase sempre você compila o MPICH por conta própria, para que ele seja ligado à
+rede de alto desempenho e ao gerenciador de processos do cluster, em vez de usar um pacote
+genérico. A receita abaixo é a usada pela
+[arquitetura de referência no AWS ParallelCluster](#arquitetura-de-referencia-no-aws-parallelcluster);
+ela fixa a mesma versão do MPICH com a qual os binários oficiais são
+compilados.
+
+:::tip[Por que um runtime compilado a partir do código-fonte funciona com o binário pré-compilado]
+O `novomodelo-mpi` pré-compilado foi **compilado** contra um MPICH genérico (dispositivo
+`ch3:nemesis`, apenas cabeçalhos). Em **tempo de execução**, ele carrega um MPICH completamente diferente
+— a compilação `ch4:ofi` otimizada para a rede, descrita abaixo —, e isso funciona porque
+o MPICH mantém uma ABI `libmpi.so.12` estável, independentemente da camada de dispositivo. Compila-se
+uma vez, de forma genérica; executa-se com qualquer MPICH que o cluster forneça.
+:::
+
+```bash
+MPICH_VERSION=4.2.3
+
+wget "https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz"
+tar xzf "mpich-${MPICH_VERSION}.tar.gz"
+cd "mpich-${MPICH_VERSION}"
+
+./configure \
+    --prefix=/opt/mpich \
+    --with-device=ch4:ofi \
+    --with-libfabric=/opt/amazon/efa \
+    --with-pmi=pmix \
+    --with-pmix=/opt/pmix \
+    --with-slurm=/opt/slurm \
+    --with-pm=no
+
+make -j"$(nproc)"
+make install
+```
+
+:::caution[`--with-pmix` deve apontar para o PMIx usado pelo seu SLURM]
+`--with-pmi=pmix` sozinho **não** basta. O MPICH trata `--with-pmix` como uma
+dependência *opcional*: se a flag estiver ausente, ou se seu caminho não contiver
+`pmix.h`/`libpmix` utilizáveis, o configure não falha. Ele recorre ao cliente PMIx
+embutido do MPICH, e esse cliente pode não usar a mesma versão de protocolo
+do plugin PMIx do SLURM. Uma incompatibilidade não gera erro no lançamento. O `MPI_Init` silenciosamente
+recai em um **singleton**, de modo que cada rank é executado como um job separado de um único rank
+(veja [Solução de problemas](#solucao-de-problemas)).
+
+Aponte `--with-pmix` para a instalação do PMIx com a qual o plugin `pmix` do SLURM foi
+compilado. `srun --mpi=list` indica esse plugin, e seu sufixo informa a versão principal
+do PMIx (`pmix_v5` significa PMIx 5.x). No AWS ParallelCluster, essa
+instalação é `/opt/pmix`.
+:::
+
+Antes de usar a compilação, confirme que a `libmpi` está ligada ao PMIx do cluster e
+não ao cliente embutido:
+
+```bash
+ldd /opt/mpich/lib/libmpi.so.12 | grep libpmix
+#   libpmix.so.2 => /opt/pmix/lib/libpmix.so.2 (0x...)
+```
+
+Se isso não exibir nada, ou se a biblioteca for resolvida fora do PMIx usado pelo SLURM,
+reconfigure com o caminho correto em `--with-pmix` e recompile. O PMIx 4.x e o
+5.x fornecem ambos `libpmix.so.2`, de modo que o que deve ser verificado é o **caminho** resolvido,
+e não o soname.
+
+Em seguida, torne-o localizável tanto para a compilação (`pkg-config`) quanto para a execução
+(`LD_LIBRARY_PATH`):
+
+```bash
+export PATH=/opt/mpich/bin:$PATH
+export LD_LIBRARY_PATH=/opt/mpich/lib:${LD_LIBRARY_PATH:-}
+export PKG_CONFIG_PATH=/opt/mpich/lib/pkgconfig:${PKG_CONFIG_PATH:-}
+```
+
+O que cada flag faz:
+
+| Flag                             | Finalidade                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `--with-device=ch4:ofi`          | Usa o dispositivo moderno CH4 sobre um provedor OpenFabrics Interfaces (libfabric) — o caminho pela rede de alto desempenho. |
+| `--with-libfabric=/opt/amazon/efa` | Liga à libfabric do instalador do EFA, para que o netmod `ofi` possa selecionar o provedor EFA. |
+| `--with-pmi=pmix`                | Usa o PMIx como única interface de gerenciamento de processos, para que `srun --mpi=pmix` lance e interligue os ranks. Nenhum cliente PMI-1/PMI-2 é compilado. |
+| `--with-pmix=/opt/pmix`          | Liga à biblioteca PMIx do cluster, a mesma usada pelo plugin `pmix` do SLURM. Se for omitida, o MPICH usa silenciosamente seu cliente embutido (veja o alerta acima). |
+| `--with-slurm=/opt/slurm`        | Integra com a instalação do SLURM do cluster.                                                    |
+| `--with-pm=no`                   | **Não** compila nenhum gerenciador de processos interno (sem Hydra/`mpiexec`) — o SLURM lança os ranks. |
+
+:::caution[`--with-pm=no` significa ausência de `mpiexec`]
+Sem gerenciador de processos embutido, este MPICH não tem `mpiexec`/`mpirun` — o lançamento
+é feito apenas por `srun`. Se também quiser `mpiexec` (por exemplo, para testes rápidos de fumaça em um único nó
+fora do SLURM), remova `--with-pm=no` para compilar também o Hydra.
+:::
+
+Os caminhos acima (`/opt/amazon/efa`, `/opt/pmix`, `/opt/slurm`) são os
+locais convencionais do instalador do EFA, do PMIx e do SLURM no AWS
+ParallelCluster; ajuste-os ao seu ambiente.
+
+Se não puder gravar em `/opt`, instale em um prefixo de um sistema de arquivos visível por todos os nós,
+por exemplo `--prefix="$HOME/mpich-4.2.3"`. Em seguida, use esse prefixo nos
+exports de `PATH`/`LD_LIBRARY_PATH` e no script de lote. Substituir o runtime do MPICH
+não exige recompilar o `novomodelo-mpi`, pois o binário depende apenas da
+ABI estável `libmpi.so.12`.
+
+Flags de compilação opcionais:
+
+- **Reduções.** O Novo Modelo não usa as interfaces Fortran, C++ nem MPI-IO, de modo que
+  `--disable-fortran --disable-cxx --disable-romio --disable-doc` encurtam a
+  compilação sem afetar o Novo Modelo.
+- **Runtime mais rápido.** `--enable-fast=O3,ndebug` compila um MPICH otimizado,
+  sem asserções internas.
+
+:::caution[Fixe o MPICH em uma versão 4.2.x]
+O MPICH **4.3.0** introduziu uma regressão no cliente PMI2 que trava o `MPI_Init`
+em vários nós (um travamento na barreira KVS com vários proxies). Permaneça em uma versão 4.2.x
+(4.2.3 é a versão testada) até que isso seja corrigido no projeto original. Veja
+[Solução de problemas](#solucao-de-problemas).
+:::
+
+---
+
+## Execução sob SLURM
+
+Em um cluster SLURM, o `srun` é o lançador: ele posiciona os ranks, associa-os a
+núcleos e (via PMIx) inicializa o MPI. Como `--comm-backend` tem como padrão
+`auto`, o Novo Modelo detecta o lançamento por `srun` e seleciona o backend MPI
+automaticamente.
+
+Os comandos abaixo usam três marcadores. `<partition>` é a partição SLURM,
+`<shared-path>` é um diretório legível por todos os nós que contém o `novomodelo-mpi` e o
+script de lote, e `<case-dir>` é o diretório do caso em um sistema de arquivos compartilhado, no
+mesmo caminho em todos os nós, pois todos os ranks o leem.
+
+### MPI + threads híbrido
+
+O Novo Modelo usa MPI para a comunicação entre nós e threads rayon para as resoluções de PL
+dentro do nó. O lançamento abaixo executa um rank por nó, com o pool de threads dimensionado conforme
+descrito em [Dimensionamento e escalabilidade](#dimensionamento-e-escalabilidade):
+
+```bash
+srun --mpi=pmix --nodes=4 --ntasks-per-node=1 --cpus-per-task=96 --exclusive \
+    ./novomodelo-mpi run <case-dir> --threads 96
+```
+
+Neste comando, `--threads 96` corresponde a `--cpus-per-task=96`, de modo que o pool rayon de cada rank
+tem uma thread por núcleo alocado. `--exclusive` dá a cada rank um
+nó inteiro, sem outros usuários concorrendo por núcleos ou por largura de banda de memória. Os `4`
+nós e os `96` núcleos são ilustrativos: ajuste-os à alocação de que seu job
+precisa.
+
+### Script de lote
+
+Um job de produção encapsula esse lançamento em um script `sbatch`. Substitua os
+marcadores e defina o número de nós, os núcleos por tarefa e o limite de tempo para sua
+carga de trabalho:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=novomodelo-mpi
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=96
+#SBATCH --exclusive
+#SBATCH --output=novomodelo_%j.out
+#SBATCH --error=novomodelo_%j.err
+#SBATCH --partition=<partition>
+#SBATCH --time=0-08:00:00
+
+MPICH_PREFIX=/opt/mpich
+NOVOMODELO_MPI="<shared-path>/novomodelo-mpi"
+
+export PATH="$MPICH_PREFIX/bin:$PATH"
+export LD_LIBRARY_PATH="$MPICH_PREFIX/lib:${LD_LIBRARY_PATH:-}"
+
+srun --mpi=pmix "$NOVOMODELO_MPI" run "$1" --threads "$SLURM_CPUS_PER_TASK"
+```
+
+`novomodelo_%j.out` recebe o relatório da execução (o cabeçalho, os blocos de preparação, uma
+linha de progresso por iteração e por atualização da simulação, e os resumos), e
+`novomodelo_%j.err`, os avisos e erros. Apenas o rank 0 imprime avisos, e
+cada rank imprime os seus próprios erros.
+
+Referencie o binário por um **caminho absoluto**. O `sbatch` executa o script no
+diretório a partir do qual o job foi submetido, de modo que `./novomodelo-mpi` só funciona se você por acaso executar
+o `sbatch` a partir do diretório que contém o binário.
+
+Salve o script como `run-novomodelo.sh` em `<shared-path>`, ao lado de `novomodelo-mpi`. Submeta-o
+com o diretório do caso como argumento:
+
+```bash
+sbatch <shared-path>/run-novomodelo.sh <case-dir>
+```
+
+### Principais flags do SLURM
+
+| Flag                         | Finalidade                                                    |
+| ---------------------------- | ------------------------------------------------------------- |
+| `--mpi=pmix`                 | Inicialização de processos via PMIx (recomendado; veja a dica abaixo) |
+| `--mpi=pmi2`                 | Inicialização via PMI-2. Exige um MPICH compilado com suporte a PMI-2; a compilação `--with-pmi=pmix` acima não o tem |
+| `--nodes=N`                  | Número de nós                                                 |
+| `--ntasks-per-node=N`        | Ranks MPI por nó (`1` para o mapeamento de um rank por nó)    |
+| `--cpus-per-task=T`          | Núcleos por rank — passe o mesmo valor para `--threads`       |
+| `--exclusive`                | Dá a cada rank um nó inteiro                                  |
+| `--cpu-bind=cores`           | Fixa as threads de cada rank em núcleos específicos           |
+| `--mem-bind=local`           | Aloca memória do nó NUMA mais próximo dos núcleos associados  |
+
+:::tip[Prefira `--mpi=pmix`]
+Compatibilize o lançador com a forma como o MPICH foi compilado. A compilação recomendada
+`--with-pmi=pmix` acima combina com `srun --mpi=pmix`, o que também evita
+uma incompatibilidade de PMI2 no SLURM 24.05 (veja [Solução de problemas](#solucao-de-problemas)).
+Verifique o que o seu cluster oferece com `srun --mpi=list`.
+:::
+
+---
+
+## Dimensionamento e escalabilidade
+
+Não há dados de escalabilidade medidos publicados, de modo que estas regras relacionam ranks, threads,
+simulações forward e memória entre si, em vez de indicar números de nós ou de núcleos;
+[Aceleradores de desempenho — Modelo de execução paralela](/pt-br/running/performance/#modelo-de-execucao-paralela)
+reúne os fatos que as fundamentam.
+
+1. Execute um rank por nó, com `--threads` igual aos núcleos alocados ao rank
+   (`--cpus-per-task`). Cada resolução de PL é executada em uma thread, de modo que um rank resolve no
+   máximo `--threads` PLs simultaneamente.
+2. Execute todos os ranks com o mesmo `--threads`. Com uma simulação forward amostrada, a
+   execução é interrompida com erro quando os ranks diferem em `--threads`.
+3. Com o método `sampled`, defina `training.selection.forward_passes` e
+   `simulation.selection.num_scenarios` com pelo menos o número de ranks vezes
+   `--threads`, e como múltiplo desse valor para obter parcelas iguais. Uma contagem que não seja múltipla é executada e grava as mesmas saídas que em um único processo; os ranks e workers com menos trajetórias aguardam os demais. As trajetórias e
+   os cenários são divididos entre os ranks e, depois, entre os workers de cada rank, e um
+   worker sem trabalho fica ocioso.
+4. Dimensione a memória de cada nó para a cópia completa, por um rank, do caso, da árvore
+   de aberturas, do conjunto de cortes e dos modelos-base dos estágios. Cada rank mantém sua própria cópia, de modo que
+   cada rank adicional em um nó acrescenta outra, e o conjunto de cortes cresce com o
+   orçamento de iterações e com o número de simulações forward.
+5. Antes de acrescentar ranks ou threads, leia o `Time split` impresso e a tabela de parâmetros de ajuste em
+   [Aceleradores de desempenho — Diagnóstico de desempenho](/pt-br/running/performance/#diagnostico-de-desempenho).
+   A avaliação do limite inferior é executada serialmente no rank 0 e, com uma simulação forward
+   amostrada, todos os ranks aguardam a troca de cortes por estágio, de modo que nenhuma das duas
+   diminui com mais ranks ou threads.
+6. Posicione o diretório do caso conforme exige a definição de `<case-dir>` em
+   [Execução sob SLURM](#execucao-sob-slurm).
+
+---
+
+## Retomada de um job
+
+Um job grava seu checkpoint quando o treinamento (training) termina e, com checkpoints periódicos ativados,
+em cada iteração programada. Um job encerrado ao atingir seu `--time`
+perde as iterações posteriores ao último checkpoint, e o job seguinte retoma a partir desse checkpoint.
+Uma gravação interrompida que substitui um checkpoint deixa um checkpoint completo, antigo ou novo; uma primeira gravação interrompida pode não deixar nenhum
+(veja [Retomada](/pt-br/running/policy-management/#retomada)).
+
+Para encaixar um treinamento longo em jobs com limite de tempo de relógio, divida-o em fatias, um
+job de lote para cada, e submeta a fatia seguinte após o término da anterior. Toda
+fatia após a primeira define `policy.mode` como `"resume"` e eleva
+`iteration_limit` ao novo total, que conta as iterações de todas as fatias
+anteriores ([Treinamento em fatias](/pt-br/running/policy-management/#treinar-em-fatias) apresenta as
+regras e como dimensionar uma fatia).
+
+O `--time` do job cobre a carga do caso, a carga do checkpoint anterior, as
+iterações da fatia e a gravação do checkpoint, além da simulação final e da exportação de seus resultados
+em uma fatia que habilita a simulação (`simulation.enabled` definido como `true`; o
+padrão é desativado). O checkpoint é gravado antes do início da simulação, de modo que um job
+encerrado durante a simulação mantém o checkpoint dessa fatia.
+
+Após editar `<case-dir>/config.json` como descrito acima, submeta cada fatia
+sobre o mesmo `<case-dir>`. O script de lote não passa `--output`, de modo que todas as fatias usam `<case-dir>/output` no
+sistema de arquivos compartilhado, e todos os ranks carregam dele o checkpoint anterior:
+
+```bash
+sbatch <shared-path>/run-novomodelo.sh <case-dir>
+```
+
+---
+
+## Arquitetura de referência no AWS ParallelCluster
+
+A implantação de produção do Novo Modelo é executada no AWS ParallelCluster: um nó principal (head node) leve,
+sempre ligado, para submissão, mais uma ou mais filas de computação cujos nós
+são provisionados sob demanda e desligados quando ociosos. Cada fila é uma partição SLURM
+independente, que escala por conta própria.
+
+```d2
+direction: down
+
+head: "Nó principal · leve, sempre ligado\nsubmissão + controlador SLURM" {
+  shape: rectangle
+}
+
+fleet: "Fila de computação (partição SLURM)\nN × nós de computação · escalados sob demanda\n1 rank × T threads por nó" {
+  shape: rectangle
+  style.multiple: true
+}
+
+fsx: "FSx · sistema de arquivos compartilhado\ncasos · checkpoints · resultados" {
+  shape: cylinder
+}
+
+head -> fleet: "sbatch → srun (PMIx)"
+head -> fsx: "disponibilização do caso"
+fleet -> fsx: "checkpoint + exportação"
+```
+
+Os componentes:
+
+- **Imagem de máquina personalizada (compartilhada pelos nós principal e de computação).** O MPICH é compilado
+  a partir do código-fonte na imagem, em `/opt/mpich`, usando a
+  [receita `ch4:ofi` + EFA](#compilacao-do-mpich-a-partir-do-codigo-fonte) acima. Incorporá-lo à
+  imagem significa que todo nó de computação lançado dinamicamente já tem o runtime —
+  sem etapa de instalação por job.
+- **O binário.** O arquivo pré-compilado `novomodelo-mpi` é baixado da
+  página de releases para `<shared-path>`. É o
+  mesmo binário produzido pela CI de release, de modo que a imagem personalizada precisa de glibc 2.38
+  ou mais recente (veja [Obtenção de um binário com suporte a MPI](#obtencao-de-um-binario-com-suporte-a-mpi)).
+- **Interconexão (EFA).** Como o MPICH é compilado com `--with-libfabric=/opt/amazon/efa`
+  e `--with-device=ch4:ofi`, o netmod OFI seleciona automaticamente o provedor EFA em
+  instâncias com EFA habilitado. Para diagnósticos no nível da rede ou substituição de
+  provedor, consulte a documentação do AWS EFA e da libfabric.
+- **Instâncias.** A fila de computação do exemplo usa nós `c7a.48xlarge` com
+  o mapeamento de um rank por nó × `--threads=$SLURM_CPUS_PER_TASK`; instâncias menores
+  otimizadas para computação funcionam da mesma forma.
+- **Armazenamento (FSx).** O diretório do caso, os checkpoints e os resultados exportados ficam
+  no sistema de arquivos compartilhado FSx. O caminho crítico de cada resolução do Novo Modelo mantém seu conjunto de trabalho
+  em memória (sua disciplina de alocação está documentada no
+  [README do `novomodelo-sddp`](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md)); ele
+  acessa intensamente o sistema de arquivos compartilhado apenas na **gravação de checkpoints** e na **exportação
+  de resultados**, de modo que a vazão do FSx é dimensionada para essas fases, e não para o laço
+  de resolução.
+
+A submissão é o mesmo `sbatch <shared-path>/run-novomodelo.sh <case-dir>` mostrado acima:
+o nó principal enfileira o job, o ParallelCluster liga os nós de computação da
+partição de destino, `srun --mpi=pmix` lança um rank por nó, e os nós
+são desligados quando a fila se esvazia.
+
+---
+
+## Solução de problemas
+
+**`error while loading shared libraries: libmpi.so.12`** — o runtime MPI não está
+no caminho do carregador. Exporte `LD_LIBRARY_PATH=/opt/mpich/lib:$LD_LIBRARY_PATH`
+(ou `module load mpich`) antes do lançamento, como faz o script de lote.
+
+**`comm: local` quando se esperava `comm: mpi`** — ou o binário foi compilado
+sem o recurso `mpi` (verifique `novomodelo version`), ou o processo não foi
+lançado por um lançador reconhecido. Force o backend com
+`--comm-backend mpi`; em um binário sem MPI, ele falha com uma mensagem clara, em vez
+de executar silenciosamente em processo único.
+
+**Todos os ranks informam `Layout: 1 rank`, e a execução se repete uma vez por nó.**
+Sintomas: o cabeçalho `Execution` aparece uma vez por rank, e não uma vez no total, e
+cada cópia exibe `Layout: 1 rank on <host>`. A simulação informa
+`... across 1 ranks`, e as cópias separadas colidem no diretório de saída compartilhado,
+com erros de gravação. O `MPI_Init` recaiu em um singleton: cada
+processo lançado pelo `srun` tornou-se seu próprio `MPI_COMM_WORLD` de um único rank.
+
+`novomodelo-mpi version` continua informando `comm: mpi` e o cabeçalho continua exibindo
+`Backend: MPI`, pois o binário está correto. A falha está no runtime do MPICH:
+ele foi compilado sem `--with-pmix`, ou contra um PMIx diferente do usado pelo plugin do
+SLURM, de modo que o handshake PMIx falhou silenciosamente.
+
+Para corrigir:
+
+1. Confirme a causa com `ldd <mpich-prefix>/lib/libmpi.so.12 | grep libpmix`.
+   A ausência de linha, ou um caminho fora do PMIx do cluster, confirma o diagnóstico.
+2. Recompile o MPICH com `--with-pmix` apontando para o PMIx usado pelo SLURM (veja
+   [Compilação do MPICH a partir do código-fonte](#compilacao-do-mpich-a-partir-do-codigo-fonte)).
+3. Aponte os exports do script de lote para a nova compilação. O próprio `novomodelo-mpi`
+   não precisa ser recompilado.
+
+Mudar para `--mpi=pmi2` não resolve o problema.
+
+**`srun --mpi=pmi2` falha com `pmijobid missing in fullinit command`.** Um
+MPICH compilado com `--with-pmi=pmix` (a compilação recomendada) não contém cliente PMI-2,
+de modo que `--mpi=pmi2` não é um caminho de lançamento alternativo para ele. Use `--mpi=pmix`. O
+mesmo erro também é causado por uma incompatibilidade entre o plugin PMI2 do SLURM 24.05
+e o protocolo PMI2 do MPICH. Se apenas o PMI2 estiver disponível e você tiver compilado o
+Hydra (isto é, sem `--with-pm=no`), o `mpiexec` contorna totalmente o PMI2.
+
+**Job em vários nós trava no `MPI_Init` com o MPICH 4.3.x** — a regressão do cliente PMI2 da versão 4.3.0
+descrita acima. Volte para o MPICH 4.2.x.
+
+---
+
+## Verificação da configuração
+
+Para um mesmo binário `novomodelo-mpi`, com todos os nós executando a mesma imagem de sistema em um mesmo
+modelo de processador (a mesma libm, libstdc++ e biblioteca MPI), o conteúdo numérico
+dos arquivos de saída é idêntico bit a bit para qualquer número de ranks e qualquer número de threads
+(o mesmo `--threads` em todos os ranks); os carimbos de data/hora, as colunas de tempo de relógio e
+a topologia de execução registrada diferem. A garantia
+vale para um conjunto de critérios de parada sem `time_limit`: uma parada por tempo de relógio ou por sinal depende do tempo
+([`time_limit`](/pt-br/running/configuration/#time_limit)). Valide em um único rank com o próprio
+`novomodelo-mpi`, pois o `novomodelo` de processo único é uma compilação diferente,
+cujos resultados não têm garantia de igualdade. O enunciado completo está em
+[Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees/).
+
+Verifique sua configuração em três etapas. Cada etapa detecta uma falha diferente.
+
+1. **O binário tem suporte a MPI.** Isso verifica apenas a compilação, não a
+   interligação em tempo de execução:
+
+   ```bash
+   <shared-path>/novomodelo-mpi version   # → comm: mpi
+   ```
+
+2. **O MPICH está ligado ao PMIx do cluster.** Execute a verificação `ldd … | grep libpmix` de
+   [Compilação do MPICH a partir do código-fonte](#compilacao-do-mpich-a-partir-do-codigo-fonte).
+
+3. **Os ranks formam um único job.** Execute um teste de fumaça com dois nós, que exercita tanto a
+   interligação via PMIx quanto a rede entre nós:
+
+   ```bash
+   srun --mpi=pmix --nodes=2 --ntasks-per-node=1 \
+       <shared-path>/novomodelo-mpi run <case-dir> --threads 2
+   ```
+
+   Apenas o rank 0 exibe o cabeçalho `Execution`, de modo que ele deve aparecer **uma vez**. Suas
+   linhas `Backend` e `Layout`, em um job com vários nós, têm este formato, seguidas de
+   uma linha de host por nó (`{rank_word}` é `rank` ou `ranks`; `{range}` lista os
+   ranks do host, como `0–1`):
+
+   ```text
+     Backend:   MPI ({library_version}, {standard_version})
+     Layout:    {world_size} {rank_word} across {num_hosts} nodes
+       {hostname}: ranks {range}  ({count} {rank_count_word})
+   ```
+
+   Se o cabeçalho aparecer duas vezes, com cada cópia exibindo `Layout: 1 rank on <host>`,
+   os ranks recaíram em singletons. Veja
+   [Solução de problemas](#solucao-de-problemas).
+
+---
+
+## Veja também
+
+- [Aceleradores de desempenho](/pt-br/running/performance/#modelo-de-execucao-paralela) — o modelo de execução paralela que o MPI aciona
+- [Executando estudos](/pt-br/running/running-studies/#backend-de-comunicacao) — a flag `--comm-backend` e o uso de threads em um único nó
+- [Referência da CLI](/pt-br/reference/cli-reference/) — referência completa de flags e subcomandos
+- [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees/) — a garantia de reprodutibilidade por binário
+- [Instalação](/pt-br/getting-started/installation/) — caminhos de instalação padrão (processo único)

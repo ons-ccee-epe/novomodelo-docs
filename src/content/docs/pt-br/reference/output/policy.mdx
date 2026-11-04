@@ -1,0 +1,267 @@
+---
+title: Checkpoint da política
+description: Os arquivos FlatBuffers do checkpoint da política — cortes por conjunto, bases por nó, estados visitados por conjunto e o manifesto global do estudo — campo a campo.
+---
+
+O checkpoint da política é o diretório sob `policy.path` (`policy/` por padrão)
+que `novomodelo run` grava após o treinamento (training). Ele contém os arquivos `cuts/NNN.bin`,
+indexados por conjunto de cortes, os arquivos `basis/NNN.bin`, indexados por nó, os estados visitados
+`states/NNN.bin`, indexados por conjunto (para cada conjunto que os armazena, sob `exports.states` ou o
+método de seleção `level1`), e `manifest.bin`, gravado por último. Uma execução que falha
+grava seu checkpoint em `<policy.path>.partial` (veja
+[Uma execução que falhou](/pt-br/running/policy-management/#uma-execucao-que-falhou)).
+
+:::note[Formato binário]
+O formato binário dos arquivos abaixo é descrito pelo esquema canônico
+`policy.fbs` do repositório do novomodelo. Veja
+[Esquema FlatBuffers da política](/pt-br/reference/flatbuffers-schema/) para
+receitas de conversão de um `.bin` em JSON e de geração de leitores tipados em
+Python, C++, TypeScript e outras linguagens com `flatc`.
+:::
+
+---
+
+## `policy/cuts/NNN.bin`
+
+Arquivo binário FlatBuffers que codifica todos os cortes de um único conjunto. **Indexado por conjunto**:
+um arquivo por conjunto (`cuts/<pool_id>.bin`), com zeros à esquerda até três dígitos (ex.:
+`000.bin`, `012.bin`); um conjunto compartilhado por vários nós folha aparece uma única vez. Em uma
+cadeia simples de estágios, o id do conjunto é igual ao índice do estágio. O mapeamento geral nó -> conjunto
+(para um grafo da política (policy graph) com ramificações) é resolvido pelas entradas `nodes[].pool_id`
+de [`policy/manifest.bin`](#policymanifestbin), nunca inferido do
+nome do arquivo.
+
+**Metodologia:** [Gerenciamento de cortes](/pt-br/math/cut-management)
+
+Cada `cuts/<pool>.bin` é **autodescritivo**: junto com seus cortes, contém seu
+próprio `state_dimension`, seu próprio `cost_scale_factor` (a escala de referência na carga
+para este conjunto — veja [Canonicalização da escala de custo](/pt-br/running/policy-management/#canonicalizacao-da-escala-de-custo))
+e sua própria identidade no grafo (ids do nó e do estágio do grafo), de modo que nenhum campo do
+manifesto global do estudo é necessário para interpretar os coeficientes de um conjunto.
+
+**Campos do cabeçalho `StageCuts`** (a tabela raiz de cada `cuts/<pool>.bin`):
+
+| Nome                 | Tipo          | Anulável | Unidades | Descrição |
+| -------------------- | ------------- | -------- | -------- | --------- |
+| `stage_id`           | uint32        | Não      | —        | Id do conjunto (a partir de 0), a chave que nomeia `cuts/<pool>.bin`. |
+| `state_dimension`    | uint32        | Não      | —        | O comprimento do vetor de estado do estudo que gravou o arquivo. Um conjunto que projeta menos dimensões contém vetores de coeficientes mais curtos, do comprimento de seu `entity_manifest`. |
+| `capacity`           | uint32        | Não      | —        | Total de posições de corte pré-alocadas no conjunto. |
+| `warm_start_count`   | uint32        | Não      | —        | Comprimento do prefixo protegido: as posições iniciais com que a execução gravadora começou, carregadas de uma política anterior; `0` para uma execução nova, exceto no conjunto terminal de uma execução que carrega `policy.boundary`, em que conta os cortes de fronteira. |
+| `cuts`               | [AffinePiece] | Não      | —        | Os cortes do conjunto, um `AffinePiece` por corte (campos abaixo), em ordem estritamente crescente de `slot_index`. |
+| `populated_count`    | uint32        | Não      | —        | Número de posições preenchidas; igual ao comprimento de `cuts`. |
+| `entity_manifest`    | [EntitySlot]  | Não      | —        | Identidade da entidade por posição, um `EntitySlot` por dimensão de estado (campos abaixo). |
+| `cost_scale_factor`  | float64       | Não      | —        | A escala do `intercept` e dos `coefficients` de cada corte: o fator de escala de custo da função objetivo do estudo gravador, cujas unidades escalonadas eles usam (veja [Canonicalização da escala de custo](/pt-br/running/policy-management/#canonicalizacao-da-escala-de-custo)). |
+| `node_id`            | int32         | Não      | —        | Id, no grafo da política, do único nó proprietário do conjunto; `-1` para um conjunto compartilhado. |
+| `graph_stage_id`     | int32         | Não      | —        | Id, no grafo, do estágio proprietário do conjunto; `-1` quando não resolvido. Nenhuma carga o lê: uma carga de fronteira seleciona seu conjunto de origem por `priced_state_date`. |
+| `priced_state_date`  | int32         | Não      | —        | O `end_date` do estágio proprietário codificado como `YYYYMMDD` (`year*10000 + month*100 + day`); `-2147483648` (o mínimo de int32) quando não registrado. |
+
+O binário não é legível diretamente. A estrutura lógica de registro de cada corte
+(um `AffinePiece` por entrada em `cuts`) é:
+
+| Nome                 | Tipo      | Anulável | Unidades | Descrição |
+| -------------------- | --------- | -------- | -------- | --------- |
+| `slot_index`         | uint32    | Não      | —        | A posição do corte no conjunto, que uma base armazenada referencia em `piece_row_slots`. Necessária para a reprodutibilidade do checkpoint e para o aproveitamento de base (warm-start da base). |
+| `iteration`          | uint32    | Não      | —        | Iteração do treinamento que gerou o corte. |
+| `forward_pass_index` | uint32    | Não      | —        | Índice da simulação forward dentro da iteração geradora. |
+| `intercept`          | float64   | Não      | —        | Termo independente (intercepto) do corte, pré-calculado, $\beta_0 = \bar{Q}_t - \beta^\top \hat{x}_{t-1}$, em que $\hat{x}_{t-1}$ é o estado no nó da simulação forward geradora e $\bar{Q}_t$ o valor agregado do estágio nesse ponto; na escala do `cost_scale_factor` do conjunto. |
+| `coefficients`       | [float64] | Não      | —        | A inclinação do corte: um coeficiente por dimensão de estado, a sensibilidade do custo futuro a cada valor de estado de entrada (veja [Gerenciamento de cortes](/pt-br/math/cut-management/)). O comprimento é igual à dimensão do estado — o número de entradas do manifesto de entidades embutido descrito abaixo, também o próprio `state_dimension` do conjunto (por conjunto, não um campo de `policy/manifest.bin`). |
+| `is_active`          | bool      | Não      | —        | Se o corte estava ativo no PL quando o checkpoint foi gravado: a última seleção. Cortes inativos são mantidos para eventual reativação pelo método de seleção. |
+| `scored`             | bool      | Não      | —        | Se a execução gravadora armazenou o estado visitado em que o corte foi calculado (sob `exports.states` ou o método `level1`). Mantido mesmo quando esse estado é depois removido de `states/`; uma execução `level1` que carrega a política seleciona um corte `scored` como se fosse seu. |
+| `active_count`       | uint64    | Sim      | —        | A contagem, na execução gravadora, das vezes em que o corte esteve ativo (restrição ativa); ausente a menos que `activity_counters` do manifesto esteja definido. |
+| `last_active_iteration` | uint64 | Sim      | —        | A última iteração da execução gravadora em que o corte esteve ativo; ausente a menos que `activity_counters` do manifesto esteja definido. |
+
+As tabelas binárias mantêm os ids dos campos removidos na versão de formato 4 —
+entre eles `AffinePiece.piece_id` e `StageCuts.active_cut_indices` — como
+posições reservadas que nenhum gravador preenche; o `is_active` de cada corte representa o conjunto
+ativo.
+
+Cada `NNN.bin` também embute um **manifesto de entidades por posição** — uma entrada por
+dimensão do vetor de estado, na ordem canônica dos coeficientes do corte — que registra a qual
+entidade pertence cada posição de coeficiente. É ele que a validação na carga da política
+verifica (veja [Gerenciamento da política](/pt-br/running/policy-management)):
+uma política cujas dimensões coincidem em quantidade com as do estudo atual, mas se associam a
+entidades diferentes, é rejeitada.
+
+**Campos de `EntitySlot`** (uma entrada de `entity_manifest` por dimensão de estado):
+
+| Nome             | Tipo       | Anulável | Unidades | Descrição |
+| ---------------- | ---------- | -------- | -------- | --------- |
+| `entity_type`    | EntityType | Não      | —        | Enum `byte`: tipo da dimensão de estado — `0` HydroStorage, `1` HydroInflowLag, `2` AnticipatedThermalState, `3` HydroTransitBucket. |
+| `entity_id`      | int32      | Não      | —        | Id da entidade proprietária — para um transit bucket, a UHE de jusante. |
+| `subindex`       | uint32     | Não      | —        | Índice secundário dentro da entidade: a ordem da defasagem de afluência, o ring slot do compromisso antecipado (contado a partir do estágio 0: $(s - 1) \bmod k_{max}$ para o slot $s$ do [Hold Ring](/pt-br/math/state-augmentation#hold-ring)), ou a defasagem de maturação da água em trânsito. |
+| `was_active`     | bool       | Não      | —        | Se a entidade proprietária estava em operação neste estágio (excluído da verificação de identidade na carga). |
+| `reference_date` | int32      | Não      | —        | O `start_date` do estágio passado de referência de `HydroInflowLag`, codificado como `YYYYMMDD` (`year*10000 + month*100 + day`); sentinela `-2147483648` (o mínimo de int32) para todas as demais famílias. |
+| `interval_start` | int32      | Não      | —        | Início inclusivo da janela semiaberta das famílias com deslocamento à frente, codificado como `YYYYMMDD`: o início da chegada de um `HydroTransitBucket` ou o início da entrega de um `AnticipatedThermalState`. Sentinela `-2147483648` para `HydroStorage` e `HydroInflowLag`, e para um ring slot de `AnticipatedThermalState` que não contém compromisso vigente no estágio do conjunto ou cuja entrega cai além do calendário do estudo estendido pelos estágios pós-estudo. |
+| `interval_end`   | int32      | Não      | —        | Fim exclusivo da janela, pareado com `interval_start`; contém a sentinela `-2147483648` sempre que `interval_start` a contém. |
+
+**Legibilidade do formato binário.** Um leitor analisa primeiro `policy/manifest.bin`, exige o
+identificador de arquivo `CBVF` e um `format_version` igual a `4`, e só então decodifica os
+conteúdos. Não há conversão entre versões de formato; veja
+[Política de versionamento](/pt-br/reference/flatbuffers-schema/#politica-de-versionamento).
+
+**Admissão na carga.** Toda carga de política exige que `software` e
+`software_version` registrados em `manifest.bin` sejam exatamente iguais ao nome e à versão
+do software em execução (veja a [verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao)).
+
+---
+
+## `policy/basis/NNN.bin`
+
+Arquivo binário FlatBuffers que codifica as bases simplex do PL armazenadas em um único
+nó do grafo da política, uma por cenário que tinha base. **Indexado por nó**: os arquivos são
+nomeados pela posição do nó a partir de 0 (`basis/NNN.bin`; a posição é o
+campo `stage_id` abaixo), com zeros à esquerda até três dígitos, e existem apenas para os nós
+para os quais o treinamento capturou uma base; em uma cadeia de estágios, a posição é a posição do
+estágio a partir de 0, um arquivo por estágio. As bases são sempre gravadas com o
+checkpoint de fim de treinamento, e o diretório `basis/` é gravado mesmo quando
+nenhum nó guarda uma base; uma carga lê um checkpoint sem `basis/` como um checkpoint
+sem bases armazenadas, de modo que um checkpoint extraído de um arquivo compactado que
+descartou o diretório vazio ainda é carregado. As cargas de partida a quente (warm-start), de retomada e somente de simulação leem
+as bases para aproveitar a base nas soluções dos PLs dos estágios, usando cada base que se ajusta ao PL do seu estágio
+e descartando as demais (veja a
+[verificação das bases armazenadas](/pt-br/running/policy-management/#verificacao-das-bases-armazenadas)); as cargas
+de fronteira não leem nenhuma.
+
+**Metodologia:** [Aproveitamento de base do PL](/pt-br/math/lp-warm-start)
+
+A estrutura lógica de registro (a tabela raiz `StageBasis`) é:
+
+| Nome        | Tipo         | Anulável | Unidades | Descrição |
+| ----------- | ------------ | -------- | -------- | --------- |
+| `stage_id`  | uint32       | Não      | —        | Posição, a partir de 0, do nó do grafo da política (igual à posição do estágio a partir de 0 em uma cadeia de estágios), não o id declarado do estágio. |
+| `iteration` | uint32       | Não      | —        | Iteração do treinamento que produziu essas bases. |
+| `entries`   | [BasisEntry] | Não      | —        | Uma entrada por cenário global que tem base neste nó, em ordem crescente de `scenario` (campos abaixo). |
+
+**Campos de `BasisEntry`** (um elemento de `entries` por cenário):
+
+| Nome              | Tipo     | Anulável | Unidades | Descrição |
+| ----------------- | -------- | -------- | -------- | --------- |
+| `scenario`        | uint32   | Não      | —        | Índice global do cenário que detém esta base. |
+| `column_status`   | [uint8]  | Não      | —        | Um código canônico de status da base por coluna (variável) do PL. Veja a nota de codificação abaixo. |
+| `row_status`      | [uint8]  | Não      | —        | Um código canônico de status da base por linha (restrição) do PL. Veja a nota de codificação abaixo. |
+| `piece_row_slots` | [uint32] | Não      | —        | Posição no conjunto de cada linha de corte ao final de `row_status`: a entrada `i` é o `slot_index` do corte na `i`-ésima linha de corte. |
+
+Os bytes de `column_status`/`row_status` são o superconjunto canônico, neutro em relação ao solver,
+`BasisStatus` `0..=6` — `0` Lower, `1` Basic, `2` Upper, `3` Zero,
+`4` Nonbasic, `5` Superbasic, `6` Fixed —, não uma codificação específica de um backend; o novomodelo
+mapeia cada backend de PL (HiGHS por padrão, CLP opcional) para esse conjunto canônico na
+exportação. Os comprimentos dos vetores de status são as contagens de colunas e de linhas
+da base; as linhas anteriores às últimas `len(piece_row_slots)` são as linhas do modelo-base.
+Uma carga de treinamento (retomada ou partida a quente) dá a cada cenário sua própria entrada; um
+cenário sem entrada começa a frio na retomada e, na partida a quente, usa a entrada de menor cenário do nó
+que se ajusta. Uma carga somente de simulação aproveita, para todo
+cenário, a entrada de menor cenário do nó que se ajusta. O `basis_store_complete` do manifesto registra
+se `basis/` contém as bases de todos os cenários reunidos pela execução.
+
+---
+
+## `policy/states/NNN.bin`
+
+Arquivo binário FlatBuffers que codifica os estados visitados armazenados por um conjunto, um por
+posição de corte armazenada. **Indexado por conjunto**: um arquivo por conjunto que armazena estados visitados
+(`states/<pool_id>.bin`, a mesma chave de `cuts/<pool_id>.bin`), com zeros à esquerda até
+três dígitos. Com `exports.states` definido, todo conjunto que recebe cortes armazena
+os estados de seus próprios cortes: o conjunto do primeiro estágio mantém todos os estados, e cada
+conjunto estritamente entre o primeiro e o último estágio mantém aqueles dentro de
+`lookback_iterations` quando essa chave está definida. Uma execução `level1` armazena e grava os
+estados dos conjuntos que seleciona, esteja `exports.states` definido ou não. O
+diretório `states/` é omitido quando nenhum conjunto armazena estados. Como os arquivos de cortes,
+cada `NNN.bin` embute o manifesto de entidades por posição que descreve suas dimensões
+de estado.
+
+**Metodologia:** [Gerenciamento de cortes](/pt-br/math/cut-management)
+
+Um estado visitado é o vetor de estado em que um corte foi calculado. Um `resume` lê estes
+arquivos para restaurar os estados visitados nos quais uma execução `level1` faz a seleção; um `warm_start`
+carrega o estado armazenado de um corte `scored` junto com esse corte. O
+`state_history` do manifesto registra quais estados os conjuntos intermediários contêm, e
+`total_visited_states`, sua contagem total.
+
+**Campos de `StageStates`** (a tabela raiz de cada `states/NNN.bin`):
+
+| Nome              | Tipo         | Anulável | Unidades | Descrição |
+| ----------------- | ------------ | -------- | -------- | --------- |
+| `stage_id`        | uint32       | Não      | —        | Id do conjunto (a partir de 0), a mesma chave do `stage_id` de `cuts/<pool>.bin`. |
+| `node_id`         | int32        | Não      | —        | Id declarado do único nó proprietário do conjunto; sentinela `-1` para um conjunto compartilhado ou um buffer que omite o campo. |
+| `state_dimension` | uint32       | Não      | —        | Comprimento de cada vetor de estado: o comprimento do `entity_manifest` do conjunto em `cuts/<pool>.bin`. |
+| `count`           | uint32       | Não      | —        | Número de vetores de estado armazenados para este conjunto. |
+| `data`            | [float64]    | Não      | —        | Array plano de `count * state_dimension` elementos, por linhas (um estado por linha). |
+| `entity_manifest` | [EntitySlot] | Não      | —        | Identidade da entidade por posição de cada dimensão de estado; `state_dimension` entradas, com os campos da tabela `EntitySlot` descrita em [`policy/cuts/NNN.bin`](#policycutsnnnbin). |
+| `slots`           | [uint32]     | Não      | —        | Posição no conjunto de cada linha armazenada, em ordem estritamente crescente; `count` entradas. Cada uma identifica um corte do conjunto com `scored` definido. |
+
+---
+
+## `policy/manifest.bin`
+
+O manifesto global do checkpoint do estudo: uma raiz FlatBuffers (a
+tabela `CheckpointManifest`, `file_identifier "CBVF"`) que descreve o checkpoint
+em alto nível, gravada **por último** como sinal de conclusão e lida **primeiro**, atrás
+da verificação de `format_version`. Todo fato global do estudo de que uma carga precisa — o grafo do estudo,
+o número de estágios e a procedência do produtor — está aqui. No formato binário,
+`CheckpointManifest` é uma única tabela plana: os campos do grafo e do produtor ficam na sua
+raiz, ao lado de um `season_manifest` aninhado. As interfaces Python os agrupam em
+`graph_manifest`, `producer` e `season_manifest` (veja
+[`load_policy`](/pt-br/running/policy-management/#carregar-uma-politica)); as tabelas abaixo
+seguem esse agrupamento, com os mesmos nomes de campos.
+
+**Metodologia:** [Grafos da política](/pt-br/math/policy-graphs)
+
+## Visão do manifesto em Python
+
+**Campos de nível superior do dict Python:**
+
+| Nome              | Tipo    | Anulável | Unidades | Descrição |
+| ----------------- | ------- | -------- | -------- | --------- |
+| `format_version`  | integer | Não      | —        | Versão do formato em disco; deve ser igual a `4` na leitura, antes de qualquer conteúdo ser analisado (legibilidade do formato binário). A admissão é a verificação separada de software e versão. |
+| `software` | string | Sim | — | Nome do software que gravou este checkpoint: `"novomodelo"` para todo gravador do novomodelo, `None` para um buffer sem o campo (id binário 20). A [verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao) o compara, e `novomodelo.write_policy_checkpoint` o registra. |
+| `software_version` | string | Não | — | Versão desse software, comparada literalmente (id binário 1); toda carga de política exige que seja igual à versão em execução. |
+| `created_at`      | string  | Não      | —        | Carimbo de data e hora ISO 8601 da gravação do checkpoint. |
+| `num_stages`      | integer | Não      | —        | Número de estágios abrangidos pelo manifesto do grafo. Deve coincidir com a configuração do caso na retomada. |
+| `graph_manifest`  | object  | Não      | —        | Manifesto do grafo: lista de nós, lista de arestas e número de conjuntos de cortes; cada nó indica seu conjunto (`nodes[].pool_id`). |
+| `producer`        | object  | Não      | —        | Metadados no espaço de nomes do produtor — o estado registrado pelo próprio algoritmo de treinamento. Veja abaixo. |
+| `season_manifest` | object  | Não      | —        | Descritor global do estudo de compatibilidade de períodos sazonais / AR periódico: `cycle_code` (`0` mensal, `1` semanal, `2` personalizado, `255` ausente: nenhum mapa de períodos sazonais declarado), `n_seasons` e as ordens AR por UHE (em ordem crescente de id da UHE). Comparado apenas em cargas de fronteira — veja [Requisitos de compatibilidade](/pt-br/running/policy-management/#requisitos-de-compatibilidade); cargas da FCF completa não o comparam. |
+
+**Campos de `graph_manifest`:**
+
+| Nome                     | Tipo    | Anulável | Unidades | Descrição |
+| ------------------------ | ------- | -------- | -------- | --------- |
+| `graph_manifest.n_pools` | integer | Não      | —        | Número de conjuntos de cortes distintos. |
+| `graph_manifest.nodes[]` | array   | Não      | —        | Todos os nós, em ordem canônica, cada um com seu estágio e seu conjunto. Veja os campos de `nodes[]` abaixo. |
+| `graph_manifest.edges[]` | array   | Não      | —        | Todas as arestas orientadas, com sua probabilidade de transição. Veja os campos de `edges[]` abaixo. |
+
+Campos de `nodes[]` (uma entrada por nó do grafo da política):
+
+| Nome                              | Tipo    | Anulável | Unidades | Descrição |
+| --------------------------------- | ------- | -------- | -------- | --------- |
+| `graph_manifest.nodes[].id`       | integer | Não      | —        | Id do nó: o id declarado do nó ou, em uma cadeia de estágios, a posição do estágio a partir de 0 (não o id declarado do estágio). |
+| `graph_manifest.nodes[].stage_id` | integer | Não      | —        | Id declarado do estágio em que o nó se encontra. |
+| `graph_manifest.nodes[].pool_id`  | integer | Não      | —        | Conjunto cujo conteúdo contém as peças afins deste nó (o mapa nó -> conjunto: nós folha que compartilham um conjunto indicam todos o mesmo `pool_id`). |
+
+Campos de `edges[]` (uma entrada por aresta orientada do grafo da política):
+
+| Nome                                 | Tipo    | Anulável | Unidades | Descrição |
+| ------------------------------------ | ------- | -------- | -------- | --------- |
+| `graph_manifest.edges[].source_id`   | integer | Não      | —        | Id do nó de origem. |
+| `graph_manifest.edges[].target_id`   | integer | Não      | —        | Id do nó de destino. |
+| `graph_manifest.edges[].probability` | number  | Não      | —        | Probabilidade de transição `P(source -> target)`. |
+
+**Campos de `producer`:**
+
+| Nome                                       | Tipo    | Anulável | Unidades | Descrição |
+| ------------------------------------------ | ------- | -------- | -------- | --------- |
+| `producer.completed_iterations`            | integer | Não      | —        | Número de iterações de treinamento concluídas no momento do checkpoint. |
+| `producer.final_lower_bound`               | number  | Não      | —        | Valor do limite inferior após a última iteração concluída. |
+| `producer.lower_bound_history[]` | array | Não | — | O limite inferior após cada iteração registrada, da mais antiga para a mais recente, a última em `completed_iterations`; vazio quando o gravador não registrou nenhum. A retomada o restaura. |
+| `producer.best_upper_bound`                | number  | Sim      | —        | O limite superior da última iteração concluída, se disponível — o último valor, **não** o melhor valor observado/acompanhado pelo mínimo. `novomodelo run` sempre o registra; `null` apenas em um checkpoint cujo gravador não registrou nenhum. |
+| `producer.max_iterations`                  | integer | Não      | —        | Número máximo de iterações configurado para a execução. |
+| `producer.forward_passes`                  | integer | Não      | —        | Número de simulações forward por iteração configurado para a execução. |
+| `producer.warm_start_cuts`                 | integer | Não      | —        | Maior contagem de cortes de partida a quente por conjunto: o máximo de `warm_start_counts[]`, não sua soma. `0` para uma execução nova sem `policy.boundary`. |
+| `producer.warm_start_counts[]`             | array   | Não      | —        | Contagens de cortes de partida a quente por conjunto, na ordem dos ids dos conjuntos. Substitui `warm_start_cuts`, com precisão por conjunto, quando não vazio. |
+| `producer.rng_seed`                        | integer | Não      | —        | Semente do gerador de números aleatórios usada pelo amostrador de cenários. Necessária para a reprodutibilidade. |
+| `producer.total_visited_states`            | integer | Não      | —        | Número total de estados visitados armazenados pelos conjuntos, somado sobre os conjuntos: o `count` de cada `states/<pool>.bin`. `0` quando nenhum conjunto armazena estados. |
+| `producer.training_block_mode`             | string  | Não      | —        | Modo de patamares sob o qual o artefato foi treinado: o modo comum em minúsculas (`"parallel"`/`"chronological"`) quando todos os estágios concordam; caso contrário, `"mixed"`. |
+| `producer.training_block_mode_per_stage[]` | array   | Não      | —        | Modos de patamares do treinamento por estágio do estudo, na ordem dos estágios. Vazio quando uniforme; preenchido apenas em estudos de modo misto. |
+| `producer.cost_scale_factor`               | number  | Sim      | —        | Fator de escala de custo da função objetivo resolvido pelo estudo gravador (`modeling.cost_scale_factor`): a escala das unidades escalonadas do gravador, na qual estão o `intercept` e os `coefficients` de todo corte, registrada aqui como procedência global do estudo. Cada conjunto tem sua própria cópia em `cuts/<pool>.bin`, que é o que uma carga lê; todo caminho de carga a exige, e um conjunto resolvido sem ela é rejeitado ("predates self-describing cuts …"). Veja [Canonicalização da escala de custo](/pt-br/running/policy-management/#canonicalizacao-da-escala-de-custo) para os detalhes. |
+| `producer.state_history`                   | string \| integer | Sim | — | Quais estados visitados os conjuntos estritamente entre o primeiro e o último estágio armazenam: `None` (nenhum), `"whole"` (todos) ou um inteiro positivo `w` (os das últimas `w` iterações). No formato binário, `state_history_scope` (`0` nenhum, `1` janela, `2` todos) e `state_history_window`. Uma retomada o confronta com a configuração `level1` da execução. |
+| `producer.activity_counters`               | bool    | Não      | —        | Se todo corte de todo conjunto contém `active_count` e `last_active_iteration`; definido por uma execução com `max_active_per_stage` ou o método `dynamic`, cuja retomada os lê. |
+| `producer.basis_store_complete`            | bool    | Não      | —        | Se `basis/` contém as bases de todos os cenários que a execução gravadora reuniu de todos os processos (ranks MPI). Não definido quando a execução falhou, caso em que se mantêm as do próprio processo gravador; uma retomada recusa um checkpoint em que ele não esteja definido. |

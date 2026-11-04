@@ -1,0 +1,80 @@
+---
+title: Restrições genéricas
+description: Regras lineares definidas por você sobre grandezas do modelo — piso, teto, igualdade ou faixa — com uma folga penalizada opcional que as relaxa em vez de tornar o problema inviável.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import GenericConstraint from '../../../../../components/entity/illustrations/GenericConstraint.astro';
+
+<EntityHero family="rules" icon="constraints" lead="Uma restrição genérica é uma regra linear que você mesmo define: uma soma ponderada de grandezas do modelo, como armazenamentos, vazões, gerações e déficits, que deve respeitar um piso, um teto, uma igualdade ou uma faixa. Opcionalmente, ela tem uma folga penalizada, que a relaxa em vez de tornar o problema inviável." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Uma linguagem para as suas regras', text: 'A restrição é escrita como uma expressão sobre um catálogo de 26 variáveis do modelo (armazenamentos, vazões, gerações, fluxos nas linhas, déficits e outras), com coeficientes que podem ser números ou parâmetros nomeados.' },
+  { title: 'A forma decorre dos limites', text: 'Só o limite inferior presente é um piso; só o superior, um teto; os dois idênticos, uma igualdade; os dois diferentes, uma faixa. Não há campo separado para escolher a forma.' },
+  { title: 'Relaxar a regra tem um preço', text: 'Com a folga habilitada, a restrição é relaxada a um custo por unidade de violação, em vez de tornar inviável o problema do estágio. Sem folga, a restrição não pode ser relaxada.' },
+]} />
+
+## Uma regra, seus limites e a folga
+
+<GenericConstraint lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="rules" items={[
+  { label: 'Valor da expressão, em cada estágio e patamar ativos', unit: 'unidade das grandezas (MW, m³/s, MWh, hm³)' },
+  { label: 'Folga da restrição, quando habilitada', unit: 'mesma unidade da linha' },
+]} note="O modelo escolhe os valores das grandezas citadas na expressão de modo que ela respeite os limites. A folga só é usada quando o limite não pode ser atendido de outra forma, e cada unidade de violação é cobrada ao custo declarado." />
+
+## O que você informa
+
+- As restrições, em `generic_constraints.json`: cada uma tem um identificador, um nome, a expressão linear e a configuração da folga, que é obrigatória em toda restrição.
+- Onde cada restrição está ativa e seus limites, em `generic_constraint_bounds.parquet`: uma linha por restrição, estágio e, opcionalmente, patamar.
+- Opcionalmente, parâmetros escalares nomeados, em `generic_parameters.json`, que as expressões e os limites referenciam por `@nome`.
+- Para cada folga habilitada, a penalidade (maior que zero) e a base de penalização.
+
+## Onde a restrição está ativa
+
+O arquivo de limites é a grade de ativação: não existe outra marca de ativação. Uma restrição está ativa em um estágio e patamar se, e somente se, houver uma linha para ela ali. Um patamar nulo na linha vale para todos os patamares do estágio. Os limites podem vir da própria linha, da expressão (por exemplo, uma constante do lado direito) ou das duas fontes juntas, que se somam no mesmo extremo. Uma restrição cujos limites vêm só da expressão, sem nenhuma linha na grade, é rejeitada na validação.
+
+## Folga e base de penalização
+
+A folga é declarada uma vez por restrição e vale para todas as linhas que a grade produz. Um limite unilateral tem uma coluna de folga; um limite bilateral (faixa ou igualdade) tem duas, uma para cada sentido, ao mesmo custo por unidade. Nos resultados, a violação de uma linha bilateral é informada como o saldo com sinal entre as duas.
+
+A base de penalização diz o que é uma unidade de violação e, portanto, como a penalidade vira custo:
+
+- **Por hora.** Para uma linha cuja grandeza é uma taxa (MW, m³/s): a penalidade é um preço por unidade e por hora, multiplicado pelas horas que a linha abrange.
+- **Por unidade.** Para uma linha cuja grandeza é uma quantidade (MWh, hm³): a penalidade é um preço por unidade, qualquer que seja a duração do estágio.
+
+A base é declarada, nunca deduzida da expressão: escolha-a pela unidade da linha, não pelas variáveis que ela contém.
+
+## Nos resultados
+
+O modelo grava o eco resolvido: a forma totalmente resolvida de cada restrição construída, uma linha por restrição, estágio, patamar e termo. A simulação grava, em `simulation/violations/generic/`, o custo da folga de cada linha ao mesmo custo por unidade usado no problema. O custo das violações de restrições genéricas também aparece como uma coluna do detalhamento de custos por estágio.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Referência', title: 'Restrições genéricas — conjunto de arquivos', href: '/pt-br/reference/generic-constraints/#conjunto-de-arquivos' },
+  { kind: 'Referência', title: 'Restrições genéricas — derivação do intervalo e da forma', href: '/pt-br/reference/generic-constraints/#derivacao-do-intervalo-e-da-forma' },
+  { kind: 'Referência', title: 'Restrições genéricas — a grade de ativação', href: '/pt-br/reference/generic-constraints/#a-grade-de-ativacao' },
+  { kind: 'Referência', title: 'Restrições genéricas — catálogo de variáveis', href: '/pt-br/reference/generic-constraints/#catalogo-de-variaveis' },
+  { kind: 'Referência', title: 'Restrições genéricas — folga bilateral e base de penalização', href: '/pt-br/reference/generic-constraints/#base-de-penalizacao' },
+  { kind: 'Referência', title: 'Restrições genéricas — exemplo resolvido: uma curva de segurança', href: '/pt-br/reference/generic-constraints/#exemplo-resolvido-uma-curva-de-seguranca' },
+  { kind: 'Metodologia', title: 'Formulação do PL §10 — restrições genéricas', href: '/pt-br/math/lp-formulation/#10-restricoes-genericas' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'constraints/generic_constraints.json', href: '/pt-br/reference/case-format/constraints/#constraintsgeneric_constraintsjson' },
+  { dir: 'in', path: 'constraints/generic_constraint_bounds.parquet', href: '/pt-br/reference/case-format/constraints/#constraintsgeneric_constraint_boundsparquet' },
+  { dir: 'in', path: 'constraints/generic_parameters.json', href: '/pt-br/reference/case-format/constraints/#constraintsgeneric_parametersjson' },
+  { dir: 'out', path: 'generic_constraints/resolved_echo.parquet', href: '/pt-br/reference/output/simulation/#generic_constraintsresolved_echoparquet' },
+  { dir: 'out', path: 'simulation/violations/generic/', href: '/pt-br/reference/output/simulation/#simulationviolationsgeneric' },
+]} />

@@ -1,0 +1,1040 @@
+---
+title: Restrições genéricas
+description: A linguagem de autoria das restrições genéricas -- conjunto de arquivos, derivação do intervalo e da forma, a grade de ativação, o catálogo de variáveis, a gramática `@name` e o eco resolvido.
+---
+
+As restrições genéricas são escritas em uma **linguagem de autoria**: três arquivos
+de entrada, um de saída e uma gramática (`@expressions` nomeadas, lados direitos
+relacionais em linha, limites de intervalo). Esta página é a referência oficial dessa
+linguagem. Para as tabelas de campos de cada arquivo, consulte
+[Arquivos de restrições](/pt-br/reference/case-format/constraints/); para a formulação
+do PL em que essas restrições se desdobram, consulte
+[Formulação do PL §10](/pt-br/math/lp-formulation#10-restricoes-genericas).
+
+## Conjunto de arquivos
+
+| Arquivo                                                | Papel                                                                                                                                                                    |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `constraints/generic_constraints.json`               | Declara as restrições, cada uma uma expressão linear sobre o [catálogo de variáveis](#catalogo-de-variaveis), com um limite opcional em linha e uma configuração de folga, e as expressões nomeadas que elas compartilham; tabela de campos: [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsgeneric_constraintsjson). |
+| `constraints/generic_constraint_bounds.parquet`      | A **grade de ativação**: uma linha por restrição, estágio e patamar opcional em que a restrição está ativa, contendo os extremos inferior e superior do limite, que admitem nulo (a base parquet); tabela de campos: [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsgeneric_constraint_boundsparquet). |
+| `constraints/generic_parameters.json`                | Declara os parâmetros escalares nomeados que as expressões das restrições, os extremos de limite em linha e outras expressões nomeadas referenciam por `@name`; tabela de campos: [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsgeneric_parametersjson). |
+| `generic_constraints/resolved_echo.parquet` (saída) | A forma totalmente resolvida e desdobrada de cada restrição genérica efetivamente construída pelo solver — uma linha por `(constraint, stage, block, term)`. Gravado sempre que o estudo tem restrições genéricas; caso contrário, o diretório não existe.            |
+
+---
+
+## Derivação do intervalo e da forma
+
+A forma de um limite é derivada exclusivamente da presença de `bound_lower`/`bound_upper`,
+depois que a base parquet e o eventual resto afim em linha (abaixo)
+foram combinados:
+
+| `bound_lower` | `bound_upper` | Forma derivada                               |
+| ------------- | ------------- | -------------------------------------------- |
+| presente       | ausente        | `floor`                                      |
+| ausente        | presente       | `cap`                                        |
+| presente       | presente, diferente | `band`                                 |
+| presente       | presente, idêntico bit a bit | `equality`                         |
+| ausente        | ausente        | rejeitado (ver [a grade de ativação](#a-grade-de-ativacao)) |
+
+A verificação de igualdade ou diferença é uma comparação exata, bit a bit, dos dois
+valores, nunca uma tolerância — uma faixa muito estreita, mas não degenerada, continua sendo `band`, e não
+`equality`.
+
+Por exemplo, uma restrição com os dois extremos em sua linha de limites resulta na
+forma `band`:
+
+```json title="constraints/generic_constraints.json" gc-check="accept"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "southeast_hydro_band",
+      "expression": "hydro_generation(10) + hydro_generation(11)",
+      "slack": { "enabled": true, "penalty": 5000.0, "penalty_basis": "per_hour" }
+    }
+  ]
+}
+```
+
+| constraint_id | stage_id | block_id | bound_lower | bound_upper |
+| ------------- | -------- | -------- | ----------- | ----------- |
+| 1             | 0        | null     | 35.0        | 100.0       |
+
+Os dois extremos diferem; portanto, a linha resulta em `band`.
+
+A base numérica do arquivo de limites e o resto afim em linha da restrição
+**compõem-se aditivamente** no mesmo extremo, em vez de conflitarem:
+`resolved = base + remainder` quando ambos estão presentes nesse extremo, ou
+qualquer um deles isoladamente quando só um está. A combinação é feita por `(stage, block)`, pois o
+resto pode, ele próprio, resolver um parâmetro nomeado que varia por estágio/patamar (do
+tipo `per_stage_block`, ou do tipo `expression` que leia um deles — ver
+[`generic_parameters.json`](#generic_parametersjson-os-tipos-de-parametro)
+abaixo).
+
+Uma verificação de inversão no carregamento (`bound_upper < bound_lower`) só é acionada quando ambos
+os extremos são resolvíveis **estaticamente** — um resto apenas constante, ou nenhum
+resto. Um resto que contém um termo `@param` ativo torna o extremo
+variável por estágio; assim, sua inversão fica a cargo da inviabilidade do PL no momento da resolução,
+em vez de uma verificação combinatória prévia em todos os estágios e patamares.
+
+<div style="width:min(100%,560px)">
+
+```d2
+direction: down
+
+base: "base parquet\nbound_upper (admite nulo)" {shape: parallelogram}
+const_term: "resto afim: constante\nem linha \"<= 12.0\"" {shape: rectangle}
+param_term: "resto afim: termo @name\nresolvido via generic_parameters.json" {shape: rectangle}
+
+fold: "base + resto\n(aditivo)" {shape: rectangle}
+resolved: "bound_upper resolvido\nlimite da linha do PL + resolved_echo" {shape: oval}
+
+base -> fold
+const_term -> fold
+param_term -> fold
+fold -> resolved
+```
+
+</div>
+
+---
+
+## A grade de ativação
+
+`generic_constraint_bounds.parquet` **é** a grade de ativação — não existe
+flag de ativação separada. Uma restrição está ativa em `(stage, block)` se, e somente
+se, existir uma linha para ela ali.
+
+- **Uma referência sem linhas é rejeitada.** Uma restrição cujos únicos extremos
+  de limite vêm de um resto afim em linha, mas que não tem nenhuma linha
+  no parquet de limites, falha na validação referencial: `InvalidReference`,
+  "declares a bound reference but has no activation rows in
+  generic_constraint_bounds.parquet: the reference would apply to nothing."
+  O parquet continua decidindo *onde* a restrição se aplica, mesmo quando não
+  fornece nenhum *valor* de limite. Uma restrição sem resto afim em linha
+  e sem linhas não é um erro; ela simplesmente não se aplica a nada.
+- **Uma linha com ambos os extremos nulos só é válida quando uma referência preenche um lado.** Uma linha com
+  `bound_lower = null` e `bound_upper = null` é aceita quando o
+  `bound_lower_affine`/`bound_upper_affine` da própria restrição fornece pelo menos
+  um extremo — a única função da linha é, então, ativar aquela célula; o valor
+  vem inteiramente do resto (como no
+  [exemplo da curva de segurança](#exemplo-resolvido-uma-curva-de-seguranca)). Uma linha com ambos os extremos nulos
+  em uma restrição **sem** resto afim em nenhum dos lados é
+  `InvalidValue`: "has neither bound_lower nor bound_upper: at least one
+  endpoint is required."
+- **Uma faixa degenerada de extremos iguais é aceita; uma invertida, não.**
+  `bound_upper == bound_lower` resulta em `equality` e é válido;
+  `bound_upper < bound_lower` (verificado somente quando ambos são estaticamente
+  resolvíveis, conforme acima) é `InvalidValue`: "an inverted interval is not
+  allowed."
+- **`block_id = null` aplica-se a todos os patamares do estágio.** Quando todas as
+  variáveis que a restrição mantém são do nível do estágio (`hydro_storage`,
+  `hydro_storage_initial`, `hydro_storage_final`,
+  `hydro_useful_volume_initial`, `hydro_useful_volume_final`,
+  `hydro_evaporation` ou `anticipated_decision`) e nenhum coeficiente ou limite
+  da restrição resolve para um valor por patamar, isso se reduz a uma
+  **única** linha do PL no nível do estágio, em vez de uma linha por patamar. Uma folga `per_hour`
+  nessa linha é valorada pelo total de horas do estágio, e uma folga `per_unit`
+  é cobrada uma única vez ([Base de penalização](#base-de-penalizacao)). Um
+  parâmetro do tipo `per_stage_block`, ou do tipo `expression` que
+  leia um deles, em qualquer ponto dos coeficientes ou do resto afim da restrição,
+  impede essa redução mesmo quando todas as variáveis são do nível do estágio, pois uma
+  única linha reduzida resolveria o valor de um patamar arbitrário e
+  perderia silenciosamente a variação por patamar. Uma variável cujo coeficiente se reduz a
+  exatamente zero é descartada antes desse teste
+  ([Lado direito relacional em linha](#lado-direito-relacional-em-linha)); assim, `0 * thermal_generation(0)`
+  não mantém a linha por patamar.
+  Derivação completa da materialização das linhas:
+  [Formulação do PL §10](/pt-br/math/lp-formulation#10-restricoes-genericas).
+
+---
+
+## Gramática das expressões
+
+Uma string `expression` segue a gramática abaixo; os espaços em branco entre tokens são
+ignorados e todos os nomes diferenciam maiúsculas de minúsculas.
+
+```text
+relation  ::= sum ( ( "<=" | ">=" | "==" ) sum )?
+sum       ::= product ( ( "+" | "-" ) product )*
+product   ::= unary ( ( "*" | "/" ) unary )*
+unary     ::= ( "+" | "-" ) unary | operand
+operand   ::= number | "@" name | variable | "(" sum ")"
+variable  ::= var_name "(" integer ( "," integer )? ( "," "bus" "=" integer )? ")"
+            | "line_exchange" "(" bus_pair ")"
+bus_pair  ::= "source_bus" "=" integer "," "target_bus" "=" integer
+            | "target_bus" "=" integer "," "source_bus" "=" integer
+number    ::= digits with at most one ".",
+              then an optional exponent ("e" or "E", an optional sign, digits)
+integer   ::= a non-negative whole number
+name      ::= a letter or "_", then letters, digits or "_"
+```
+
+O sinal unário tem a maior precedência, `*` e `/` têm precedência sobre `+` e `-`, e
+todo operador binário é associativo à esquerda. Um `number` não tem sinal: `-3` é
+um menos unário aplicado a `3`, e um sinal pode acompanhar qualquer termo
+(`hydro_generation(0) + -thermal_generation(0)`).
+
+As produções não mostram estas regras:
+
+- **A expressão é linear nas variáveis do PL.** Todo operando é ou uma
+  constante (um `number`, um parâmetro escalar ou aritmética sobre eles) ou uma
+  forma linear (uma `variable`, uma expressão nomeada ou aritmética que preserve uma forma linear).
+  Uma constante pode multiplicar uma forma linear de qualquer lado
+  (`2 * hydro_generation(0)` e `hydro_generation(0) * 2` são o mesmo termo),
+  e uma forma linear pode ser dividida por uma constante
+  (`hydro_generation(0) / 2`). O produto de duas formas lineares
+  (`hydro_storage(0) * thermal_generation(0)`) e a divisão por uma forma linear
+  (`10 / hydro_storage(0)`) são rejeitados.
+- **Uma constante deve ser finita.** Uma constante construída apenas com números que
+  divida por zero (`hydro_generation(0) / (1 - 1)`) ou não seja finita é
+  rejeitada no carregamento do caso. Uma constante que lê um parâmetro é avaliada
+  para cada estágio e patamar na preparação do estudo; um valor não
+  finito nesse momento interrompe a preparação com
+  [`GenericConstraintValidationError`](/pt-br/reference/error-codes/#genericconstraintvalidationerror),
+  indicando a restrição, o coeficiente ou limite, o estágio e o patamar.
+- **Uma expressão contém no máximo um operador relacional, fora de
+  parênteses.** Com um operador, constantes podem aparecer de qualquer lado, inclusive dentro de um grupo,
+  e são transferidas para o limite
+  ([Lado direito relacional em linha](#lado-direito-relacional-em-linha)). Sem operador, a
+  expressão é apenas o lado esquerdo e não pode ter parte constante:
+  `hydro_generation(0) + 5` é rejeitado, e o limite deve ser informado em
+  `generic_constraint_bounds.parquet`.
+- **O aninhamento é limitado a 256 níveis**, contando cada parêntese aberto e cada
+  sinal unário no caminho até um termo.
+- `var_name` é um dos nomes do [catálogo de variáveis](#catalogo-de-variaveis).
+  Apenas `hydro_turbined` e `hydro_generation` aceitam `bus=`; `hydro_storage`,
+  `hydro_withdrawal` e `anticipated_decision` não aceitam argumento de patamar; apenas
+  `line_exchange` aceita um `bus_pair`.
+- Escreva `@` colado ao nome (`@name`, nunca `@ name`). Como um `@name`
+  é interpretado (parâmetro escalar ou expressão nomeada) está descrito em
+  [A gramática `@name`](#a-gramatica-name).
+- Informe no máximo um argumento posicional de patamar: um segundo, igual ou não, é rejeitado no carregamento do caso
+  ([Códigos de erro — `SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation)).
+- A definição de uma expressão nomeada em `expressions` não aceita operador relacional
+  e lê pelo menos uma variável do PL.
+
+Por exemplo, um grupo constante, um coeficiente após sua variável, uma divisão por
+uma constante e um sinal em um termo posterior podem coexistir em uma restrição:
+
+```json title="constraints/generic_constraints.json" gc-check="accept"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "c1",
+      "expression": "hydro_generation(0) * 0.5 + -thermal_generation(0) / 2 <= 2 * (thermal_generation(1) + 5)",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+### Não suportado
+
+Cada construção abaixo é rejeitada no carregamento do caso e reportada como
+[`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation).
+
+**Produto de duas variáveis do PL.** Não existe reescrita linear; limite cada
+variável separadamente ou escale uma delas por um parâmetro.
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "c1",
+      "expression": "hydro_generation(0) * thermal_generation(0) <= 30",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+**Divisão por uma variável do PL.**
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "c1",
+      "expression": "30 / hydro_generation(0) <= 2",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+**Parte constante sem operador relacional.** Escreva
+`hydro_generation(0) <= 25` ou coloque o limite no arquivo de limites.
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "c1",
+      "expression": "hydro_generation(0) + 5",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+**`<` ou `>` simples.** Escreva `<=` ou `>=`.
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "c1",
+      "expression": "hydro_generation(0) < 30",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+**Dois operadores relacionais.** Informe os dois extremos no arquivo de limites ou escreva
+duas restrições.
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "c1",
+      "expression": "10 <= hydro_generation(0) <= 30",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+**Nome com grafia de maiúsculas/minúsculas diferente.** Escreva `hydro_generation(0)`.
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "c1",
+      "expression": "Hydro_generation(0)",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+**Um segundo argumento posicional de patamar em uma variável, igual ou não.**
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "c1",
+      "expression": "thermal_generation(0, 0, 1) <= 10",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+---
+
+## Catálogo de variáveis
+
+Uma `expression` pode referenciar qualquer uma das 26 variáveis abaixo. A gramática
+de referência é `var_name(entity_id[, block_id][, bus=bus_id])` — um argumento
+posicional opcional de patamar e, em seguida, um seletor nomeado opcional `bus=`, nessa
+ordem (`f(id)`, `f(id, block)`, `f(id, bus=b)` e `f(id, block, bus=b)` são todos
+válidos).
+
+| Variável                        | Arg. de patamar | `bus=` | Observações                                                                    |
+| -------------------------------- | --------- | ------ | -------------------------------------------------------------------------- |
+| `hydro_storage(id)`              | Não        | Não     | Estoque no nível do estágio                                                        |
+| `hydro_withdrawal(id)`           | Não        | Não     | Nível do estágio                                                              |
+| `hydro_evaporation(id[, block])` | Sim       | Não     | Uma grandeza no nível do estágio em um estágio paralelo, uma por patamar em um estágio cronológico; algumas referências são **rejeitadas** por causa do argumento de patamar — ver [referências de patamar](#referencias-de-patamar-em-hydro_evaporation) |
+| `hydro_inflow(id[, block])`      | Sim       | Não     | A afluência da usina no patamar ([`hydro_inflow`](#hydro_inflow)); um limite sem `block_id` se expande em uma linha por patamar; um termo `hydro_inflow` nunca se reduz a uma linha no nível do estágio, e um termo sem argumento de patamar lê o patamar da sua linha |
+| `hydro_storage_initial(id[, block])` | Sim (fronteira) | Não | Com um patamar `k`, o armazenamento no início do patamar `k`; sem patamar, o armazenamento inicial do estágio |
+| `hydro_storage_final(id[, block])`   | Sim (fronteira) | Não | Com um patamar `k`, o armazenamento ao final do patamar `k`; sem patamar, o armazenamento final do estágio (o valor de `hydro_storage`) |
+| `hydro_useful_volume_initial(id[, block])` | Sim (fronteira) | Não | Mesma coluna e mesma semântica de patamar de `hydro_storage_initial`; representa armazenamento − `reservoir.min_storage_hm3` (ver abaixo) |
+| `hydro_useful_volume_final(id[, block])`   | Sim (fronteira) | Não | Mesma coluna e mesma semântica de patamar de `hydro_storage_final`; representa armazenamento − `reservoir.min_storage_hm3` (ver abaixo) |
+| `hydro_turbined(id[, block][, bus=])` | Sim    | Sim    | `bus=` seleciona uma célula `(hydro, bus)`; se omitido, soma sobre as células da usina |
+| `hydro_spillage(id[, block])`    | Sim       | Não     |                                                                           |
+| `hydro_diversion(id[, block])`   | Sim       | Não     |                                                                           |
+| `hydro_outflow(id[, block])`     | Sim       | Não     | Alias derivado de turbinamento + vertimento, não uma coluna independente do PL      |
+| `hydro_generation(id[, block][, bus=])` | Sim  | Sim    | Mesma semântica de `bus=` de `hydro_turbined`                               |
+| `thermal_generation(id[, block])` | Sim      | Não     |                                                                           |
+| `line_direct(id[, block])`       | Sim       | Não     | Apenas o fluxo no sentido direto                                                        |
+| `line_reverse(id[, block])`      | Sim       | Não     | Apenas o fluxo no sentido reverso                                                        |
+| `line_exchange(id[, block])`     | Sim       | Não     | Fluxo líquido (direto − reverso); também endereçável por par de barramentos, abaixo         |
+| `bus_deficit(id[, block])`       | Sim       | Não     |                                                                           |
+| `bus_excess(id[, block])`        | Sim       | Não     |                                                                           |
+| `pumping_flow(id[, block])`      | Sim       | Não     |                                                                           |
+| `pumping_power(id[, block])`     | Sim       | Não     |                                                                           |
+| `contract_import(id[, block])`   | Sim       | Não     |                                                                           |
+| `contract_export(id[, block])`   | Sim       | Não     |                                                                           |
+| `non_controllable_generation(id[, block])` | Sim | Não   |                                                                           |
+| `non_controllable_curtailment(id[, block])` | Sim | Não  |                                                                           |
+| `anticipated_decision(id)`       | **Não** (rejeitado se informado) | Não | Coluna escalar de compromisso de despacho, no nível do estágio, de uma UTE que declara [`anticipated_config`](/pt-br/reference/case-format/system/#systemthermalsjson); sem nenhum índice de patamar — use `anticipated_decision(N)` |
+
+Apenas `hydro_turbined` e `hydro_generation` aceitam `bus=`; qualquer outra
+variável o rejeita com "does not accept a bus selector." Uma célula `(hydro, bus)`
+é a parte de uma usina em um barramento: uma usina tem uma célula por barramento distinto entre
+seus [grupos de unidades geradoras](/pt-br/reference/case-format/hydros/#systemhydrosjson), e `bus=`
+deve indicar um desses barramentos.
+
+Um termo `hydro_withdrawal`, `non_controllable_generation` ou
+`non_controllable_curtailment` é aceito no carregamento do caso, mas não acrescenta
+coeficiente à linha do PL. Um termo `contract_import` ou `contract_export` acrescenta um
+coeficiente somente quando o contrato indicado existe e tem esse sentido; um termo
+`hydro_evaporation`, somente em um estágio em que a usina tem modelo de
+evaporação e não está em pré-enchimento (PreFilling); e um termo `hydro_generation` em uma usina com modelo
+FPHA, somente em um estágio em que a usina não está nem em pré-enchimento nem em enchimento de volume morto (Filling); nesses
+casos, a grandeza do termo é zero. O [eco resolvido](#o-eco-resolvido)
+ainda lista todos esses termos.
+
+Uma restrição em que nenhum termo acrescenta coeficiente deixa uma linha sem variável
+do PL proveniente de seus termos: sem folga, o PL é inviável quando o limite
+exclui o zero, e a linha não tem efeito nos demais casos; com folga, a folga absorve a quantidade excluída ao custo da penalidade de folga da restrição. Quando apenas alguns termos não acrescentam
+coeficiente, o limite se aplica somente aos termos restantes.
+
+**Incorporação do volume útil ao limite.** Um termo `c * hydro_useful_volume_initial(h)` ou
+`c * hydro_useful_volume_final(h)` é construído sobre a coluna de armazenamento da usina `h`, e
+`c × min_storage_hm3` da usina `h` — o mínimo físico de
+`reservoir.min_storage_hm3`, nunca uma sobreposição por estágio de `hydro_bounds` — é
+somado a cada extremo de limite resolvido da restrição, uma vez por termo desse tipo
+(sendo `c` o coeficiente totalmente resolvido do termo, de modo que um coeficiente `@name`
+contribui com seu valor resolvido). Um `c` negativo reduz os extremos pela
+mesma regra. A restrição, portanto, é lida como uma grandeza acima do volume morto, enquanto
+a coluna do PL mantém o valor absoluto do armazenamento; nenhuma variável adicional do PL é
+criada, e os extremos ajustados ficam visíveis no
+[eco resolvido](#o-eco-resolvido).
+
+### Referências de patamar em `hydro_evaporation`
+
+Sendo `h` o id de uma UHE e `K` o número de patamares declarados no estágio, a
+verificação das restrições genéricas rejeita uma referência `hydro_evaporation` que o
+[`block_mode`](/pt-br/reference/case-format/stages/#stagesjson) do estágio não consegue
+expor:
+
+- Em um estágio paralelo com dois ou mais patamares, `hydro_evaporation(h)` e
+  `hydro_evaporation(h, 0)` referenciam a única evaporação no nível do estágio, e um patamar
+  de 1 a `K - 1` é rejeitado.
+- Em um estágio cronológico com mais de um patamar, o patamar é obrigatório:
+  `hydro_evaporation(h)` é rejeitado.
+- Em um estágio com um único patamar, em qualquer modo de estágio, `hydro_evaporation(h)` e
+  `hydro_evaporation(h, 0)` referenciam ambos o único patamar.
+- Um patamar igual ou superior a `K` é rejeitado em todos os estágios, para uma referência de evaporação ou de
+  armazenamento.
+- A mesma verificação rejeita uma referência `hydro_storage_initial`, `hydro_storage_final`,
+  `hydro_useful_volume_initial` ou `hydro_useful_volume_final` que
+  indique uma fronteira interna de patamar, entre dois patamares, em um estágio paralelo.
+
+```text
+hydro_evaporation(h)      parallel: the stage-level evaporation; chronological with K > 1: rejected
+hydro_evaporation(h, 1)   parallel: rejected; chronological with K > 1: block 1
+```
+
+A verificação é feita apenas para um par (restrição, estágio) que tenha uma linha em
+`generic_constraint_bounds.parquet`. Cada rejeição é uma `BusinessRuleViolation`;
+as mensagens estão reproduzidas em
+[Códigos de erro — Referências por patamar em restrições genéricas](/pt-br/reference/error-codes/#referencias-por-patamar-de-restricao-generica).
+
+Para qualquer referência não coberta acima, o argumento de patamar não é verificado no
+carregamento do caso: mantenha-o abaixo de `K` em todos os estágios em que a restrição está ativa. Um
+patamar igual ou superior a `K` é aceito, e o termo pode então recair em uma
+coluna fora dos patamares da própria entidade. `novomodelo validate` e `novomodelo run` param com um
+pânico de índice fora dos limites quando o patamar endereça além da última coluna do
+PL do estágio, e para um patamar igual ou superior a `K` em um termo `hydro_inflow` de uma usina
+que recebe água por um arco `travel_time_hours` a montante, diretamente ou por meio de uma usina a montante em pré-enchimento que tenha esse arco.
+
+### `hydro_inflow`
+
+Um termo `hydro_inflow` lê a afluência da usina no patamar, uma taxa em m³/s, composta
+por:
+
+- a afluência local da usina;
+- nos métodos `truncation` e `truncation_with_penalty` de
+  [`modeling.inflow_non_negativity`](/pt-br/running/configuration/#modelinginflow_non_negativity),
+  a folga de não negatividade da afluência que corrige uma afluência local negativa;
+- as vazões desviadas para ela;
+- as defluências a montante creditadas ao patamar segundo o tempo de viagem;
+- a parcela do volume de água em trânsito que se completa no estágio e chega no
+  patamar, como taxa;
+- a água das usinas a montante em
+  [pré-enchimento](/pt-br/math/system-elements#hidreletricas-ainda-nao-em-operacao-pre-enchimento)
+  que passa pela usina: a afluência local de cada uma, sua folga de truncamento nos
+  mesmos dois métodos, as vazões desviadas para ela, as defluências de suas
+  usinas a montante e seu volume em trânsito que se completa, como taxa.
+
+Não inclui o bombeamento, a folga de não negatividade da afluência no método `penalty`,
+as defluências da própria usina, a evaporação nem a retirada. Em um estágio paralelo, apenas o total
+do estágio ponderado pela duração corresponde ao balanço hídrico; a divisão entre patamares é uma convenção. Para uma usina que está em pré-enchimento no estágio, a afluência da usina entra na
+linha de balanço hídrico da usina a jusante mais próxima que não esteja em pré-enchimento; assim, o
+termo não é igual à afluência própria de nenhuma linha.
+
+Definição: [Formulação do PL — Afluência da UHE](/pt-br/math/lp-formulation#afluencia-das-usinas-hidreletricas).
+
+### `line_exchange(source_bus=, target_bus=)`
+
+Além da forma com id direto (`line_exchange(id[, block])`), apenas `line_exchange`
+aceita também uma forma com par de barramentos extremos **no lugar do** id
+posicional da linha:
+
+```
+line_exchange(source_bus=3, target_bus=7)
+```
+
+`source_bus=` e `target_bus=` podem aparecer em qualquer ordem, mas ambos são
+obrigatórios, e essa forma não aceita argumento de patamar — sempre resolve para
+`block_id: None`. O Novo Modelo resolve o par `(source_bus, target_bus)` usando um
+índice de topologia de linhas construído a partir do par `(source_bus_id,
+target_bus_id)` de cada linha declarada e de seu inverso:
+
+- Se o par corresponde ao sentido **declarado** de uma linha, a orientação do termo
+  é direta (escala `+1.0`).
+- Se o par está **invertido** em relação ao sentido declarado da linha, a
+  orientação incorpora `-1.0` à escala do termo — de modo que o autor nunca precisa
+  saber em que sentido uma dada linha foi declarada.
+
+A forma de par lê exatamente a mesma linha que a forma de id direto, com o
+sinal de orientação aplicado. Quando duas linhas conectam o mesmo par de barramentos, o
+par não identifica uma única linha, e o caso é rejeitado sempre que tiver um arquivo
+`constraints/generic_constraints.json`, mesmo que nenhuma expressão use a
+forma de par ([Erros de autoria](#erros-de-autoria)).
+
+<div style="width:min(100%,560px)">
+
+```d2
+direction: down
+
+decl: "system/lines.json\nsource_bus_id, target_bus_id" {shape: parallelogram}
+idx: "índice de topologia de linhas\n(origem,destino) e seu inverso" {shape: rectangle}
+ref: "line_exchange(source_bus=3, target_bus=7)" {shape: rectangle}
+resolve: "resolver par -> (line_id, orientação)" {shape: rectangle}
+term: "line_exchange(id)\nsinal +1 ou -1" {shape: oval}
+
+decl -> idx
+idx -> resolve
+ref -> resolve
+resolve -> term
+```
+
+</div>
+
+---
+
+## A gramática `@name`
+
+Dois papéis de autoria compartilham **um único espaço de nomes**: parâmetros escalares (declarados em
+`constraints/generic_parameters.json`) e expressões nomeadas (declaradas no
+array opcional de nível superior `expressions` do próprio arquivo de restrições e compartilhadas por
+todas as restrições). Declarar o mesmo nome em ambos é rejeitado: "name ... is
+declared as both a scalar parameter and a
+named expression; the \"@name\" namespace is shared."
+
+**Resolução.** Um `@name` é interpretado conforme aquilo como seu nome foi declarado. Um
+parâmetro escalar é uma constante, resolvida por estágio e patamar a partir de
+`generic_parameters.json`; uma expressão nomeada é uma forma linear, cujo corpo é
+substituído onde é referenciado. Qualquer um deles pode aparecer onde quer que caiba um operando,
+sob a regra de linearidade da [gramática das expressões](#gramatica-das-expressoes):
+`@p * hydro_storage(0)`, `hydro_storage(0) * @p`, `@p * @q * hydro_storage(0)`,
+`@p * (hydro_storage(0) + hydro_storage(1))`, `@p * @name` e `@name / @p` são
+todos lineares, ao passo que `@name * hydro_storage(0)` e `@name * @other` multiplicam duas
+formas lineares e são rejeitados, com uma mensagem que indica a expressão nomeada.
+Um `@name` não declarado em nenhum dos arquivos é rejeitado: `unknown name "@x": no scalar
+parameter or named expression with this name was declared`.
+
+Um parâmetro pode escalar uma expressão nomeada:
+
+```json title="constraints/generic_constraints.json" gc-check="accept"
+{
+  "expressions": [
+    { "name": "stored", "expression": "hydro_useful_volume_final(0)" }
+  ],
+  "constraints": [
+    { "id": 1, "name": "c0", "expression": "@rho_int * @stored >= 0.3 * @emax", "slack": { "enabled": false } }
+  ]
+}
+```
+
+**Corpos.** O corpo de uma expressão nomeada não aceita operador relacional e lê pelo
+menos uma variável do PL; uma fórmula apenas sobre parâmetros pertence a
+`generic_parameters.json`, como um [parâmetro `expression`](#generic_parametersjson-os-tipos-de-parametro),
+e a mensagem de rejeição informa isso. Um corpo pode ter parte constante
+(`hydro_generation(0) + 5`): a constante pertence ao lado da relação
+em que a referência está e é transferida para o limite junto com as demais constantes
+([Lado direito relacional em linha](#lado-direito-relacional-em-linha)), e uma restrição sem
+operador relacional que referencie esse corpo é rejeitada. Um corpo é verificado
+onde é declarado; assim, uma falha em seu próprio texto (uma variável desconhecida, uma
+divisão por zero) é reportada em `expressions[i].expression` mesmo quando nenhuma
+restrição o referencia.
+
+**Composição.** Uma expressão nomeada pode referenciar outra expressão nomeada;
+a composição é resolvida transitivamente, com a escala de cada referência distribuída
+por todos os termos substituídos:
+
+```json title="constraints/generic_constraints.json" gc-check="accept"
+{
+  "expressions": [
+    { "name": "base", "expression": "hydro_generation(0)" },
+    { "name": "inner", "expression": "3.0 * @base" },
+    { "name": "outer", "expression": "@inner + hydro_generation(1)" }
+  ],
+  "constraints": [
+    { "id": 1, "name": "c0", "expression": "2.0 * @outer", "slack": { "enabled": false } }
+  ]
+}
+```
+
+`2.0 * @outer` é expandido para `6.0 * hydro_generation(0) + 2.0 * hydro_generation(1)`.
+
+**Detecção de ciclos.** Um ciclo de referências entre expressões nomeadas, incluindo uma
+expressão que referencia a si mesma, é rejeitado antes da construção de qualquer restrição,
+mesmo que nenhuma restrição use essas expressões; a mensagem indica o ciclo
+(`a -> b -> a`).
+
+**Limite de expansão.** A expansão das expressões nomeadas referenciadas por uma restrição
+é recusada quando os coeficientes e a constante resultantes passariam a conter mais de
+100.000 operações aritméticas no total, um limite muito acima de qualquer restrição
+escrita manualmente. Ele captura um padrão exponencial de referências, como uma cadeia de
+duplicação `@e_k = @e_{k-1} + @e_{k-1}` sobre um termo escalado por parâmetro, antes que ela
+cresça. Coeficientes literais são combinados à medida que se juntam, de modo que a mesma cadeia sobre um
+coeficiente literal permanece um único termo. Declarar essa cadeia não é, por si só, um
+erro: o limite só se aplica onde uma restrição a expande.
+
+**Agrupamento.** Um grupo entre parênteses escalado por uma constante — um literal, um
+parâmetro ou um produto deles (`2.0 * (@fnese - hydro_generation(2))`,
+`@p * (hydro_generation(0) + 5)`) — distribui essa constante por todos os termos internos
+e pela própria constante do grupo, em qualquer profundidade até o
+[limite de aninhamento](#gramatica-das-expressoes). Dividir um grupo por uma constante divide
+cada um deles.
+
+<div style="width:min(100%,560px)">
+
+```d2
+direction: down
+
+a: "@a\n\"@b\"" {shape: rectangle}
+b: "@b\n\"@a\"" {shape: rectangle}
+a -> b
+b -> a
+
+detect: "verificação de ciclo" {shape: diamond}
+inline: "substituir termos" {shape: rectangle}
+rejected: "[SchemaViolation]\n\"a -> b -> a\"" {shape: oval}
+
+b -> detect
+detect -> inline: acíclico
+detect -> rejected: ciclo encontrado
+```
+
+</div>
+
+---
+
+## Lado direito relacional em linha
+
+Uma expressão contém no máximo um operador relacional
+([Gramática das expressões](#gramatica-das-expressoes)); para um intervalo, informe os dois extremos
+no arquivo de limites ou escreva duas restrições.
+
+- **Sem operador**: `expression` é o lado esquerdo simples, unilateral; o intervalo vem
+  inteiramente do mecanismo de base parquet / resto afim descrito acima.
+  A expressão não tem parte constante, nem própria nem de um corpo nomeado.
+- **Com um operador**: todo termo de variável à direita passa para a esquerda com
+  o sinal trocado. As partes constantes dos dois lados se combinam em um único resto
+  afim, a constante do lado direito menos a do lado esquerdo, que pode ler
+  parâmetros escalares. O operador o atribui: `<=` ao extremo superior,
+  `>=` ao inferior, `==` a ambos (um resto idêntico em cada lado).
+
+Nos dois casos, os termos de uma mesma variável, onde quer que estejam, combinam-se em um único
+coeficiente, e uma variável cujo coeficiente combinado se reduz a exatamente `0.0`
+(`0 * hydro_generation(0)` ou `hydro_generation(0) - hydro_generation(0)`) é
+descartada; ela não acrescenta coeficiente ao PL, não é listada no
+[eco resolvido](#o-eco-resolvido) e não mantém a linha por patamar
+([a grade de ativação](#a-grade-de-ativacao)). Um coeficiente que lê um
+parâmetro mantém seu termo, qualquer que seja o valor resolvido do parâmetro.
+
+Na construção da linha do PL, os termos que recaem em uma mesma coluna do PL — duas
+referências que a nomeiam de formas diferentes, como `hydro_storage(h)` e
+`hydro_storage_final(h)`, `thermal_generation(j)` e `thermal_generation(j, k)`
+na linha do patamar `k`, ou `hydro_turbined(h)` e `hydro_generation(h)` de uma usina de
+produtibilidade constante — são somados em um único coeficiente para essa coluna,
+e uma coluna cujos coeficientes somam exatamente `0.0` não recebe entrada. O
+eco resolvido continua listando cada termo.
+
+Uma expressão nomeada no lado direito é expandida no lado esquerdo combinado como
+termos de variáveis; apenas sua parte constante, se houver, entra no resto:
+
+```json title="constraints/generic_constraints.json" gc-check="accept"
+{
+  "expressions": [
+    { "name": "fnese", "expression": "hydro_generation(10) + hydro_generation(11)" }
+  ],
+  "constraints": [
+    { "id": 1, "name": "c0", "expression": "hydro_generation(0) >= @fnese", "slack": { "enabled": false } }
+  ]
+}
+```
+
+transfere os três termos `hydro_generation` para o lado esquerdo combinado e atribui um
+limite inferior com **constante zero explícita** — um lado direito composto só de variáveis ainda fornece um
+limite afim, nunca "nenhum limite".
+
+---
+
+## `generic_parameters.json`: os tipos de parâmetro
+
+A chave JSON de nível superior do arquivo é `"scalar_parameters"` (um array). A [tabela de campos](/pt-br/reference/case-format/constraints/#constraintsgeneric_parametersjson) lista
+o campo que cada tipo preenche. Cada entrada traz o campo de conteúdo do seu próprio tipo e
+nenhum outro: um campo que pertence a outro tipo (por exemplo, `values` em um
+`constant`) interrompe o carregamento.
+
+| `kind`            | Semântica do valor                                                                                                                                                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `constant`        | Um único valor para todos os estágios                                                                                                                                                                                                     |
+| `per_stage`       | Valor explícito por estágio do estudo; os `stage_id`s devem formar um intervalo contíguo a partir de `0`, um por estágio do estudo                                                                                                                         |
+| `seasonal`        | Um valor por período sazonal; os estágios herdam o valor de seu período sazonal; os `season_id`s devem ser únicos, e todo período sazonal em que cai um estágio do estudo precisa de um valor                                                                                 |
+| `computed`        | Derivado de dados geométricos/operativos da UHE na construção do PL — uma de treze tags derivadas de UHEs (ex.: `equivalent_productivity`); ver [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsgeneric_parametersjson) |
+| `per_stage_block` | Valor explícito por par `(stage_id, block_id)`; cada par é único, e todos os patamares de todos os estágios do estudo devem estar cobertos                                                                                                                |
+| `expression`      | Uma fórmula sobre outros parâmetros do arquivo, avaliada por estágio, e por patamar quando um parâmetro lido varia por patamar                                                                                                    |
+
+Para validação no editor com o arquivo incluído
+[`generic_parameters.schema.json`](/schemas/generic_parameters.schema.json), consulte
+[Esquemas JSON](/pt-br/reference/json-schemas/).
+
+`per_stage_block` é o mecanismo que torna um limite (ou coeficiente) de restrição genérica
+efetivamente variável por patamar — e, conforme
+[a grade de ativação](#a-grade-de-ativacao) acima, referenciá-lo em um
+coeficiente ou em um resto afim impede a redução a uma linha no nível do estágio.
+
+### Parâmetros `expression`
+
+O campo `expression` de um parâmetro `expression` lê outros parâmetros do mesmo
+arquivo por `@name`, declarados antes ou depois dele, com números, `+`, `-`, `*`, `/`,
+sinais unários e parênteses. Uma restrição o lê como qualquer outro parâmetro:
+
+```json title="constraints/generic_parameters.json" gc-check="accept"
+{
+  "scalar_parameters": [
+    {
+      "id": 1,
+      "name": "rho_int",
+      "kind": "computed",
+      "computed_spec": { "tag": "integrated_accumulated_productivity", "hydro_id": 0 }
+    },
+    {
+      "id": 2,
+      "name": "emax",
+      "kind": "computed",
+      "computed_spec": { "tag": "max_stored_energy", "hydro_id": 0 }
+    },
+    { "id": 3, "name": "security_floor", "kind": "expression", "expression": "0.3 * @emax" }
+  ]
+}
+```
+
+São rejeitados no carregamento do caso: uma variável do PL, uma expressão nomeada de
+`generic_constraints.json`, um `@name` desconhecido ou um operador relacional na
+fórmula; uma parte constante que divida por zero ou não seja finita; um ciclo de
+referências entre parâmetros `expression`; e uma entrada `expression` sem o campo
+`expression`. A fórmula é avaliada para cada estágio e patamar na
+preparação do estudo, e um valor não finito interrompe a preparação, indicando o
+parâmetro, o estágio e o patamar. Um parâmetro que lê um parâmetro `per_stage_block`,
+diretamente ou por meio de outro parâmetro `expression`, varia por patamar
+como ele. A verificação de pareamento da energia armazenada (regra 51, em
+[Erros de autoria](#erros-de-autoria)) acompanha um parâmetro `expression` até as
+tags computadas que ele lê.
+
+---
+
+## Folga bilateral
+
+A configuração da folga (`slack.enabled`, `slack.penalty`, `slack.penalty_basis`) é
+declarada uma vez por restrição e se aplica uniformemente a todas as linhas que a grade de
+ativação produz para ela. `slack` é obrigatório em todas as restrições. Com
+`enabled: true`, `penalty` deve ser maior que zero e `penalty_basis` deve
+ser informado ([Base de penalização](#base-de-penalizacao)); com `enabled: false`, nenhum dos dois pode
+ser definido ([Erros de autoria](#erros-de-autoria)). O número de colunas do PL que a folga
+acrescenta é uma propriedade do par de extremos resolvidos **da própria linha**, nunca um
+rótulo no nível da restrição:
+
+| Forma da linha             | Colunas de folga                          |
+| ----------------------- | ----------------------------------------- |
+| Desativada                | Zero                                      |
+| Unilateral (`floor`/`cap`) | Uma (`s⁺`)                              |
+| Bilateral (`band`/`equality`) | Duas (`s⁺` e depois `s⁻`)                |
+
+Um limite bilateral precisa de folga nos dois sentidos para relaxar qualquer um dos extremos
+de forma independente — uma única coluna não consegue representar "ficou abaixo do piso" e "ficou
+acima do teto" ao mesmo tempo.
+
+**O custo incide sobre ambas.** As duas colunas são valoradas ao mesmo custo por unidade de
+violação, definido pela [base de penalização](#base-de-penalizacao): violar qualquer um dos
+sentidos custa o mesmo, e o PL nunca pode deixar que um `+5` de um lado e um
+`-5` do outro se compensem em uma violação gratuita.
+
+**O valor reportado é o saldo.** Na saída de violações da simulação final, uma
+linha unilateral reporta o valor primal bruto (não negativo) da folga. Uma linha bilateral
+reporta, em vez disso, o **saldo com sinal** `s⁺ − s⁻` (que pode ser negativo) —
+deliberadamente diferente do custo, que sempre soma `s⁺ + s⁻`. Na
+prática, raramente as duas folgas são simultaneamente não nulas em um vértice do PL; assim, o
+saldo é o número mais legível para quem lê os resultados, enquanto a soma continua sendo a
+cobrança correta.
+
+---
+
+## Base de penalização
+
+Uma folga ativada deve declarar `penalty_basis`. Ela define o que é uma unidade de
+violação da linha e, portanto, como `penalty` se converte em custo na função objetivo:
+
+| `penalty_basis` | Custo de uma unidade de violação              | Usar para uma linha em |
+| --------------- | ------------------------------------------ | ---------------- |
+| `per_hour`      | `penalty × hours`, as horas abrangidas pela linha | MW, m³/s         |
+| `per_unit`      | `penalty`, qualquer que seja a duração do estágio       | MWh, hm³         |
+
+As horas abrangidas por uma linha são o total de horas do estágio, para uma linha no nível do estágio, e
+as horas do patamar, para uma linha por patamar. Um piso `per_hour` de 100 MW não atendido em
+10 MW em um estágio de 744 horas custa `penalty × 10 × 744`. Um piso `per_unit` de
+300 hm³ não atendido em 10 hm³ custa `penalty × 10`, tanto em uma semana quanto em um mês.
+
+`per_unit` é cobrado uma vez por linha violada. Uma linha que
+[a grade de ativação](#a-grade-de-ativacao) materializa por patamar — por
+exemplo, uma linha de armazenamento cujo limite vem de um parâmetro `per_stage_block` — é
+uma restrição por patamar, e cada linha de patamar violada é cobrada.
+
+A base é declarada, nunca inferida da expressão: um volume armazenado também pode
+ser escrito com termos de vazão, como vazões turbinada e vertida ponderadas pelas horas,
+e o significado da penalidade não deve mudar quando um termo é acrescentado ou removido.
+Escolha a base pela unidade da linha, e não pelas variáveis que ela contém.
+
+O `slack_cost` de
+[`simulation/violations/generic/`](/pt-br/reference/output/simulation/#simulationviolationsgeneric)
+valora a folga de cada linha ao mesmo custo por unidade que o PL lhe atribui.
+
+---
+
+## O eco resolvido
+
+`generic_constraints/resolved_echo.parquet` é gravado na raiz da saída
+(`<out>/generic_constraints/`) sempre que o estudo declara alguma restrição genérica; para um estudo
+sem nenhuma, o diretório `generic_constraints/` simplesmente não existe.
+
+É emitida uma linha por **termo resolvido do lado esquerdo** em cada célula ativa `(constraint, stage,
+block)`, na ordem canônica `(constraint, stage, block, term)` — invariante à ordem de
+declaração, de modo que o mesmo caso sempre ecoa as mesmas linhas na mesma ordem. Uma
+restrição sem termos (apenas constante) contribui com uma única linha de marcação
+cujas colunas por termo são todas nulas.
+
+| Nome              | Tipo    | Admite nulo | Unidade | Descrição                                                                                                                           |
+| ----------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `stage_id`        | Int32   | Não       | —     | Id do estágio do estudo                                                                                                                        |
+| `block_id`        | Int32   | Sim      | —     | Nulo em uma linha reduzida ao nível do estágio                                                                                                   |
+| `constraint_id`   | Int32   | Não       | —     | Id da restrição genérica                                                                                                                 |
+| `constraint_name` | Utf8    | Não       | —     | Nome da restrição genérica                                                                                                               |
+| `term_index`      | Int32   | Sim      | —     | Posição no lado esquerdo resolvido; nulo na linha de marcação sem termos                                                                   |
+| `variable_kind`   | Utf8    | Sim      | —     | Nome da variável (ex.: `"thermal_generation"`); nulo na linha de marcação                                                                  |
+| `variable`        | Utf8    | Sim      | —     | Rótulo renderizado da variável (ex.: `"thermal_generation(id=3, block=all)"`); nulo na linha de marcação                                       |
+| `coefficient`     | Float64 | Sim      | —     | Coeficiente numérico totalmente resolvido (`resolve(coefficient, stage, block) * scale`); nulo na linha de marcação                            |
+| `bound_lower`     | Float64 | Sim      | —     | Extremo inferior do intervalo após a combinação — incluindo o deslocamento `coef × min_storage_hm3` de cada termo de volume útil; nulo quando ilimitado inferiormente |
+| `bound_upper`     | Float64 | Sim      | —     | Extremo superior do intervalo após a combinação — incluindo o deslocamento `coef × min_storage_hm3` de cada termo de volume útil; nulo quando ilimitado superiormente |
+| `derived_shape`   | Utf8    | Não       | —     | O mesmo rótulo `floor`/`cap`/`band`/`equality` descrito acima — nunca um sentido declarado pelo autor                                                     |
+| `slack_enabled`   | Boolean | Não       | —     | Se a restrição tem termo de folga                                                                                           |
+| `slack_penalty`   | Float64 | Sim      | —     | Penalidade da folga, cobrada conforme indica `slack_penalty_basis`; nulo quando a folga está desativada                                                   |
+| `slack_penalty_basis` | Utf8 | Sim     | —     | `per_hour` ou `per_unit` ([Base de penalização](#base-de-penalizacao)); nulo quando a folga está desativada                                               |
+
+O eco é o lugar onde se observa um limite combinado: o arquivo de entrada
+`constraints/generic_constraint_bounds.parquet` mostra o valor antes da combinação. Por
+exemplo, um piso `hydro_useful_volume_final(0) >= 20` em uma usina cujo
+`reservoir.min_storage_hm3` é `100` ecoa `bound_lower = 120.0`
+(`20 + 1 × 100`) com `variable = "hydro_useful_volume_final(id=0, block=all)"`.
+
+Esta é a forma totalmente **desdobrada**: toda referência a expressão nomeada
+já está expandida em termos simples, todo lado direito relacional em linha já foi
+normalizado no par `bound_lower`/`bound_upper` e todo coeficiente ou limite `@name`
+já foi resolvido para seu valor numérico naquele
+`(stage, block)`. É a lista de termos a partir da qual a linha do PL é construída: cada
+`coefficient` é o do próprio termo, antes de o PL mapear o termo em suas colunas
+(um termo `hydro_generation` de uma usina de produtibilidade constante recai em suas
+colunas de turbinamento multiplicado pela produtibilidade) e somar os termos que recaem em uma mesma
+coluna ([Lado direito relacional em linha](#lado-direito-relacional-em-linha)). O eco também lista
+os termos que não acrescentam coeficiente (ver a observação no
+[catálogo de variáveis](#catalogo-de-variaveis)) e um termo com patamar fora do intervalo
+([referências de patamar](#referencias-de-patamar-em-hydro_evaporation)). É a ferramenta para
+auditar uma expressão escrita pelo autor em relação ao PL efetivamente construído.
+
+---
+
+## Exemplo resolvido: uma curva de segurança
+
+Uma curva de segurança mantém a energia armazenada ao final do estágio da usina `h` acima de uma fração
+`p` do seu máximo, expressa em termos de energia com a produtibilidade média na
+faixa útil de
+[Modelos de função de produção hidrelétrica §4.3](/pt-br/math/hydro-production-models#43-produtibilidade-media-na-faixa-util):
+`@rho_int * hydro_useful_volume_final(h) >= p * @emax`.
+
+`constraints/generic_parameters.json` declara os dois parâmetros computados para a
+UHE `0`:
+
+```json title="constraints/generic_parameters.json" gc-check="accept"
+{
+  "scalar_parameters": [
+    {
+      "id": 1,
+      "name": "rho_int",
+      "kind": "computed",
+      "computed_spec": { "tag": "integrated_accumulated_productivity", "hydro_id": 0 }
+    },
+    {
+      "id": 2,
+      "name": "emax",
+      "kind": "computed",
+      "computed_spec": { "tag": "max_stored_energy", "hydro_id": 0 }
+    }
+  ]
+}
+```
+
+`constraints/generic_constraints.json` define a curva para `p = 0.3`:
+
+```json title="constraints/generic_constraints.json" gc-check="accept"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "security_curve_h0",
+      "expression": "@rho_int * hydro_useful_volume_final(0) >= 0.3 * @emax",
+      "slack": { "enabled": true, "penalty": 5000.0, "penalty_basis": "per_unit" }
+    }
+  ]
+}
+```
+
+O lado direito em linha contém todo o limite, mas a restrição ainda precisa de
+**linhas de ativação** em `constraints/generic_constraint_bounds.parquet` — uma
+linha por estágio ativo, com os dois limites nulos; sem elas, a restrição
+nunca é construída ([a grade de ativação](#a-grade-de-ativacao)):
+
+| constraint_id | stage_id | block_id | bound_lower | bound_upper |
+| ------------- | -------- | -------- | ----------- | ----------- |
+| 1             | 0        | null     | null        | null        |
+| 1             | 1        | null     | null        | null        |
+| …             | …        | …        | …           | …           |
+
+**Por que os termos se cancelam.** `integrated_accumulated_productivity` e
+`max_stored_energy` são avaliados pelo mesmo avaliador de média na faixa útil e
+na mesma unidade bruta; assim, `@emax` é exatamente `@rho_int` vezes o volume
+útil; `hydro_useful_volume_final` lê o armazenamento acima do mínimo físico,
+a mesma faixa abrangida por `@emax`. Combinar `max_stored_energy` com outra
+tag de produtibilidade da mesma unidade, como a `accumulated_productivity`
+no ponto de referência ou a `integrated_equivalent_productivity`, restrita à própria usina,
+não produz o cancelamento e gera um aviso
+[`SemanticAmbiguity`](/pt-br/reference/error-codes/#semanticambiguity).
+
+A linha é uma quantidade, uma energia armazenada; por isso, sua folga é valorada `per_unit`: a
+penalidade é um preço por unidade de energia armazenada não atendida em cada estágio, qualquer que seja
+sua duração.
+
+{/* capture: novomodelo run case --output out --quiet | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (ticket-179 overlay + the security-curve fences; constraints/generic_constraint_bounds.parquet rows for constraint 1, stages 0-3, both bounds null; config.json training stopped at 3 iterations, simulation disabled; run with NO_COLOR=1, exit code 0) */}
+
+**O que o eco mostra.** Em uma usina com `reservoir.min_storage_hm3 = 100`,
+`reservoir.max_storage_hm3 = 1000`, `specific_productivity_mw_per_m3s_per_m = 0.0088`
+e uma tabela de geometria volume-cota-área com três linhas (100, 500 e 1000 hm³),
+a linha do [eco resolvido](#o-eco-resolvido) do estágio 0 mostra `coefficient = 2.8136`,
+`bound_lower = 1041.02` e
+`variable = "hydro_useful_volume_final(id=0, block=all)"`: o lado direito
+`0.3 × 2532.2` (`0.3 × @emax`, em que `@emax = 2.8136 × (1000 − 100)`) mais a
+incorporação do volume útil `2.8136 × 100` (`@rho_int × min_storage_hm3`).
+
+Escrever manualmente a mesma curva sobre `hydro_storage_final(h)`, com a energia do volume
+morto `@rho_int × min_storage_hm3` previamente incorporada ao limite (na mesma usina,
+`bound_lower = 1041.02` sobre `@rho_int * hydro_storage_final(0)`), é equivalente.
+
+**A mesma curva em MWh.** `max_stored_energy` e as tags de produtibilidade estão na
+unidade bruta MW/(m³/s)·hm³. Suas formas em MWh, `max_stored_energy_mwh` e
+`integrated_accumulated_productivity_mwh_per_hm3`, são os valores brutos multiplicados por
+10⁶/3600; assim, a curva expressa suas quantidades em MWh sem duração do estágio em
+nenhum dos lados, e uma penalidade `per_unit` é um preço por MWh:
+
+```json title="constraints/generic_parameters.json" gc-check="accept"
+{
+  "scalar_parameters": [
+    {
+      "id": 1,
+      "name": "rho_int_mwh",
+      "kind": "computed",
+      "computed_spec": { "tag": "integrated_accumulated_productivity_mwh_per_hm3", "hydro_id": 0 }
+    },
+    {
+      "id": 2,
+      "name": "emax_mwh",
+      "kind": "computed",
+      "computed_spec": { "tag": "max_stored_energy_mwh", "hydro_id": 0 }
+    }
+  ]
+}
+```
+
+com a expressão `@rho_int_mwh * hydro_useful_volume_final(0) >= 0.3 * @emax_mwh`.
+Use uma única família em toda a restrição: uma restrição que misture tags em unidade bruta e
+em MWh, entre as tags de energia armazenada e de produtibilidade, gera o mesmo aviso.
+
+---
+
+## Erros de autoria
+
+Os modos de falha abaixo são os que o autor tem mais probabilidade de encontrar ao
+escrever nesta gramática; consulte [Códigos de erro](/pt-br/reference/error-codes/) para o
+catálogo completo e as soluções — que não são repetidos aqui. A coluna Tipo
+indica o tipo de cada falha; em uma linha de erro, `novomodelo validate` o imprime entre
+colchetes, como em `error: [SchemaViolation] …`.
+
+| Situação                                                                    | Tipo                         |
+| ------------------------------------------------------------------------------ | ------------------------------- |
+| Um nome de variável desconhecido, incluindo um nome do catálogo escrito com outra grafia de maiúsculas/minúsculas (`Hydro_generation(0)`) | [`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation) |
+| Um `@name` declarado nem como parâmetro escalar nem como expressão nomeada, o produto de dois termos de variáveis do PL ou a divisão por um deles, uma constante formada por números que divida por zero ou não seja finita, aninhamento com mais de 256 níveis ou qualquer construção listada em [Não suportado](#nao-suportado) | [`SchemaViolation`](/pt-br/reference/error-codes/#expressao-de-restricao-generica-rejeitada) |
+| Um corpo de expressão nomeada com operador relacional, ou que não leia nenhuma variável do PL | [`SchemaViolation`](/pt-br/reference/error-codes/#expressao-de-restricao-generica-rejeitada) |
+| `bus=` em uma variável diferente de `hydro_turbined` e `hydro_generation`, um argumento de patamar em `hydro_storage`, `hydro_withdrawal` ou `anticipated_decision`, ou um segundo argumento posicional de patamar (`hydro_turbined(5, 0, 1)`) | [`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation) |
+| Um `id` de restrição duplicado, ou um `id` ou `name` de parâmetro duplicado | [`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation) |
+| Um nome declarado tanto como parâmetro escalar quanto como expressão nomeada | [`SchemaViolation`](/pt-br/reference/error-codes/#colisao-de-namespace-entre-um-parametro-escalar-e-uma-expressao-nomeada) |
+| Um ciclo de referências entre expressões nomeadas, incluindo autorreferência | [`SchemaViolation`](/pt-br/reference/error-codes/#ciclo-de-referencias-entre-expressoes-nomeadas) |
+| Uma chave que a entrada da restrição não declara (por exemplo, `sense`) | [`ParseError`](/pt-br/reference/error-codes/#campo-desconhecido-em-uma-entrada-de-restricao-generica) |
+| Uma entrada de restrição sem o objeto `slack` | [`ParseError`](/pt-br/reference/error-codes/#parseerror) |
+| `slack.enabled: true` sem `penalty`, com `penalty` igual ou menor que zero ou sem `penalty_basis`; ou `slack.enabled: false` com `penalty` ou `penalty_basis` definidos | [`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation) |
+| Um `penalty_basis` diferente de `per_hour` ou `per_unit` | [`ParseError`](/pt-br/reference/error-codes/#parseerror) |
+| Uma entrada de parâmetro com um campo de conteúdo de outro tipo (`values` em um `constant`), ou sem o seu próprio | [`SchemaViolation`](/pt-br/reference/error-codes/#entrada-de-parametro-escalar-rejeitada) |
+| Um parâmetro `expression` cuja fórmula lê uma variável do PL, uma expressão nomeada ou um nome desconhecido, contém um operador relacional ou divide por zero; ou um ciclo de referências entre parâmetros `expression` | [`SchemaViolation`](/pt-br/reference/error-codes/#entrada-de-parametro-escalar-rejeitada) |
+| Um coeficiente, limite ou parâmetro `expression` que resolve para um valor não finito em algum estágio e patamar | [`GenericConstraintValidationError`](/pt-br/reference/error-codes/#genericconstraintvalidationerror) |
+| Um termo que indica um id de entidade não declarado no caso (`hydro_generation(7)` sem UHE `7`) | [`InvalidReference`](/pt-br/reference/error-codes/#invalidreference) |
+| `bus=` indicando um barramento no qual a usina não tem grupo de unidades geradoras | [`InvalidReference`](/pt-br/reference/error-codes/#invalidreference) |
+| `anticipated_decision(N)` em que a UTE `N` não tem `anticipated_config` | [`BusinessRuleViolation`](/pt-br/reference/error-codes/#businessruleviolation) |
+| `line_exchange(source_bus=, target_bus=)` indicando dois barramentos que nenhuma linha conecta | [`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation) |
+| Duas linhas conectando o mesmo par de barramentos, em qualquer sentido, em um caso que tem `constraints/generic_constraints.json`, independentemente de alguma expressão usar a forma de par de barramentos | [`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation) |
+| A restrição declara uma referência de limite, mas não tem linhas de ativação             | [`InvalidReference`](/pt-br/reference/error-codes/#invalidreference) |
+| Uma linha de limites sem nenhum dos extremos e sem resto afim que preencha algum      | [`InvalidValue`](/pt-br/reference/error-codes/#invalidvalue) |
+| Intervalo invertido (`bound_upper < bound_lower`, ambos estaticamente resolvíveis)  | [`InvalidValue`](/pt-br/reference/error-codes/#invalidvalue) |
+| Uma linha de limites cujo `block_id` não é um patamar do seu estágio | [`BusinessRuleViolation`](/pt-br/reference/error-codes/#businessruleviolation) |
+| Uma referência de evaporação ou de armazenamento indicando um patamar que o estágio não tem ([referências de patamar](#referencias-de-patamar-em-hydro_evaporation)) | [`BusinessRuleViolation`](/pt-br/reference/error-codes/#referencias-por-patamar-de-restricao-generica) |
+| A mesma coluna de limite (`bound_lower` ou `bound_upper`) definida duas vezes para um mesmo `(constraint_id, stage_id, block_id)` — uma linha `bound_lower` e uma linha `bound_upper` para a mesma tripla são chaves distintas e válidas | [`DuplicateId`](/pt-br/reference/error-codes/#duplicateid) |
+| Um termo `contract_import` ou `contract_export` que não indica nenhum contrato declarado | [`UnusedEntity`](/pt-br/reference/error-codes/#unusedentity) — aviso; o caso continua válido |
+| Uma tag `max_stored_energy(h)` ou `max_stored_energy_mwh(h)` junto a uma tag de produtibilidade da mesma unidade, para a mesma UHE, diferente da sua correspondente (`integrated_accumulated_productivity`, ou `integrated_accumulated_productivity_mwh_per_hm3` para a tag em MWh), ou tags em unidade bruta e em MWh, entre as tags de energia armazenada e de produtibilidade, em uma mesma restrição, lidas diretamente ou por meio de parâmetros `expression` | [`SemanticAmbiguity`](/pt-br/reference/error-codes/#semanticambiguity) — aviso; o caso continua válido |
+
+---
+
+## Ver também
+
+- [Formulação do PL §10](/pt-br/math/lp-formulation#10-restricoes-genericas) — a formulação
+  matemática em que essas restrições se desdobram.
+- [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsgeneric_constraintsjson) — tabelas de campos
+  dos três arquivos de entrada.
+- [Códigos de erro](/pt-br/reference/error-codes/) — o catálogo completo de `LoadError`/`ErrorKind`.
+- [Esquemas JSON](/pt-br/reference/json-schemas/) —
+  [`generic_constraints.schema.json`](/schemas/generic_constraints.schema.json) e
+  [`generic_parameters.schema.json`](/schemas/generic_parameters.schema.json), incluídos no projeto para integração com editores.

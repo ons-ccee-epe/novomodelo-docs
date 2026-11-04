@@ -1,0 +1,278 @@
+O arquivo `penalties.json` do Novo Modelo fornece os valores padrão de penalidade válidos
+para todo o caso, que a metodologia acima incorpora à função objetivo. As
+sobrescritas no nível da entidade e do estágio se sobrepõem a esses padrões
+por meio da cascata de resolução descrita em [§1 Resolução em cascata](#1-resolucao-em-cascata) e
+[§3 Padrões e sobrescritas de penalidades](#3-valores-padrao-e-sobreposicoes-das-penalidades). Esta
+aba trata de como os padrões são fornecidos, de como as sobrescritas são
+resolvidas e das verificações que o Novo Modelo executa sobre os custos
+configurados; a ordenação de prioridade das penalidades em si está em
+[Ordenação de prioridade das penalidades](#ordem-de-prioridade-das-penalidades) acima.
+
+### `penalties.json` — Padrões globais de penalidade
+
+[Arquivos de penalidades](/pt-br/reference/case-format/penalties/#penaltiesjson) contém
+a tabela de campos de `penalties.json` (todos os campos, seus tipos e as regras de carga).
+O exemplo abaixo define apenas os custos obrigatórios; os opcionais (os quatro
+custos direcionais e `inflow_nonnegativity_cost`) foram omitidos.
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/penalties.schema.json",
+  "bus": {
+    "deficit_segments": [
+      { "depth_mw": 500.0, "cost": 7000.0 },
+      { "depth_mw": null, "cost": 7500.0 }
+    ],
+    "excess_cost": 100.0
+  },
+  "line": { "exchange_cost": 2.0 },
+  "hydro": {
+    "spillage_cost": 0.01,
+    "turbined_cost": 0.05,
+    "diversion_cost": 0.1,
+    "storage_violation_below_cost": 10000.0,
+    "filling_target_violation_cost": 6000.0,
+    "turbined_violation_below_cost": 500.0,
+    "outflow_violation_below_cost": 500.0,
+    "outflow_violation_above_cost": 500.0,
+    "generation_violation_below_cost": 1000.0,
+    "evaporation_violation_cost": 5000.0,
+    "water_withdrawal_violation_cost": 1000.0
+  },
+  "non_controllable_source": { "curtailment_cost": 0.005 }
+}
+```
+
+Os custos de barramento (`deficit_segments[].cost`, `excess_cost`), de linha
+(`exchange_cost`) e de fonte não despachável (`curtailment_cost`) são
+expressos em R\$ por MWh. Os custos de usinas hidrelétricas são expressos em
+R\$ por hm³ para `storage_violation_below_cost` e
+`filling_target_violation_cost`, em R\$ por MWh para
+`generation_violation_below_cost`, e em R\$ por (m³/s)·h para todos os demais
+custos hidráulicos.
+
+Um estágio paralelo precifica seu único par de folgas de evaporação ao longo
+das horas do estágio, e um estágio cronológico precifica o par de cada
+patamar ao longo das horas do patamar
+([Evaporação líquida com sinal](#evaporacao-liquida-com-sinal)).
+
+O custo da folga de uma restrição genérica não é um padrão de `penalties.json`:
+cada restrição em `constraints/generic_constraints.json` define seu próprio
+`slack.penalty` juntamente com um `slack.penalty_basis`. Com `"per_hour"`, a
+penalidade é expressa em R\$ por unidade da restrição por hora e é cobrada ao
+longo das horas do patamar ou do estágio da restrição; com `"per_unit"`, é
+expressa em R\$ por unidade da restrição e é cobrada uma única vez.
+[Restrições genéricas — Base de penalização](/pt-br/reference/generic-constraints/#base-de-penalizacao)
+indica a escolha adequada para cada unidade.
+
+O bloco `hydros[].penalties`, no nível da entidade, que sobrescreve esses
+padrões por usina está documentado na aba Configurar da
+[Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements#implementacao-no-novo-modelo);
+o mecanismo de valor substituto dos custos direcionais está descrito em
+[Custos direcionais de evaporação e de retirada](#custos-direcionais-de-evaporacao-e-de-retirada).
+
+### `deficit_segments` do barramento — Resolução em dois níveis
+
+O déficit é precificado por uma curva de custo linear por partes, e não por
+um valor único constante. Cada segmento é um par `{ depth_mw, cost }`; os
+segmentos são cumulativos — os primeiros `depth_mw` MW de demanda não
+atendida custam o `cost` do primeiro segmento, os `depth_mw` MW seguintes
+custam o `cost` do segundo segmento, e assim por diante:
+
+```json
+"deficit_segments": [
+  { "depth_mw": 500.0, "cost": 1000.0 },
+  { "depth_mw": null, "cost": 5000.0 }
+]
+```
+
+O último segmento é ilimitado, de modo que o PL é sempre viável, qualquer que
+seja o déficit. As regras dos campos (lista não vazia, custos positivos e
+estritamente crescentes e último `depth_mw` igual a `null`) estão em
+[`penalties.json`](/pt-br/reference/case-format/penalties/#penaltiesjson) e
+[`system/buses.json`](/pt-br/reference/case-format/system/#systembusesjson).
+
+`deficit_segments` é resolvido a partir de exatamente duas fontes e **não**
+admite sobrescritas por estágio:
+
+1. **Sobrescrita no nível do barramento** — o array `deficit_segments` no
+   objeto do barramento em `system/buses.json`.
+2. **Padrão global** — o array `bus.deficit_segments` em `penalties.json`.
+
+`excess_cost` é resolvido por um par diferente de níveis: não há sobrescrita
+de `excess_cost` por barramento, mas o padrão global pode ser refinado por
+estágio por meio de `constraints/penalty_overrides_bus.parquet` (veja a aba
+Entradas e saídas).
+
+### Sobrescritas de linhas e de fontes não despacháveis
+
+`exchange_cost` (linha) e `curtailment_cost` (fonte não despachável) recorrem,
+cada um, ao respectivo padrão global de `penalties.json` quando nenhuma
+sobrescrita se aplica em um nível mais específico:
+
+| Campo | Sobrescrita no nível da entidade | Sobrescrita no nível do estágio |
+| --- | --- | --- |
+| `line.exchange_cost` | `lines[].exchange_cost` em `system/lines.json` | `constraints/penalty_overrides_line.parquet` |
+| `non_controllable_source.curtailment_cost` | `non_controllable_sources[].curtailment_cost` em `system/non_controllable_sources.json` | `constraints/penalty_overrides_ncs.parquet` |
+
+O `exchange_cost` global se aplica a toda linha sem sobrescrita, nos dois
+sentidos de fluxo.
+
+### Visão consolidada da cascata de resolução
+
+A tabela abaixo consolida os níveis admitidos por cada campo de penalidade —
+os níveis diferem de campo para campo, de modo que esta é uma tabela de
+consulta, e não uma regra única e uniforme:
+
+| Campo de penalidade | Sobrescrita no nível do estágio | Sobrescrita no nível da entidade | Padrão global |
+| --- | --- | --- | --- |
+| `bus.deficit_segments` | não admitida | `buses[].deficit_segments` | `penalties.json` → `bus.deficit_segments` |
+| `bus.excess_cost` | `penalty_overrides_bus.parquet` | não admitida | `penalties.json` → `bus.excess_cost` |
+| `line.exchange_cost` | `penalty_overrides_line.parquet` | `lines[].exchange_cost` | `penalties.json` → `line.exchange_cost` |
+| `hydro.*` | `penalty_overrides_hydro.parquet` | `hydros[].penalties` — veja a aba Configurar da [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements#implementacao-no-novo-modelo) | `penalties.json` → `hydro.*` |
+| `non_controllable_source.curtailment_cost` | `penalty_overrides_ncs.parquet` | `non_controllable_sources[].curtailment_cost` | `penalties.json` → `non_controllable_source.curtailment_cost` |
+
+#### Exemplo de resolução
+
+Considere `spillage_cost` com padrão global de 0,01, sobrescrita de entidade
+de 0,005 na Usina 0 e sobrescrita de estágio de 0,02 na Usina 0 no estágio
+60. Prevalece o valor mais específico existente:
+
+| Consulta | Sobrescrita de estágio? | Sobrescrita de entidade? | Resultado |
+| --- | --- | --- | --- |
+| Usina 0, estágio 30, vertimento | Não | Sim (0.005) | 0.005 (entidade) |
+| Usina 0, estágio 60, vertimento | Sim (0.02) | Sim (0.005) | 0.02 (estágio) |
+| Usina 1, estágio 30, vertimento | Não | Não | 0.01 (padrão global) |
+
+### Custos direcionais de evaporação e de retirada
+
+O PL precifica as folgas de evaporação e de retirada de água com quatro custos
+direcionais: `evaporation_violation_pos_cost` acima da meta,
+`evaporation_violation_neg_cost` abaixo dela,
+`water_withdrawal_violation_pos_cost` para retirada acima do previsto e
+`water_withdrawal_violation_neg_cost` para retirada abaixo do previsto. Os
+custos simétricos `evaporation_violation_cost` e
+`water_withdrawal_violation_cost` apenas fornecem os padrões desses custos;
+nenhuma folga é precificada por um custo simétrico.
+
+- Em `penalties.json`, um custo direcional ausente assume o custo simétrico
+  desse mesmo arquivo.
+- Uma usina sem bloco `penalties` assume todos os valores de `penalties.json`,
+  inclusive os custos direcionais.
+- O bloco `penalties` de uma usina não tem chaves direcionais. Com o bloco
+  presente, cada custo direcional assume o custo simétrico correspondente do
+  bloco, quando o bloco o define; caso contrário, assume o custo direcional de
+  `penalties.json`. Assim, um custo direcional de `penalties.json` alcança toda
+  usina cujo bloco não define a chave simétrica correspondente.
+- A coluna direcional de uma linha de `penalty_overrides_hydro.parquet` define
+  aquele sentido no respectivo estágio; sua coluna simétrica define o valor
+  simétrico do estágio e cada sentido correspondente que a linha deixa sem valor.
+
+### Limites das variáveis hidráulicas
+
+| Variável | Limite inferior | Limite superior | Folga inferior | Folga superior |
+| --- | --- | --- | --- | --- |
+| `storage` | `min_storage_hm3`; `0` para uma usina em enchimento em todas as fases e para uma usina fora de sua janela de operação | `max_storage_hm3`; enquanto a usina está em pré-enchimento (PreFilling), nunca abaixo de seu próprio `reservoir.max_storage_hm3` | Rígida (flexível para uma usina em enchimento depois que entra em operação) | Vertimento |
+| `turbined_flow` | `0`; o mínimo `min_turbined_m3s`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_turbined_m3s` próprio da usina excede essa soma | `max_turbined_m3s`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
+| `spillage` | `min_spillage_m3s` (padrão `0`) | `max_spillage_m3s` (padrão: ilimitado) | Rígida | Rígida |
+| `outflow` | `min_outflow_m3s` | `max_outflow_m3s` (opcional) | Com penalidade, quando esse mínimo é `> 0` | Com penalidade, quando esse máximo é definido |
+| `generation` | `0`; o mínimo `min_generation_mw`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_generation_mw` próprio da usina excede essa soma | `max_generation_mw`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
+| `evaporation` | menos o limite por estágio de [Evaporação líquida com sinal](#evaporacao-liquida-com-sinal) | mais esse limite | Com penalidade | Com penalidade |
+| `withdrawal` (nível do estágio) | `water_withdrawal_m3s` | `water_withdrawal_m3s` | Com penalidade | Com penalidade |
+
+Os limites de vertimento vêm de `constraints/hydro_bounds.parquet`; o
+vertimento de uma usina em pré-enchimento é fixado em `0`.
+
+:::note[Limites de geração]
+O usuário define explicitamente `min_generation_mw` e `max_generation_mw`.
+Esses valores não são derivados dos limites de vazão turbinada, pois a função
+de produção nem sempre tem produtibilidade constante. Quando um modelo completo
+da usina está disponível, a potência instalada fornece um limite superior
+rígido natural. Um mínimo positivo da célula é imposto por uma restrição
+flexível cuja folga é precificada a `generation_violation_below_cost`; um
+mínimo nulo da célula mantém essa folga fixada em `0`. Uma restrição de mínimo
+do total da usina precifica sua própria folga ao mesmo custo, e um déficit é
+cobrado uma única vez.
+:::
+
+Relação: `outflow = turbined_flow + spillage`,
+`generation = f(turbined_flow, storage)` (depende do modelo de produção)
+
+### Verificações de penalidades na carga
+
+O Novo Modelo verifica os custos configurados quando o caso é carregado. As
+verificações leem os custos de cada usina no nível da entidade: os padrões de
+`penalties.json` com o bloco `penalties` da usina aplicado. As sobrescritas
+por estágio não são verificadas. O lado do déficit da primeira comparação é o
+maior custo de segmento de déficit entre todos os barramentos, ou 0 quando o
+caso não tem barramentos. As comparações usam os valores configurados tal como
+foram informados, sem convertê-los em energia; portanto, um caso que passa
+nessas verificações ainda pode inverter a ordenação em equivalente energético
+da metodologia acima.
+
+Cada verificação emite no máximo um aviso, um aviso `ModelQuality` sobre
+`penalties.json` que não interrompe a execução. O aviso informa a quantidade
+de usinas afetadas e a usina de pior caso.
+
+| Verificação | Avisa quando | Usinas reportadas |
+| --- | --- | --- |
+| Déficit acima da violação de geração | o `generation_violation_below_cost` de uma usina é maior ou igual ao maior custo de déficit | todas as usinas que atendem à condição; o pior caso tem o maior custo de violação de geração |
+| Violações de vazão acima dos custos de recurso | o menor custo de violação de vazão de uma usina é menor ou igual ao maior custo de recurso entre todas as usinas | todas as usinas que atendem à condição; o pior caso tem o menor custo de violação de vazão |
+| Custos de recurso positivos | o menor custo de recurso de uma usina é menor ou igual a 0 | todas as usinas que atendem à condição; o pior caso tem o menor desses custos |
+
+Os custos de violação de vazão de uma usina são `turbined_violation_below_cost`,
+`outflow_violation_below_cost`, `outflow_violation_above_cost` e os quatro
+custos direcionais de evaporação e de retirada. "Custos de recurso" designa os
+custos `spillage_cost` e `diversion_cost` da usina. Cada verificação compara
+apenas custos de mesma unidade. Essas três verificações não leem nenhum custo
+de térmica, de contrato, de excesso, de intercâmbio ou de corte de geração, nem
+`turbined_cost` ou `inflow_nonnegativity_cost`.
+
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:57-62, 101-107, 131-137 at novomodelo v0.20.0 */}
+
+O texto de cada aviso é fixo, exceto pelos números e ids de usinas, aqui
+representados por `{…}`, e começa com `Penalty ordering violation:`:
+
+- Déficit acima da violação de geração:
+  `Penalty ordering violation: max(deficit_segment_costs) ({…}) should be > generation_violation_below_cost ({…}) (both $/MWh) -- {…} hydro(s) affected, worst case: Hydro {…}`
+- Violações de vazão acima dos custos de recurso:
+  `Penalty ordering violation: min(flow_violation_costs) ({…}) should be > max(resource_costs) ({…}) (both $/(m³/s·h)) -- {…} hydro(s) affected, worst case: Hydro {…}`
+- Custos de recurso positivos:
+  `Penalty ordering violation: min(resource_costs) ({…}) should be > 0 (regularization costs must be positive to prevent LP degeneracy) -- {…} hydro(s) affected, worst case: Hydro {…}`
+
+Para eliminar um aviso, altere os custos em `penalties.json` ou no bloco
+`penalties` da usina até que a comparação da mensagem seja satisfeita: para
+`should be >`, aumente o custo à esquerda ou reduza o da direita. O aviso
+menciona `penalties.json` mesmo quando o custo é fornecido pelo bloco
+`penalties` de uma usina, e o `Hydro {…}` nele é o `id` numérico da usina.
+
+Duas regras rejeitam o caso com um erro `BusinessRuleViolation` (veja
+[Códigos de erro — `BusinessRuleViolation`](/pt-br/reference/error-codes/#businessruleviolation)):
+
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:164-167, 1138-1144 at novomodelo v0.20.0 */}
+
+- **Custo de turbinamento negativo em uma usina com FPHA.** Uma usina cujo
+  `generation.model` é `fpha` e cujo `turbined_cost` é negativo é rejeitada em
+  `penalties.json`; zero é aceito. A mensagem é
+  `Hydro {…}: turbined_cost ({…}) must be non-negative (>= 0) for FPHA hydros; negative values distort LP dispatch`.
+  Para corrigir, defina `turbined_cost` como 0 ou mais em `penalties.json` ou
+  no bloco `penalties` da usina.
+- **Cronograma de enchimento que não alcança o volume morto (verificação de
+  suficiência do enchimento).** Para cada usina com bloco `filling` e
+  `entry_stage_id`, a soma, sobre os estágios de `start_stage_id` até
+  `entry_stage_id` (exclusive), do total de horas do estágio multiplicado por
+  3600 / 1.000.000 e pela taxa mínima de acumulação do estágio deve alcançar
+  `min_storage_hm3` menos o armazenamento inicial (semente). A taxa é o
+  `filling_min_rate_m3s` da linha de `hydro_bounds` do estágio, quando houver,
+  ou, caso contrário, o `filling_min_rate_m3s` da usina; a semente é a entrada
+  `filling_storage` da usina em `initial_conditions.json`, ou 0 quando não
+  houver. O caso é rejeitado em `system/hydros.json` quando a soma fica abaixo
+  do necessário por mais que uma tolerância relativa de `1e-9`, aplicada ao maior entre |`min_storage_hm3` − semente| e 1 hm³. A mensagem é
+  `Hydro {…}: filling schedule is insufficient to reach the dead volume before stage {…}; cumulative minimum-rate capacity over stages [{…}, {…}) is {…} hm3 but {…} hm3 (min_storage {…} - seed {…}) is required`.
+  Para corrigir, aumente o `filling_min_rate_m3s` da usina (ou a taxa de
+  `hydro_bounds` de um estágio), inicie o enchimento em um estágio anterior,
+  adie o `entry_stage_id` ou declare uma semente `filling_storage` maior em
+  `initial_conditions.json`.
+
+Recomenda-se definir `turbined_cost` acima de `spillage_cost` para todas as
+usinas; essa condição não é verificada.

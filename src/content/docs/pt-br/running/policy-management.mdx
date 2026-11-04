@@ -1,0 +1,1258 @@
+---
+title: "Gerenciamento da política"
+description: Checkpoints da política, modos de partida a quente e de retomada, o contrato de carga da política e cortes de fronteira entre estudos.
+---
+
+O Novo Modelo armazena a função de custo futuro treinada (cortes) e as bases do PL de cada
+cenário da simulação forward em um _diretório da política_, junto com os estados visitados
+em que os cortes foram calculados, quando a seleção `level1` ou
+[`exports.states`](/pt-br/running/configuration/#exports) os armazena. A seção `policy`
+de `config.json` controla onde fica esse diretório e se o
+treinamento (training) começa do zero ou de um checkpoint anterior.
+
+---
+
+## Modos da política
+
+O campo `policy.mode` seleciona uma de três estratégias de inicialização. O
+padrão é `"fresh"`.
+
+`policy.path` (padrão `./policy`) é resolvido em relação ao diretório de saída da execução,
+`<case>/output`, a menos que `novomodelo run --output` indique outro (um caminho absoluto é
+usado como está), de modo que o checkpoint padrão é `<case>/output/policy`. O treinamento o grava
+ali; a partida a quente (warm-start), a retomada e a execução somente de simulação o leem ali.
+[`policy.boundary.path`](#cortes-de-fronteira) é diferente: é resolvido em relação ao diretório
+do caso.
+
+### Do zero (padrão)
+
+O treinamento começa com uma função de custo futuro vazia. Todos os cortes anteriores em
+`policy.path` são ignorados (ou o diretório ainda não existe).
+
+```json
+{ "policy": { "mode": "fresh" } }
+```
+
+Use `"fresh"` em estudos novos ou quando quiser uma execução de treinamento limpa, sem
+influência de iterações anteriores.
+
+### Partida a quente
+
+O Novo Modelo carrega os cortes de um checkpoint de política existente antes do início do treinamento.
+O treinamento então prossegue, acrescentando novos cortes aos carregados. Os cortes
+carregados constituem a aproximação inicial da função de custo futuro.
+
+```json
+{ "policy": { "mode": "warm_start", "path": "./policy" } }
+```
+
+Use `"warm_start"` para continuar o treinamento a partir dos cortes de uma execução anterior, por exemplo
+com mais iterações ou outros critérios de parada. O laço é executado até o maior
+`iteration_limit` em `training.stopping_rules`, e esse limite conta apenas as novas
+iterações: uma partida a quente com limite 20 executa até 20 iterações além dos
+cortes carregados, ao passo que, na [Retomada](#retomada), o limite também conta as iterações
+concluídas. Uma carga de partida a quente lê toda a política salva, portanto precisa passar por todas
+as verificações do [Contrato de carga da política](#contrato-de-carga-da-politica).
+
+Cada corte carregado mantém a iteração que o gerou na execução de origem. Um corte
+que a execução de origem _pontuou_ (scored) — cuja execução gravadora armazenou o estado visitado em que o corte foi
+calculado, sob `level1` ou com `exports.states` — é selecionado como um corte
+gerado pela nova execução: quando uma execução `level1` parte a quente de uma política assim, um
+corte pontuado carregado concorre em todo estado visitado que a nova execução armazena, incluindo aquele
+carregado com ele, e fica ativo após uma etapa de seleção exatamente quando
+domina pelo menos um. Com uma janela `lookback_iterations` `w`, um estado carregado
+conta como anterior à primeira iteração da execução, de modo que sai da janela na
+iteração `w` da execução. Um corte carregado que a origem não pontuou mantém o
+indicador de atividade com que foi armazenado. Os contadores de atividade dos cortes carregados (por
+corte, quantas vezes e quando esteve ativo pela última vez, lidos por `max_active_per_stage` e
+`dynamic`) são reiniciados com a execução em uma partida a quente; uma retomada os restaura.
+
+### Retomada
+
+A retomada continua o treinamento a partir do checkpoint em `policy.path` (o gravado
+ao fim do treinamento, ou o checkpoint periódico mais recente; veja
+[Configuração de checkpoints](#configuracao-de-checkpoints)),
+qualquer que tenha sido o critério de parada que encerrou a execução anterior. O Novo Modelo lê a contagem
+`completed_iterations` do checkpoint e o laço continua a partir da iteração seguinte. A
+carga é uma carga da FCF completa, portanto o checkpoint precisa passar por todas as verificações do
+[Contrato de carga da política](#contrato-de-carga-da-politica).
+
+```json
+{ "policy": { "mode": "resume", "path": "./policy" } }
+```
+
+O treinamento grava um checkpoint ao terminar, de modo que a retomada não precisa da chave
+`checkpointing`; com checkpoints periódicos ativados, ele também grava um em cada
+iteração programada, e cada um substitui o anterior. Um job encerrado antes da gravação de
+fim de treinamento, por exemplo pelo limite de tempo de um escalonador, mantém o último checkpoint
+gravado antes: o periódico mais recente ou o da execução anterior.
+Uma gravação interrompida que substitui um checkpoint deixa um checkpoint completo, antigo ou novo;
+uma primeira gravação interrompida pode não deixar nenhum (veja
+[Conteúdo do diretório de checkpoint](#conteudo-do-diretorio-de-checkpoint)).
+[Treinar em fatias](#treinar-em-fatias) divide um treinamento longo em jobs com
+limite de tempo.
+
+O laço é executado até o maior `iteration_limit` em `training.stopping_rules`.
+Esse limite conta todas as iterações, incluindo as concluídas; quando o
+checkpoint já o atingiu, o Novo Modelo emite um aviso e não treina mais.
+
+A semente vem de `config.json`, não do checkpoint, e o ruído da simulação forward de cada iteração
+deriva da semente e do número da iteração. Com a semente da
+execução de treinamento, uma iteração retomada amostra, portanto, o mesmo ruído da simulação forward
+que essa iteração em uma execução sem retomada.
+
+A retomada restaura os cortes, cada um na posição do conjunto que ocupava, com seu papel (carregado
+ou gerado), indicador de atividade e contadores de atividade; os estados visitados armazenados; as
+bases do PL por cenário que se ajustam; a contagem de iterações; e o limite inferior de
+cada iteração concluída. Um cenário cuja base o checkpoint não contém
+inicia sua primeira solução a frio. Todo o resto vem da execução atual: o
+modelo de afluências e a árvore de aberturas, que ela constrói a partir do caso e do
+`config.json` como uma execução nova faz, a semente, os critérios de parada, seu `check_frequency`, o valor de `max_active_per_stage`
+e `modeling.cost_scale_factor`, e o cronômetro de tempo de relógio lido por `time_limit`,
+que começa quando o treinamento retomado começa. O checkpoint não
+depende do número de processos da execução que o gravou, de modo que uma retomada pode usar outro
+número de processos (ranks MPI).
+
+#### Retomada idêntica
+
+Quando ambas as execuções param por limite de iterações e a retomada usa as configurações que
+gravaram o checkpoint, uma execução retomada do checkpoint da iteração `k` e
+treinada até a iteração `n` termina no mesmo estado da execução treinada até `n` sem
+interrupção. São idênticos bit a bit:
+
+- em todo conjunto, os valores dos cortes, os indicadores de atividade, a iteração e a simulação
+  forward que geraram cada corte, os contadores de atividade, o papel de cada posição,
+  os estados visitados armazenados e o registro de dominância construído a partir deles;
+- o limite superior final, as contagens do simplex nas simulações forward e backward das
+  iterações posteriores ao checkpoint e as contagens de linhas dos conjuntos informadas por essas
+  iterações;
+- as bases por cenário que a retomada utiliza, comparadas com as contidas no
+  checkpoint;
+- o checkpoint final, exceto seu campo `created_at` e seus campos de limite
+  inferior.
+
+A série do limite inferior, e sua cópia no checkpoint, coincidem dentro de uma tolerância relativa de
+`1e-6`, e não bit a bit: a execução sem interrupção reconstrói o PL do limite inferior
+com aproveitamento de base e a execução retomada o constrói a frio. Um critério de parada que lê o limite
+inferior pode, portanto, encerrar as duas execuções com uma iteração de diferença; um limite de iterações
+não pode.
+
+#### Recusas da retomada
+
+Uma retomada verifica se o checkpoint contém o estado necessário para continuar a
+execução interrompida. Cinco verificações são executadas em ordem fixa, após as verificações do
+[Contrato de carga da política](#contrato-de-carga-da-politica), e a primeira que falha
+interrompe a execução. Cada mensagem de recusa começa com `resume needs`, indica a
+configuração e o que o checkpoint contém, e aponta a saída. `novomodelo validate`,
+`novomodelo run` e as interfaces Python informam a mesma linha. Uma carga `warm_start`
+do mesmo checkpoint não lê nenhum desses campos e é carregada.
+
+| # | A retomada é recusada quando | Saída |
+| - | ---------------------------- | ----- |
+| 1 | O número de simulações forward do estudo difere do número com que o checkpoint foi gravado. A disposição das posições e os cenários armazenados seguem esse número. | Defina `training.selection.forward_passes` com o valor armazenado ou continue com `policy.mode = "warm_start"`. |
+| 2 | A execução usa `level1`, o estudo tem um estágio estritamente entre o primeiro e o último, e o checkpoint não contém histórico de estados visitados porque a execução que o gravou não armazenou nenhum (uma execução sem `level1` ou `exports.states`). | Continue com `warm_start` ou treine novamente. |
+| 3 | A execução mantém todos os estados visitados (`lookback_iterations` não definido) e o checkpoint contém uma janela, ou a janela da execução é maior que a do checkpoint. Uma janela armazenada maior que a da execução é admitida; os estados excedentes saem na primeira etapa de seleção. | Defina `lookback_iterations` com no máximo o valor armazenado ou continue com `warm_start`. |
+| 4 | `max_active_per_stage` ou o método `dynamic` lê os contadores de atividade, e o checkpoint não contém nenhum porque a execução que o gravou não configurou nenhum dos dois. | Continue com `warm_start` ou treine novamente. |
+| 5 | As bases por cenário do checkpoint não estão completas: ele foi gravado quando uma execução falhou (veja [Uma execução que falhou](#uma-execucao-que-falhou)). | Retome a partir do último checkpoint completo ou continue com `warm_start`. |
+
+Por exemplo, a verificação 2 exibe:
+
+```text
+resume needs the trial-state history of training.cut_selection.selection.method = level1; the checkpoint holds none (it was written by a run without level1 or exports.states); continue with policy.mode = warm_start or retrain
+```
+
+A retomada de uma execução que declarou `policy.boundary` tem mais uma recusa, relativa
+às linhas de fronteira; veja [Retomada com fronteira](#retomada-com-fronteira).
+
+---
+
+## Modo somente de simulação
+
+Com `training.enabled` definido como `false` e a simulação habilitada, `novomodelo run` pula
+o treinamento, carrega o checkpoint em `policy.path` e o simula.
+`policy.mode` é ignorado neste modo.
+
+A carga é uma carga da FCF completa, portanto o checkpoint precisa passar por todas as verificações do
+[Contrato de carga da política](#contrato-de-carga-da-politica): ele deve vir da versão do novomodelo
+em execução. Cada corte carregado mantém o papel que tinha na execução que o gravou, de modo que,
+sob [`simulation.cut_set`](/pt-br/running/configuration/#conjunto-de-cortes-da-simulacao) `"all"`
+(o padrão), a simulação contém as linhas que o `"all"` daquela execução continha, incluindo as linhas
+desativadas pela seleção e as removidas pelo limite, e sob `"active"`, as
+linhas ativas ao fim de seu treinamento.
+
+Parta do `config.json` que treinou a política e altere apenas
+`training.enabled` e as configurações de simulação. `training.selection` e
+`training.stopping_rules` continuam obrigatórios mesmo que o treinamento não seja executado, e
+toda chave que define o PL do estágio deve ser igual à da execução de treinamento (uma base armazenada
+cujo PL do estágio mudou é descartada; veja [Verificação das bases armazenadas](#verificacao-das-bases-armazenadas)). Por
+exemplo, uma política treinada com `modeling.inflow_non_negativity` definido como
+`{ "method": "none" }` é carregada sem suas bases armazenadas se a configuração somente de simulação omitir a chave:
+ela então assume o padrão `"truncation_with_penalty"`, que acrescenta colunas de folga (uma por UHE) ao
+PL do estágio.
+
+As chaves a alterar, mescladas a esse `config.json` (todas as demais chaves permanecem como no
+treinamento):
+
+```json
+{
+  "training": {
+    "enabled": false,
+    "selection": { "method": "sampled", "forward_passes": 1 },
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 128 }]
+  },
+  "simulation": {
+    "enabled": true,
+    "selection": { "method": "sampled", "num_scenarios": 100 }
+  },
+  "policy": { "path": "./policy" }
+}
+```
+
+Com essas chaves em `config.json`, `novomodelo validate` aceita o caso.
+O validate lê o checkpoint em `policy.path` e aplica a mesma carga, de modo que
+isso confirma a configuração e a carga da política:
+
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; trained once with novomodelo run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
+
+```text
+Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
+```
+
+Use este modo para executar cenários de simulação adicionais sobre uma política que já
+convergiu, ou para comparar várias políticas salvas nos mesmos cenários.
+
+---
+
+## Treinar em fatias
+
+Divida um treinamento em fatias quando o limite de tempo de um escalonador for menor que
+o necessário para o treinamento. Cada fatia é um job separado que [retoma](#retomada) a partir do
+checkpoint da fatia anterior e treina até um total de iterações maior. Uma fatia
+precisa terminar, e gravar seu checkpoint, antes do fim de seu tempo limite: um job encerrado
+antes disso mantém apenas as iterações até seu último checkpoint: o periódico mais recente,
+com `policy.checkpointing.enabled`, ou o da fatia anterior. Execute todas as fatias no
+mesmo caso com o mesmo diretório de saída: cada fatia lê o checkpoint
+anterior de `policy.path` e grava seu próprio checkpoint de volta nele. Sob
+MPI, todos os processos carregam esse checkpoint, portanto o diretório de saída deve estar visível no
+mesmo caminho em todos os nós.
+
+**Fatiar por `iteration_limit`** funciona com qualquer número de processos. Dimensione cada fatia pela
+tendência de [`time_total_ms`](/pt-br/reference/output/training/#trainingconvergenceparquet)
+no `training/convergence.parquet` da fatia anterior, que contém apenas as
+iterações da fatia que o gravou. O tempo por iteração cresce à medida que os cortes
+se acumulam, portanto deixe uma margem.
+
+A fatia 1 treina até o primeiro total de iterações:
+
+```json
+{
+  "training": {
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 50 }]
+  }
+}
+```
+
+Cada fatia seguinte define `policy.mode` como `"resume"` e eleva `limit` ao novo
+total, que conta as iterações de todas as fatias anteriores:
+
+```json
+{
+  "training": {
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 100 }]
+  },
+  "policy": { "mode": "resume" }
+}
+```
+
+**Uma fatia pode terminar** por um critério `time_limit`, medido
+a partir do início do treinamento dessa fatia. Mantenha no conjunto um `iteration_limit` com o
+total (todo conjunto de critérios precisa de um) e deixe
+[`stopping_mode`](/pt-br/running/configuration/#trainingstopping_mode) em seu padrão, `"any"`,
+para que `time_limit` sozinho encerre uma fatia. O Novo Modelo verifica `time_limit` após cada
+iteração, de modo que uma fatia pode ultrapassar `seconds` em até uma iteração. Defina `seconds`
+abaixo do tempo limite do job, descontando essa iteração, a carga do caso e a gravação do
+checkpoint. O mesmo conjunto serve a todas as fatias, com `policy.mode` definido como
+`"resume"` a partir da segunda fatia. Este conjunto encerra cada fatia após 50 minutos de
+um job de uma hora e interrompe o treinamento em 200 iterações:
+
+```json
+{
+  "training": {
+    "stopping_rules": [
+      { "type": "time_limit", "seconds": 3000 },
+      { "type": "iteration_limit", "limit": 200 }
+    ]
+  }
+}
+```
+
+---
+
+## Configuração de checkpoints
+
+Com `policy.checkpointing.enabled` definido como `true`, o treinamento grava um checkpoint
+em `policy.path` após cada iteração programada que não encerra o treinamento:
+`initial_iteration` (padrão `interval_iterations`) e, depois, a cada
+`interval_iterations`, em números absolutos de iteração. A iteração que encerra o
+treinamento grava apenas o checkpoint de fim de treinamento. Cada checkpoint substitui
+o anterior e contém os mesmos arquivos que o de fim de treinamento, com
+`completed_iterations` igual à sua iteração. O processo 0 o grava. Uma falha de gravação
+encerra o treinamento em todos os processos com `checkpoint write at iteration {n} failed: {e}`.
+`store_basis` e `compress` não têm efeito; as chaves estão listadas em
+[Configuração](/pt-br/running/configuration/#policycheckpointing).
+
+---
+
+## Conteúdo do diretório de checkpoint
+
+Um checkpoint gravado tem a seguinte organização sob `policy.path` (resolvido
+em relação ao diretório de saída, como descrito em [Modos da política](#modos-da-politica));
+`policy/` abaixo representa esse diretório:
+
+```text
+policy/
+  manifest.bin           -- manifesto global do estudo: grafo do estudo, número de estágios,
+                            procedência, o marcador format_version e os
+                            fatos do produtor que uma retomada verifica (FlatBuffers,
+                            gravado por último como sinal de conclusão)
+  cuts/
+    000.bin               -- cortes do conjunto 0: posições, coeficientes, termos independentes,
+                            indicadores de atividade e contadores de atividade, nas
+                            unidades de custo escalonadas da execução gravadora (cada
+                            um descrevendo sua própria escala de custo e identidade no grafo)
+    001.bin               -- cortes do conjunto 1
+    ...
+  basis/
+    000.bin               -- bases do PL do nó 0, uma por cenário da simulação forward
+    001.bin
+    ...
+  states/                 -- apenas para conjuntos que armazenam estados visitados
+    000.bin               -- estados visitados do conjunto 0, um por corte pontuado, por posição
+    001.bin
+    ...
+```
+
+Os nomes de arquivo têm zeros à esquerda até três dígitos (`NNN.bin`). Em `cuts/` e
+`states/`, o id é o **id do conjunto**; em `basis/`, é a posição canônica, a partir de 0,
+do nó do grafo da política (policy graph) (não o id declarado do nó). Em uma cadeia de estágios,
+cada estágio é um nó com seu próprio conjunto, de modo que ambos os ids são iguais à posição do estágio.
+O nome do arquivo em si não é lido para fins de identidade — cada buffer contém seu próprio
+id internamente, e o leitor deduz a identidade do conjunto e do nó a partir do conteúdo,
+nunca do nome.
+
+`basis/` é gravado mesmo quando nenhum nó guarda uma base. Uma carga lê um checkpoint
+sem `basis/` como um checkpoint sem bases armazenadas, de modo que um checkpoint extraído
+de um arquivo compactado que descartou o diretório vazio ainda é carregado; cada nó então
+começa sem uma base armazenada.
+
+`states/` contém, para cada conjunto que armazena estados visitados, o estado em que cada
+corte pontuado foi calculado, indexado pela posição do corte. Sob `level1`, todo conjunto de um
+estágio estritamente entre o primeiro e o último os armazena (as últimas
+`lookback_iterations` iterações, quando uma janela é definida). Com
+[`exports.states`](/pt-br/running/configuration/#exports), todo conjunto que recebe
+cortes os armazena, inclusive o conjunto do primeiro estágio, qualquer que seja o método
+de seleção.
+
+`manifest.bin` é gravado **por último**. Toda gravação é preparada em
+`<policy.path>.staging`; a confirmação renomeia um `<policy.path>` existente para
+`<policy.path>.previous`, renomeia a cópia preparada para o lugar definitivo e então remove
+`.previous`. Todo leitor (`novomodelo run`, `novomodelo validate`, a carga de fronteira e
+`load_policy` em Python) usa o primeiro entre `<policy.path>`, `.staging` e
+`.previous` que contenha um `manifest.bin`.
+Uma gravação interrompida que substitui um checkpoint deixa um checkpoint completo, antigo ou novo;
+uma primeira gravação interrompida pode não deixar nenhum. Uma carga recusa um diretório sem
+`manifest.bin`, em si mesmo ou em qualquer dos irmãos. Antes da preparação, uma gravação recusa um
+`policy.path`, ou um irmão `.staging` ou `.previous`, que não seja um diretório ou
+que contenha uma entrada que a gravação de um checkpoint não deixa ali, e não altera nada
+no disco; um checkpoint contém apenas `manifest.bin`, `manifest.bin.tmp` e
+`metadata.json` em seu nível superior, e apenas arquivos `*.bin` e `*.bin.tmp` em seus
+diretórios `cuts/`, `basis/` e `states/`. A mensagem é
+`refusing to write a checkpoint: {entry}, found in {dir}, is not part of a checkpoint (manifest.bin, metadata.json, cuts/, basis/, states/); move it elsewhere or write the checkpoint to another directory`.
+Um link simbólico em `policy.path` é seguido uma vez: a confirmação ocorre em seu destino,
+os irmãos são os do destino, e o link é mantido.
+
+Antes de qualquer gravação, os próprios conteúdos são verificados, e uma recusa
+identifica o primeiro arquivo problemático (`cuts/<pool>.bin`, `basis/<node>.bin`,
+`states/<pool>.bin` ou `manifest.bin`) e a regra que ele viola. Uma gravação é
+recusada quando dois conteúdos do mesmo tipo têm o mesmo id
+(`more than one payload carries this id`), quando o checkpoint seria um que uma
+carga rejeitaria (por exemplo, manifestos de entidades com datas divergentes) e quando o
+tamanho codificado de um arquivo pode exceder o limite de 2 GiB de buffer do FlatBuffers:
+
+```text
+{file}: encoded size bound {bound} bytes exceeds the FlatBuffers limit of {limit} bytes
+```
+
+`manifest.bin` é lido **primeiro**: seu marcador `format_version` é verificado antes que
+qualquer conteúdo de cortes, bases ou estados seja analisado (passo 1 da
+[ordem de verificação](#ordem-de-verificacao)).
+
+`manifest.bin` registra o grafo do estudo, o número de estágios, a versão do
+novomodelo que o produziu e a procedência do produtor (iterações concluídas, valores dos limites inferior e
+superior, simulações forward por iteração, a semente do gerador de números aleatórios e os fatos sobre o
+histórico de estados visitados, os contadores de atividade e a completude das bases que uma retomada
+verifica) — veja
+[Checkpoint da política](/pt-br/reference/output/policy/#policymanifestbin) para a tabela completa,
+campo a campo. Se um checkpoint pode ser carregado no estudo atual é
+decidido pelo [Contrato de carga da política](#contrato-de-carga-da-politica).
+
+### Uma execução que falhou
+
+Uma execução cujo treinamento termina em erro nunca substitui o diretório da política. Ela
+grava sua política em um diretório irmão com o nome do diretório da política acrescido de
+`.partial` (`./policy.partial` para `./policy`), e a mensagem de falha
+indica esse diretório. O diretório da política mantém o último checkpoint completo, de modo que
+o próximo `resume` continua a partir dele. Uma segunda execução com falha substitui o diretório
+`.partial`. Nenhuma carga o lê, a menos que `policy.path` o indique. Um `resume` a partir de um
+diretório `.partial` é recusado pela verificação 5 das
+[Recusas da retomada](#recusas-da-retomada), porque as bases de uma execução que falhou não estão
+completas e a iteração que falhou pode ter sido aplicada pela metade; um `warm_start` a partir dele
+é carregado.
+
+---
+
+## Contrato de carga da política
+
+As execuções com partida a quente, retomada e somente de simulação são **cargas da FCF completa**: leem
+todos os conjuntos de cortes da função de custo futuro (FCF), o grafo do estudo e as
+bases do PL armazenadas no checkpoint em `policy.path`. As verificações abaixo são executadas em
+ordem; uma recusa nos passos 1–4 interrompe a execução antes do início do treinamento ou da simulação,
+e o passo 5 descarta as bases armazenadas que não se ajustam.
+Uma [carga de fronteira](#cortes-de-fronteira) executa suas próprias verificações, listadas em
+[Requisitos de compatibilidade](#requisitos-de-compatibilidade).
+
+### Ordem de verificação
+
+1. **Leitura.** `manifest.bin` está presente e seu `format_version` binário é `4` (a
+   verificação de `format_version`). Um `manifest.bin` marcado com outro valor, inclusive um
+   checkpoint da versão 3, é recusado com:
+   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs:1728-1730 and crates/novomodelo-io/src/output/software.rs:15-16 (FORMAT_VERSION = 4) at novomodelo v0.20.0 */}
+   ```text
+   unsupported checkpoint manifest format_version {format_version}; expected 4; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
+   ```
+2. **Escala de custo.** Todo conjunto registra um `cost_scale_factor` que é um número
+   finito e positivo (veja
+   [Canonicalização da escala de custo](#canonicalizacao-da-escala-de-custo)).
+3. **Software e versão.** Os `software` e `software_version` registrados são exatamente iguais
+   ao nome e à versão do software em execução (veja [Verificação de versão](#verificacao-de-versao)).
+4. **Estado e grafo.** A dimensão do estado, o número de estágios, o número de conjuntos, a identidade
+   das entidades por posição e o grafo do estudo (nós e arestas) são iguais aos do estudo atual.
+5. **Bases armazenadas.** Uma base do PL armazenada que não se ajusta ao PL do seu estágio é descartada
+   com um único aviso, e a carga prossegue (veja
+   [Verificação das bases armazenadas](#verificacao-das-bases-armazenadas)).
+
+Uma recusa no passo 4 significa que o estudo difere daquele que treinou a
+política. A mensagem indica a divergência; restaure as entradas correspondentes ou treine uma
+nova política para o estudo alterado.
+
+### Verificação de versão
+
+Uma política só é carregada no software e na versão que a gravaram. Todo caminho de carga —
+partida a quente, retomada, somente de simulação e fronteira, pela CLI e pelo Python —
+exige que os `software` e `software_version` registrados em `manifest.bin` sejam
+exatamente iguais ao nome e à versão do software em execução. Uma versão mais antiga ou mais nova é recusada, assim como uma
+versão de correção ou pré-lançamento diferente (por exemplo, 0.17.0 contra 0.17.1).
+
+A recusa exibe:
+
+{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 at novomodelo v0.20.0 — not capturable (needs a checkpoint written by another software or version) */}
+
+```text
+policy was written by {writer}, but this is novomodelo {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
+```
+
+`{writer}` indica o software e a versão registrados: `<software> <version>`,
+`<software>, which recorded no version`, `software that recorded no name, version <version>`
+ou `software that recorded no name or version`; `{running}` é a versão do
+novomodelo que a está carregando. `novomodelo run` informa
+a recusa como erro de validação antes do início do treinamento ou da simulação;
+[Códigos de erro](/pt-br/reference/error-codes/#erros-de-carga-da-politica) lista o código de saída
+e a exceção Python.
+
+Para carregar a política, treine-a novamente com a versão em execução. Alternativamente,
+reexporte-a executando novamente, na versão em execução, o processo que gravou o checkpoint:
+o script que chama
+[`novomodelo.write_policy_checkpoint`](#ler-e-gravar-checkpoints-a-partir-do-python)
+ou a importação de fronteira de [Conversão de casos (novomodelo-bridge)](/pt-br/running/case-conversion/).
+
+Um manifesto que é analisado com sucesso (passo 1) não é, por isso, aceito: esta verificação decide
+se a versão em execução pode carregá-lo.
+[Esquema FlatBuffers da política — Política de versionamento](/pt-br/reference/flatbuffers-schema/#politica-de-versionamento)
+trata do nível binário.
+
+### Verificação das bases armazenadas
+
+Uma carga da FCF completa usa uma base do PL armazenada apenas quando ela se ajusta ao PL do seu estágio, descarta
+as demais com um único aviso e prossegue. Por exemplo, `novomodelo run` exibe:
+
+{/* capture: novomodelo run case 2>&1 | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with novomodelo run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
+
+```text
+warning: stored bases not used: 4 of 4 do not fit the current LP (first: node 0, 28 columns, the LP has 29); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, its basic count equals its row count, and every recorded cut-row slot holds a loaded cut; the policy was trained on a different LP
+```
+
+O nó e as contagens vêm de um caso de exemplo e diferem em cada estudo. As
+contagens são de bases armazenadas, uma por nó e cenário da simulação forward.
+
+Uma base do PL armazenada se ajusta quando seu número de colunas é igual ao do PL do seu estágio, seu número
+de linhas é igual às linhas do modelo-base desse PL (as linhas anteriores a qualquer corte) mais as linhas de corte
+que a própria base registra, seu número de entradas básicas é igual ao seu número de linhas, e
+toda posição de linha de corte que ela registra contém um corte carregado. A última regra identifica a posição
+no aviso: `a cut row at slot {slot}, which holds no loaded cut`. O
+aviso termina com a regra completa:
+
+```text
+a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, its basic count equals its row count, and every recorded cut-row slot holds a loaded cut; the policy was trained on a different LP
+```
+
+A partida a quente e a retomada verificam as bases que o checkpoint contém, a execução somente de simulação
+sempre as verifica, e uma [carga de fronteira](#cortes-de-fronteira) não verifica nenhuma.
+
+Uma base armazenada que se ajusta inicializa uma solução apenas em uma fase que usa aproveitamento de base
+([`use_warm_start`](/pt-br/running/configuration/#campos-do-perfil-do-solver)). Nos
+perfis embutidos do HiGHS, as soluções da simulação começam a frio, de modo que uma
+execução somente de simulação parte das bases de seu checkpoint apenas com
+`simulation.solver.use_warm_start: true`. Em uma cadeia de estágios, uma execução com partida a quente ou
+retomada parte delas por meio da simulação forward, que aproveita a base por padrão,
+porque a simulação backward lê as bases que a simulação forward captura; definir
+`training.solver.forward.use_warm_start: false` as deixa sem leitura. Em um grafo com
+ramificações, a simulação backward também
+parte delas nos nós sucessores que o primeiro caminho forward de um cenário não
+visitou. No CLP, todas as fases partem delas. As notas de implementação de
+[Aproveitamento de base do PL](/pt-br/math/lp-warm-start/#implementacao-no-novo-modelo)
+acompanham o armazenamento ao longo de cada fase.
+
+Todo checkpoint contém as bases do PL dos cenários da simulação forward da execução, e
+`policy.checkpointing.store_basis` não tem efeito sobre isso. Qualquer
+alteração que mude o número de colunas do PL de um estágio descarta, portanto, as
+bases armazenadas dos estágios que ela altera: no treinamento, esses nós iniciam sua primeira
+solução a frio e depois reutilizam as bases que capturam, e em uma execução somente de simulação
+são resolvidos sem base armazenada.
+Exemplos são um número diferente de patamares, um conjunto diferente de entidades e um modo de
+patamares diferente em um estágio com usinas hidrelétricas e mais de um patamar.
+
+[`novomodelo validate`](/pt-br/reference/cli-reference/#novomodelo-validate) executa a mesma carga
+e informa o mesmo aviso.
+
+:::note
+Os cortes em si não dependem da estrutura de patamares
+([Variantes de formulação dos patamares](/pt-br/math/block-formulations/)). Os mesmos cortes, portanto, continuam
+sendo carregados via [`policy.boundary`](#cortes-de-fronteira) entre modos e números de
+patamares diferentes, e uma carga da FCF completa também os carrega, descartando as bases armazenadas dos
+estágios que a alteração afeta.
+:::
+
+---
+
+## Canonicalização da escala de custo
+
+O fator de escala de custo da função objetivo do Novo Modelo
+([`modeling.cost_scale_factor`](/pt-br/running/configuration/#modelingcost_scale_factor))
+é configurável por estudo. Um checkpoint armazena o termo independente e os
+coeficientes de cada corte exatamente como o conjunto de cortes os mantém em memória, nas unidades de custo escalonadas
+do estudo **gravador**. Cada `cuts/<pool>.bin` (veja a tabela de campos em
+[Checkpoint da política](/pt-br/reference/output/policy/#policymanifestbin)) contém seu
+próprio `cost_scale_factor`, que registra essa escala, de modo que o checkpoint é
+autodescritivo por conjunto.
+
+Todo caminho de carga — partida a quente, retomada, somente de simulação e injeção de cortes
+de fronteira — converte cada conjunto pelo seu próprio fator registrado:
+
+| Fator registrado no conjunto | Comportamento na carga |
+| ---------------------------- | ---------------------- |
+| Igual bit a bit ao fator do estudo que carrega | Valores usados sem alteração; uma ida e volta com o mesmo fator, inclusive uma retomada, é idêntica bit a bit. |
+| Qualquer outro valor | Cada valor se torna `(value * source) / loading`: multiplicado primeiro pelo fator de origem e depois dividido pelo fator do estudo que carrega. |
+
+Todo caminho de carga **exige** que cada conjunto resolvido contenha um fator que seja um
+número finito e positivo. Uma carga da FCF completa recusa um conjunto cujo `cost_scale_factor`
+esteja ausente com
+
+```text
+policy checkpoint predates self-describing cuts (its cuts/<pool>.bin for pool {pool} carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
+```
+
+e um conjunto cujo fator não seja um número finito e positivo com
+
+```text
+policy checkpoint pool {pool} records cost_scale_factor {factor}, which is not a finite positive number; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
+```
+
+Uma [carga de fronteira](#cortes-de-fronteira) recusa um conjunto sem o fator com sua própria
+mensagem, citada no item 3 da
+[ordem da carga de fronteira](#requisitos-de-compatibilidade), e um conjunto cujo fator
+não seja um número finito e positivo com a segunda mensagem acima.
+
+Para ler um coeficiente ou um termo independente fora do Novo Modelo em unidades monetárias, multiplique-o
+pelo `cost_scale_factor` do conjunto. Uma carga com outro fator arredonda duas vezes, uma
+na multiplicação e outra na divisão, de modo que seus valores podem diferir nos
+últimos bits dos de uma execução que usou o fator do estudo que carrega do início ao fim; a
+diferença fica abaixo da tolerância do solver.
+
+---
+
+## Cortes de fronteira
+
+Os cortes de fronteira permitem que um estudo do Novo Modelo carregue aproximações da função de custo futuro
+(FCF) do estágio terminal a partir de outro checkpoint de política do Novo Modelo. Este é o
+mecanismo dos **estudos encadeados**: um estudo a jusante importa um conjunto de cortes da
+política de um estudo a montante como sua condição de fronteira terminal, de modo que suas
+decisões de final de horizonte levem em conta o custo futuro da água do estudo a montante.
+O estudo a jusante pode ter um horizonte mais curto ou estágios mais finos que o
+estudo a montante. Para o método, veja
+[Fronteira pós-estudo e estudos encadeados §5](/pt-br/math/post-study-boundary#5-estudos-encadeados).
+
+### Como funciona
+
+1. **Execute o estudo a montante** para produzir um checkpoint de política, ou crie o
+   checkpoint em Python
+   ([Ler e gravar checkpoints a partir do Python](#ler-e-gravar-checkpoints-a-partir-do-python)).
+2. **Execute o estudo a jusante** com `policy.boundary` apontando para o
+   checkpoint a montante. O Novo Modelo seleciona o conjunto de origem precificado na
+   **data de fronteira terminal** do estudo a jusante — o `end_date` do último estágio
+   não negativo — e injeta seus cortes no conjunto de linhas do estágio terminal como
+   condições de fronteira fixas. Não há parâmetro de índice de estágio: o conjunto é escolhido
+   comparando essa data com a data de estado precificado de cada conjunto de origem.
+
+Os cortes de fronteira importados **não são atualizados** pelo algoritmo de treinamento da PDDE (SDDP).
+Seus coeficientes permanecem fixos durante todo o treinamento e a simulação, e os
+ativos fornecem um piso para o custo futuro do estágio terminal.
+O parâmetro `training.cut_selection.max_active_per_stage`
+([`cut_selection`](/pt-br/running/configuration/#trainingcut_selection)) nunca remove
+um corte de fronteira importado: ele limita apenas os conjuntos dos estágios estritamente entre o
+primeiro e o último, e conta apenas os cortes gerados pela execução.
+
+### Quais linhas de fronteira uma execução usa
+
+O conjunto de fronteira substitui o conjunto de linhas do estágio terminal. Suas linhas mantêm o
+indicador de atividade e a marca de pontuação de seus registros de origem, e a execução as usa
+da seguinte forma:
+
+| Onde a execução lê o conjunto | Linhas de fronteira usadas |
+| ----------------------------- | -------------------------- |
+| Treinamento e limite inferior | As linhas ativas. |
+| Simulação com `simulation.cut_set = "active"` | As linhas ativas. |
+| Simulação com `simulation.cut_set = "all"` | As linhas ativas, mais as linhas que a origem pontuou (por exemplo, uma origem `level1` com horizonte mais longo), qualquer que seja seu indicador. |
+
+Uma linha que a origem não pontuou e deixou inativa (por exemplo, uma linha que uma
+origem com limite removeu) não está em nenhum dos dois conjuntos. Veja
+[Conjunto de cortes da simulação](/pt-br/running/configuration/#conjunto-de-cortes-da-simulacao) para as regras
+das demais linhas carregadas.
+
+A solução preguiçosa (lazy) do método `dynamic` lê apenas linhas ativas. Uma execução `dynamic` que
+simula com `simulation.cut_set = "all"` é, portanto, recusada quando o
+conjunto de fronteira contém uma linha inativa que `"all"` inclui, isto é, uma linha inativa
+pontuada. A mensagem indica o método e `simulation.cut_set`, o conjunto
+com suas contagens de linhas e a saída: defina `simulation.cut_set = "active"` ou
+use o método `level1`. Uma execução que não simula não é verificada.
+
+### Configuração
+
+Acrescente um objeto `boundary` à seção `policy` de `config.json`:
+
+```json
+{
+  "policy": {
+    "mode": "fresh",
+    "boundary": {
+      "path": "../upstream_study/output/policy",
+      "strict": false
+    }
+  }
+}
+```
+
+| Campo    | Tipo    | Padrão  | Descrição |
+| -------- | ------- | ------- | --------- |
+| `path`   | string  | —       | Caminho do diretório do checkpoint de origem; veja [`policy.boundary`](/pt-br/running/configuration/#policyboundary) para saber como é resolvido. |
+| `strict` | boolean | `false` | Rege uma origem **superconjunto** (que precifica uma entidade ou compromisso que este estudo não modela). `false` descarta o excedente, registra-o no relatório de reconciliação e carrega; `true` rejeita a carga. |
+
+Quando `boundary` está ausente ou é `null`, nenhum corte de fronteira é carregado (o padrão).
+
+### Requisitos de compatibilidade
+
+Diferentemente de uma [carga da FCF completa](#contrato-de-carga-da-politica) — que exige que a dimensão do
+estado e a disposição das entidades por posição da política salva coincidam com as do estudo atual
+**exatamente** (passo 4 da [ordem de verificação](#ordem-de-verificacao), uma verificação que não pode ser
+desativada) —, **a injeção de fronteira tolera uma origem com formato de estado
+diferente.** O estado terminal da origem é reconciliado com o próprio estado do estudo atual,
+posição a posição, **pela identidade da entidade e pelas datas de posição de cada família** (a
+`reference_date` da defasagem de afluência, o `interval_start`/`interval_end` das famílias com deslocamento à frente),
+e não pela posição: uma origem treinada com um conjunto diferente
+de coordenadas de estado — sem in-transit buckets, ou com slots mensais de antecipação
+alimentando um estudo de formato diferente — ainda é injetada, com cada coeficiente da origem
+associado à posição do estudo atual para a mesma entidade. Uma coordenada da origem
+que acopla uma posição de estado que o estudo atual não modela não pode ser transportada; ela
+é informada em um **resumo de reconciliação por família** e descartada, e a carga
+ainda é **bem-sucedida** por padrão. Veja
+[Fronteira pós-estudo e estudos encadeados §4](/pt-br/math/post-study-boundary#4-conciliacao-de-calendarios-distribuicao) para o
+mecanismo de reconciliação.
+
+Essa tolerância é o caminho padrão de reconciliação, mas a carga ainda impõe requisitos
+rígidos. Uma carga de fronteira executa suas verificações nesta ordem, e a primeira
+falha interrompe a execução:
+
+1. **Leitura.** O checkpoint em `policy.boundary.path` pode ser lido; uma falha de leitura
+   é recusada com `failed to read boundary policy checkpoint at {path}: {e}`,
+   em que `{e}` é o erro subjacente.
+2. **Seleção do conjunto.** Exatamente um conjunto da origem é precificado na data de
+   fronteira terminal do estudo.
+3. **Escala de custo.** O conjunto resolvido registra um `cost_scale_factor` que é um
+   número finito e positivo (veja
+   [Canonicalização da escala de custo](#canonicalizacao-da-escala-de-custo)); um conjunto sem
+   ele é recusado com `boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
+4. **Origem de nó único.** O conjunto resolvido é um conjunto terminal de nó único, não
+   um compartilhado por vários nós do estudo. Um conjunto compartilhado é recusado com
+   `boundary policy at {path}: a boundary source must be a single-node terminal pool; the resolved pool is shared by multiple nodes`.
+5. **Profundidade das defasagens de afluência.** Antes de construir o estudo, o Novo Modelo lê a posição de
+   defasagem de afluência mais profunda referenciada por qualquer conjunto de cortes do checkpoint de fronteira e
+   estende o estado de defasagens de afluência do estudo até pelo menos essa profundidade
+   ([Fronteira pós-estudo e estudos encadeados §5.2](/pt-br/math/post-study-boundary#52-condicoes-de-compatibilidade));
+   quando a profundidade é maior que zero, `novomodelo run` sem `--quiet` exibe
+   `Boundary policy: inflow-lag depth {d}` durante a carga. Esta verificação confirma
+   que o conjunto resolvido não referencia defasagem mais profunda que o estado estendido, de modo que
+   um caso de usuário não a dispara. Uma mensagem que começa com
+   `internal:` indica um defeito do Novo Modelo; reporte-o.
+6. **Período sazonal e ordem do PAR.** Quando o estudo declara um ciclo de períodos sazonais, o
+   `season_manifest` da origem está presente e concorda com o ciclo de períodos sazonais do estudo,
+   o número de períodos sazonais e as ordens PAR por UHE.
+7. **Subconjunto da topologia.** Quando ambos os checkpoints contêm manifesto de entidades, a
+   origem precifica toda posição de armazenamento de UHE e toda posição de defasagem de afluência do
+   estudo atual.
+8. **Software e versão.** O software e a versão registrados no checkpoint de origem
+   são exatamente iguais ao nome e à versão do software em execução (veja
+   [Verificação de versão](#verificacao-de-versao)); as verificações acima são executadas primeiro, de modo que uma origem
+   gravada por outro software ou versão pode falhar em uma delas antes desta.
+9. **Dimensão do estado.** Se algum dos checkpoints não tiver manifesto de entidades, as posições não podem
+   ser associadas por identidade, de modo que as verificações de subconjunto da topologia e de datas de posição são
+   puladas e a dimensão do estado do conjunto de origem deve ser igual à do estudo. A
+   recusa começa com `boundary policy state_dimension mismatch: policy has {n}, current system has {n}`.
+10. **Datas das posições.** Toda posição datada de água em trânsito ou de antecipação da origem tem
+    `interval_start` e `interval_end` que se decodificam em um intervalo de datas de
+    comprimento positivo. Uma posição que falha é recusada com uma das mensagens:
+    - `boundary policy source forward-family slot (entity_id={entity_id}, subindex={subindex}) has an undecodable interval_start {interval_start}`
+    - `boundary policy source forward-family slot (entity_id={entity_id}, subindex={subindex}) has an undecodable interval_end {interval_end}`
+    - `boundary policy source forward-family slot (entity_id={entity_id}, subindex={subindex}) has a non-positive delivery interval: interval_start={interval_start}, interval_end={interval_end}`
+11. **Superconjunto.** Aplica-se apenas com `strict: true`: uma origem que precifica mais
+    do que o estudo modela é recusada (com `strict: false`, o excedente é
+    descartado e informado).
+
+Todas as verificações, exceto **Superconjunto**, independem de `strict`.
+
+**Rejeições na seleção por data.** Antes de reconciliar qualquer coeficiente, o Novo Modelo resolve
+a origem para exatamente um conjunto precificado na data de fronteira terminal do estudo
+(item 2 da lista). Três condições abortam a carga com um erro identificado:
+
+- **Origem sem data** — nenhum conjunto do checkpoint de origem registra uma data de
+  estado precificado: `boundary policy checkpoint at {path} carries no priced_state_date on any pool (a pool written before priced dates were recorded); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
+- **Nenhum conjunto na data** — nenhum conjunto de origem é precificado na data de fronteira:
+  `boundary policy at {path}: no pool is priced at the study's boundary date {date} (available: {dates})`.
+- **Mais de um conjunto na data** — a origem é ambígua:
+  `boundary policy at {path}: more than one pool is priced at the study's boundary date {date} (pools {pools}); boundary injection requires a unique priced source`.
+
+**Rejeições de período sazonal / ordem do PAR.** Quando o estudo que carrega modela um processo de afluências
+sazonal ou autorregressivo periódico (PAR) por UHE, o descritor de períodos sazonais da
+origem de fronteira (`season_manifest`) deve concordar com o do estudo. Esta verificação está
+**sempre ativa** — **não** depende de `strict` e é disparada sempre que o estudo que carrega
+declara um ciclo de períodos sazonais (um estudo que não modela afluências sazonais/PAR a ignora
+inteiramente). Ela aborta a carga com um erro de validação no caminho de carga
+de fronteira — distinto da recusa da [verificação de versão](#verificacao-de-versao). Uma origem
+de fronteira é rejeitada quando seu `season_manifest`:
+
+- **está ausente** — a origem é anterior ao descritor de períodos sazonais:
+  `boundary policy checkpoint at {path} predates the season descriptor (its manifest carries no season cycle or PAR orders); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
+- **diverge no ciclo de períodos sazonais** —
+  `boundary policy at {path}: season cycle mismatch (study is {monthly|weekly|custom}, source is {…})`.
+- **diverge no número de períodos sazonais** —
+  `boundary policy at {path}: season count mismatch (study has {n} seasons, source has {n})`.
+- **omite uma UHE que o estudo modela** —
+  `boundary policy at {path}: hydro {id} has a modeled inflow season/PAR-order entry in the current study but none in the boundary source (the boundary was fitted on a different set of inflow processes)`.
+- **diverge na quantidade de ordens PAR de uma UHE** —
+  `boundary policy at {path}: hydro {id} carries {n} PAR orders in the current study but {n} in the boundary source`.
+- **diverge no valor da ordem PAR de um período sazonal** (indicando a UHE e o primeiro
+  período sazonal divergente) —
+  `boundary policy at {path}: hydro {id} PAR order mismatch at season index {season} (the season's 0-based position in the cycle, not its id; study has order {n}, source has order {n})`.
+
+O formato do campo `season_manifest` está documentado em
+[Checkpoint da política](/pt-br/reference/output/policy/#policymanifestbin).
+
+**Rejeições de subconjunto.** Se a origem precifica _menos_ do que este estudo precisa, a carga
+é rejeitada independentemente de `strict`:
+
+- **Armazenamento ausente** — a origem não precifica uma UHE que o estudo modela:
+  `boundary policy does not price {names}; it was trained on a different set of plants`.
+- **Defasagem de afluência ausente** — a origem não tem coeficiente de defasagem de afluência em uma profundidade
+  de que o estudo precisa: `boundary policy has no inflow-lag coefficient for {names}: the boundary is lag-depth-incompatible with the current study`.
+
+**Rejeição por data de defasagem.** Um coeficiente de defasagem de afluência da origem e a posição de
+defasagem de afluência do estudo atual para a mesma UHE e profundidade podem, cada um, ter uma data de referência.
+Quando ambos são datados e as datas diferem, a carga é rejeitada independentemente de
+`strict`; esta rejeição é aplicada após o item 10 da lista e antes do item 11:
+`boundary policy's inflow-lag coefficient for hydro {id} at lag depth {depth} references a different past than the current study: boundary {date}, current {date}`.
+
+**Cobertura e datação das defasagens.** Um conjunto de origem intermediário, qualquer conjunto que não seja o
+conjunto terminal do estudo a montante, contém coeficientes de defasagem de afluência apenas quando a seleção
+[`stages[].state_variables`](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes)
+do estágio sucessor inclui `inflow_lags`, cujo padrão é `false`. O conjunto terminal
+de um estudo a montante treinado é dimensionado pelo estado completo desse estudo, com todas as
+posições de defasagem de afluência desse estado, qualquer que seja a seleção; o treinamento nunca acrescenta
+corte a ele, de modo que contém apenas os cortes nele carregados, como os próprios
+cortes de fronteira desse estudo. O estado terminal do estudo atual (a jusante) tem posições de
+defasagem de afluência quando seu próprio modelo de afluências é autorregressivo ou quando algum conjunto da
+origem referencia uma defasagem (a extensão do item 5 da lista), e um conjunto de origem que
+não tem coeficiente para alguma dessas posições é rejeitado com a mensagem de
+**Defasagem de afluência ausente**. Um estudo a montante autorregressivo sempre
+dispara essa extensão, porque seu conjunto terminal referencia todas as defasagens de seu
+estado mesmo quando não contém cortes. Para encadear a partir de um conjunto intermediário, defina
+`inflow_lags: true` no estágio a montante que segue o estágio do conjunto de origem.
+Cada estudo data suas próprias defasagens: a defasagem 1 pela data de início do próprio estágio do conjunto,
+e cada defasagem mais profunda pela data de início de um estágio mais atrás na lista
+completa de estágios desse estudo, incluindo os estágios pré-estudo. O estágio do conjunto de origem e
+o último estágio do estudo atual devem, portanto, começar na mesma data, assim como
+cada par de estágios o mesmo número de posições antes deles, até a
+defasagem mais profunda datada pelos dois lados; caso contrário, aplica-se a rejeição por data de defasagem. Em particular, ela
+se aplica sempre que vários estágios do estudo atual, em conjunto, abrangem um estágio da origem
+dentro dessa profundidade.
+
+**Comportamento com superconjunto (`strict`).** Quando a origem precifica _mais_ do que o estudo
+modela, as posições excedentes da origem são descartadas na reconciliação em qualquer caso.
+Com `strict: false` (o padrão), o descarte é registrado no relatório de reconciliação
+e a carga prossegue; com `strict: true`, a mesma condição rejeita a
+carga: `boundary policy at {path} is a superset: {summary}; see the reconciliation report or set policy.boundary.strict = false`, em que `{summary}` indica cada
+família com descarte e sua contagem. `strict` rege **apenas** este caso de superconjunto — não
+flexibiliza as rejeições de subconjunto nem as rejeições na seleção por data.
+
+**Onde aparece o relatório de reconciliação.** Quando a carga prossegue (uma rejeição `strict` mostra apenas o resumo da mensagem de superconjunto), a
+reconciliação por família é exibida por três
+caminhos:
+
+- **`novomodelo run`** exibe um bloco **Boundary policy** na saída padrão enquanto carrega o caso, antes do treinamento —
+  `Cuts loaded: N (priced at {date})`, `Source: {path}` e uma linha `Reconciliation:`
+  `N copied, N fanned out, N defaulted to 0.0, N dropped`.
+- **`novomodelo validate --json`** emite um objeto de fronteira com os campos `configured`,
+  `boundary_date` e `report`, que contém o relatório completo por família
+  (exemplo resolvido em [Configuração — boundary](/pt-br/running/configuration/#policyboundary)).
+- **`novomodelo validate`** (modo legível) exibe `boundary policy priced at {date}`
+  seguido do resumo de uma linha
+  `boundary reconciliation: N copied, N fanned out, N defaulted to 0.0, N source slots dropped`.
+
+`novomodelo validate` reconcilia `policy.boundary` apenas quando a execução treina, assim como
+`novomodelo run` só o aplica nesse caso; com `training.enabled` definido como `false`, o
+campo JSON `configured` é `false`.
+
+### Retomada com fronteira
+
+Uma execução que declarou `policy.boundary` treina contra as linhas de fronteira de seu
+conjunto terminal, e seu checkpoint contém essas linhas junto com os contadores de
+atividade que a execução registrou para elas. Uma retomada dessa execução deve declarar a mesma
+fronteira novamente. O Novo Modelo compara as linhas de fronteira declaradas com as linhas terminais
+do checkpoint: a dimensão do estado, o número de posições e então, posição a posição,
+o papel, o indicador de atividade e os bits exatos do termo independente e de cada
+coeficiente.
+
+- Quando as linhas coincidem, a execução retomada mantém os contadores de atividade que o checkpoint
+  contém para elas, de modo que `max_active_per_stage` ou o método `dynamic` continua como
+  na execução interrompida.
+- Quando alguma linha difere, a retomada é recusada:
+
+```text
+resume needs the policy.boundary and modeling.cost_scale_factor the interrupted run used: the boundary pool (pool {n}) differs from the checkpoint's at {difference}; resume with that policy.boundary and cost scale or continue with policy.mode = warm_start
+```
+
+`novomodelo validate`, `novomodelo run` e as interfaces Python exibem a mesma linha. Um
+`modeling.cost_scale_factor` diferente do da execução interrompida é recusado
+apenas quando as linhas de fronteira que ele produz passam a diferir das do checkpoint, o que
+ocorre quando o fator do arquivo de fronteira também difere do da execução
+interrompida: as linhas do checkpoint são então convertidas duas vezes e as linhas de fronteira uma vez.
+Caso contrário, a retomada aplica sua própria escala. Uma partida a quente e uma carga somente de simulação
+não fazem a comparação: uma partida a quente com uma nova fronteira é aceita e
+reinicia os contadores de atividade das linhas carregadas.
+
+### Fluxo de acoplamento em produção
+
+Um encadeamento de estudos usa cortes de fronteira da seguinte forma:
+
+```d2
+direction: down
+
+upstream: "Estudo a montante\ncheckpoint da política: conjuntos de cortes precificados por data" {shape: rectangle}
+downstream: "Estudo a jusante (encadeado)" {shape: rectangle}
+
+upstream -> downstream: "policy.boundary.path = ../upstream_study/output/policy\nconjunto de origem precificado na data terminal do estudo a jusante → FCF terminal"
+```
+
+O estudo a montante grava um checkpoint de política cujos conjuntos de cortes são, cada um, precificados em
+uma data. O estudo a jusante indica esse checkpoint em `policy.boundary.path`,
+e o conjunto precificado na data de fronteira terminal do estudo a jusante torna-se sua
+função de custo futuro terminal. A dependência é unidirecional: o estudo a montante
+nunca lê o estudo a jusante. As condições sob as quais os cortes importados
+se aplicam ao estado do estudo a jusante estão em
+[Fronteira pós-estudo e estudos encadeados §5.2](/pt-br/math/post-study-boundary#52-condicoes-de-compatibilidade).
+
+### Interação com a partida a quente
+
+Cortes de fronteira e partida a quente são recursos independentes e podem ser combinados:
+
+```json
+{
+  "policy": {
+    "mode": "warm_start",
+    "path": "./policy",
+    "boundary": {
+      "path": "../upstream_study/output/policy"
+    }
+  }
+}
+```
+
+Isso carrega os próprios cortes do estudo a jusante, de sua execução anterior, via
+partida a quente E carrega os cortes de fronteira da política a montante no estágio terminal.
+Ambos os conjuntos de cortes contribuem para o limite inferior.
+
+---
+
+## Ler e gravar checkpoints a partir do Python
+
+`novomodelo.results.load_policy` lê um checkpoint de política em dicts Python simples,
+e `novomodelo.write_policy_checkpoint` grava um a partir de dicts com o mesmo formato, de modo que
+um checkpoint carregado faz a ida e volta: carregar, editar, gravar. O uso suportado é
+criar uma função de custo futuro de fronteira externa, por exemplo derivada
+analiticamente ou produzida por outra ferramenta, como um checkpoint que o Novo Modelo carrega
+via [`policy.boundary`](#cortes-de-fronteira). A disposição em disco de `AffinePiece` está
+documentada no [Esquema FlatBuffers da política](/pt-br/reference/flatbuffers-schema/).
+Um estudo carrega o checkpoint apenas na versão do novomodelo que o gravou
+([Verificação de versão](#verificacao-de-versao)); `novomodelo.results.load_policy` não verifica a versão.
+
+### Carregar uma política
+
+```python
+novomodelo.results.load_policy(output_dir, policy_subdir="policy")
+```
+
+`output_dir` é o diretório de saída do estudo; `load_policy` lê o
+checkpoint de `<output_dir>/<policy_subdir>` (`policy_subdir` tem padrão
+`"policy"`). Retorna um dict com quatro chaves de nível superior:
+
+| Chave         | Tipo         | Descrição |
+| ------------- | ------------ | --------- |
+| `metadata`    | `dict`       | `format_version`, `software`, `software_version`, `created_at`, `num_stages`, `graph_manifest`, `season_manifest`, `producer` |
+| `stage_cuts`  | `list[dict]` | Uma entrada por conjunto de cortes (uma por estágio em uma cadeia de estágios) — veja abaixo |
+| `stage_bases` | `list[dict]` | Uma entrada por nó com bases armazenadas: `stage_id` (a posição do nó), `iteration` e `entries`, uma por cenário da simulação forward, cada uma com `scenario`, `column_status`, `row_status` e `piece_row_slots` (a posição no conjunto de cada linha de corte que a base contém) |
+| `stage_states` | `list[dict]` | Uma entrada por conjunto que armazena estados visitados: `stage_id` (o id do conjunto), `node_id`, `state_dimension`, `count`, `slots` (a posição do corte gravado em cada estado, em ordem crescente), `data` (`count * state_dimension` valores, por linhas) e `entity_manifest`; vazio quando nenhum conjunto os armazena |
+
+Cada entrada de `stage_cuts` contém:
+
+| Chave               | Tipo         | Descrição |
+| ------------------- | ------------ | --------- |
+| `stage_id`          | `int`        | Id do conjunto (a partir de 0), a chave que nomeia `cuts/<pool>.bin`; a posição do estágio a partir de 0 em uma cadeia de estágios |
+| `state_dimension`   | `int`        | Comprimento que os `coefficients` de todo corte devem ter |
+| `capacity`          | `int`        | Capacidade de posições do conjunto de cortes |
+| `warm_start_count`  | `int`        | Cortes carregados de um artefato anterior no início da execução |
+| `populated_count`   | `int`        | Número de posições de corte preenchidas; opcional na gravação, em que assume por padrão o número de `cuts` |
+| `cost_scale_factor` | `float`      | Fator de escala de custo dos valores contidos no conjunto (veja [Canonicalização da escala de custo](#canonicalizacao-da-escala-de-custo)); obrigatório na gravação, finito e positivo |
+| `node_id`           | `int`        | Id, no grafo da política, do nó proprietário do conjunto; `-1` para um conjunto sem nó proprietário único |
+| `graph_stage_id`    | `int`        | Id, no grafo, do estágio do nó proprietário do conjunto; `-1` quando não resolvido |
+| `priced_state_date` | `int`        | O `end_date` do estágio proprietário codificado como `YYYYMMDD`, a data que os cortes do conjunto precificam; a sentinela do mínimo de int32 quando não registrada. Uma [carga de fronteira](#cortes-de-fronteira) seleciona seu conjunto de origem por essa data |
+| `entity_manifest`   | `list[dict]` | Marcadores de entidade por posição — veja abaixo |
+| `cuts`              | `list[dict]` | Registros dos cortes — veja abaixo |
+
+Cada entrada de `cuts` contém `slot_index` (a identidade do corte no conjunto),
+`iteration`, `forward_pass_index`, `intercept`, `coefficients`, `is_active` e
+`scored` (se a execução gravadora armazenou o estado visitado em que o corte foi
+calculado), além de `active_count` e `last_active_iteration` quando o checkpoint contém
+contadores de atividade. Na gravação, `scored` tem padrão `False` e os dois contadores, padrão
+ausente.
+
+`entity_manifest` é uma lista de marcadores por posição,
+`{entity_type, entity_id, subindex, was_active, reference_date, interval_start, interval_end}`,
+que permitem que um checkpoint de cortes de fronteira criado externamente faça a ida e volta por
+`write_policy_checkpoint` sem perder a identidade das posições. O marcador de data que uma posição
+contém decorre de sua família. Uma posição `HydroInflowLag` contém
+`reference_date`, o `start_date` de seu estágio passado de referência, codificado como
+`YYYYMMDD`. As famílias com deslocamento à frente (`HydroTransitBucket`,
+`AnticipatedThermalState`) contêm a janela semiaberta `interval_start`/`interval_end`,
+ambas codificadas como `YYYYMMDD`; uma posição de antecipação a contém apenas enquanto
+detém um compromisso vigente no estágio do conjunto. Um campo de data que não se aplica
+contém a sentinela do mínimo de int32 (`-2147483648`): todas as demais posições a contêm nos
+três campos, assim como uma posição de antecipação que não detém compromisso vigente
+no estágio do conjunto.
+
+`load_policy` não aplica nenhuma verificação de carga: lê qualquer checkpoint que esta versão consiga analisar,
+qualquer que seja a versão do novomodelo que o gravou, e retorna o software e a versão registrados
+como `metadata["software"]` e `metadata["software_version"]`, sem compará-los
+com um estudo. Um diretório inexistente, ou sem `manifest.bin`, gera
+`FileNotFoundError` quando nem `<policy_subdir>.staging` nem
+`<policy_subdir>.previous` contém um `manifest.bin`, e um buffer ilegível
+gera `OutputError`. [Códigos de erro](/pt-br/reference/error-codes/#erros-de-carga-da-politica)
+lista a classe de falha de cada caminho de carga.
+
+### Gravar um checkpoint
+
+```python
+novomodelo.write_policy_checkpoint(path, stage_cuts, metadata, stage_bases=None, stage_states=None, inflow_lag_depth=None)
+```
+
+`stage_cuts`, `metadata`, `stage_bases` e `stage_states` espelham os
+formatos de `load_policy` acima, de modo que um checkpoint carregado do disco faz a ida e volta pelo
+Python sem reformatação. `stage_bases` e `stage_states` têm padrão vazio quando
+omitidos. Um dict de conjunto que contenha `active_cut_indices`, um dict de corte que contenha `cut_id`,
+ou um dict de base que contenha `num_cut_rows`, `num_columns` ou `num_rows` é recusado
+com `{position}: key '{key}' is not part of a policy checkpoint (format 4); remove it`.
+
+Um `metadata` criado pelo usuário precisa de `created_at`, `num_stages` e um `producer` com
+`completed_iterations`, `final_lower_bound`, `max_iterations`, `forward_passes`,
+`warm_start_cuts` e `rng_seed`. `format_version`, `graph_manifest`,
+`season_manifest` e as demais chaves de `producer` (`best_upper_bound`,
+`warm_start_counts`, `total_visited_states`, `training_block_mode`,
+`training_block_mode_per_stage`, `cost_scale_factor`, `lower_bound_history` (uma
+lista de floats, vazia quando omitida), `state_history` (`None`, `"whole"` ou uma
+janela positiva), `activity_counters` e `basis_store_complete` (ambos `False`
+quando omitidos)) são opcionais. `basis_store_complete` definido como `True` sem nenhuma base
+em `stage_bases` é recusado. Os conteúdos passam então pelas verificações de uma gravação
+de checkpoint ([Conteúdo do diretório de checkpoint](#conteudo-do-diretorio-de-checkpoint)), e uma
+recusa gera `ValueError` com sua mensagem.
+
+`inflow_lag_depth`, quando definido como `N > 0`, faz o Novo Modelo reservar `N` posições de estado
+canônicas `HydroInflowLag` por UHE com reservatório no manifesto de cada estágio e
+colocar os `inflow_lag_coefficients` de cada corte em suas posições `(hydro, depth)`,
+de modo que uma política de fronteira criada para um caso sem modelo de afluências autorregressivo
+ainda possa conter um custo futuro terminal acoplado às defasagens de afluência. Ausente ou `0`, o
+checkpoint gravado é idêntico byte a byte.
+
+A função grava `manifest.bin`, `cuts/` e `basis/` diretamente em `path`,
+e `states/` apenas quando `stage_states` não está vazio. Essa é a organização de
+[Conteúdo do diretório de checkpoint](#conteudo-do-diretorio-de-checkpoint), de modo que
+`path` deve ser um diretório no estilo `policy/`. Para usá-lo como
+`policy.boundary.path`, informe-o relativo ao diretório do caso que o consome, ou como
+caminho absoluto. `load_policy` acrescenta `policy_subdir` ao diretório que
+recebe, de modo que um checkpoint gravado em `<dir>/policy` é lido de volta com `load_policy`
+sobre seu diretório pai, `<dir>`.
+
+`write_policy_checkpoint` registra a versão do novomodelo em execução no checkpoint
+e ignora as chaves `software`, `software_version` ou `novomodelo_version` em `metadata`, de modo que o checkpoint só é carregado
+nessa versão (veja [Verificação de versão](#verificacao-de-versao)). Um checkpoint gravado sem
+`stage_bases` não está sujeito à [verificação das bases armazenadas](#verificacao-das-bases-armazenadas): ele
+não contém bases a verificar.
+
+### Exemplo de ida e volta
+
+O exemplo a seguir pode ser copiado e executado. Para editar uma política treinada, carregue-a com
+`novomodelo.results.load_policy("output/")` e aplique a etapa de edição abaixo a
+`loaded["stage_cuts"]`; o exemplo cria um checkpoint do zero para poder ser executado
+sem um estudo. Ele grava o checkpoint, carrega-o de volta, acrescenta um terceiro corte,
+grava a política editada de volta no mesmo caminho e exibe o número de cortes recarregados
+e a versão do novomodelo registrada no checkpoint.
+
+```python
+import tempfile
+
+import novomodelo
+import novomodelo.results
+
+parent = tempfile.mkdtemp()
+
+stage_cuts = [
+    {
+        "stage_id": 0,
+        "state_dimension": 3,
+        "capacity": 10,
+        "cost_scale_factor": 2_500_000.0,
+        "cuts": [
+            {
+                "slot_index": 0,
+                "iteration": 1,
+                "forward_pass_index": 0,
+                "intercept": 42.0,
+                "coefficients": [1.0, 2.0, 3.0],
+                "is_active": True,
+            },
+            {
+                "slot_index": 1,
+                "iteration": 1,
+                "forward_pass_index": 1,
+                "intercept": 10.5,
+                "coefficients": [0.5, -1.5, 2.5],
+                "is_active": True,
+            },
+        ],
+    }
+]
+
+metadata = {
+    "created_at": "2026-07-30T00:00:00Z",
+    "num_stages": 1,
+    "producer": {
+        "completed_iterations": 5,
+        "final_lower_bound": 123.45,
+        "best_upper_bound": 130.0,
+        "max_iterations": 10,
+        "forward_passes": 4,
+        "warm_start_cuts": 0,
+        "warm_start_counts": [0],
+        "rng_seed": 42,
+        "total_visited_states": 0,
+        "training_block_mode": "parallel",
+        "training_block_mode_per_stage": [],
+        "cost_scale_factor": 2_500_000.0,
+    },
+}
+
+# Grava em `<parent>/policy` — `load_policy` acrescenta policy_subdir="policy" ao
+# diretório que recebe, por isso a carga abaixo é feita a partir de `parent`.
+novomodelo.write_policy_checkpoint(f"{parent}/policy", stage_cuts, metadata)
+
+loaded = novomodelo.results.load_policy(parent)
+assert loaded["metadata"]["format_version"] == 4
+assert loaded["stage_cuts"][0]["populated_count"] == 2
+
+# Edição: acrescenta um terceiro corte. Seus coeficientes devem corresponder a state_dimension (3).
+# Mantenha slot_index único e defina populated_count com o novo número de cortes.
+cuts = loaded["stage_cuts"][0]["cuts"]
+cuts.append(
+    {
+        "slot_index": 2,
+        "iteration": 2,
+        "forward_pass_index": 0,
+        "intercept": -5.0,
+        "coefficients": [4.0, -2.0, 0.0],
+        "is_active": True,
+    }
+)
+loaded["stage_cuts"][0]["populated_count"] = len(cuts)
+
+# Grava de volta: mesmo formato de ida e volta, um corte a mais que antes.
+novomodelo.write_policy_checkpoint(
+    f"{parent}/policy", loaded["stage_cuts"], loaded["metadata"]
+)
+
+# O checkpoint recarregado contém três cortes e registra a versão do novomodelo em execução.
+reloaded = novomodelo.results.load_policy(parent)
+print(len(reloaded["stage_cuts"][0]["cuts"]), reloaded["metadata"]["software_version"])
+```
+
+O script exibe o número de cortes recarregados e a versão que
+`write_policy_checkpoint` registrou:
+
+{/* capture: python round-trip example | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none */}
+
+```text
+3 0.20.0
+```
+
+### Validação das entradas
+
+`write_policy_checkpoint` gera `ValueError` quando qualquer das condições a seguir ocorre.
+A mensagem localiza o problema: a posição de uma chave descontinuada, o estágio e a
+posição do corte nas duas verificações por corte, o arquivo de estados do conjunto em uma divergência
+dos dados de estado, e a UHE em um coeficiente de defasagem de afluência que não pode ser posicionado.
+
+- um dict de conjunto, de corte ou de base contém uma chave descontinuada (veja
+  [Gravar um checkpoint](#gravar-um-checkpoint));
+- o `cost_scale_factor` de um conjunto está ausente, não é finito ou não é positivo;
+- o comprimento de `coefficients` de um corte não corresponde ao `state_dimension` de seu estágio;
+- um corte contém `inflow_lag_coefficients` sem um `inflow_lag_depth` positivo;
+- (com `inflow_lag_depth`) um manifesto não tem um bloco inicial de armazenamento;
+- (com `inflow_lag_depth`) um coeficiente de defasagem de afluência não pode ser posicionado;
+- o produtor define `basis_store_complete` sem nenhuma base em `stage_bases`;
+- um `state_history` do produtor é diferente de `None`, `"whole"` ou de uma
+  janela positiva;
+- os conteúdos violam uma regra de checkpoint (ordem das posições, contagens de linhas, presença de
+  contadores, datas, id repetido, limites de tamanho), incluindo uma entrada de `stage_states` cujo
+  comprimento de `data` difere de `count * state_dimension`; a mensagem é
+  `serialization error for entity {entity}: {message}`, em que `{message}` indica
+  o arquivo e a regra; ou
+- `path` (para um link, seu destino) ou seu irmão `.staging` ou `.previous` contém uma entrada que nenhum gravador de checkpoint deixa ali (`novomodelo.errors.ValidationError`, um `ValueError`, com o texto `refusing to write a checkpoint: …`; nada é alterado no disco).
+
+Cada trecho abaixo usa o `metadata` do exemplo de ida e volta. O segundo também
+usa seu `stage_cuts`; o terceiro define o seu próprio. Cada trecho termina com o
+texto da exceção que gera.
+
+Um corte cujo comprimento de `coefficients` diverge do `state_dimension`
+de seu estágio:
+
+{/* capture: python input-validation snippet 1 of 3 (ValueError text) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+
+```python
+bad_cuts = [
+    {
+        "stage_id": 0,
+        "state_dimension": 3,
+        "capacity": 10,
+        "cost_scale_factor": 2_500_000.0,
+        "cuts": [
+            {
+                "slot_index": 0,
+                "iteration": 1,
+                "forward_pass_index": 0,
+                "intercept": 42.0,
+                "coefficients": [1.0, 2.0],  # comprimento 2, mas state_dimension=3
+                "is_active": True,
+            },
+        ],
+    }
+]
+
+novomodelo.write_policy_checkpoint("output/policy", bad_cuts, metadata)
+# ValueError: stage 0 cut at slot 0: coefficients has 2 entries, expected state_dimension=3
+```
+
+Uma entrada de `stage_states` cujo comprimento do `data` plano diverge de
+`count * state_dimension`:
+
+{/* capture: python input-validation snippet 2 of 3 (ValueError text) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
+
+```python
+stage_states = [
+    {
+        "stage_id": 0,
+        "state_dimension": 3,
+        "count": 2,
+        "slots": [0, 1],
+        "data": [1.0, 2.0, 3.0],  # comprimento 3, mas count * state_dimension = 6
+    }
+]
+
+novomodelo.write_policy_checkpoint(
+    "output/policy", stage_cuts, metadata, stage_states=stage_states
+)
+# ValueError: serialization error for entity policy_checkpoint_structure: states/000.bin: data holds 3 values, not count 2 times state_dimension 3
+```
+
+Um corte com `inflow_lag_coefficients` sem que um `inflow_lag_depth` seja informado para
+reservar as posições de defasagem (indexado pelo id **inteiro** da UHE; índice `0` da lista = defasagem
+de profundidade 1):
+
+{/* capture: python input-validation snippet 3 of 3 (ValueError text) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+
+```python
+stage_cuts = [
+    {
+        "stage_id": 0,
+        "state_dimension": 3,
+        "capacity": 10,
+        "cost_scale_factor": 2_500_000.0,
+        "cuts": [
+            {
+                "slot_index": 0,
+                "iteration": 1,
+                "forward_pass_index": 0,
+                "intercept": 42.0,
+                "coefficients": [1.0, 2.0, 3.0],
+                "is_active": True,
+                "inflow_lag_coefficients": {0: [0.5]},
+            },
+        ],
+    }
+]
+
+novomodelo.write_policy_checkpoint("output/policy", stage_cuts, metadata)
+# ValueError: stage 0 cut at slot 0: inflow_lag_coefficients supplied without inflow_lag_depth; pass inflow_lag_depth=N to reserve the lag slots
+```
+
+---
+
+## Veja também
+
+- **Teoria:** [Gerenciamento de cortes](/pt-br/math/cut-management/) — o conjunto de cortes que um checkpoint de política preserva entre execuções.
+- [Configuração](/pt-br/running/configuration/) — todos os campos de `config.json` documentados
+- [Executando estudos](/pt-br/running/running-studies/) — fluxos de trabalho comuns, incluindo execuções somente de treinamento e somente de simulação
+- [Formato de saída](/pt-br/reference/output/) — descrição detalhada de cada arquivo de saída

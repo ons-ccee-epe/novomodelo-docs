@@ -1,0 +1,256 @@
+---
+title: Esquema FlatBuffers da política
+description: O formato binário FlatBuffers do checkpoint da política (`policy/*.bin`) — referência dos campos, geração de leitores tipados e política de versionamento.
+---
+
+Os arquivos binários no diretório `policy/` de um estudo são buffers
+[FlatBuffers](https://flatbuffers.dev/). O runtime do Novo Modelo os grava e
+lê por meio de um caminho próprio em Rust, escrito à mão e sem alocações,
+mas consumidores externos (Python, C++, TypeScript, Java, Go, …) podem usar o
+arquivo de esquema canônico distribuído com o código-fonte para gerar um
+leitor tipado em qualquer linguagem suportada pelo `flatc`.
+
+| Caminho do arquivo | Tabela raiz |
+| --- | --- |
+| `policy/manifest.bin` | `CheckpointManifest` (global do estudo; gravado por último, lido primeiro) |
+| `policy/cuts/NNN.bin` | `StageCuts` |
+| `policy/basis/NNN.bin` | `StageBasis` |
+| `policy/states/NNN.bin` | `StageStates` (apenas para um conjunto que armazena estados visitados) |
+
+`NNN` é um id de três dígitos, completado com zeros à esquerda: o **id do
+conjunto (pool)** para `cuts/` e `states/`, e a posição do nó (numerada a
+partir de 0) para `basis/`. `manifest.bin` é um único arquivo global do
+estudo, sem id. O leitor obtém a identidade a partir do conteúdo de cada
+buffer, nunca do nome do arquivo. A raiz `CheckpointManifest` contém o grafo
+do estudo (`nodes`/`edges`), o número de estágios, a procedência do produtor
+e o marcador `format_version`.
+
+O esquema está em
+[`crates/novomodelo-io/schemas/policy.fbs`](https://github.com/ons-ccee-epe/novomodelo/blob/v0.20.0/crates/novomodelo-io/schemas/policy.fbs),
+no namespace `Novomodelo.IO.Policy`. Ele declara `file_identifier "CBVF"`
+e `file_extension "bin"`, mas nenhum `root_type`; por isso, `--root-type` é
+obrigatório em cada arquivo para selecionar o ponto de entrada do `flatc`. O
+leitor recusa, antes de decodificá-lo, qualquer buffer cujo identificador
+inicial não seja `CBVF`; assim, um buffer sem o identificador nunca é
+interpretado incorretamente.
+
+## Guia rápido: convertendo um `.bin` para JSON
+
+O `flatc` inclui um conversor que transforma qualquer buffer FlatBuffers em
+JSON, desde que receba o esquema. É o que mais se aproxima de uma visão
+legível de um checkpoint da política:
+
+```bash
+flatc -t --strict-json \
+    --root-type StageCuts \
+    crates/novomodelo-io/schemas/policy.fbs \
+    -- output/policy/cuts/000.bin
+# grava 000.json ao lado do .bin
+```
+
+Para os arquivos de base ou de estados, troque o argumento de `--root-type`
+por `StageBasis` ou `StageStates`. `--raw-binary` força o `flatc` a ler um
+buffer que não contém o identificador `CBVF`. Um buffer gravado pelo
+Novo Modelo contém o identificador, de modo que o `flatc -t` o verifica por
+conta própria.
+
+## Gerando um leitor tipado
+
+O `flatc` gera código-fonte idiomático para qualquer uma das linguagens-alvo
+que suporta. Escolha a que corresponde ao seu ambiente de desenvolvimento.
+
+### Python
+
+```bash
+flatc --python crates/novomodelo-io/schemas/policy.fbs
+# gera um módulo por tipo do esquema em Novomodelo/IO/Policy/ (AffinePiece, BasisEntry,
+# CheckpointManifest, EntitySlot, EntityType, StageCuts, StageBasis, StageStates, ...)
+```
+
+```python
+from Novomodelo.IO.Policy.StageCuts import StageCuts
+
+with open("output/policy/cuts/000.bin", "rb") as f:
+    buf = bytearray(f.read())
+
+cuts = StageCuts.GetRootAs(buf, 0)
+print("stage_id =", cuts.StageId())
+for i in range(cuts.CutsLength()):
+    piece = cuts.Cuts(i)
+    print(piece.SlotIndex(), piece.Intercept(), [piece.Coefficients(j) for j in range(piece.CoefficientsLength())])
+```
+
+:::tip[Bindings Python]
+Quem usa o binding PyO3 do novomodelo pode dispensar totalmente o `flatc`:
+`novomodelo.results.load_policy(output_dir)` já retorna um dict Python
+estruturado. Use o `flatc` apenas se precisar de leituras parciais em
+arquivos muito grandes ou se não estiver usando o wheel Python.
+:::
+
+### C++
+
+```bash
+flatc --cpp crates/novomodelo-io/schemas/policy.fbs
+# gera policy_generated.h
+```
+
+### TypeScript / JavaScript
+
+```bash
+flatc --ts crates/novomodelo-io/schemas/policy.fbs
+# gera módulos TypeScript em novomodelo/io/policy/
+```
+
+Para outros alvos, consulte `flatc --help`.
+
+## Referência campo a campo
+
+A descrição oficial de cada campo está no próprio
+[`policy.fbs`](https://github.com/ons-ccee-epe/novomodelo/blob/v0.20.0/crates/novomodelo-io/schemas/policy.fbs)
+— cada campo tem um comentário de documentação embutido. A página
+[Formato de saída](/pt-br/reference/output/) traz um resumo em tabela adequado
+para leitura na web.
+
+### Slots reservados
+
+O esquema reutiliza um id de campo e inutiliza permanentemente os demais
+listados aqui:
+
+- **`AffinePiece.intercept` (id 4)** reutiliza o slot da vtable do campo
+  aposentado `domination_count`. Essa reutilização de id é o caso excepcional
+  na [política de versionamento](#politica-de-versionamento) desta página —
+  normalmente, um id inutilizado nunca é reutilizado.
+- **`AffinePiece.piece_id` (id 0)** está marcado como `deprecated`. É um
+  rótulo de corte por execução, já aposentado; `slot_index` identifica um
+  corte dentro de seu conjunto.
+- **`AffinePiece.reserved_7` (id 7)** está marcado como `deprecated`. É um
+  campo vetorial aposentado, sempre vazio. O número de slot da vtable fica
+  permanentemente inutilizado, para que nenhum campo futuro possa reutilizá-lo.
+- **`StageCuts.active_cut_indices` (id 5)** está marcado como `deprecated`.
+  É uma lista aposentada das posições dos cortes ativos; o `is_active` de cada
+  corte carrega a mesma informação.
+- **Os ids 2–6 de `StageBasis`** (`num_columns`, `num_rows`, `column_status`,
+  `row_status`, `num_cut_rows`) estão marcados como `deprecated`. Eles
+  armazenavam uma única base por nó; `entries` (id 7) armazena um
+  `BasisEntry` por cenário, cujo `piece_row_slots` indica o slot do conjunto
+  correspondente a cada linha de corte.
+- **`EntitySlot.delivery_anchor` (id 4)** está marcado como `deprecated`. É
+  uma âncora aposentada em mês inteiro (`year * 12 + (month - 1)`).
+- **`EntitySlot.delivery_date` (id 5)** **também** está marcado como
+  `deprecated`. É uma data de calendário única `YYYYMMDD`, já aposentada; os
+  campos de data em uso são específicos de cada família:
+  **`reference_date` (id 6)** — a `start_date` (`YYYYMMDD`) do estágio passado
+  de referência de um slot `HydroInflowLag`; **`interval_start` (id 7)** /
+  **`interval_end` (id 8)** — a janela semiaberta da família forward (uma
+  janela de chegada de `HydroTransitBucket` ou uma janela de entrega de
+  `AnticipatedThermalState`). Cada campo de data contém o valor sentinela
+  `-2147483648` (o mínimo de int32) quando a família do slot não tem essa
+  data. Um ring slot de `AnticipatedThermalState` só contém sua janela de
+  entrega enquanto mantém um compromisso de despacho vigente no estágio do
+  conjunto. Caso contrário, os dois campos de intervalo contêm o valor
+  sentinela, o que também ocorre quando a entrega cai após o calendário do
+  estudo estendido pelos estágios pós-estudo.
+  A regra de inutilização é **por tabela**: o id 7 de `EntitySlot`
+  (`interval_start`) é um campo **em uso**, distinto do campo inutilizado
+  `AffinePiece.reserved_7` (também id 7).
+
+Ao contrário de um campo comum acrescentado ao final, reutilizar ou
+inutilizar um id não é retrocompatível no formato binário: um leitor
+construído para outro layout interpreta o slot incorretamente. Por isso, um
+buffer sem o identificador `CBVF` ou com `format_version` diferente de `4` é
+rejeitado de imediato na carga, em vez de ser lido com os valores padrão de
+campos ausentes — veja [Política de versionamento](#politica-de-versionamento) abaixo.
+
+Os leitores gerados não emitem acessor para campos `deprecated`, e os
+escritores gerados não conseguem gravá-los. O próprio escritor do runtime do
+Novo Modelo nunca os preenche.
+
+## Como a divergência é evitada
+
+O esquema não é consumido pela compilação do próprio Novo Modelo. Duas
+implementações independentes descrevem o mesmo formato binário:
+
+- O **arquivo de esquema** `crates/novomodelo-io/schemas/policy.fbs`, com
+  atributos `(id: N)` explícitos em todos os campos.
+- O **escritor/leitor escrito à mão** em
+  `crates/novomodelo-io/src/output/policy/codec.rs`, que codifica os slots
+  da vtable por meio das constantes `*_FIELD_*: u16`. O deslocamento do slot é
+  `(field_id + 2) * 2`.
+
+Um teste de conformidade, `tests/flatbuffers_schema_conformance.rs` em
+`novomodelo-io`, faz o percurso de ida e volta de buffers representativos
+nos **dois** sentidos:
+
+- Escritor manual → `flatc -t` → JSON: detecta o escritor emitindo um slot
+  que o esquema não declara, ou em deslocamento errado.
+- JSON → `flatc -b` → leitor manual: detecta o esquema declarando um slot
+  que o leitor espera em outro deslocamento.
+
+O teste fica condicionado à feature cargo `flatc-conformance`, para que o
+`cargo test` do dia a dia não dependa do `flatc`. Para executá-lo:
+
+```bash
+cargo test -p novomodelo-io \
+    --features flatc-conformance \
+    --test flatbuffers_schema_conformance
+```
+
+Se alterar o esquema ou as constantes de slot, execute o teste de
+conformidade antes do merge. O workflow de CI que dispõe do `flatc` o executa
+em todo pull request que altera `policy/codec.rs` ou o arquivo de esquema.
+
+## Política de versionamento
+
+Duas regras distintas regem um checkpoint da política, além das regras por
+campo descritas abaixo.
+
+**Legibilidade do formato binário.** O leitor processa `policy/manifest.bin`
+**primeiro**, antes de qualquer conteúdo `.bin`. Todo buffer `.bin`,
+inclusive o manifesto, contém o `file_identifier` `CBVF` descrito acima, e
+o leitor recusa um buffer sem ele antes de decodificá-lo. O
+`CheckpointManifest` do manifesto contém um marcador obrigatório
+`format_version`, que deve ser igual a `4` (`FORMAT_VERSION`); a ausência de
+`manifest.bin` ou um `format_version` diferente interrompe a leitura antes
+que qualquer conteúdo seja processado. **Não há conversão entre versões de
+formato**; [Erros de carga da política](/pt-br/reference/error-codes/#erros-de-carga-da-politica)
+lista o que uma carga recusada gera.
+
+**Admissão na carga.** Um checkpoint legível não é, só por isso, admitido.
+Todo caminho de carga exige que o `software` (id 20) e o `software_version`
+(id 1) registrados em `manifest.bin` sejam exatamente iguais ao nome e à
+versão do software em execução; a
+[verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao) apresenta a
+regra, a mensagem e a solução.
+
+A regra de ausência tolerada do FlatBuffers permite acrescentar novos campos
+a qualquer tabela sem quebrar leitores mais antigos, **desde que** os novos
+campos sejam acrescentados ao final com o próximo `id` disponível. Esta é a
+única alteração de esquema que não exige incremento da versão do formato de
+saída — a verificação de `format_version` acima rege todo o restante:
+
+- **Acrescentar um campo no próximo id livre** → retrocompatível **apenas no
+  nível do formato binário**. Leitores antigos veem o campo como ausente e
+  usam o padrão do FlatBuffers (zero / vetor vazio). Leitores novos veem o
+  valor quando o escritor era recente o bastante para gravá-lo. A
+  compatibilidade binária não implica que os *valores* possam ser consumidos
+  com segurança: um campo pode alterar o significado de campos existentes (o
+  marcador `cost_scale_factor` indica a escala em que estão os valores dos
+  cortes, que um leitor que o ignore interpreta errado silenciosamente — sem
+  erro, com números errados). Se um checkpoint
+  é carregado ou não é determinado pela
+  [verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao), e não
+  por esta regra de nível binário.
+- **Remover um campo** → marque-o como `deprecated` e nunca reutilize o id.
+  Veja `AffinePiece.piece_id`, `AffinePiece.reserved_7`,
+  `StageCuts.active_cut_indices`, os ids 2–6 de `StageBasis`,
+  `EntitySlot.delivery_anchor` e `EntitySlot.delivery_date` como exemplos
+  resolvidos. A reutilização do id 4 por `AffinePiece.intercept`
+  — o slot do campo aposentado `domination_count` — é a única
+  exceção documentada nesta página, e não um precedente para reutilizar um id
+  inutilizado sob a regra comum.
+- **Alterar o tipo de um campo** → incompatível. Incrementa a versão maior
+  do formato de saída.
+- **Renomear um campo** → incompatível para código gerado pelo `flatc` (o
+  nome do acessor muda). Evite; se necessário, trate como incremento maior.
+- **Reordenar campos** → inofensivo se os atributos `(id: N)` forem mantidos.
+  O layout binário é determinado pelos ids, não pela ordem no código-fonte.

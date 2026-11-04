@@ -1,0 +1,438 @@
+---
+title: Saídas do treinamento
+description: "Esquemas dos arquivos training/ gravados por novomodelo run: o registro de convergência, as estatísticas de tempo e do solver, o histograma de novas tentativas, o relatório de escalonamento, as estatísticas de seleção de cortes e os dicionários de saída."
+---
+
+Cada seção abaixo apresenta o esquema de um arquivo ou diretório que `novomodelo run`
+grava em `training/`, com os quatro arquivos do dicionário de saída por último; os
+esquemas de `training/metadata.json`, `training/model_provenance.json` e
+`training/hydro_models.json` estão nas páginas Arquivos de metadados e Artefatos dos
+modelos hidrelétricos.
+
+## `training/convergence.parquet`
+
+Registro de convergência por iteração. Uma linha por iteração do treinamento (training). 16 colunas.
+
+**Metodologia:** [Critérios de parada](/pt-br/math/stopping-rules) · [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation)
+
+| Nome               | Tipo    | Anulável | Unidades | Descrição |
+| ------------------ | ------- | -------- | -------- | --------- |
+| `iteration`        | Int32   | Não      | —        | Número da iteração do treinamento (a partir de 1). |
+| `lower_bound`      | Float64 | Não      | —        | Limite inferior do custo ajustado ao risco após esta iteração: o valor ajustado ao risco do primeiro estágio sobre suas aberturas, com os cortes atuais ([limite inferior](/pt-br/math/upper-bound-evaluation/#limite-inferior)). |
+| `upper_bound`      | Float64 | Não      | —        | Limite superior desta iteração. Sob uma simulação forward estatística (amostrada), a média sobre os cenários da simulação forward. Sob uma simulação forward exata (enumerada), o custo esperado dos caminhos enumerados ponderado por suas probabilidades; quando a medida de risco é o mesmo CVaR em todos os estágios, o valor na raiz da recursão aninhada ajustada ao risco (veja [Gerenciamento de cortes — quando os limites e certificados valem](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem)). |
+| `upper_bound_std`  | Float64 | Sim      | —        | Desvio-padrão amostral dos custos dos cenários da simulação forward desta iteração. `null` em todas as linhas quando `upper_bound_kind` é `"exact"`. |
+| `upper_bound_kind` | Utf8    | Não      | —        | Regime do limite superior no nível da execução, igual em todas as linhas: `"exact"` sob seleção `enumerated`, `"statistical"` sob seleção `sampled`. |
+| `gap_percent`      | Float64 | Sim      | %        | Gap relativo entre os limites inferior e superior, em porcentagem. `null` quando o limite inferior é zero ou negativo. |
+| `cuts_added`       | Int32   | Não      | —        | Número de novos cortes adicionados ao conjunto de cortes durante a simulação backward desta iteração. |
+| `cuts_removed`     | Int32   | Não      | —        | Cortes desativados nesta iteração, somados sobre os conjuntos: os desativados pela etapa de seleção mais os removidos por `max_active_per_stage`. As reativações não são subtraídas; [`training/cut_selection/iterations.parquet`](#trainingcut_selectioniterationsparquet) as informa por conjunto. `0` quando não há método de seleção nem limite configurado. |
+| `cuts_active`      | Int64   | Não      | —        | Cortes ativos somados sobre os conjuntos ao final da gestão de linhas desta iteração: após o limite, quando ele se aplica; caso contrário, após a etapa de seleção. Os cortes carregados estão incluídos. `row_pool.peak_active` em [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson) é no mínimo o maior valor desta coluna, porque também conta os cortes ativos na troca de cortes de cada iteração, antes da etapa de seleção. |
+| `time_forward_ms`  | Int64   | Não      | ms       | Tempo de relógio gasto na simulação forward, em milissegundos. |
+| `time_backward_ms` | Int64   | Não      | ms       | Tempo de relógio gasto na simulação backward, em milissegundos. |
+| `time_total_ms`    | Int64   | Não      | ms       | Tempo de relógio total desta iteração, em milissegundos. |
+| `forward_passes`   | Int32   | Não      | —        | Número de trajetórias de cenários da simulação forward avaliadas nesta iteração. |
+| `lp_solves`        | Int64   | Não      | —        | Número total de PLs resolvidos em todos os estágios e simulações forward desta iteração. |
+| `mean_rows_in_lp`  | Float64 | Não      | —        | Número médio de linhas de corte residentes carregadas por solução preguiçosa (lazy) de PL do método `dynamic` nesta iteração; `0` quando nenhuma solução preguiçosa foi executada. |
+| `lazy_round_cap_hits` | Int64 | Não    | —        | Soluções preguiçosas do método `dynamic` nesta iteração, em todos os processos, que atingiram o limite de rodadas com algum corte candidato ainda violado; essa solução prossegue sem o limite por rodada até que nenhum candidato esteja violado. `0` quando nenhuma solução preguiçosa foi executada. |
+
+---
+
+## `training/timing/iterations.parquet`
+
+Decomposição, por fase, do tempo de relógio de cada iteração. 19 colunas. Emitido como uma
+linha por `(iteration, rank)` para valores sequenciais exclusivos do processo (`worker_id` é
+NULL) e uma linha por `(iteration, rank, worker_id)` para valores por worker
+das regiões paralelas; `SUM(col) GROUP BY iteration` recupera o
+total por iteração de cada coluna de tempo. O processo 0 grava o arquivo a partir de suas próprias
+medições, de modo que, sob MPI, toda linha tem `rank` `0` e todo valor, exceto
+`bwd_load_imbalance_ms`, é do próprio processo 0. `rank` e `worker_id` são Int32
+anuláveis; as 16 colunas de tempo não são anuláveis.
+
+As fases de nível superior, sem sobreposição, são: `forward_wall_ms`,
+`backward_wall_ms`, `cut_selection_ms`, `mpi_allreduce_ms` e
+`lower_bound_ms`. A sobrecarga paralela da simulação backward é decomposta em três
+componentes: `bwd_setup_ms` (trabalho agregado que não é solução de PL, somado sobre os
+workers), `bwd_load_imbalance_ms` (worker máximo menos worker médio, sobre os
+workers de todos os processos)
+e `bwd_scheduling_overhead_ms` (tempo de relógio paralelo menos worker máximo). A
+simulação forward tem os mesmos três subcomponentes, com prefixo `fwd_`.
+A fase backward também tem os subcomponentes `cut_sync_ms`,
+`state_exchange_ms` e `cut_batch_build_ms`. O resíduo não
+atribuído a nenhuma fase é `overhead_ms`.
+
+| Nome                         | Tipo  | Anulável | Unidades | Descrição |
+| ---------------------------- | ----- | -------- | -------- | --------- |
+| `iteration`                  | Int32 | Não      | —        | Número da iteração do treinamento (a partir de 1). |
+| `rank`                       | Int32 | Sim      | —        | Processo (rank MPI) que produziu esta linha. Anulável no esquema; sempre preenchido na saída gravada. |
+| `worker_id`                  | Int32 | Sim      | —        | Índice do worker no pool de threads do processo. NULL nas linhas sequenciais exclusivas do processo. |
+| `forward_wall_ms`            | Int64 | Não      | ms       | Tempo de relógio da simulação forward (todos os estágios e cenários). |
+| `backward_wall_ms`           | Int64 | Não      | ms       | Tempo de relógio da simulação backward (todos os estágios e estados visitados). |
+| `cut_selection_ms`           | Int64 | Não      | ms       | Tempo gasto na etapa de seleção de cortes. |
+| `mpi_allreduce_ms`           | Int64 | Não      | ms       | Tempo gasto na sincronização dos limites da simulação forward: um allgatherv dos custos por trajetória entre os processos e sua redução em ordem canônica. |
+| `cut_sync_ms`                | Int64 | Não      | ms       | Tempo gasto no allgatherv de sincronização de cortes por estágio (subcomponente da backward). |
+| `lower_bound_ms`             | Int64 | Não      | ms       | Tempo gasto avaliando o limite inferior (PLs do estágio 0 para todas as aberturas). |
+| `state_exchange_ms`          | Int64 | Não      | ms       | Tempo gasto no allgatherv de troca de estados (subcomponente da backward). |
+| `cut_batch_build_ms`         | Int64 | Não      | ms       | Tempo gasto montando os lotes de linhas de corte (subcomponente da backward). |
+| `bwd_setup_ms`               | Int64 | Não      | ms       | Trabalho agregado que não é solução de PL (carga do modelo, atualização de limites e instalação de base) somado sobre os workers da backward, em ms. Pode exceder `backward_wall_ms`; é uma métrica de custo, não uma fatia do tempo de relógio. |
+| `bwd_load_imbalance_ms`      | Int64 | Não      | ms       | Desbalanceamento de carga da backward sobre os workers de todos os processos: `max_worker_total - avg_worker_total`, limitado inferiormente a zero. Sob MPI, inclui o tempo em que um processo espera que processos mais lentos concluam as soluções de um estágio. |
+| `bwd_scheduling_overhead_ms` | Int64 | Não      | ms       | Sobrecarga de escalonamento de tarefas da backward: `parallel_wall - max_worker_total`, limitada inferiormente a zero. |
+| `fwd_setup_ms`               | Int64 | Não      | ms       | Trabalho agregado que não é solução de PL, somado sobre os workers da forward, em ms. Mesma semântica agregada de `bwd_setup_ms`. |
+| `fwd_load_imbalance_ms`      | Int64 | Não      | ms       | Desbalanceamento de carga da forward sobre os workers do processo 0: `max_worker_total - avg_worker_total`, limitado inferiormente a zero. |
+| `fwd_scheduling_overhead_ms` | Int64 | Não      | ms       | Sobrecarga de escalonamento de tarefas da forward: `parallel_wall - max_worker_total`, limitada inferiormente a zero. |
+| `overhead_ms`                | Int64 | Não      | ms       | Tempo de relógio residual não atribuído a nenhuma das fases acima. |
+| `lazy_scoring_ms`            | Int64 | Não      | ms       | Tempo por worker gasto na avaliação preguiçosa (lazy) de candidatos dentro da solução com seleção preguiçosa. Subcomponente das fases forward/backward (não uma parcela de nível superior); `0` quando o caminho preguiçoso não é usado. |
+
+:::note[Invariante das colunas]
+`load_imbalance + scheduling` cabe dentro de `parallel_wall` tanto para a trinca
+forward quanto para a backward (`fwd_*` / `bwd_*`); `setup_ms` é um custo separado,
+agregado sobre os workers, e não é limitado pelo tempo de relógio.
+:::
+
+---
+
+## `training/solver/iterations.parquet`
+
+Estatísticas do solver de PL por iteração, fase, estágio, abertura e worker,
+para diagnosticar problemas de condicionamento e o comportamento das novas tentativas. Uma linha por
+tupla `(iteration, phase, stage_id, opening_index, rank, worker_id)` na
+fase backward (por abertura, por worker); uma linha por tupla `(iteration, phase,
+stage_id)` nas fases forward, `lower_bound` e `simulation`. Uma
+linha de treinamento preenche `iteration` e deixa `scenario_id` NULL; uma linha de simulação
+preenche `scenario_id` e deixa `iteration` NULL. `stage_id` é NULL nas
+linhas `lower_bound` (sem estágio); `opening_index` e `worker_id` são NULL
+sempre que a linha não tem dimensão por abertura/por worker, e `rank` é NULL
+apenas em uma linha de simulação. 20 colunas. `iteration`, `scenario_id`, `stage_id`,
+`opening_index`, `rank` e `worker_id` são Int32 anuláveis; todas as demais colunas
+são não anuláveis.
+
+**Metodologia:** [Aproveitamento de base do PL](/pt-br/math/lp-warm-start)
+
+| Nome                         | Tipo    | Anulável | Unidades | Descrição |
+| ---------------------------- | ------- | -------- | -------- | --------- |
+| `iteration`                  | Int32   | Sim      | —        | Iteração do treinamento (a partir de 1). NULL em uma linha de simulação (em vez disso, `scenario_id` é preenchido). |
+| `scenario_id`                | Int32   | Sim      | —        | Id do cenário de simulação (a partir de 0). NULL em uma linha de treinamento (em vez disso, `iteration` é preenchido). |
+| `phase`                      | Utf8    | Não      | —        | `"forward"`, `"backward"`, `"lower_bound"` ou `"simulation"`. |
+| `stage_id`                   | Int32   | Sim      | —        | Id declarado do estágio (de `stages.json`). NULL nas linhas `lower_bound`. |
+| `opening_index`              | Int32   | Sim      | —        | Índice da abertura (realização do ruído) dentro do estágio, nas linhas backward. NULL para forward, `lower_bound`, `simulation`. |
+| `rank`                       | Int32   | Sim      | —        | Processo (rank MPI) que produziu esta linha. NULL em uma linha de simulação. |
+| `worker_id`                  | Int32   | Sim      | —        | Índice do worker no pool de threads do processo. NULL nas linhas sem dimensão por worker. |
+| `lp_solves`                  | UInt32  | Não      | —        | Número de PLs resolvidos no agrupamento desta linha. |
+| `lp_successes`               | UInt32  | Não      | —        | Número de soluções que retornaram ótimo. |
+| `lp_retries`                 | UInt32  | Não      | —        | Número de soluções que exigiram pelo menos uma nova tentativa. |
+| `lp_failures`                | UInt32  | Não      | —        | Número de soluções que falharam após esgotar todos os níveis de nova tentativa. |
+| `lp_row_violations`          | UInt32  | Não      | —        | Número de soluções cuja solução primal devolvida viola um limite de linha em mais que a tolerância de viabilidade primal mais `1e-11` vezes a magnitude da linha (tomada como no mínimo 1). `0` em uma execução correta; veja [Soluções que violam um limite de linha](/pt-br/reference/error-codes/#solucoes-que-violam-um-limite-de-linha). |
+| `retry_attempts`             | UInt32  | Não      | —        | Total de novas tentativas em todas as soluções de PL deste agrupamento. |
+| `basis_offered`              | UInt32  | Não      | —        | Número de soluções às quais se ofereceu uma base inicial (tentativas de aproveitamento de base). No backend HiGHS, `0` em toda solução de uma fase cujo perfil de solver define `use_warm_start: false`, como faz o perfil embutido de simulação. |
+| `basis_consistency_failures` | UInt32  | Não      | —        | Número de soluções com aproveitamento de base cuja base o solver rejeitou por ser inconsistente com o modelo. Uma base com menos linhas que o modelo é rejeitada antes de chegar ao solver; essa solução é contada aqui, mas não em `basis_offered`. |
+| `simplex_iterations`         | UInt64  | Não      | —        | Total de iterações do simplex (ou de pontos interiores) em todas as soluções. |
+| `solve_time_ms`              | Float64 | Não      | ms       | Tempo de relógio acumulado de solução dos PLs, em milissegundos. |
+| `load_model_time_ms`         | Float64 | Não      | ms       | Tempo acumulado gasto carregando o modelo do estágio no solver, em milissegundos. |
+| `set_bounds_time_ms`         | Float64 | Não      | ms       | Tempo acumulado gasto atualizando os limites de linhas e colunas, em milissegundos. |
+| `basis_set_time_ms`          | Float64 | Não      | ms       | Tempo acumulado gasto instalando bases para o aproveitamento de base, em milissegundos. |
+
+---
+
+## `training/solver/retry_histogram.parquet`
+
+Contagens de sucesso de novas tentativas por nível, normalizadas a partir da tabela de iterações
+do solver. Uma linha por tupla `(iteration, phase, stage_id, retry_level)` em que
+a contagem é positiva (codificação esparsa). As linhas cobrem as soluções `lower_bound` e, sob a seleção de treinamento `enumerated`,
+as soluções `backward`. As soluções `forward`, e as soluções `backward` sob a seleção `sampled`,
+não geram linhas; suas novas tentativas aparecem apenas em `lp_retries` e
+`retry_attempts` de
+[`training/solver/iterations.parquet`](#trainingsolveriterationsparquet).
+5 colunas. Todas não anuláveis, exceto `stage_id`.
+
+| Nome          | Tipo   | Anulável | Unidades | Descrição |
+| ------------- | ------ | -------- | -------- | --------- |
+| `iteration`   | UInt32 | Não      | —        | Número da iteração do treinamento (a partir de 1). |
+| `phase`       | Utf8   | Não      | —        | Fase do algoritmo: `"backward"` ou `"lower_bound"`. |
+| `stage_id`    | Int32  | Sim      | —        | Id declarado do estágio (de `stages.json`) nas linhas `backward`; `null` nas linhas `lower_bound`. |
+| `retry_level` | UInt32 | Não      | —        | Nível de escalada das novas tentativas: `0` a `11` no HiGHS; o backend CLP não registra contagens por nível, de modo que uma execução com CLP não grava linhas. Veja a seção [Salvaguardas do solver](/pt-br/running/performance/#salvaguardas-do-solver) do guia Aceleradores de desempenho. |
+| `count`       | UInt64 | Não      | —        | Número de PLs recuperados neste nível. As contagens não são somadas entre processos nem entre workers. |
+
+---
+
+## `training/scaling_report.json`
+
+Diagnóstico do pré-escalonamento (scaling) do PL, gravado uma única vez após a construção do modelo-base dos estágios.
+Documenta as faixas de coeficientes antes e depois do escalonamento de colunas/linhas de
+cada estágio, além das distribuições dos fatores de escala aplicados. Útil para
+diagnosticar problemas de condicionamento numérico.
+
+**Metodologia:** [Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling)
+
+O JSON é um único objeto de nível superior:
+
+```json
+{
+  "cost_scale_factor": 1000000.0,
+  "stages": [
+    {
+      "stage_id": 0,
+      "dimensions": { "num_cols": 128, "num_rows": 96, "num_nz": 412 },
+      "pre_scaling": {
+        "matrix_coeff_range": [0.001, 5000.0],
+        "matrix_coeff_ratio": 5000000.0,
+        "objective_range": [1.0, 250000.0],
+        "objective_ratio": 250000.0
+      },
+      "post_scaling": {
+        "matrix_coeff_range": [0.5, 4.2],
+        "matrix_coeff_ratio": 8.4,
+        "objective_range": [0.8, 3.1],
+        "objective_ratio": 3.875
+      },
+      "col_scale": { "min": 0.02, "max": 48.0, "median": 1.0, "count": 128 },
+      "row_scale": { "min": 0.1, "max": 12.0, "median": 1.0, "count": 96 }
+    }
+  ],
+  "summary": {
+    "worst_pre_scaling_matrix_ratio": 5000000.0,
+    "worst_post_scaling_matrix_ratio": 8.4,
+    "improvement_factor": 595238.1,
+    "num_stages": 1
+  }
+}
+```
+
+**Campos de nível superior:**
+
+| Nome                | Tipo   | Anulável | Unidades | Descrição |
+| ------------------- | ------ | -------- | -------- | --------- |
+| `cost_scale_factor` | number | Não      | —        | Fator de escala de custo aplicado aos coeficientes da função objetivo durante a construção do modelo-base. |
+| `stages`            | array  | Não      | —        | Uma entrada por estágio. Veja "Campos de `stages[]`" abaixo. |
+| `summary`           | object | Não      | —        | Resumo entre estágios. Veja "Campos de `summary`" abaixo. |
+
+**Campos de `stages[]`:**
+
+| Nome                    | Tipo    | Anulável | Unidades | Descrição |
+| ----------------------- | ------- | -------- | -------- | --------- |
+| `stages[].stage_id`     | integer | Não      | —        | Posição do estágio no estudo, a partir de 0 (não o id declarado do estágio). |
+| `stages[].dimensions`   | object  | Não      | —        | Dimensões do PL do modelo-base deste estágio. Veja "Campos de `dimensions`" abaixo. |
+| `stages[].pre_scaling`  | object  | Não      | —        | Faixas de coeficientes antes do escalonamento de colunas/linhas. Veja "Campos de `pre_scaling` / `post_scaling`" abaixo. |
+| `stages[].post_scaling` | object  | Não      | —        | Faixas de coeficientes após o escalonamento de colunas/linhas (e de custo). Mesmo formato de `pre_scaling`. |
+| `stages[].col_scale`    | object  | Não      | —        | Resumo do vetor de fatores de escala das colunas. Veja "Campos de `col_scale` / `row_scale`" abaixo. |
+| `stages[].row_scale`    | object  | Não      | —        | Resumo do vetor de fatores de escala das linhas. Mesmo formato de `col_scale`. |
+
+**Campos de `dimensions`:**
+
+| Nome                           | Tipo    | Anulável | Unidades | Descrição |
+| ------------------------------ | ------- | -------- | -------- | --------- |
+| `stages[].dimensions.num_cols` | integer | Não      | —        | Número de colunas (variáveis de decisão). |
+| `stages[].dimensions.num_rows` | integer | Não      | —        | Número de linhas estruturais (restrições). |
+| `stages[].dimensions.num_nz`   | integer | Não      | —        | Número de elementos não nulos da matriz de restrições. |
+
+**Campos de `pre_scaling` / `post_scaling`:**
+
+| Nome                                      | Tipo   | Anulável | Unidades | Descrição |
+| ----------------------------------------- | ------ | -------- | -------- | --------- |
+| `stages[].pre_scaling.matrix_coeff_range` | array  | Não      | —        | Array de dois números: `[min, max]` do valor absoluto sobre os elementos não nulos da matriz de restrições. |
+| `stages[].pre_scaling.matrix_coeff_ratio` | number | Não      | —        | Razão entre o maior e o menor coeficiente não nulo da matriz, em valor absoluto (`max / min`). |
+| `stages[].pre_scaling.objective_range`    | array  | Não      | —        | Array de dois números: `[min, max]` do valor absoluto sobre os coeficientes não nulos da função objetivo. |
+| `stages[].pre_scaling.objective_ratio`    | number | Não      | —        | Razão entre o maior e o menor coeficiente não nulo da função objetivo, em valor absoluto (`max / min`). |
+
+**Campos de `col_scale` / `row_scale`:**
+
+| Nome                        | Tipo    | Anulável | Unidades | Descrição |
+| --------------------------- | ------- | -------- | -------- | --------- |
+| `stages[].col_scale.min`    | number  | Não      | —        | Fator de escala mínimo. |
+| `stages[].col_scale.max`    | number  | Não      | —        | Fator de escala máximo. |
+| `stages[].col_scale.median` | number  | Não      | —        | Mediana dos fatores de escala. |
+| `stages[].col_scale.count`  | integer | Não      | —        | Número de fatores de escala (`num_cols` para `col_scale`, `num_rows` para `row_scale`). |
+
+**Campos de `summary`:**
+
+| Nome                                      | Tipo    | Anulável | Unidades | Descrição |
+| ----------------------------------------- | ------- | -------- | -------- | --------- |
+| `summary.worst_pre_scaling_matrix_ratio`  | number  | Não      | —        | Maior razão de coeficientes da matriz antes do escalonamento, entre todos os estágios. |
+| `summary.worst_post_scaling_matrix_ratio` | number  | Não      | —        | Maior razão de coeficientes da matriz após o escalonamento, entre todos os estágios. |
+| `summary.improvement_factor`              | number  | Não      | —        | `worst_pre_scaling_matrix_ratio / worst_post_scaling_matrix_ratio`. |
+| `summary.num_stages`                      | integer | Não      | —        | Número de estágios. |
+
+---
+
+## `training/cut_selection/iterations.parquet`
+
+Estatísticas de gestão de linhas por conjunto de cortes. Uma linha por par `(iteration, pool_id)`, em
+ordem crescente de `iteration` e depois de `pool_id`, em toda iteração, quando um método de seleção
+ou `max_active_per_stage` está configurado; caso contrário, o arquivo não existe. 13
+colunas. Uma coluna anulável é nula quando a etapa que ela informa não foi executada no
+conjunto.
+
+**Metodologia:** [Gerenciamento de cortes](/pt-br/math/cut-management)
+
+| Nome                  | Tipo    | Anulável | Unidades | Descrição |
+| --------------------- | ------- | -------- | -------- | --------- |
+| `iteration`           | Int32   | Não      | —        | Número da iteração do treinamento (a partir de 1). |
+| `pool_id`             | Int32   | Não      | —        | Id do conjunto de linhas (a partir de 0), o id de `policy/cuts/<pool>.bin`. |
+| `stage_id`            | Int32   | Não      | —        | Id declarado do estágio (de `stages.json`) dos nós do conjunto. |
+| `node_id`             | Int32   | Sim      | —        | Id declarado do único nó proprietário do conjunto. `null` quando vários nós compartilham o conjunto. |
+| `cuts_in_pool`        | Int32   | Não      | —        | Cortes contidos no conjunto, carregados e gerados, ativos e inativos. |
+| `cuts_active_before`  | Int32   | Não      | —        | Cortes ativos no início da gestão de linhas desta iteração. |
+| `cuts_deactivated`    | Int32   | Sim      | —        | Cortes desativados pela etapa de seleção. `null` quando nenhuma etapa de seleção foi executada no conjunto. |
+| `cuts_reactivated`    | Int32   | Sim      | —        | Cortes reativados pela etapa de seleção. `null` quando nenhuma etapa de seleção foi executada no conjunto. |
+| `cuts_active_after`   | Int32   | Não      | —        | Cortes ativos após a etapa de seleção; igual a `cuts_active_before` quando nenhuma foi executada. |
+| `selection_time_ms`   | Float64 | Sim      | ms       | Tempo de relógio da etapa de seleção no conjunto. `null` quando nenhuma etapa de seleção foi executada no conjunto. |
+| `budget_evicted`      | Int32   | Sim      | —        | Cortes removidos por `max_active_per_stage`. `null` quando o limite não foi aplicado ao conjunto. |
+| `active_after_budget` | Int32   | Sim      | —        | Cortes ativos após o limite. `null` quando o limite não foi aplicado ao conjunto. |
+| `cuts_in_lp`          | Int32   | Sim      | —        | Linhas de corte do conjunto no PL carregado pelas soluções da próxima iteração. `null` sob o método `dynamic`, cujas soluções carregam um subconjunto residente. |
+
+---
+
+## `training/dictionaries/`
+
+Quatro arquivos autodocumentados que permitem interpretar os arquivos Parquet de saída
+sem recorrer ao caso de entrada original. Todos os arquivos são gravados de forma atômica.
+
+### `codes.json`
+
+Mapeamento estático de códigos inteiros para rótulos legíveis de todos os campos
+categóricos usados nas saídas Parquet. O mesmo mapeamento vale durante toda a vida de uma
+versão (o campo de versão acompanha as mudanças incompatíveis).
+
+```json
+{
+  "version": "1.0",
+  "generated_at": "<timestamp>",
+  "operative_state": {
+    "0": "deactivated",
+    "1": "maintenance",
+    "2": "operating",
+    "3": "saturated"
+  },
+  "storage_binding": {
+    "0": "none",
+    "1": "below_minimum",
+    "2": "above_maximum",
+    "3": "both"
+  },
+  "contract_type": {
+    "0": "import",
+    "1": "export"
+  },
+  "entity_type": {
+    "0": "hydro",
+    "1": "thermal",
+    "2": "bus",
+    "3": "line",
+    "4": "pumping_station",
+    "5": "contract",
+    "7": "non_controllable",
+    "8": "hydro_unit_group"
+  },
+  "bound_type": {
+    "0": "storage_min",
+    "1": "storage_max",
+    "2": "turbined_min",
+    "3": "turbined_max",
+    "4": "outflow_min",
+    "5": "outflow_max",
+    "6": "generation_min",
+    "7": "generation_max",
+    "8": "flow_min",
+    "9": "flow_max"
+  }
+}
+```
+
+### `entities.csv`
+
+Uma linha por entidade, de todos os tipos de entidade, mais uma linha por grupo de unidades geradoras
+(código de tipo de entidade `8`). Colunas:
+
+| Nome               | Tipo    | Anulável | Unidades | Descrição |
+| ------------------ | ------- | -------- | -------- | --------- |
+| `entity_type_code` | integer | Não      | —        | Código inteiro do tipo de entidade (veja o mapeamento `entity_type` de `codes.json`). |
+| `entity_id`        | integer | Não      | —        | ID inteiro da entidade, correspondente à coluna `*_id` do arquivo Parquet de simulação respectivo. Em uma linha de grupo de unidades geradoras, é o `id` do grupo, que é único apenas dentro da sua usina, não globalmente. |
+| `name`             | string  | Não      | —        | Nome legível da entidade, extraído dos arquivos de entrada do caso. O nome de uma linha de grupo de unidades geradoras é `"{hydro_id}/{group_name}"`, qualificado pela usina, já que o id do grupo sozinho não é globalmente único. |
+| `bus_id`           | integer | Não      | —        | ID inteiro do barramento ao qual a entidade está conectada. Para barramentos, igual a `entity_id`. `-1` para uma linha (conecta dois barramentos) e para uma UHE (os grupos de unidades geradoras da usina detêm a associação ao barramento; uma usina repartida não tem um único barramento) — uma linha de grupo de unidades geradoras traz, em vez disso, o próprio `bus_id` do grupo. |
+| `system_id`        | integer | Não      | —        | Índice da partição do sistema. Sempre `0` (casos com sistema único). |
+
+As linhas são ordenadas por `entity_type_code` crescente e, dentro de cada tipo, pela ordem
+canônica das entidades (`operational_start_date`, depois `entity_id`) — exceto
+o código de tipo `8`: o `entity_id` de um grupo é relativo à usina, de modo que essas linhas são ordenadas
+primeiro pela usina (ordem canônica das UHEs) e depois pelo grupo (a ordem
+de `unit_groups` de cada usina, classificada por id).
+
+### `variables.csv`
+
+Uma linha por coluna de cada esquema de saída que tem rótulo em `variables.csv`.
+A coluna `file` contém esse rótulo, não um caminho de arquivo; a tabela de rótulos abaixo associa
+cada rótulo ao seu arquivo de saída. Documenta o nome, o tipo, a unidade de
+medida, a descrição e a anulabilidade de cada coluna. Útil para construir leitores
+genéricos de resultados que não fixam nomes de colunas no código.
+
+| Nome          | Tipo   | Anulável | Unidades | Descrição |
+| ------------- | ------ | -------- | -------- | --------- |
+| `file`        | string | Não      | —        | Rótulo do esquema de saída ao qual a coluna pertence (ex.: `"hydros"`, `"costs"`); não é um caminho de arquivo. A tabela de rótulos lista os arquivos de cada rótulo. |
+| `column`      | string | Não      | —        | Nome exato da coluna, tal como aparece no arquivo Parquet. |
+| `type`        | string | Não      | —        | Identificador do tipo da coluna em minúsculas: `i8`, `i32`, `i64`, `u32`, `u64`, `f64`, `bool`, `string`, `date32` ou `unknown`. |
+| `unit`        | string | Não      | —        | Unidade física, escrita em ASCII: `""` para colunas adimensionais, de código, booleanas e de id, ou uma de `$`, `$/MWh`, `$/hm3`, `%`, `MW`, `MW/(m3/s)`, `MWh`, `hm3`, `m3/s`, `ms`; `varies` quando a unidade depende da linha (`generic_violations.slack_value`). |
+| `description` | string | Não      | —        | Descrição curta do significado da coluna. |
+| `nullable`    | string | Não      | —        | `"true"` ou `"false"`. |
+
+A tabela abaixo associa cada rótulo `file` ao seu arquivo ou diretório de saída.
+
+| Rótulo                      | Arquivo de saída                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `costs`                     | `simulation/costs/`                                                                            |
+| `hydros`                    | `simulation/hydros/`                                                                           |
+| `hydro_bus_generation`      | `simulation/hydro_bus_generation/`                                                             |
+| `thermals`                  | `simulation/thermals/`                                                                         |
+| `exchanges`                 | `simulation/exchanges/`                                                                        |
+| `buses`                     | `simulation/buses/`                                                                            |
+| `pumping_stations`          | `simulation/pumping_stations/`                                                                 |
+| `contracts`                 | `simulation/contracts/`                                                                        |
+| `non_controllables`         | `simulation/non_controllables/`                                                                |
+| `inflow_lags`               | `simulation/inflow_lags/`                                                                      |
+| `in_transit`                | `simulation/in_transit/`                                                                       |
+| `transit_seed`              | `simulation/transit_seed/`                                                                     |
+| `generic_violations`        | `simulation/violations/generic/`                                                               |
+| `paths`                     | `simulation/paths.parquet`                                                                     |
+| `scenario_summary`          | `simulation/scenario_summary.parquet`                                                          |
+| `convergence`               | `training/convergence.parquet`                                                                 |
+| `iteration_timing`          | `training/timing/iterations.parquet`                                                           |
+| `cut_selection`             | `training/cut_selection/iterations.parquet`                                                    |
+| `solver_iterations`         | `training/solver/iterations.parquet` e `simulation/solver/iterations.parquet`                  |
+| `retry_histogram`           | `training/solver/retry_histogram.parquet` e `simulation/solver/retry_histogram.parquet`        |
+
+`variables.csv` não tem linhas para `simulation/anticipated_lanes/`,
+`anticipated/fixed_deliveries.parquet`, `generic_constraints/resolved_echo.parquet`,
+`training/dictionaries/bounds.parquet` nem para os arquivos Parquet em `hydro_models/`
+e `stochastic/`.
+
+### `bounds.parquet`
+
+Limites resolvidos por entidade e por estágio: cada linha contém o valor da entidade após as
+substituições por estágio, não uma penalidade. Cada (entidade, estágio, tipo de limite) tem uma linha no nível do estágio, com
+`block_id` nulo, mais uma linha com `block_id` preenchido para cada patamar que uma substituição por patamar
+resolve. Barramentos e fontes não despacháveis não têm linhas.
+A lista abaixo apresenta cada família de entidades, identificada por seu rótulo `entity_type`
+de `codes.json`, com seus tipos de limite:
+
+- `hydro`: `storage_min`, `storage_max`, `turbined_min`, `turbined_max`,
+  `outflow_min`, `outflow_max`, `generation_min`, `generation_max`. A
+  linha `outflow_max` no nível do estágio existe apenas para uma usina que tem vazão defluente
+  máxima. As linhas por patamar cobrem os limites de vazão turbinada, de vazão defluente e de geração.
+- `thermal`: `generation_min`, `generation_max`, com linhas no nível do estágio e por patamar.
+- `line`: `flow_min`, sempre `0`, e `flow_max`, a capacidade no sentido direto. As linhas por patamar
+  cobrem apenas a capacidade no sentido direto; a capacidade no sentido inverso não é informada.
+- `pumping_station` e `contract`: `flow_min`, `flow_max`, com linhas no nível do estágio e
+  por patamar.
+- `hydro_unit_group`: `turbined_min`, `turbined_max`, `generation_min`,
+  `generation_max`, com linhas no nível do estágio e por patamar. `hydro_id` contém o
+  id da usina proprietária, porque o `entity_id` de um grupo é relativo à usina.
+
+Apenas os dez tipos de limite de `codes.json` são gravados. A capacidade no sentido inverso
+das linhas, o preço dos contratos e o desvio máximo das UHEs não têm linhas, nem
+no nível do estágio nem por patamar.
+
+| Nome               | Tipo    | Anulável | Unidades | Descrição |
+| ------------------ | ------- | -------- | -------- | --------- |
+| `entity_type_code` | Int8    | Não      | —        | Código do tipo de entidade (veja `codes.json`). |
+| `entity_id`        | Int32   | Não      | —        | ID da entidade. |
+| `hydro_id`         | Int32   | Sim      | —        | Id da usina proprietária em uma linha de grupo de unidades geradoras (`entity_type_code` `8`), cujo `entity_id` é relativo à usina; `null` em todas as demais linhas. |
+| `stage_id`         | Int32   | Não      | —        | Id declarado do estágio em `stages.json` (não uma posição). |
+| `block_id`         | Int32   | Sim      | —        | Índice do patamar (a partir de 0) em uma linha de substituição por patamar; `null` na linha no nível do estágio. |
+| `bound_type_code`  | Int8    | Não      | —        | Código do tipo de limite (veja o mapeamento `bound_type` de `codes.json`). |
+| `bound_value`      | Float64 | Não      | —        | Valor resolvido do limite, na unidade natural do limite. |

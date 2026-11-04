@@ -1,0 +1,69 @@
+---
+title: Deficit
+description: How Novomodelo treats deficit — unserved load as a high-cost slack on the bus balance, priced by depth segments.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import Deficit from '../../../../components/entity/illustrations/Deficit.astro';
+
+<EntityHero family="network" icon="deficit" lead="Deficit is unmet demand: load that available generation cannot serve. The model represents it as a slack variable on the bus balance with a very high penalty cost, which stands for the value of lost load." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'The model always has a solution', text: 'Deficit is a recourse slack. Without it, the problem would be infeasible whenever generation cannot meet demand. The last deficit segment is unbounded, so the LP is always feasible, whatever the shortfall.' },
+  { title: 'A price on lost load', text: 'The deficit cost represents the value of lost load. It is very high, above the thermal, contract and regularization costs, so deficit enters only after the lower-cost resources.' },
+  { title: 'Priced in tiers', text: 'Deficit is priced piecewise: each segment covers a depth of unmet load at its own cost, and the costs rise from one segment to the next.' },
+]} />
+
+## A high-cost slack closes the gap
+
+<Deficit lang="en" />
+
+## What the model decides
+
+<DecisionChips family="network" items={[
+  { label: 'Load deficit, by segment', unit: 'MW' },
+]} note="Deficit is a variable of each bus, block and segment. It enters the load balance as an injection that closes the gap and is charged at the cost of its segment, weighted by the block duration. Under feasible dispatch it is zero." />
+
+## What you provide
+
+- The deficit segments, in order: for each one, a depth in MW and a cost per MWh. The costs must be positive and strictly increasing.
+- The last segment has no depth, which makes it unbounded.
+- A case-level default for all buses, optionally replaced for a given bus.
+- Deficit segments cannot vary by stage.
+
+## How the deficit cost is resolved
+
+Deficit segments come from exactly two sources: the segments declared on the bus in its registry, and, when the bus declares none, the default of the case-level penalty file. The first MW of unmet demand cost the first segment cost, the next ones cost the second segment cost, and so on.
+
+## The mirror: excess
+
+Excess generation is the opposite slack of the same balance: a small regularization cost removes spurious surplus generation. Unlike deficit, its cost has no per-bus field, only the case default, which may be refined by stage.
+
+## In the results
+
+Each bus and block reports its deficit in MW and its deficit energy in MWh. The stage cost breakdown has a column with the cost of unserved load.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'Penalty system — recourse slacks', href: '/math/penalty-system/#category-1-recourse-slacks-lp-feasibility' },
+  { kind: 'Methodology', title: 'Penalty system — piecewise deficit', href: '/math/penalty-system/#piecewise-deficit' },
+  { kind: 'Methodology', title: 'Penalty system — deficit segments, two-tier resolution', href: '/math/penalty-system/#bus-deficit_segments--two-tier-resolution' },
+  { kind: 'Methodology', title: 'Penalty system — priority ordering', href: '/math/penalty-system/#penalty-priority-ordering' },
+  { kind: 'Entity', title: 'Penalties', href: '/entities/rules/penalties/' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'penalties.json', href: '/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'system/buses.json', href: '/reference/case-format/system/#systembusesjson' },
+  { dir: 'out', path: 'simulation/buses/', href: '/reference/output/simulation/#simulationbuses' },
+  { dir: 'out', path: 'simulation/costs/', href: '/reference/output/simulation/#simulationcosts' },
+]} />

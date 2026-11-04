@@ -1,0 +1,53 @@
+Este é um índice, restrito ao tema, dos arquivos envolvidos no gerenciamento de cortes. Os cortes
+não têm arquivo de entrada próprio no diretório do caso — a única superfície de configuração é
+`training.cut_selection` em `config.json` (veja [a respectiva entrada de configuração](/pt-br/running/configuration/#trainingcut_selection)). A
+superfície de E/S do tema é o **checkpoint da política**: os arquivos FlatBuffers `.bin` que
+persistem o conjunto de cortes entre execuções. Esta aba nomeia essa superfície e seu papel;
+não repete o leiaute dos registros campo a campo, que pertence ao
+corpus de Referência (páginas [Formato do caso](/pt-br/reference/case-format/)
+e [Formato de saída](/pt-br/reference/output/)).
+
+### Entradas
+
+Não há arquivo de entrada de cortes no diretório do caso. Dois caminhos de entrada releem a
+**saída de uma execução anterior** como cortes:
+
+- **Partida a quente (warm-start), retomada e somente simulação** — quando o modo de política da execução é
+  `"warm_start"` ou `"resume"`, ou quando o treinamento (training) está desabilitado em uma execução
+  somente de simulação, o Novo Modelo carrega `policy/cuts/NNN.bin` do checkpoint em `policy.path`
+  e repovoa o conjunto de cortes antes de o treinamento ou a simulação começar, juntamente
+  com as bases armazenadas (`policy/basis/NNN.bin`) e, quando a execução os seleciona ou
+  o checkpoint os contém, os estados visitados armazenados (`policy/states/NNN.bin`).
+  A carga
+  aplica o
+  [Contrato de carga da política](/pt-br/running/policy-management/#contrato-de-carga-da-politica),
+  que exige que o checkpoint tenha sido gravado pela mesma versão do novomodelo em execução
+  ([verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao)) e descarta qualquer base armazenada que não se ajuste ao PL do estágio
+  ([verificação da base armazenada](/pt-br/running/policy-management/#verificacao-das-bases-armazenadas)).
+  Veja nas Notas de implementação como um corte de partida a quente é acompanhado depois de voltar
+  ao conjunto.
+- **Fonte de fronteira** — quando `policy.boundary.path` é definido, o Novo Modelo carrega um
+  segundo checkpoint e injeta seus cortes terminais como condição de contorno fixa
+  no estágio terminal do estudo. O conjunto de origem é selecionado pela data da fronteira
+  terminal do estudo e conciliado com o estado atual — de forma tolerante por
+  padrão (posições excedentes da origem são descartadas e relatadas), com rejeição estrita opcional. O
+  checkpoint de fronteira também precisa ter sido gerado pela versão do novomodelo em execução
+  ([Requisitos de compatibilidade](/pt-br/running/policy-management/#requisitos-de-compatibilidade)
+  lista a ordem das verificações).
+  Veja [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) e
+  [Gerenciamento da política — Cortes de fronteira](/pt-br/running/policy-management/#cortes-de-fronteira).
+
+### Saídas
+
+| Arquivo                       | Papel |
+| ----------------------------- | ---- |
+| `policy/cuts/NNN.bin`   | Um binário FlatBuffers por **conjunto** (`NNN` é o id do conjunto — numa cadeia simples de estágios, a posição do estágio a partir de 0, que não é o id declarado do estágio; num grafo com ramificações, o id do conjunto difere da posição do estágio), tabela raiz `StageCuts`: a posição de cada corte, o termo independente, o vetor de coeficientes, a marcação de ativo, se o estado visitado foi armazenado e seus contadores de restrição ativa, além do fator de escala de custo do conjunto. O vetor de coeficientes é um `float64[]` simples; cada posição corresponde a uma variável de estado por meio do manifesto de entidades por posição embutido no mesmo arquivo (veja a referência de [Formato de saída](/pt-br/reference/output/)). Gravado em toda execução de treinamento e relido na próxima execução de partida a quente, retomada ou somente simulação (veja Entradas acima). |
+| `policy/basis/NNN.bin`  | Um por nó (`NNN` é a posição do nó), tabela raiz `StageBasis`: uma base de PL armazenada por cenário da simulação forward, cada uma com os status de colunas e linhas e a posição no conjunto de cada linha de corte que contém. Relido na próxima execução de partida a quente, retomada ou somente simulação, sujeito à [verificação da base armazenada](/pt-br/running/policy-management/#verificacao-das-bases-armazenadas). |
+| `policy/states/NNN.bin` | Um por conjunto que armazena estados visitados (`NNN` é o id do conjunto), indexado pela posição do corte gravado em cada estado. Gravado quando a execução faz seleção com `level1` ou define [`exports.states`](/pt-br/running/configuration/#exports); lido na retomada e na partida a quente. |
+
+Para o leiaute completo dos registros campo a campo (`AffinePiece`, `StageCuts`, `StageBasis`, `StageStates`) e o
+resumo de todo o checkpoint `policy/manifest.bin`, consulte a
+página de referência [Formato de saída](/pt-br/reference/output/) no corpus de
+Referência. Para o próprio arquivo de esquema e receitas de geração de código `flatc` por linguagem
+(Python, C++, TypeScript, …) para ler um checkpoint fora do Novo Modelo, consulte
+a página de referência [Esquema FlatBuffers da política](/pt-br/reference/flatbuffers-schema/).

@@ -1,0 +1,63 @@
+---
+title: Buses and subsystems
+description: How Novomodelo treats buses and subsystems — the node where energy is balanced, where deficit closes the gap and where the marginal cost of operation (CMO) forms.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import Bus from '../../../../components/entity/illustrations/Bus.astro';
+
+<EntityHero family="network" icon="bus" lead="A bus is a node of the network where the energy balance must hold. Its granularity is yours to choose: a large regional subsystem, a single substation or anything in between." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'Where everything meets', text: 'Every generator and every load attaches to a bus. Generation, imports and power arriving over lines enter its balance; demand, exports, pumping consumption and power leaving over lines leave it.' },
+  { title: 'Where the CMO forms', text: 'The marginal cost of operation (CMO) is the shadow price of the bus load balance: the cost of serving one additional MWh of demand at that bus.' },
+  { title: 'Scales without restructuring', text: 'The model goes from a handful of buses to hundreds or thousands without structural changes. A single-bus system, with no lines, is a valid starting point.' },
+]} />
+
+## The balance at one bus
+
+<Bus lang="en" />
+
+## What the model decides
+
+<DecisionChips family="network" items={[
+  { label: 'Load deficit, by segment', unit: 'MW' },
+  { label: 'Excess generation', unit: 'MW' },
+]} note="In each block, the generation injected at the bus, the power entering over lines and import contracts and the deficit, less the power leaving over lines and export contracts, the pumping consumption and the excess, equal the load. Deficit and excess are the two slacks of this balance. The CMO is not a decision but a result: it is reported at each bus and block as the spot price." />
+
+## What you provide
+
+- A bus identifier and name.
+- The `bus_id` of every entity that attaches to it: hydro plants, thermal plants, non-controllable sources, pumping stations, energy contracts and the two ends of each line.
+- Optionally, deficit segments for this bus, which replace the case default. They cannot vary by stage.
+- The load at the bus, supplied as scenario data (see the [Load](/entities/network/load/) page).
+
+## Subsystems, copper plate and multi-bus
+
+- **Subsystem.** In the Brazilian grid, a subsystem is a region of the interconnected system (SE/CO, S, NE, N). Real-world dispatch studies often model buses at that scale, but finer decompositions are equally valid.
+- **Single bus (copper plate).** All generation and load sit in one node: no flow limits, no transmission losses and no locational price differentiation. It is the right starting point to isolate dispatch economics from network effects.
+- **Multi-bus.** Buses are connected by lines. Once a line capacity binds, each bus resolves its own marginal price, and dispatch in one bus cannot freely substitute for a shortfall in another.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'System elements overview — buses', href: '/math/system-elements/#2-buses-regional-subsystems' },
+  { kind: 'Methodology', title: 'LP formulation §3 — the load balance constraint', href: '/math/lp-formulation/#3-load-balance-constraint' },
+  { kind: 'Methodology', title: 'Single-bus vs. multi-bus', href: '/math/system-elements/#single-bus-vs-multi-bus' },
+  { kind: 'Reference', title: 'Glossary — power system terms', href: '/reference/glossary/#power-system' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'system/buses.json', href: '/reference/case-format/system/#systembusesjson' },
+  { dir: 'in', path: 'penalties.json', href: '/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'constraints/penalty_overrides_bus.parquet', href: '/reference/case-format/penalties/#constraintspenalty_overrides_busparquet' },
+  { dir: 'out', path: 'simulation/buses/', href: '/reference/output/simulation/#simulationbuses' },
+]} />

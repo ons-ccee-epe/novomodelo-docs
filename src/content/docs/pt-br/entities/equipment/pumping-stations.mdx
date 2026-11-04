@@ -1,0 +1,62 @@
+---
+title: Usinas elevatórias
+description: Como o Novo Modelo trata as usinas elevatórias — água transferida entre reservatórios, potência consumida em um barramento e nenhum custo próprio.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import PumpingStation from '../../../../../components/entity/illustrations/PumpingStation.astro';
+
+<EntityHero family="equipment" icon="pump" lead="Uma usina elevatória bombeia água do reservatório de uma usina hidrelétrica de origem para o de uma usina de destino, consumindo potência elétrica em seu barramento proporcionalmente à vazão bombeada." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Move água entre reservatórios', text: 'A vazão bombeada sai do reservatório da usina de origem e entra no da usina de destino. O sentido origem-destino é uma escolha de modelagem, tipicamente contra a cascata.' },
+  { title: 'Arbitragem de armazenamento', text: 'O bombeamento permite transferência de cota, transferência entre bacias e arbitragem de armazenamento: bombear em períodos de baixa demanda e gerar nos de alta demanda.' },
+  { title: 'Valorada pelo barramento', text: 'A usina elevatória não tem custo próprio. A potência que ela consome entra no balanço de carga do seu barramento, de modo que o bombeamento é valorado pelo custo marginal da energia ali.' },
+]} />
+
+## Água que sai, potência que entra
+
+<PumpingStation lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="equipment" items={[
+  { label: 'Vazão bombeada', unit: 'm³/s' },
+]} note="A vazão de cada patamar fica entre a vazão mínima e a máxima da usina, e esses limites são rígidos. A potência consumida decorre da vazão: é a taxa de consumo de potência multiplicada pela vazão bombeada, e é contabilizada como carga no barramento da usina. Fora da janela de operação da usina a vazão é nula, de modo que ela não transfere água nem consome potência." />
+
+## O que você informa
+
+- O barramento de onde a usina consome potência.
+- A usina hidrelétrica de origem, cujo reservatório perde a água, e a de destino, cujo reservatório a recebe.
+- A potência consumida por unidade de vazão bombeada, em MW/(m³/s).
+- As vazões bombeadas mínima e máxima, em m³/s. A máxima é a capacidade instalada das bombas.
+- Estágios de entrada e de saída de operação, quando a usina não existe durante todo o estudo.
+- Opcionalmente, limites de vazão que variam por estágio, que substituem os do cadastro.
+
+## Bombeamento e economia
+
+- **Sem custo na função objetivo.** A usina elevatória não tem termo de custo na função objetivo. O custo do bombeamento é capturado implicitamente pela energia que ela consome: o custo marginal da energia no barramento conectado define o custo efetivo.
+- **Incentivo econômico.** Bombear é atrativo quando os preços de energia são baixos, por exemplo com excedente de geração hidrelétrica ou renovável, e pouco atrativo quando os preços são altos, por exemplo com despacho térmico na margem.
+- **Nos resultados.** A coluna de custo da usina na saída da simulação é sempre zero: sua potência entra no balanço do barramento.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Visão geral da modelagem dos elementos — usinas elevatórias', href: '/pt-br/math/system-elements/#7-usinas-elevatorias' },
+  { kind: 'Metodologia', title: 'Formulações por equipamento §4 — usinas elevatórias', href: '/pt-br/math/equipment-formulations/#4-usinas-elevatorias' },
+  { kind: 'Metodologia', title: 'Usinas elevatórias não têm custo explícito na função objetivo', href: '/pt-br/math/equipment-formulations/#usinas-elevatorias-nao-tem-custo-explicito-na-funcao-objetivo' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'system/pumping_stations.json', href: '/pt-br/reference/case-format/system/#systempumping_stationsjson' },
+  { dir: 'in', path: 'constraints/pumping_bounds.parquet', href: '/pt-br/reference/case-format/constraints/#constraintspumping_boundsparquet' },
+  { dir: 'out', path: 'simulation/pumping_stations/', href: '/pt-br/reference/output/simulation/#simulationpumping_stations' },
+]} />

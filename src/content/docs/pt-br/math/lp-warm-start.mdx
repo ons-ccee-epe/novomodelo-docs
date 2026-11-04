@@ -1,0 +1,247 @@
+---
+title: Aproveitamento de base do PL
+description: Repositório de bases por (cenário, nó), sua passagem entre as simulações forward e backward e a reconstrução da base sensível aos cortes por identidade de slot.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as WarmStartNotes } from './_impl/_warm-start.notes.mdx';
+
+## Objetivo
+
+Este capítulo descreve como o Novo Modelo reaproveita uma base de PL para acelerar as resoluções. São
+abordados dois mecanismos relacionados. O **repositório de bases por (cenário, nó)** guarda
+no máximo uma base por estado visitado por nó do grafo da política (policy graph), e as simulações forward e
+backward passam bases uma à outra por meio dele, de modo que uma base encontrada em
+uma resolução possa servir de ponto de partida para a próxima resolução do mesmo estado visitado no mesmo nó.
+A **reconstrução da base sensível aos cortes por identidade de slot** mapeia uma base armazenada em um
+conjunto de cortes cujo conjunto ativo foi alterado pela seleção de cortes, o que permite que
+uma base reaproveitada — seja capturada anteriormente na execução, seja carregada de uma política
+salva por uma execução de partida a quente (warm-start) ou de retomada — se alinhe ao PL corrente.
+
+## 1. O problema dos PLs repetidos
+
+A simulação backward do [Algoritmo da PDDE (SDDP)](/pt-br/math/sddp-algorithm) resolve, em cada estágio,
+um PL por abertura por estado visitado por iteração. Ao longo de uma execução de treinamento (training), esses
+PLs não são independentes: o PL do estágio $t$ na iteração $k+1$ difere do
+PL do estágio $t$ na iteração $k$ apenas de duas formas — o conjunto de cortes ativos
+mudou (cresceu com os cortes adicionados durante a iteração $k$ e, possivelmente, foi alterado
+ainda pela seleção de cortes, que desativa e reativa cortes; §3), e o
+estado visitado pode ter se deslocado. As colunas da matriz de restrições, a função objetivo, os
+limites, exceto aqueles que fixam o estado de entrada, e a maioria das
+linhas de restrição são idênticos entre iterações consecutivas.
+
+Uma **partida a frio** (cold start) descarta essa semelhança estrutural. O solver de PL começa
+do zero a cada vez, escolhendo uma base inicial por sua própria heurística
+(tipicamente a viabilidade primal da Fase I). Em um PL bem estruturado, isso desperdiça
+pivoteamentos do simplex cujo único propósito é redescobrir uma base que já era
+conhecida.
+
+O **aproveitamento de base** (warm start) evita esse desperdício fornecendo ao solver a base
+de uma resolução anterior no mesmo estágio. O solver verifica se a
+base fornecida é primal viável, dual viável ou ambas para o novo PL; se
+for, pode passar imediatamente às iterações de otimalidade, em vez de
+reconstruir a viabilidade do zero. O ganho é proporcional à semelhança
+entre PLs consecutivos — e, na simulação backward da PDDE, resoluções consecutivas
+no mesmo estágio são muito semelhantes.
+
+## 2. Repositório de bases por (cenário, nó)
+
+O Novo Modelo mantém um repositório de bases indexado por `(scenario, node)`: o cenário identifica um
+estado visitado, e o nó é um nó do [grafo da política](/pt-br/math/policy-graphs);
+em uma cadeia de estágios (um nó por estágio), um nó é um estágio. O repositório guarda no máximo
+uma base capturada — a partição das variáveis e restrições em básicas e
+não básicas — para cada estado visitado em cada nó.
+
+O uso do repositório como ponto de partida de uma resolução é definido por fase: a simulação forward, a
+simulação backward e a simulação final usam, cada uma, aproveitamento de base ou partida a frio (ver as
+notas de implementação). Uma resolução de uma fase com aproveitamento de base parte do slot do seu estado
+visitado quando o slot contém uma base; uma resolução de uma fase com partida a frio não parte de
+nenhuma base, nem de uma armazenada nem daquela que a resolução anterior deixou
+carregada. As capturas não dependem dessa configuração.
+
+As simulações forward e backward de uma iteração passam bases uma à outra
+por meio do repositório. Uma resolução forward em um nó armazena sua base ótima no slot do seu
+estado visitado. A simulação backward é executada após a simulação forward da mesma
+iteração; quando resolve as aberturas desse nó a partir do estado de entrada do mesmo estado
+visitado, o slot contém a captura forward, que serve de ponto de partida para a
+primeira abertura resolvida quando a simulação backward usa aproveitamento de base, e a simulação backward
+armazena a base ótima dessa abertura em seu lugar. A resolução forward da iteração seguinte
+no nó parte dessa captura backward quando a simulação forward usa
+aproveitamento de base; uma resolução forward a frio não a lê e a substitui por sua própria
+captura. Em ambos os casos, o slot que a simulação backward lê nesse nó contém a
+captura forward da sua própria iteração. Uma opção de
+escalonamento da simulação backward lê a captura forward sem armazenar a sua; com uma
+simulação forward enumerada, a simulação backward não usa nenhuma base armazenada; e, enquanto o
+método dinâmico de seleção de cortes está ativo, nenhuma resolução usa o repositório (ver as
+notas de implementação).
+
+```d2
+shape: sequence_diagram
+fwd: Simulação forward
+slot: Base armazenada\n(estado visitado, nó)
+bwd: Simulação backward
+
+slot -> fwd: pode servir de partida para a resolução
+fwd -> slot: armazena sua base
+slot -> bwd: parte da primeira abertura resolvida
+bwd -> slot: armazena a base dessa abertura
+slot -> fwd: pode servir de partida na próxima iteração
+```
+
+Cada seta de _partida_ se aplica quando a respectiva fase usa aproveitamento de base; cada seta de _armazenamento_
+se aplica quaisquer que sejam as fases que usam aproveitamento de base.
+
+Em cada cadeia de aberturas que uma simulação backward com aproveitamento de base resolve em
+sequência, o repositório é lido no máximo uma vez, pela primeira abertura resolvida; as demais aberturas continuam a partir da
+base e da fatoração que a abertura anterior deixou carregadas, já que aberturas
+consecutivas diferem apenas em sua realização.
+
+A base de partida de uma resolução depende, portanto, da ordem em que as aberturas da sua
+cadeia são resolvidas. Essa ordem é fixada de antemão e altera a
+base de partida, nunca a validade de um corte, pois toda base ótima do PL de uma
+abertura produz um corte válido;
+[Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos)
+expõe como a ordem fixa mantém a execução reprodutível.
+
+Uma execução de partida a quente ou de retomada inicializa o repositório com as bases salvas, uma por estado
+visitado em cada nó, de modo que, quando a simulação forward usa aproveitamento de base, as resoluções forward da sua primeira
+iteração nesses nós partem delas por meio da
+reconstrução do §4. Uma execução de retomada inicializa cada estado visitado com sua própria base
+salva e deixa a frio um estado visitado que não tenha base; uma execução de partida a quente inicializa um estado
+visitado sem base salva própria com a base salva do cenário de menor índice do nó.
+Uma base salva que não se ajusta ao PL do seu estágio é descartada, e um nó que fique sem
+nenhuma inicia sua primeira iteração a frio. Quando a simulação forward usa partida a frio, suas
+capturas substituem as bases inicializadas dos nós que ela visita antes que a simulação backward
+leia o repositório. Em uma cadeia de estágios, as bases salvas então não servem de partida para nenhuma resolução
+do treinamento; em um grafo com ramificações, servem de partida apenas para as resoluções backward com aproveitamento de base nos
+nós sucessores que a trajetória forward da primeira iteração de um estado visitado não visitou.
+
+## 3. Mudanças no conjunto de cortes
+
+Uma base armazenada deixa de corresponder ao PL do estágio $t$ quando esse PL muda de forma.
+A mudança relevante é o crescimento do conjunto de cortes: cada
+iteração adiciona um novo corte por estado visitado em todos os estágios, exceto o último. O
+conjunto de cortes e o PL persistente do limite inferior só recebem acréscimos, enquanto o
+template de estágio de cada iteração contém apenas os cortes ativos (a desativação é tratada
+ao final desta seção; consulte [Gerenciamento de cortes](/pt-br/math/cut-management) para a
+garantia de monotonicidade do conjunto que só recebe acréscimos). Um novo corte adiciona uma linha de restrição ao
+PL.
+
+Acrescentar uma linha de corte a um PL já resolvido, com a folga da nova linha básica,
+mantém a base ótima desse PL dual viável: o dual da nova linha é zero porque
+sua folga é básica, de modo que nenhum custo reduzido se altera. Se o novo corte é satisfeito na
+solução primal anterior, a base permanece ótima. Se o corte é violado nela,
+a base é primal inviável, e o simplex dual, que preserva a viabilidade
+dual, restaura a viabilidade primal a partir dessa base, e não a partir
+de uma partida a frio.
+
+Quando a seleção de cortes não altera o conjunto ativo, esse crescimento é puramente
+monótono: linhas são apenas adicionadas, nunca removidas ou reordenadas. A relação
+estrutural entre instâncias consecutivas do PL é então previsível — o novo PL
+é uma extensão própria do anterior, compartilhando todas as suas linhas —, de modo que os
+fatos sobre o acréscimo de linhas acima se aplicam a cada nova linha de corte. A seleção de cortes pode quebrar esse
+caso de acréscimo puro, tratado no parágrafo seguinte.
+
+A desativação de cortes segue um caminho diferente na resolução da simulação backward. Um
+corte desativado é **excluído do template congelado recomposto**, em vez de
+permanecer com um limite relaxado: no nível do PL, sua linha é removida, e não
+apenas folgada, de modo que o conjunto de cortes ativos pode diminuir e ser reordenado de uma
+iteração para a outra, e não apenas crescer. O corte não se perde — seu slot estável é
+mantido no conjunto que só recebe acréscimos, e a reativação recompõe o corte nesse mesmo
+slot. Como o conjunto ativo pode mudar dessa forma, uma base armazenada não pode ser
+reaplicada por posição de linha; a reconstrução por identidade de slot do §4 a reconcilia
+com o conjunto ativo corrente, o que mantém o aproveitamento de base válido através da
+desativação e da reativação. Consulte [Gerenciamento de cortes](/pt-br/math/cut-management) para o
+mecanismo completo de desativação, incluindo o caminho separado do PL persistente do limite inferior,
+que **só recebe acréscimos** — suas linhas de corte nunca são removidas, de modo que a
+desativação nada altera ali e o limite inferior permanece monótono.
+
+## 4. Reconstrução da base sensível aos cortes por identidade de slot
+
+Entre resoluções, a seleção de cortes (ver [Gerenciamento de cortes](/pt-br/math/cut-management))
+desativa e reativa cortes, e a simulação backward acrescenta novos, de modo que o
+conjunto de linhas de corte ativas no PL do estágio **se renova** de uma iteração para a
+seguinte. Uma base armazenada registra um status para cada linha que continha; se esses
+status fossem reaplicados por posição de linha, um conjunto de cortes renovado de mesmo tamanho
+ficaria desalinhado — e o solver partiria de uma base corrompida ou recairia
+em uma partida a frio.
+
+O Novo Modelo evita isso fazendo a reconciliação por **identidade de slot**, e não por posição. O
+conjunto de cortes atribui a cada corte um índice de slot estável (ver [Gerenciamento de cortes §5](/pt-br/math/cut-management)),
+e uma base armazenada traz, para cada linha de corte que continha, o slot do conjunto que
+a gerou. Para reconstruir uma base para o PL corrente:
+
+- Os status das linhas que não são cortes (template) e os status de todas as colunas são copiados
+  diretamente.
+- Cada linha de corte corrente é associada à base armazenada **pelo seu slot**. Se o
+  slot estava presente na base armazenada, seu status salvo é reaproveitado; se o slot
+  é novo — um corte que não estava no PL quando a base foi capturada —, a linha é
+  definida como **BASIC** (folga), o padrão sob o qual a nova linha não altera nenhum custo
+  reduzido (§3); se o corte for violado no ponto de partida, o simplex dual
+  corrige a inviabilidade primal resultante.
+- Definir as novas linhas de corte como BASIC preserva, por construção, o invariante de contagem de básicas do solver
+  (cada novo corte adiciona exatamente uma linha e uma entrada básica). Quando a
+  seleção, ao contrário, _remove_ um corte cuja linha era não básica (ativa), a
+  base reconstruída fica com uma entrada básica a mais para cada linha desse tipo,
+  porque uma linha básica sai junto com sua folga básica, enquanto uma linha não básica
+  não leva consigo nenhuma entrada básica; uma etapa final rebaixa o excesso final de
+  linhas de corte básicas para não básicas até que o invariante seja satisfeito. Sob as
+  premissas da reconstrução — uma base armazenada capturada para um PL de mesma
+  forma —, a obrigação é unilateral: a reconstrução só pode deixar um
+  excesso. Um **déficit** na contagem de básicas, portanto, prova que a base armazenada foi
+  capturada para um PL de forma diferente; ela é rejeitada com um erro nomeado
+  que reporta a aritmética da contagem de básicas, de forma idêntica em qualquer backend de solver —
+  nunca corrigida, já que o rebaixamento não pode criar as básicas ausentes e a
+  promoção fabricaria uma base que a armazenada jamais descreveu.
+
+Esse mecanismo único trata os três casos de renovação — remoções, reordenações e
+adições — e atende tanto à reativação dentro de uma execução quanto à reconstrução
+do checkpoint entre execuções, usada na partida a quente (warm-start) da política e na retomada (§2).
+
+## 5. Compromissos
+
+**O ganho do aproveitamento de base diminui com a magnitude da mudança no PL.** A base armazenada é
+mais valiosa quando instâncias consecutivas do PL são quase idênticas. No início de uma
+execução de treinamento, quando o conjunto de cortes cresce rapidamente e cada novo corte pode deslocar
+substancialmente a face ativa da base ótima, o aproveitamento de base proporciona
+economias menores do que nas fases intermediária e final do treinamento, quando o conjunto
+de cortes já se estabilizou em grande parte e os novos cortes fazem apenas mudanças incrementais na
+geometria do PL.
+
+**Relação com a reconstrução sensível aos cortes.** O repositório de bases e a
+reconstrução do §4 respondem a perguntas diferentes. O repositório responde "qual base armazenada
+deve servir de partida para a primeira resolução deste subproblema `(scenario, node)`?" — fornecendo
+uma base capturada para esse mesmo slot. A reconstrução responde à pergunta mais restrita
+que surge porque o conjunto de cortes ativos incorporado ao template corrente
+pode ter se renovado desde que essa base foi capturada: "quais status de linha armazenados ainda
+se aplicam, e que status devem assumir as linhas de corte novas neste PL?" O repositório fornece
+o ponto de partida; a reconstrução o reconcilia com o conjunto de cortes corrente por identidade
+de slot, atribuindo BASIC por padrão às linhas de corte sem slot armazenado.
+
+## Implementação no Novo Modelo
+
+A metodologia acima define o repositório de bases, a passagem de bases e a
+reconstrução; a aba abaixo mostra como as simulações de treinamento e a simulação final do Novo Modelo
+usam o repositório em tempo de execução.
+
+<Tabs>
+  <TabItem label="Notas de implementação"><WarmStartNotes /></TabItem>
+</Tabs>
+
+## Referências cruzadas
+
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — O ciclo de vida dos cortes, que só recebe acréscimos, com
+  índices de slot estáveis, que determina as mudanças no conjunto de cortes e sustenta a reconstrução
+  por identidade de slot; o mecanismo de desativação de cortes e as estratégias de seleção que
+  determinam com que frequência o conjunto de cortes muda.
+- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — O laço de iterações em que as
+  simulações forward e backward compartilham o repositório de bases; a estrutura das simulações forward e
+  backward, como as aberturas de cada estágio são percorridas e as barreiras de
+  sincronização que separam os estágios.
+- [Grafos da política](/pt-br/math/policy-graphs) — Os nós que indexam o repositório de bases e
+  os estágios a que correspondem.
+- [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) — A fixação
+  determinística da ordem das cadeias descrita em
+  [Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos),
+  que é o que mantém o aproveitamento de base compatível com a reprodutibilidade
+  bit a bit entre execuções.

@@ -1,0 +1,83 @@
+---
+title: Horizon, stages and load blocks
+description: How Novomodelo lays out time — the study horizon as a sequence of stages, the load blocks inside each stage, seasons, the end of the horizon and post-study stages.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import TimeStructure from '../../../../components/entity/illustrations/TimeStructure.astro';
+
+<EntityHero family="hydrology" icon="time" lead="The study horizon is a chain of stages, typically a month, a week or an hour each. Every stage is split into load blocks, which represent the variation of the load level within the stage. In Brazilian practice the three load blocks are called leve, média and pesada (light, medium and heavy load)." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'Decisions stage by stage', text: 'The stage graph is a linear chain: stage 1 leads to stage 2, and so on up to the last stage. Every stage is visited once per forward or backward pass, and each stage keeps its own set of cuts.' },
+  { title: 'Blocks capture the load level', text: 'Each block has a name and a duration in hours. A stage always has at least one block, and the model offers two ways of treating them: independent (parallel) or sequential (chronological).' },
+  { title: 'The end of the horizon has a cost', text: 'With a finite horizon, the value of the future after the last stage is zero unless a terminal function is imported, so water left in storage there has no value. This produces the end-of-world effect: the zero value gives the optimizer an incentive to empty the reservoirs before the last stage.' },
+]} />
+
+## Stages, blocks and the end of the horizon
+
+<TimeStructure lang="en" />
+
+## What the model decides
+
+Nothing about the time structure itself: it is data. The model decides how to operate within it, stage by stage and block by block.
+
+## What you provide
+
+- The stages, each with an identifier, a start date and an end date, with the end after the start.
+- The blocks of each stage: an identifier, a name and a duration in hours, always above zero.
+- The block mode of each stage: parallel (the default) or chronological.
+- The number of openings of each stage (see the [Scenarios and openings](/entities/hydrology/scenarios/) page).
+- Optionally, the season of each stage, through the season map (monthly, weekly or custom).
+- The type of the policy graph, which must be finite horizon, and the annual discount rate, with an optional own rate for a stage.
+- Optionally, pre-study stages for the inflow lags, and post-study stages for deliveries after the horizon.
+
+## Parallel and chronological blocks
+
+- **Parallel (the default).** The blocks of a stage are independent. A single water balance spans all the blocks of a hydro plant, and storage changes only from the start to the end of the stage. The LP is smaller, and this mode suits long-term strategic planning.
+- **Chronological.** The blocks are sequential, with storage carried from one block to the next, which allows modelling storage cycling within a stage, for example daily cycling within a monthly stage. The LP is larger, and this mode suits short-term planning with storage cycling.
+
+Novomodelo has one level of decomposition within a stage: the blocks. It has no representative-day decomposition. The mode is chosen per stage.
+
+## Finite and cyclic horizon
+
+Only the finite horizon, an acyclic chain with a definite end, is supported. A cyclic horizon, which would close the chain into a loop for long-term studies, is a reserved design, and a case that declares it is rejected at load. When the zero terminal value would distort the policy, a terminal function imported from an upstream study is the supported remedy.
+
+## Seasons
+
+A season is the position of a stage within the yearly cycle (monthly, weekly or custom), and the stages of one season share the parameters of the inflow model. When the season map has no overlapping seasons, a stage without a season takes the one of its start date. Estimating the inflow model from the history requires the season map.
+
+## Stages of different lengths
+
+A multi-resolution study mixes stages of more than one length in a single horizon, for example a monthly head followed by a quarterly tail, or a weekly head followed by a monthly tail. All stages share one set of cuts. Each stage names the season it belongs to, and the lags of the inflow model are the duration-weighted means of the inflows over whole season periods. At the first coarse stage, the lag state is rebuilt from the completed coarse periods.
+
+## Before and after the study
+
+- **Pre-study stages.** Dated periods before the first stage that the inflow model uses for its lags. They carry no blocks and are never solved.
+- **Post-study stages.** Calendar segments after the horizon, starting exactly at its end. They are never dispatched and never carry cuts. They give a calendar position to the deliveries of anticipated thermal plants that are decided inside the study and delivered after the horizon.
+
+## Discount rate
+
+An annual discount rate values future costs below present ones. It is global, and a stage can declare its own. The cumulative discount continues over the post-study stages at the global rate.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'Block Formulation Variants §1 — parallel blocks', href: '/math/block-formulations/#1-parallel-blocks-default' },
+  { kind: 'Methodology', title: 'Block Formulation Variants §2 — chronological blocks', href: '/math/block-formulations/#2-chronological-blocks' },
+  { kind: 'Methodology', title: 'Horizon Modes §1 — finite (acyclic) mode', href: '/math/horizon-modes/#1-finite-acyclic-mode' },
+  { kind: 'Methodology', title: 'Multi-Resolution Studies §2 — lag accumulation', href: '/math/multi-resolution-studies/#2-lag-accumulation' },
+  { kind: 'Methodology', title: 'Discount Rate Formulation', href: '/math/discount-rate/' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'stages.json', href: '/reference/case-format/stages/#stagesjson' },
+  { dir: 'in', path: 'post_study_stages.json', href: '/reference/case-format/stages/#post_study_stagesjson' },
+]} />

@@ -1,0 +1,55 @@
+---
+title: How the model decides
+description: In plain language, how Novomodelo decides system operation with SDDP — imagine the future, dispatch stage by stage and weigh today against tomorrow — and how to follow convergence.
+---
+
+import EntityHero from '../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../components/entity/WhyCards.astro';
+import DeepLinks from '../../../components/entity/DeepLinks.astro';
+import ConvergencePlot from '../../../components/ConvergencePlot.astro';
+
+<EntityHero family="rules" icon="water" lead="Novomodelo decides operation in three steps: it imagines many possible futures, dispatches stage by stage and weighs the cost of today against that of tomorrow. SDDP coordinates the three steps, building the operating policy iteratively." />
+
+## The three steps
+
+<WhyCards items={[
+  { title: '1. Imagine the future', text: 'Inflow is the main source of uncertainty in the study. Novomodelo describes it with a periodic autoregressive model, PAR(p), fitted to the streamflow history or supplied directly, and generates many inflow scenarios from it. To train the policy, it fixes at each stage a finite set of noise vectors, the openings.' },
+  { title: '2. Dispatch stage by stage', text: 'At each stage, the model solves a linear programme that chooses how much each plant generates to meet the load at the lowest cost. The stages are linked by state variables: reservoir levels and inflow lags.' },
+  { title: '3. Weigh today against tomorrow', text: 'The future cost function is the expected cost from the current stage to the end of the horizon. It says what it is worth to keep water: the water value is the opportunity cost of using water now instead of storing it, and it is not an input, because it emerges from the optimization.' },
+]} />
+
+## How training learns
+
+SDDP never builds the whole future cost function. It approximates it from below with a growing collection of Benders cuts, each a valid underestimator. Starting with no cuts, each training iteration alternates two passes:
+
+- **Forward pass:** simulates a batch of scenario paths under the current policy, the rule that sets each stage's decisions with the current cuts, and records the trial points.
+- **Backward pass:** from the last stage down to the second, solves each stage's subproblem at the trial points, under each of the stage's openings, and aggregates the result into one new cut per trial point for the previous stage.
+
+The loop repeats until the stopping rules are met. The final cuts define the policy, which is then simulated when the study enables the simulation phase.
+
+<figure class="entity-illustration entity-rules">
+  <ConvergencePlot />
+  <figcaption>Figure: a non-decreasing lower bound and a sampled upper-bound estimate, with its 95% confidence band, approach each other across iterations. The band describes the sampled cost and certifies nothing.</figcaption>
+</figure>
+
+## Bounds and convergence
+
+At each iteration, Novomodelo tracks two bounds on the optimal (risk-adjusted) cost:
+
+- **Lower bound:** the first stage's risk-adjusted value with the current cuts. It does not decrease as cuts are added and, under the hypotheses of [Tier 1](/math/cut-management/#tier-1-valid-lower-bound), it is a valid lower bound on the optimal cost.
+- **Upper bound:** an enumerated forward pass, which visits every scenario path once, gives the policy's exact cost when the risk measure is uniform across stages. A sampled forward pass gives only a statistical estimate, with a confidence interval, that certifies nothing.
+
+The optimality gap is the upper bound minus the lower bound. Training stops when its stopping rules are met: an iteration or time limit, a stalled lower bound or, with an exact upper bound, a gap within tolerance. Under an expectation measure at every stage and the hypotheses of [Tier 2](/math/cut-management/#tier-2-convergence), the lower bound converges to the optimal value with probability 1; under a risk-averse measure that convergence is not established.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Overview', title: 'The SDDP Framework in One Page', href: '/overview/sddp-framework-overview/' },
+  { kind: 'Methodology', title: 'SDDP Algorithm', href: '/math/sddp-algorithm/' },
+  { kind: 'Methodology', title: 'Scenario Generation', href: '/math/scenario-generation/' },
+  { kind: 'Methodology', title: 'Cut Management', href: '/math/cut-management/' },
+  { kind: 'Methodology', title: 'Stopping Rules', href: '/math/stopping-rules/' },
+  { kind: 'Entity', title: 'Inflows and the PAR(p) model', href: '/entities/hydrology/inflows/' },
+  { kind: 'Entity', title: 'Scenarios and openings', href: '/entities/hydrology/scenarios/' },
+  { kind: 'Entity', title: 'Water value and future cost', href: '/entities/rules/water-value/' },
+]} />

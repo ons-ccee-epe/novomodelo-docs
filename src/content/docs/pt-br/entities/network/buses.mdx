@@ -1,0 +1,63 @@
+---
+title: Barramentos e subsistemas
+description: Como o Novo Modelo trata barramentos e subsistemas — o nó em que a energia é balanceada, em que o déficit fecha a diferença e em que se forma o custo marginal de operação (CMO).
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import Bus from '../../../../../components/entity/illustrations/Bus.astro';
+
+<EntityHero family="network" icon="bus" lead="Um barramento é um nó da rede no qual o balanço de energia deve ser mantido. A granularidade é definida pelo usuário: um grande subsistema regional, uma única subestação ou qualquer nível intermediário." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Onde tudo se encontra', text: 'Toda geração e toda carga se conecta a um barramento. Entram no balanço a geração, as importações e a potência que chega pelas linhas; saem a demanda, as exportações, o consumo de bombeamento e a potência que sai pelas linhas.' },
+  { title: 'Onde se forma o CMO', text: 'O custo marginal de operação (CMO) é o preço-sombra do balanço de carga do barramento: o custo de atender 1 MWh adicional de demanda nesse barramento.' },
+  { title: 'Escala sem reestruturar', text: 'O modelo vai de poucos barramentos a centenas ou milhares sem mudanças estruturais. Um sistema de barramento único, sem linhas, é um ponto de partida válido.' },
+]} />
+
+## O balanço em um barramento
+
+<Bus lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="network" items={[
+  { label: 'Déficit de carga, por segmento', unit: 'MW' },
+  { label: 'Excesso de geração', unit: 'MW' },
+]} note="Em cada patamar, a geração injetada no barramento, a potência que entra pelas linhas e pelos contratos de importação e o déficit, descontada a potência que sai pelas linhas e pelos contratos de exportação, o consumo de bombeamento e o excesso, igualam a carga. Déficit e excesso são as duas folgas desse balanço. O CMO não é uma decisão, mas um resultado: é informado em cada barramento e patamar como preço spot." />
+
+## O que você informa
+
+- Um identificador e um nome para o barramento.
+- O `bus_id` de cada entidade que se conecta a ele: usinas hidrelétricas, usinas termelétricas, fontes não despacháveis, usinas elevatórias, contratos de energia e as duas pontas de cada linha.
+- Opcionalmente, os segmentos de déficit deste barramento, que substituem o padrão do caso. Eles não podem variar por estágio.
+- A carga do barramento, fornecida como dado de cenário (veja a página [Carga](/pt-br/entities/network/load/)).
+
+## Subsistemas, barramento único e múltiplos barramentos
+
+- **Subsistema.** Na rede brasileira, um subsistema é uma região da rede interligada (SE/CO, S, NE, N). Estudos de despacho reais frequentemente modelam os barramentos nessa escala, mas decomposições mais finas são igualmente válidas.
+- **Barramento único (copper-plate).** Toda a geração e toda a carga ficam em um só nó: sem limites de fluxo, sem perdas de transmissão e sem diferenciação locacional de preços. É o ponto de partida adequado para isolar a economia do despacho dos efeitos da rede.
+- **Múltiplos barramentos.** Os barramentos são conectados por linhas. Quando a capacidade de uma linha se esgota, cada barramento resolve o seu próprio preço marginal, e o despacho em um barramento não substitui livremente a falta em outro.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Visão geral da modelagem dos elementos — barramentos', href: '/pt-br/math/system-elements/#2-barramentos-subsistemas-regionais' },
+  { kind: 'Metodologia', title: 'Formulação do PL §3 — a restrição de atendimento à carga', href: '/pt-br/math/lp-formulation/#3-restricao-de-atendimento-a-carga' },
+  { kind: 'Metodologia', title: 'Barramento único vs. múltiplos barramentos', href: '/pt-br/math/system-elements/#barramento-unico-vs-multiplos-barramentos' },
+  { kind: 'Referência', title: 'Glossário — termos do sistema elétrico', href: '/pt-br/reference/glossary/#sistema-eletrico' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'system/buses.json', href: '/pt-br/reference/case-format/system/#systembusesjson' },
+  { dir: 'in', path: 'penalties.json', href: '/pt-br/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'constraints/penalty_overrides_bus.parquet', href: '/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_busparquet' },
+  { dir: 'out', path: 'simulation/buses/', href: '/pt-br/reference/output/simulation/#simulationbuses' },
+]} />

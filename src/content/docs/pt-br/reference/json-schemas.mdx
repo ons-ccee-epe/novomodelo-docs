@@ -1,0 +1,114 @@
+---
+title: Esquemas JSON
+description: Os 18 arquivos de JSON Schema incluídos no site que descrevem cada arquivo de entrada JSON de um diretório de caso do Novo Modelo, com instruções de integração de `$schema` em editores.
+---
+
+Os arquivos de JSON Schema a seguir descrevem a estrutura de cada arquivo de entrada
+JSON de um diretório de caso do Novo Modelo. Aponte a configuração de validação de JSON Schema
+do seu editor para o arquivo apropriado para obter preenchimento automático, documentação ao passar o mouse
+e destaque de erros em linha durante a elaboração das entradas do caso.
+
+Para a descrição completa dos campos e das regras de validação de cada arquivo, ver
+a página de referência [Formato do caso](/pt-br/reference/case-format/).
+
+:::note[`operational_start_date`]
+Todo esquema de cadastro de entidades `system/*` exige um campo `operational_start_date`;
+[Formato do caso — Campos comuns das entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades)
+descreve seu formato e seu papel na ordem canônica das entidades.
+:::
+
+## Esquemas disponíveis
+
+| Arquivo de esquema | Arquivo de entrada | Descrição |
+| --- | --- | --- |
+| [`config.schema.json`](/schemas/config.schema.json) | `config.json` | Configuração do estudo: parâmetros do treinamento (training), critérios de parada, seleção de cortes, perfis do solver por fase, paralelismo do escalonador da simulação backward, configurações da simulação e indicadores de exportação |
+| [`penalties.schema.json`](/schemas/penalties.schema.json) | `penalties.json` | Valores padrão globais dos custos de penalidade para déficit nos barramentos, intercâmbio nas linhas, violações das usinas hidrelétricas e corte de geração das fontes não despacháveis |
+| [`stages.schema.json`](/schemas/stages.schema.json) | `stages.json` | Estrutura temporal do estudo: sequência de estágios, patamares de carga e horizonte do grafo da política (policy graph) |
+| [`buses.schema.json`](/schemas/buses.schema.json) | `system/buses.json` | Cadastro de barramentos elétricos: identificadores, nomes e patamares opcionais de custo de déficit no nível da entidade |
+| [`lines.schema.json`](/schemas/lines.schema.json) | `system/lines.json` | Cadastro de linhas de transmissão: identificadores, barramentos de origem/destino e limites de capacidade em MW por sentido |
+| [`hydros.schema.json`](/schemas/hydros.schema.json) | `system/hydros.json` | Cadastro de usinas hidrelétricas: limites do reservatório, limites de defluência, parâmetros do modelo de geração e ligações da cascata |
+| [`thermals.schema.json`](/schemas/thermals.schema.json) | `system/thermals.json` | Cadastro de usinas termelétricas: limites de geração e coeficientes lineares de custo |
+| [`energy_contracts.schema.json`](/schemas/energy_contracts.schema.json) | `system/energy_contracts.json` | Cadastro de contratos bilaterais de energia (entidades opcionais) |
+| [`non_controllable_sources.schema.json`](/schemas/non_controllable_sources.schema.json) | `system/non_controllable_sources.json` | Cadastro de fontes de geração intermitentes (não despacháveis) (entidades opcionais) |
+| [`pumping_stations.schema.json`](/schemas/pumping_stations.schema.json) | `system/pumping_stations.json` | Cadastro de usinas elevatórias (entidades opcionais) |
+| [`production_models.schema.json`](/schemas/production_models.schema.json) | `system/hydro_production_models.json` | Seleção do modelo de produção, configuração dos hiperplanos da FPHA e substituições de produtibilidade por estágio (opcional) |
+| [`generic_parameters.schema.json`](/schemas/generic_parameters.schema.json) | `constraints/generic_parameters.json` | Parâmetros nomeados do estudo — valores constantes, por estágio, sazonais, calculados ou por (estágio, patamar), referenciados pelo nome nas restrições genéricas |
+| [`initial_conditions.schema.json`](/schemas/initial_conditions.schema.json) | `initial_conditions.json` | Armazenamento inicial dos reservatórios e armazenamento de enchimento, observações recentes de afluência para a inicialização das defasagens do PAR, defluências passadas (semente do tempo de viagem) e compromissos antecipados pré-horizonte |
+| [`correlation.schema.json`](/schemas/correlation.schema.json) | `scenarios/correlation.json` | Matriz de correlação espacial para a geração de cenários (suporta os tipos de entidade afluência, carga e NCS) |
+| [`generic_constraints.schema.json`](/schemas/generic_constraints.schema.json) | `constraints/generic_constraints.json` | Restrições lineares definidas pelo usuário por meio de expressões nomeadas e limites de intervalo sobre variáveis do PL, com penalidades de folga opcionais |
+| [`load_factors.schema.json`](/schemas/load_factors.schema.json) | `scenarios/load_factors.json` | Fatores de escala da carga por patamar para os perfis de demanda por barramento e estágio |
+| [`non_controllable_factors.schema.json`](/schemas/non_controllable_factors.schema.json) | `scenarios/non_controllable_factors.json` | Fatores de escala da disponibilidade das NCS por patamar, por fonte, estágio e patamar |
+| [`post_study_stages.schema.json`](/schemas/post_study_stages.schema.json) | `post_study_stages.json` | Estágios pós-estudo da fronteira, com custo e limites mínimo/máximo de geração por (usina termelétrica, estágio pós-estudo) |
+
+## Uso dos esquemas no editor
+
+Todos os esquemas são servidos por este site em uma URL estável,
+`/schemas/<name>.schema.json` (por exemplo,
+`https://docs.modelossetoreletrico.org.br/schemas/config.schema.json`), que serve os
+esquemas da versão do novomodelo descrita pela documentação mais recente. Cada versão
+congelada da documentação, no seletor de versões do cabeçalho, serve os esquemas da sua
+própria versão do novomodelo sob o seu caminho, `/vX.Y/schemas/<name>.schema.json`. Aponte
+o mapeamento de JSON Schema do seu editor para a URL correspondente à versão do novomodelo que você
+executa, para obter preenchimento automático e validação durante a elaboração das entradas do caso.
+
+### VS Code
+
+Acrescente uma entrada `json.schemas` ao arquivo `.vscode/settings.json` do seu workspace:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["config.json"],
+      "url": "https://docs.modelossetoreletrico.org.br/schemas/config.schema.json"
+    },
+    {
+      "fileMatch": ["system/hydros.json"],
+      "url": "https://docs.modelossetoreletrico.org.br/schemas/hydros.schema.json"
+    }
+  ]
+}
+```
+
+Alternativamente, acrescente uma chave `$schema` diretamente em cada arquivo JSON:
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/config.schema.json",
+  "training": {
+    "selection": { "method": "sampled", "forward_passes": 192 },
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 200 }]
+  }
+}
+```
+
+### Neovim (via `jsonls`)
+
+Configure `json.schemas` na configuração do `nvim-lspconfig` para o `jsonls`,
+seguindo o mesmo padrão de URL mostrado acima.
+
+### IDEs JetBrains
+
+Acesse **Preferences > Languages & Frameworks > Schemas and DTDs > JSON
+Schema Mappings**, acrescente um novo mapeamento, cole a URL do esquema e selecione o
+padrão de arquivos.
+
+## Origem e atualização
+
+Estes esquemas são gerados no repositório `novomodelo` a partir dos tipos Rust de `novomodelo-io`
+— os tipos Rust são a fonte de verdade, e os arquivos de esquema são
+sua saída gerada, licenciada sob Apache-2.0. Este site inclui a cópia
+gerada no novomodelo `v0.20.0` em `public/schemas/`, para que os arquivos
+tenham uma URL estável a partir da qual sejam servidos e referenciados.
+
+Não edite manualmente nenhum arquivo de esquema incluído. Quando o `novomodelo` regenerar os
+esquemas (após uma alteração em um tipo de entrada de `novomodelo-io`), atualize aqui a cópia
+versionada com o comando abaixo (por padrão, ele lê a tag `v0.20.0`; `-- --ref <tag>`
+seleciona outra):
+
+```bash
+npm run refresh:schemas
+```
+
+Execute `npm run refresh:schemas -- --check` para verificar se a cópia versionada ainda
+corresponde à tag de origem, sem gravar nada.

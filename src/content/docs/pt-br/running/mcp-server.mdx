@@ -1,0 +1,450 @@
+---
+title: Agentes de IA (novomodelo-mcp)
+description: Instalação e configuração do novomodelo-mcp, o servidor MCP local que permite a um agente de IA validar, converter, executar e ler casos do Novo Modelo e responder a perguntas de metodologia a partir desta documentação.
+---
+
+O **novomodelo-mcp** é um servidor local de [Model Context Protocol](https://modelcontextprotocol.io)
+(MCP) para o Novo Modelo. Por meio dele, um agente de IA em um cliente MCP que executa
+servidores locais valida, converte, compara, executa e lê os resultados de casos com um
+conjunto fixo de ferramentas, e responde a perguntas de metodologia a partir das páginas
+deste site. Conforme o cliente, ele funciona em um terminal (como Claude Code ou Codex),
+em um aplicativo de desktop (como Claude Desktop) ou em uma IDE (como Kiro, ou GitHub
+Copilot no VS Code).
+
+O servidor é uma fachada sobre os programas que o Novo Modelo já distribui. As
+ferramentas que validam, resumem, convertem, comparam e executam um caso chamam um
+subcomando da CLI `novomodelo` ou do [novomodelo-bridge](/pt-br/running/case-conversion/)
+(com `--json` quando o subcomando o oferece), ou os bindings `novomodelo-python`, e
+repassam o resultado: o servidor não tem lógica própria de conversão, validação,
+comparação ou solução. As demais ferramentas leem os arquivos do caso, as saídas das
+execuções e a documentação embutida, e `run_plan` calcula sua própria estimativa de
+tempo e memória de uma execução.
+
+O servidor fala MCP por stdio: o cliente o inicia como subprocesso, e ele não abre
+nenhuma porta de rede. Suas mensagens e os campos das respostas estão em português, e a
+documentação embutida é este site, em inglês. O modelo de linguagem do cliente traduz
+nos dois sentidos, de modo que a pessoa pode perguntar no seu próprio idioma e ler a
+resposta nele, o que facilita o uso do Novo Modelo.
+
+---
+
+## Requisitos
+
+| Componente                  | Requisito                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
+| Python                      | 3.12 ou mais recente                                                                            |
+| [uv](https://docs.astral.sh/uv/) | instala o servidor como ferramenta isolada                                                 |
+| `novomodelo` (a CLI)        | instalado à parte (veja [Instalação](/pt-br/getting-started/installation/)), ou pelo agente com a ferramenta `instalar_novomodelo` |
+| `novomodelo-bridge`, `novomodelo-python` | instalados com o servidor                                                          |
+
+O servidor roda em Windows, macOS e Linux, inclusive em contêineres.
+
+No Linux, o executável pré-compilado do `novomodelo` precisa de uma glibc recente, e seu
+instalador precisa do `xz`; a página de [Instalação](/pt-br/getting-started/installation/#plataformas-suportadas)
+informa as versões e a instalação pelo crates.io para sistemas mais antigos.
+
+### Uma versão para todos os componentes
+
+O servidor, o executável `novomodelo`, o `novomodelo-python` e o `novomodelo-bridge`
+compartilham um mesmo número de versão: o novomodelo-mcp `X.Y.Z` funciona com o
+novomodelo `X.Y.Z`. O pacote fixa o novomodelo-bridge nessa versão, e o bridge fixa o
+`novomodelo-python` nela. Uma correção apenas do servidor é publicada como
+`X.Y.Z.postN`. Mantenha também o executável `novomodelo` na mesma versão: o solver só
+carrega uma política gravada pela mesma versão. Os
+[avisos de versão](#avisos-de-versao) apontam qualquer componente divergente.
+
+---
+
+## Instalação
+
+```bash
+uv tool install --compile-bytecode novomodelo-mcp    # CLI isolada, no PATH (recomendado)
+pipx install novomodelo-mcp                          # alternativa
+pip install novomodelo-mcp                           # no ambiente atual
+```
+
+Os dois primeiros colocam o executável `novomodelo-mcp` no seu `PATH`, com o
+novomodelo-bridge e o novomodelo-python em um ambiente próprio; o `pip` instala os três
+no ambiente Python ativo. Em uma rede corporativa cujo proxy reassina certificados, o
+`uv` pode não conseguir acessar o PyPI e acusar `UnknownIssuer`; acrescente
+`--system-certs` (ou defina `UV_SYSTEM_CERTS=1`) para que o `uv` use os certificados do
+sistema.
+
+Para atualizar, execute `uv tool upgrade novomodelo-mcp` (ou `pipx upgrade novomodelo-mcp`, ou `pip install --upgrade novomodelo-mcp`).
+
+### Instalação com um agente de IA
+
+O agente do cliente pode instalar e configurar o servidor para a pessoa. Cole este
+pedido no agente:
+
+```text
+Quero instalar o servidor MCP do Novo Modelo (o pacote novomodelo-mcp, no PyPI) nesta máquina. Siga os passos abaixo, na ordem.
+
+Como trabalhar:
+- Responda no idioma que costumo usar com você. Se não tiver certeza de qual prefiro, pergunte antes.
+- Se puder executar comandos nesta máquina, execute-os você mesmo, mas mostre cada comando antes e aguarde minha aprovação.
+- Se não puder, me guie passo a passo: um comando por vez, esperando eu colar a saída antes de continuar.
+- Se um passo falhar, pare e explique o erro antes de tentar qualquer outra coisa.
+
+Passos:
+1. Descubra o sistema operacional: Windows, macOS ou Linux. No Windows, use o PowerShell.
+   No Linux, execute também `ldd --version` e `xz --version`. Se a glibc for mais antiga que a versão pedida na página de instalação do Novo Modelo (https://docs.modelossetoreletrico.org.br/getting-started/installation/), avise que o servidor MCP se instala, mas o executável pré-compilado do novomodelo não roda, e me indique essa página. Se o xz não estiver instalado, me diga para instalar o pacote xz-utils ou xz.
+2. Verifique se o uv está instalado (`uv --version`). Se não estiver, instale-o com o instalador oficial (https://docs.astral.sh/uv/getting-started/installation/) e recarregue o terminal.
+3. Instale o servidor: `uv tool install --compile-bytecode novomodelo-mcp`. Se o uv não conseguir acessar o PyPI e acusar UnknownIssuer (um proxy corporativo que reassina certificados), execute de novo com `--system-certs`. Se depois disso o novomodelo-mcp não for encontrado, recarregue o terminal.
+4. Pergunte qual cliente MCP eu uso e quais pastas o servidor pode ler e gravar: onde ficam meus estudos, decks e casos. Podem ser várias. Não sugira nem escolha pastas por mim: espere os meus caminhos e confira se existem.
+   - Para Claude Code, Claude Desktop ou Kiro, monte o comando com um --workspace por pasta e execute-o primeiro só para mostrar o que seria gravado:
+     novomodelo-mcp configurar --cliente <claude-code, claude-desktop ou kiro> --workspace "<pasta 1>" --workspace "<pasta 2>" --mostrar
+     Mostre-me o resultado. Depois que eu aprovar, execute o mesmo comando sem --mostrar. Se você for o próprio Claude Code, não o execute: o Claude Code reescreve o ~/.claude.json enquanto está aberto. Me dê o comando com ! na frente, para eu colar aqui, e depois me peça para fechar o Claude Code e abri-lo de novo.
+   - Para qualquer outro cliente, descubra na documentação dele onde ficam os servidores MCP e acrescente uma entrada chamada novomodelo: o comando é o caminho absoluto do executável novomodelo-mcp (`which novomodelo-mcp` no macOS e no Linux, `where.exe novomodelo-mcp` no Windows), sem argumentos, e NOVOMODELO_MCP_WORKSPACE contém as minhas pastas, separadas por : no macOS e no Linux e por ; no Windows. Mostre-me a mudança antes de gravá-la.
+5. Peça para eu fechar o cliente, abri-lo de novo e, em uma conversa nova, pedir "execute o server_info". Se o servidor novomodelo não aparecer, volte ao passo 4.
+6. Se o server_info disser que o executável novomodelo não está instalado, me diga para pedir, na mesma conversa: "instale o executável novomodelo".
+```
+
+---
+
+## Configuração de um cliente
+
+Todo cliente MCP inicia o servidor a partir de uma entrada na sua configuração. A
+entrada é a mesma em todos os clientes; o arquivo que a contém, e a chave que lista os
+servidores, dependem do cliente e estão descritos na documentação dele:
+
+```json
+{
+  "mcpServers": {
+    "novomodelo": {
+      "command": "/absolute/path/to/novomodelo-mcp",
+      "args": [],
+      "env": { "NOVOMODELO_MCP_WORKSPACE": "/path/to/your/studies" }
+    }
+  }
+}
+```
+
+`command` é o caminho absoluto do executável `novomodelo-mcp`: `which novomodelo-mcp`
+no macOS e no Linux, ou `where.exe novomodelo-mcp` no Windows, o imprime.
+`NOVOMODELO_MCP_WORKSPACE` contém as pastas que o servidor pode ler e gravar (veja
+[Área de trabalho](#area-de-trabalho)). Também é possível pedir ao agente do cliente que
+acrescente a entrada.
+
+Executado sozinho em um terminal, o `novomodelo-mcp` inicia o servidor e espera um
+cliente na entrada padrão, por isso não mostra nada; quem o inicia é o cliente, e a
+pessoa não precisa fazê-lo.
+
+### Gravação da entrada com `configurar`
+
+Para Claude Code, Claude Desktop e Kiro, o `novomodelo-mcp configurar` grava a entrada
+e, quando o cliente tem uma, a lista de ferramentas somente leitura. Com o Claude Code
+como exemplo:
+
+```bash
+novomodelo-mcp configurar --cliente claude-code --workspace ~/studies --mostrar  # só imprime a mudança
+novomodelo-mcp configurar --cliente claude-code --workspace ~/studies            # grava a mudança
+```
+
+| Opção                  | Efeito                                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--cliente <client>`   | Obrigatória. Um entre `claude-code`, `claude-desktop` ou `kiro`.                                                           |
+| `--workspace <folder>` | Uma pasta que o servidor pode ler e gravar (veja [Área de trabalho](#area-de-trabalho)). Repita-a para mais de uma pasta; uma pasta que não existe é criada quando a entrada é gravada. |
+| `--irrestrito`         | Grava a entrada sem área de trabalho: o servidor lê e grava qualquer pasta. Não pode ser combinada com `--workspace`.      |
+| `--mostrar`            | Só imprime a parte de cada arquivo que mudaria, sem alterar nada.                                                          |
+| `--instrucoes`         | Grava também uma linha que orienta o agente a usar o servidor para perguntas de metodologia (veja a tabela abaixo).        |
+
+A área de trabalho não tem valor padrão. Sem `--workspace` nem `--irrestrito`, o
+comando pede a pasta dos estudos quando roda em um terminal; sem terminal, ele termina
+com código 2 e não grava nada.
+
+A entrada se chama `novomodelo`. O comando altera só essa entrada (e, quando o cliente
+tem uma, a lista de ferramentas somente leitura que ele executa sem perguntar) e mantém
+o resto do arquivo. Uma entrada `novomodelo` existente é substituída por inteiro. Antes
+de gravar, o comando salva uma cópia de segurança ao lado do arquivo, como
+`<file>.bak-YYYYMMDD-HHMMSS`; executá-lo de novo sem nada a mudar não grava nada. Se o
+cliente não estiver instalado na máquina, o comando avisa e grava a entrada assim
+mesmo, pronta para quando o cliente for instalado.
+
+| Cliente        | Arquivo de configuração                                                                                                                                                    | Ferramentas somente leitura                                                                         | `--instrucoes` grava em         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Claude Code    | `~/.claude.json` (escopo do usuário)                                                                                                                                       | uma regra `permissions.allow` por ferramenta em `~/.claude/settings.json`                            | `~/.claude/CLAUDE.md`           |
+| Claude Desktop | macOS `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows `%APPDATA%\Claude\claude_desktop_config.json`; Linux `~/.config/Claude/claude_desktop_config.json` | sem lista: escolha "always allow" na primeira chamada de uma ferramenta                             | imprime a linha, para colar nas preferências |
+| Kiro           | `~/.kiro/settings/mcp.json` (o `.kiro/settings/mcp.json` de um workspace tem precedência)                                                                                   | o Kiro pede aprovação e ignora uma lista `autoApprove` na entrada do servidor                        | `~/.kiro/steering/novomodelo.md` |
+
+O Claude Code reescreve o `~/.claude.json` enquanto está aberto: feche-o antes que o
+`configurar` grave a entrada dele.
+
+### Verificação da configuração
+
+Depois de acrescentar a entrada, feche o cliente por completo e abra-o de novo. Em
+seguida, peça ao agente que chame a ferramenta `server_info`: ela informa a versão do
+servidor, os executáveis que encontrou, a versão de cada componente, a área de
+trabalho e de onde vem a documentação. O cliente prefixa cada ferramenta com o nome do
+servidor, como em `mcp__novomodelo__case_validate`.
+
+---
+
+## Ferramentas
+
+Cada ferramenta declara, pelas anotações MCP `readOnlyHint`, `destructiveHint` e
+`openWorldHint`, se apenas lê ou também grava. Um cliente pode usar essas indicações
+para executar as ferramentas somente leitura sem perguntar; a decisão final cabe ao
+cliente e à política da organização.
+
+| Tipo                     | Ferramentas                                                                                                                                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Somente leitura          | `server_info`, `solver_version`, `schema_list`, `schema_get`, `docs_list`, `docs_read`, `docs_search`, `deck_list`, `deck_read_json`, `deck_read_parquet`, `deck_describe_parquet`, `deck_sql`, `case_validate`, `case_summary`, `bridge_check_*`, `results_status`, `results_convergence`, `results_list_entities`, `results_query`, `results_stochastic`, `results_policy`, `run_plan`, `run_status`, `run_logs` |
+| Grava arquivos novos     | `case_init`, `schema_export`, `bridge_convert_*`, `bridge_compare_*`, `bridge_dashboard`, `incluir_pastas`                                                                                                                                                                                                     |
+| Altera ou interrompe     | `deck_edit_json`, `deck_edit_parquet`, `run_apply`, `run_start`, `run_cancel`, `instalar_novomodelo`                                                                                                                                                                                                          |
+
+`novomodelo-mcp configurar --cliente claude-code --workspace <folder> --mostrar`
+imprime a lista de ferramentas somente leitura que o `configurar` grava, lida do
+próprio servidor.
+
+Por etapa de um estudo:
+
+- **Antes de uma execução.** `bridge_check_*` e `bridge_convert_*` verificam e
+  convertem um caso de outra ferramenta de planejamento com o novomodelo-bridge (uma
+  ferramenta por formato de origem; veja [Conversão de casos](/pt-br/running/case-conversion/)).
+  `case_validate` valida um caso por meio dos bindings `novomodelo-python`; com
+  `output_dir`, verifica também a saída de uma execução anterior para uma retomada.
+  `case_summary` lista o caso como o Novo Modelo o carrega: contagens por tipo de
+  entidade e o `{id, name}` de cada entidade.
+- **Casos e decks.** `deck_list` mapeia um caso: seus arquivos de entrada, com o tipo de
+  schema, e uma linha por pasta de execução. `deck_read_json`, `deck_read_parquet` e
+  `deck_describe_parquet` leem arquivos de entrada. `deck_edit_json` e
+  `deck_edit_parquet` os editam com cópia de segurança e gravação atômica; com
+  `ensure_valid=True`, `deck_edit_json` revalida o caso e desfaz a edição se a
+  validação falhar. `deck_sql` executa SQL DuckDB somente leitura (`SELECT`, `WITH`,
+  `DESCRIBE`, `SUMMARIZE`) sobre os arquivos Parquet, CSV e JSON de um caso ou de seus
+  resultados.
+- **Execução.** `case_init` cria um caso a partir de um modelo embutido
+  (`novomodelo init`). `run_plan` não grava nem executa nada: estima o tempo e a
+  memória de uma execução local a partir de tempos de solução medidos na mesma
+  máquina, e devolve um veredito (`cabe`, `cabe_com_ajustes`, `nao_cabe` ou
+  `indeterminado`) com ajustes sugeridos. `run_apply` aplica esses ajustes ao
+  `config.json`. `run_start` inicia o `novomodelo run` em segundo plano e devolve na
+  hora um identificador de tarefa; recusa um caso cujo plano seja `nao_cabe`, a menos
+  que seja chamado com `override=True`. Recusa também uma pasta de saída que contenha
+  uma execução concluída, porque executar ali de novo apaga essa execução: a recusa
+  (código de saída 17) indica uma pasta livre em `output_sugerido`, e
+  `overwrite=True` substitui a execução anterior. `run_status`, `run_logs` e
+  `run_cancel` acompanham e interrompem a tarefa. Uma tarefa sobrevive a uma
+  reinicialização do servidor.
+- **Resultados.** `results_status` lê o estado da execução, os limites, o gap, as
+  iterações e o custo; `results_convergence`, o registro de convergência;
+  `results_list_entities` e `results_query`, a saída da simulação;
+  `results_stochastic`, os coeficientes do modelo de afluências e a árvore de
+  aberturas (exige `exports.stochastic: true` no `config.json` da execução);
+  `results_policy`, um resumo da política treinada. `bridge_compare_*` compara os
+  resultados de um caso convertido com os resultados publicados pela ferramenta de
+  origem, e `bridge_dashboard` grava um painel HTML de um caso.
+- **Referência.** `schema_list` e `schema_get` devolvem os JSON Schemas dos arquivos de
+  entrada (disponíveis também como o recurso `novomodelo://schema/{tipo}`);
+  `schema_export` os grava em uma pasta. `docs_list`, `docs_search` e `docs_read` leem
+  a documentação embutida (veja
+  [Documentação e changelogs](#documentacao-e-changelogs)).
+- **Diagnóstico.** `server_info` e `solver_version` descrevem a instalação;
+  `instalar_novomodelo` instala o executável `novomodelo`; `incluir_pastas` acrescenta
+  pastas à área de trabalho.
+
+As respostas que trazem linhas ou listas têm tamanho limitado; uma resposta cortada
+informa isso em `cortado_por_tamanho`.
+
+---
+
+## Segurança
+
+### Área de trabalho
+
+As ferramentas de caso, deck e resultados recebem caminhos escolhidos pelo agente.
+`NOVOMODELO_MCP_WORKSPACE` contém as pastas raiz permitidas, separadas pelo separador
+de caminhos do sistema (`:` no macOS e no Linux, `;` no Windows), e o
+`configurar --workspace` a grava na entrada do cliente. Com ela definida, o servidor
+recusa qualquer caminho fora dessas raízes, depois de resolver links simbólicos e `..`.
+Sem ela, o servidor roda sem restrição, e o `server_info` informa `irrestrito`.
+
+Um caminho recusado devolve o código de saída 13, a pasta do caminho em
+`pasta_sugerida` e uma instrução ao agente: não ler o caminho por outras ferramentas e
+perguntar à pessoa se a pasta pode ser acrescentada. Com o consentimento da pessoa, o
+agente chama `incluir_pastas` com todas as pastas de uma vez. As pastas valem na hora,
+sem reiniciar o cliente, e ficam em `pastas.json`, na pasta de estado do servidor,
+somadas às raízes de `NOVOMODELO_MCP_WORKSPACE`. `incluir_pastas` nunca está na lista
+de somente leitura, então o cliente pede aprovação a cada chamada. Ela recusa um
+caminho que não seja uma pasta, a pasta pessoal ou qualquer pasta acima dela, a raiz
+de um disco, as pastas de configuração de programas (nomes que começam com `.`,
+`AppData`, `Library`) e a pasta de estado. Um `pastas.json` ilegível não permite nada.
+
+### Aprovação de gravações
+
+As ferramentas que gravam ou alteram arquivos não estão na lista de somente leitura
+que o `configurar` grava, então o cliente pede aprovação antes de cada chamada.
+
+### Gravações forçadas
+
+Três formas de chamada contornam uma verificação de segurança, e cada uma exige
+`NOVOMODELO_MCP_ALLOW_FORCE=1` no ambiente do servidor:
+
+| Chamada                       | Efeito                                         |
+| ----------------------------- | ---------------------------------------------- |
+| `deck_edit_json(force=True)`  | grava um arquivo que viola o seu JSON Schema   |
+| `case_init(force=True)`       | sobrescreve arquivos existentes                |
+| `bridge_convert_*(force=True)` | apaga o caso de destino antes de converter    |
+
+### Rede
+
+O servidor usa a rede apenas para verificar se há versões mais novas do Novo Modelo,
+do novomodelo-bridge e do próprio servidor (`server_info`, no máximo uma vez a cada
+seis horas em um servidor em execução, com tempo limite de poucos segundos) e para
+instalar o executável (`instalar_novomodelo`), e apenas para estes destinos:
+`github.com/ons-ccee-epe/*`, `api.github.com/repos/ons-ccee-epe/*`,
+`pypi.org/pypi/novomodelo-bridge/*`, `pypi.org/pypi/novomodelo-mcp/*` e, como destino
+de download, `release-assets.githubusercontent.com`. O HTTPS usa o repositório de
+certificados do sistema, de modo que as requisições passam por um proxy corporativo
+que reassina certificados. Sem rede, as ferramentas continuam respondendo, e o
+`server_info` informa que a verificação não pôde ser feita e onde consultar. A
+documentação e os schemas vêm embutidos e não precisam de rede.
+
+A verificação de versões e o instalador leem a API do GitHub sem token, e o GitHub
+permite um número limitado dessas requisições por hora a partir de um mesmo endereço
+IP. Em uma rede onde muitas pessoas compartilham um endereço, uma chamada pode ser
+recusada por algum tempo: as ferramentas continuam respondendo, o
+`instalar_novomodelo` informa `não foi possível consultar o release
+oficial` com o comando manual, e uma chamada posterior volta a funcionar.
+
+O `instalar_novomodelo` instala o executável oficial da versão esperada com o
+instalador do release, depois de conferir o SHA-256. Sem `confirmar=True`, ele só
+mostra o plano: a URL, o hash, a pasta de destino e o comando manual. No Windows, o
+instalador oficial `.ps1` não confere o hash do arquivo que baixa.
+
+O instalador oficial também acrescenta a pasta do executável ao `PATH`: no Linux e no
+macOS, edita o perfil do shell (como `.bashrc` ou `.profile`), e no Windows, o `PATH`
+do usuário. O plano informa isso em `altera_path`. Para não alterar o perfil, defina
+`NOVOMODELO_CLI_NO_MODIFY_PATH=1` no `env` da entrada do cliente; o servidor continua
+encontrando o executável em `~/.cargo/bin`, a pasta padrão do instalador.
+
+---
+
+## Avisos de versão
+
+Quando o executável `novomodelo`, o `novomodelo-python` ou o novomodelo-bridge não
+está instalado, ou quando um deles ou a documentação embutida está em versão diferente
+da do servidor, toda resposta de ferramenta traz `avisos_de_versao`: uma linha por
+componente, com os comandos que o alinham. A chamada é executada mesmo assim; as
+instruções do servidor pedem ao agente que avise a pessoa e se ofereça para executar
+os comandos, com o consentimento dela.
+
+- Um componente **mais antigo** que o servidor é atualizado para a versão do servidor:
+  para o executável, o agente pode chamar `instalar_novomodelo`, ou a pessoa executa o
+  instalador do release dessa versão; para o `novomodelo-python`, a documentação
+  embutida e o novomodelo-bridge do próprio pacote,
+  `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`, que os traz
+  junto; para um novomodelo-bridge encontrado por `NOVOMODELO_MCP_BRIDGE_BIN` ou no
+  `PATH`, `uv tool install --force novomodelo-bridge==X.Y.Z`.
+- Um componente **mais novo** que o servidor tem duas saídas, porque sem rede o
+  servidor não sabe se existe um servidor dessa versão: instalar o servidor da versão
+  do componente, se já publicado
+  (`uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`), ou voltar o
+  componente para a versão do servidor. Para o executável e o novomodelo-bridge, o
+  aviso termina com as notas de release da versão do componente: as mudanças, quando
+  uma chamada de `server_info` no mesmo servidor em execução as buscou nas últimas
+  seis horas, ou então um link para as notas.
+
+O `server_info` também informa em `versao_nova` se existe um release mais novo do
+novomodelo, do novomodelo-bridge ou do servidor. Para o novomodelo e o
+novomodelo-bridge, ele traz as seções "Changed" e "Fixed" das notas de release
+(mudanças incompatíveis primeiro, com tamanho limitado), um link para as notas e
+nenhum comando próprio: instalar um componente sozinho o deixaria fora de sintonia com
+os outros, então a nota diz para instalar o servidor dessa versão quando for
+publicado, o que traz todos os componentes junto. Para um servidor mais novo, ele traz
+o comando de instalação,
+`uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`, e o link para as
+notas de release.
+
+---
+
+## Documentação e changelogs
+
+O servidor embute as páginas deste site na versão correspondente à sua, com os JSON
+Schemas de entrada. A versão e o commit da documentação aparecem no `server_info`, em
+`docs`. Os schemas vêm da primeira fonte que existir:
+`NOVOMODELO_MCP_SCHEMAS_DIR`, depois `novomodelo schema export` do executável
+instalado, depois a cópia embutida.
+
+As instruções do servidor orientam o agente a responder perguntas sobre a metodologia e
+o uso do Novo Modelo a partir dessas páginas, não da web nem da memória, já que as
+definições do Novo Modelo podem diferir das da literatura:
+
+1. `docs_search(consulta, k)` busca nas páginas por palavra e devolve a página, a seção
+   e um trecho. As buscas funcionam melhor em inglês; os termos em português do
+   [Glossário](/pt-br/reference/glossary/) são traduzidos.
+2. `docs_read(page, secao)` lê uma seção de uma página (ou a página inteira, sem
+   `secao`); `docs_list(section)` lista as páginas com os títulos.
+3. A resposta cita a página e a seção de onde veio, como `page#section`. Quando as
+   páginas não tratam do assunto, o agente diz isso.
+
+Duas outras páginas contêm os changelogs: `changelog/novomodelo` e
+`changelog/novomodelo-bridge`, com uma seção por versão a partir da 0.18.0. O agente lê
+o que mudou em uma versão com `docs_read("changelog/novomodelo", "X.Y.Z")`.
+
+O servidor oferece ainda o prompt MCP `metodologia(tema)`, uma conversa sobre a
+metodologia baseada nessas páginas. `tema` é opcional, uma única palavra; sem ele, a
+pergunta vem na mensagem seguinte. Um cliente que suporta prompts MCP o lista no seu
+menu de prompts ou de comandos; por exemplo:
+
+| Cliente        | Onde o prompt aparece                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| Claude Code    | `/novomodelo:metodologia CVaR` (ou `/mcp__novomodelo__metodologia CVaR`); os argumentos são separados por espaços |
+| Kiro           | `#` no chat abre o menu de contexto; o prompt tem o ícone de MCP e um formulário para `tema`       |
+| Claude Desktop | o menu **+** abaixo da caixa de mensagem, em "novomodelo"                                          |
+
+---
+
+## Variáveis de ambiente
+
+O `configurar` grava `NOVOMODELO_MCP_WORKSPACE`; as demais variáveis são opcionais e
+ficam no `env` da entrada do cliente.
+
+| Variável                           | Padrão                           | Finalidade                                                                                                   |
+| ---------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `NOVOMODELO_MCP_WORKSPACE`         | não definida (sem restrição)     | pastas raiz permitidas, separadas por `:` (`;` no Windows)                                                   |
+| `NOVOMODELO_MCP_ALLOW_FORCE`       | `0`                              | `1` habilita as [gravações forçadas](#gravacoes-forcadas)                                                         |
+| `NOVOMODELO_MCP_SOLVER_BIN`        | `novomodelo` no `PATH`, depois em `~/.cargo/bin` | caminho do executável `novomodelo`                                                             |
+| `NOVOMODELO_MCP_BRIDGE_BIN`        | o do pacote, depois o do `PATH`  | outro executável `novomodelo-bridge`; tem precedência sobre o do pacote                                       |
+| `NOVOMODELO_MCP_SCHEMAS_DIR`       | não definida                     | pasta de arquivos `*.schema.json`, primeira entre as fontes de schemas                                        |
+| `NOVOMODELO_MCP_DOCS_DIR`          | não definida                     | só para desenvolvimento da documentação: uma pasta com as páginas deste site, lida no lugar da documentação embutida; toda resposta passa então a trazer uma linha em `avisos_de_versao` |
+| `NOVOMODELO_MCP_TIMEOUT`           | `900`                            | tempo limite, em segundos, de cada chamada à CLI                                                             |
+| `NOVOMODELO_MCP_MAX_JOBS`          | `1`                              | execuções que o `run_start` permite ao mesmo tempo                                                           |
+| `NOVOMODELO_MCP_STATE_DIR`         | conforme o sistema operacional (abaixo) | estado persistente: execuções em segundo plano e calibração dos tempos de solução                     |
+| `NOVOMODELO_MCP_MAX_RESPONSE_KB`   | `50`                             | limite de tamanho de uma resposta com linhas ou listas                                                       |
+| `NOVOMODELO_MCP_MAX_READ_BYTES`    | `5000000`                        | maior arquivo carregado inteiro na memória pelos leitores de JSON, `deck_describe_parquet` e `deck_edit_parquet`; um maior é recusado, e as duas ferramentas Parquet, que também recusam uma pasta, indicam `deck_sql` |
+| `NOVOMODELO_MCP_MAX_POLICY_BYTES`  | `1073741824` (1 GiB)             | maior política em disco que o `results_policy` carrega                                                       |
+| `NOVOMODELO_MCP_MAX_DIAGNOSTICS`   | `50`                             | limite de itens de diagnóstico                                                                               |
+| `NOVOMODELO_MCP_MAX_SUMMARY_CHARS` | `20000`                          | limite de tamanho de um `summary`                                                                            |
+| `NOVOMODELO_MCP_LOG`               | `0`                              | `1` registra cada chamada na saída de erro padrão                                                            |
+
+A pasta de estado padrão é `%LOCALAPPDATA%\novomodelo-mcp` no Windows,
+`~/Library/Application Support/novomodelo-mcp` no macOS e
+`$XDG_STATE_HOME/novomodelo-mcp` no Linux (`~/.local/state/novomodelo-mcp` quando
+`XDG_STATE_HOME` não está definida), nunca a pasta temporária do sistema.
+
+---
+
+## Limitações conhecidas
+
+- **O planejamento de execução é uma estimativa.** O `run_plan` estima o tempo a partir
+  de execuções já medidas na mesma máquina; em uma máquina sem nenhuma execução medida,
+  o veredito é `indeterminado`, e a primeira execução fornece a medição. A faixa de
+  tempo é aproximada.
+- **A memória é um limite inferior.** A verificação de memória conta só o espaço dos
+  cortes, não os PLs, a árvore de cenários nem os buffers; por isso rejeita uma
+  execução que claramente não cabe, mas não garante que um caso grande caiba na RAM.
+- **A busca na documentação casa palavras.** O `docs_search` encontra páginas pelas
+  palavras da pergunta, não pelo significado. As buscas funcionam melhor em inglês; os
+  termos em português do [Glossário](/pt-br/reference/glossary/) são traduzidos, e um
+  termo fora dele pode não encontrar nada.
+
+---
+
+## Veja também
+
+- **Conversão de um caso:** [Conversão de casos (novomodelo-bridge)](/pt-br/running/case-conversion/) — o programa por trás das ferramentas `bridge_*`
+- **Execução de estudos:** [Executando estudos](/pt-br/running/running-studies/) — o fluxo que as ferramentas de execução conduzem
+- **Instalação do executável:** [Instalação](/pt-br/getting-started/installation/)
+- **Código-fonte, issues e notas de release:** [ons-ccee-epe/novomodelo-mcp](https://github.com/ons-ccee-epe/novomodelo-mcp)

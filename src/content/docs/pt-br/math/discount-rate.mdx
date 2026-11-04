@@ -1,0 +1,146 @@
+---
+title: "Formulação da taxa de desconto"
+description: Equação de Bellman com desconto, fatores de desconto dependentes do estágio, desconto aplicado à variável de custo futuro θ, desconto acumulado e cálculo dos limites inferior e superior com desconto.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as DiscountConfigure } from './_impl/_discount.configure.mdx';
+
+## Objetivo
+
+Este capítulo define como as taxas de desconto são incorporadas ao solver PDDE (SDDP) do Novo Modelo: a equação de Bellman com desconto, os fatores de desconto dependentes do estágio, o efeito sobre a variável de custo futuro $\theta$, o desconto acumulado e o efeito sobre o cálculo dos limites inferior e superior.
+
+Para a formulação reservada do modo cíclico (em que o desconto seria necessário para a convergência), veja [Modos de horizonte](/pt-br/math/horizon-modes).
+
+Para as convenções de notação (conjuntos de índices, parâmetros, variáveis de decisão, variáveis duais), veja [Convenções de notação](/pt-br/overview/notation-conventions).
+
+## 1 Motivação
+
+O fator de desconto $d_{t \to t+1} \in (0, 1]$ representa o valor do dinheiro no tempo, segundo o qual custos futuros valem menos que custos presentes. Isso é essencial para:
+
+1. **Problemas de horizonte infinito**: garantir a convergência da função de valor em grafos da política (policy graphs) cíclicos (horizonte infinito), um projeto reservado (veja [Modos de horizonte](/pt-br/math/horizon-modes))
+2. **Consistência econômica**: refletir o custo de oportunidade do capital
+
+## 2 Equação de Bellman com Desconto
+
+A recursão de Bellman padrão, neutra ao risco, com fator de desconto $d_{t \to t+1}$ é:
+
+$$
+V_t(x_{t-1}) = \mathbb{E}_{\omega_t}\left[\min_{(x_t, u_t) \in \mathcal{X}_t(x_{t-1}, \omega_t)} \left\{ c_t(x_t, u_t) + d_{t \to t+1} \cdot V_{t+1}(x_t) \right\}\right]
+$$
+
+em que:
+
+- $c_t(x_t, u_t)$ é o custo imediato no estágio $t$
+- $V_{t+1}(x_t)$ é a função de custo futuro
+- $d_{t \to t+1}$ é o fator de desconto da transição do estágio $t$ para $t+1$
+
+:::note[Observação sobre a formulação]
+O fator de desconto $d_{t \to t+1}$ multiplica apenas o **custo futuro** $V_{t+1}$, e não o custo imediato $c_t$. Esta é a convenção padrão da PDDE:
+
+- **Custo imediato** $c_t$: não descontado (incorrido "agora", no estágio $t$)
+- **Custo futuro** $d_{t \to t+1} \cdot V_{t+1}$: descontado a valor presente no estágio $t$
+
+Isso é matematicamente equivalente a calcular cada custo pelo seu valor presente no estágio 1, em que os custos do estágio $t$ são multiplicados pelo fator acumulado $d_{1 \to t}$ da §5. A formulação de Bellman acima é a forma recursiva explorada pela PDDE.
+:::
+
+## 3 Fator de Desconto do Estágio
+
+Cada estágio $t$ tem uma taxa anual $r_t$: a taxa global do estudo $r_{annual}$, a menos que o estágio declare sua própria taxa. $\Delta t$ é a duração do estágio $t$ em anos, isto é, seu número inteiro de dias dividido por 365,25.
+
+$$
+d_{t \to t+1} = (1 + r_t)^{-\Delta t}
+$$
+
+A taxa e a duração são as do estágio de origem $t$, cujo custo futuro o fator desconta. Uma taxa nula resulta em $d_{t \to t+1} = 1$.
+
+As taxas são definidas para o estudo e, opcionalmente, por estágio; a aba Configurar em [Implementação no Novo Modelo](#implementacao-no-novo-modelo) lista os campos.
+
+## 4 Fator de Desconto no Subproblema do Estágio
+
+O fator de desconto é aplicado à **variável de custo futuro** $\theta$ na função objetivo do estágio $t$, e não aos coeficientes dos cortes:
+
+$$
+Q_t(x_{t-1}, \omega_t) = \min_{x_t, u_t, \theta} \left\{ c_t(x_t, u_t) + d_{t \to t+1} \cdot \theta \right\}
+$$
+
+sujeito a todas as restrições usuais (atendimento à carga, balanço hídrico etc.) e aos cortes de Benders:
+
+$$
+\theta \geq \beta_{0,i} + \sum_{h} \beta^v_{i,h} \cdot v_h + \sum_{h,\ell} \beta^{lag}_{i,h,\ell} \cdot a_{h,\ell} \quad \forall i
+$$
+
+Os coeficientes dos cortes $(\beta_{0,i}, \beta^v_{i,h}, \beta^{lag}_{i,h,\ell})$ são os valores **não descontados** obtidos na simulação backward. Quando o estudo tem água em trânsito ou térmicas com antecipação de despacho, o corte também contém termos relativos aos in-transit buckets e aos slots do commitment ring, igualmente não descontados. Os cortes são armazenados e gerenciados na forma não descontada — o fator de desconto aparece apenas no coeficiente de $\theta$ na função objetivo. Veja [Gerenciamento de cortes](/pt-br/math/cut-management) para detalhes sobre a geração e a agregação de cortes.
+
+:::note[Por que descontar em θ e não nos cortes]
+Aplicar o fator de desconto à variável $\theta$, em vez de escalonar cada corte individualmente, é mais simples e evita modificar os coeficientes dos cortes. O resultado matemático é idêntico — se $\theta \geq \beta_0 + \beta^\top x$ e $d_{t \to t+1} \cdot \theta$ aparece na função objetivo, isso equivale a ter $\theta' \geq d_{t \to t+1} \cdot (\beta_0 + \beta^\top x)$ com $\theta'$ na função objetivo.
+:::
+
+## 5 Desconto Acumulado
+
+O fator de desconto acumulado do estágio $t$ leva um custo incorrido no estágio $t$ ao seu valor presente no estágio 1:
+
+$$
+d_{1 \to t} = \prod_{t'=1}^{t-1} d_{t' \to t'+1}, \qquad d_{1 \to 1} = 1
+$$
+
+O valor presente no estágio 1 de um custo $c_t$ incorrido no estágio $t$ é $d_{1 \to t} \, c_t$.
+
+### Forma com Seta e Desconto de Entrega
+
+Para estágios $t_1 \le t_2$, o desconto do estágio $t_2$ de volta ao estágio $t_1$ é
+
+$$
+d_{t_1 \to t_2} = d_{1 \to t_2} / d_{1 \to t_1}
+$$
+
+Nessa forma com seta, $d_{t \to t+1}$ é o fator de um passo da §3 e $d_{1 \to t}$ é o fator acumulado. Um custo incorrido no estágio $t_2$ e cobrado na função objetivo do estágio $t_1$ é multiplicado por $d_{t_1 \to t_2}$. O custo do compromisso de despacho de uma térmica com antecipação de despacho é cobrado no seu estágio de decisão e descontado a partir do seu estágio de entrega dessa forma ([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#contribuicoes-a-funcao-objetivo)).
+
+### Extensão Pós-Estudo
+
+Após o último estágio do estudo $T$, o fator acumulado continua ao longo dos estágios pós-estudo declarados, à taxa global $r_{annual}$ sobre a duração de cada estágio pós-estudo. O fim do horizonte é transposto pelo fator de um passo do último estágio do estudo, $d_{1 \to T+1} = d_{1 \to T} \, d_{T \to T+1}$, de modo que a continuação é igual ao fator que seria obtido por um horizonte que abrangesse os estágios pós-estudo. [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) valora as entregas posteriores ao horizonte com esse fator estendido.
+
+### Consistência com a Recursão de Bellman
+
+A função objetivo de cada estágio multiplica $\theta$ pelo seu fator de um passo $d_{t \to t+1}$ (§4); assim, um custo incluído na função objetivo do estágio $t$ chega ao estágio 1 multiplicado por $d_{1 \to t}$ exatamente uma vez. Um custo cobrado no estágio $t_1$ referente ao estágio $t_2$ chega ao estágio 1 multiplicado por $d_{1 \to t_1} \, d_{t_1 \to t_2} = d_{1 \to t_2}$, o fator acumulado do estágio $t_2$ em que é incorrido. Cobrá-lo com $d_{1 \to t_2}$ na função objetivo do estágio $t_1$ o descontaria duas vezes: ele chegaria ao estágio 1 multiplicado por $d_{1 \to t_1} \, d_{1 \to t_2}$.
+
+## 6 Limite Inferior com Desconto
+
+O limite inferior $\underline{z}^k$ na iteração $k$ é o valor ajustado ao risco do primeiro estágio sobre suas aberturas no estado inicial $x_0$ ([Avaliação do limite superior — Limite inferior](/pt-br/math/upper-bound-evaluation#limite-inferior)). No problema do primeiro estágio de cada abertura, a variável de custo futuro $\theta_1$ entra na função objetivo com o fator de um passo $d_{1 \to 2}$, e o fator de cada estágio posterior leva seu custo ao estágio 1 uma única vez (§4); portanto, o limite inferior é expresso em valor presente no estágio 1.
+
+## 7 Limite Superior (Simulação) com Desconto
+
+Ao simular a política para estimar o limite superior:
+
+$$
+\bar{z}^k = \frac{1}{M} \sum_{m=1}^{M} \sum_{t=1}^{T} d_{1 \to t} \cdot c_t(\hat{x}_t^{k,m})
+$$
+
+O custo imediato de cada estágio é explicitamente descontado a valor presente no estágio 1 por meio do fator de desconto acumulado.
+
+Para os critérios de parada que usam esses limites, veja [Critérios de parada](/pt-br/math/stopping-rules).
+
+## 8 Relatórios
+
+Tanto o limite inferior $\underline{z}$ quanto o limite superior $\bar{z}$ representam o custo total esperado expresso em **valor presente no estágio 1**:
+
+- Um custo $c_t$ incorrido no estágio $t$ entra em ambos os limites como $d_{1 \to t}\, c_t$
+- As comparações entre limites e entre iterações são válidas porque usam um desconto consistente
+- A saída da simulação registra o custo imediato de cada estágio nas unidades monetárias do próprio estágio (não descontado ao estágio 1), juntamente com seu fator acumulado $d_{1 \to t}$ ([Saídas da simulação](/pt-br/reference/output/simulation/#simulationcosts))
+
+## Implementação no Novo Modelo
+
+A metodologia acima define o fator de desconto do estágio e o desconto acumulado; a aba abaixo mostra como a interface do software Novo Modelo configura as taxas.
+
+<Tabs>
+  <TabItem label="Configurar"><DiscountConfigure /></TabItem>
+</Tabs>
+
+## Referências Cruzadas
+
+- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — equação de Bellman central e estrutura das simulações forward/backward que as taxas de desconto modificam
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — os coeficientes dos cortes permanecem não descontados; o desconto é aplicado a $\theta$ na função objetivo
+- [Critérios de parada](/pt-br/math/stopping-rules) — critérios de convergência que usam os limites inferior e superior descontados
+- [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) — a aproximação interna usa valores de vértices descontados
+- [Modos de horizonte](/pt-br/math/horizon-modes) — grafos da política finitos (suportados) versus cíclicos (reservados); a estrutura formal reservada do modo cíclico (função de período sazonal, desigualdade de convergência do ciclo, conjunto de cortes indexado por período sazonal, operador de Bellman de ponto fixo)
+- [Convenções de notação](/pt-br/overview/notation-conventions) — conjuntos de índices, parâmetros, variáveis de decisão e variáveis duais usados em toda a documentação

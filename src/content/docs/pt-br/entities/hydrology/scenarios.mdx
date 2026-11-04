@@ -1,0 +1,85 @@
+---
+title: Cenários e aberturas
+description: Como o Novo Modelo representa os futuros possíveis — a árvore de aberturas, os esquemas de amostragem da simulação forward e os nós do grafo da política.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import Scenarios from '../../../../../components/entity/illustrations/Scenarios.astro';
+
+<EntityHero family="hydrology" icon="scenarios" lead="Cenário é uma realização das grandezas incertas (afluências, carga e fontes não despacháveis) ao longo do horizonte de planejamento. Para treinar a política, o Novo Modelo fixa em cada estágio um conjunto finito de vetores de ruído, as aberturas, e as simulações forward e backward usam esse conjunto de maneiras diferentes." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'A política é treinada sobre uma amostra', text: 'A distribuição de ruído de cada estágio é substituída por uma amostra finita e equiprovável de vetores de ruído: a árvore de aberturas. É a aproximação por média amostral (SAA), e a simulação backward constrói seus cortes sobre essa amostra.' },
+  { title: 'Gerada uma vez, mantida fixa', text: 'A árvore de aberturas é gerada uma única vez antes do início do treinamento (training) e reutilizada em todas as iterações, de modo que a simulação backward sempre vê a mesma árvore em cada nó.' },
+  { title: 'O número de aberturas é um compromisso', text: 'A simulação backward resolve um subproblema por abertura em cada nó, então seu custo cresce na proporção do número de aberturas. Qualquer quantidade produz cortes válidos: a escolha afeta o custo de uma iteração e a velocidade de convergência, não a validade do limite inferior.' },
+]} />
+
+## Uma árvore, dois modos de percorrê-la
+
+<Scenarios lang="pt-BR" />
+
+## O que o modelo decide
+
+Nada sobre os cenários em si: eles são dados, sorteados e avaliados pelo modelo. Na simulação forward, o modelo segue uma única trajetória, com um nó por estágio ao longo do caminho visitado. Na simulação backward, avalia todas as aberturas de cada nó nos estados visitados pela simulação forward e constrói os cortes a partir delas.
+
+## O que você informa
+
+- O número de aberturas de cada estágio (`num_openings`), obrigatório na cadeia simples de estágios do grafo da política (policy graph) e onde as aberturas são geradas.
+- O método que gera as aberturas de cada estágio (`sampling_method`), que pode variar por estágio.
+- A fonte de ruído da simulação forward de cada classe estocástica (afluência, carga, fontes não despacháveis), na configuração da execução. Quando não definida, toda classe sorteia da árvore de aberturas.
+- Opcionalmente, cenários externos, uma árvore de aberturas fornecida ou o histórico de vazões para reprodução.
+- Opcionalmente, a correlação espacial entre as usinas de um mesmo grupo e uma semente para a árvore de aberturas.
+
+## Como a simulação forward escolhe seu ruído
+
+O esquema de amostragem seleciona o ruído que a simulação forward usa em cada estágio, separadamente para cada classe. São quatro.
+
+- **Dentro da amostra (in-sample).** O padrão. A simulação forward sorteia uma abertura da mesma árvore de aberturas que a simulação backward usa.
+- **Fora da amostra (out-of-sample).** Sorteia ruído novo do modelo aplicado, com uma semente independente da semente da árvore. Seus custos forward estimam o custo da política sob o modelo, e não sob a árvore.
+- **Externo (external).** Lê os cenários que você fornece.
+- **Histórico (historical).** Reproduz o registro de vazões. Existe apenas para a classe de afluências.
+
+A simulação backward não é afetada: ela sempre avalia todas as aberturas da árvore. Nos esquemas externo e histórico, as trajetórias forward seguem a lei externa ou histórica, enquanto os cortes e o limite inferior são construídos sobre a árvore de aberturas, de modo que o gap compara dois problemas diferentes e pode não se fechar.
+
+## Como as aberturas são geradas
+
+O método de cada estágio define como a árvore é preenchida, independentemente do esquema de amostragem.
+
+- **Monte Carlo simples.** O padrão. Componentes normais padrão independentes, aberturas equiprováveis.
+- **Hipercubo latino, Sobol embaralhado e Halton embaralhado.** Amostras estratificadas ou de baixa discrepância da mesma distribuição.
+- **Selective.** As aberturas vêm de uma árvore que você fornece, e o Novo Modelo não gera nenhuma.
+- **Resíduos históricos.** Cada abertura carrega o ruído padronizado de afluência de uma janela do registro histórico, que já incorpora a correlação entre as usinas.
+
+A correlação entre usinas de um mesmo grupo é aplicada depois dos sorteios nos quatro primeiros métodos.
+
+## Nós e transições
+
+Por padrão, o grafo da política é uma cadeia com um nó por estágio. Declarar nós explicitamente permite que um estágio tenha vários. Uma transição é uma aresta direcionada para um nó exatamente um estágio adiante, ponderada por uma probabilidade. Duas probabilidades permanecem distintas: a da aresta diz para qual nó filho a trajetória segue, e a das aberturas diz qual realização é avaliada depois que o nó é alcançado.
+
+Uma passagem enumerada, sem amostragem, visita todos os nós e todos os caminhos de um grafo finito, de modo que seus limites são os da árvore declarada. Serve a horizontes curtos e a árvores que se ramificam em poucos estágios.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Geração de cenários §2.3 — árvore de aberturas', href: '/pt-br/math/scenario-generation/#23-arvore-de-aberturas' },
+  { kind: 'Metodologia', title: 'Geração de cenários §2.3a — método de amostragem e geração da árvore', href: '/pt-br/math/scenario-generation/#23a-metodo-de-amostragem-e-geracao-da-arvore-de-aberturas' },
+  { kind: 'Metodologia', title: 'Geração de cenários §3 — abstração do esquema de amostragem', href: '/pt-br/math/scenario-generation/#3-abstracao-do-esquema-de-amostragem' },
+  { kind: 'Metodologia', title: 'Grafos da política §1 — nós, transições e conjuntos de cortes', href: '/pt-br/math/policy-graphs/#1-nos-transicoes-e-conjuntos-de-cortes-de-custo-futuro' },
+  { kind: 'Metodologia', title: 'Grafos da política §2 — dois eixos de probabilidade', href: '/pt-br/math/policy-graphs/#2-dois-eixos-de-probabilidade' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'stages.json', href: '/pt-br/reference/case-format/stages/#stagesjson' },
+  { dir: 'in', path: 'config.json (training.scenario_source)', href: '/pt-br/running/configuration/#trainingscenario_source' },
+  { dir: 'in', path: 'config.json (simulation.scenario_source)', href: '/pt-br/running/configuration/#simulationscenario_source' },
+  { dir: 'in', path: 'scenarios/noise_openings.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosnoise_openingsparquet' },
+  { dir: 'in', path: 'scenarios/external_inflow_scenarios.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosexternal_inflow_scenariosparquet' },
+  { dir: 'out', path: 'stochastic/noise_openings.parquet', href: '/pt-br/reference/output/stochastic/#stochasticnoise_openingsparquet' },
+]} />

@@ -1,0 +1,117 @@
+---
+title: "Artefatos estocásticos"
+description: O modelo estocástico que uma execução do novomodelo exporta com exports.stochastic — quais arquivos, quando cada um é gravado e os esquemas dos arquivos sem equivalente de entrada.
+---
+
+Quando `exports.stochastic: true` está definido em `config.json`, o Novo Modelo grava os
+artefatos do pré-processamento estocástico em `output/stochastic/` antes do início do
+treinamento (training).
+
+A exportação vem desativada por padrão.
+
+---
+
+## Arquivos exportados
+
+| Caminho do arquivo                           | Condição de exportação        | Origem do esquema                                        |
+| -------------------------------------------- | ----------------------------- | -------------------------------------------------------- |
+| `stochastic/inflow_seasonal_stats.parquet`   | Sempre                        | Igual ao de entrada `scenarios/inflow_seasonal_stats.parquet`  |
+| `stochastic/inflow_ar_coefficients.parquet`  | Sempre                        | Igual ao de entrada `scenarios/inflow_ar_coefficients.parquet` |
+| `stochastic/inflow_annual_component.parquet` | Sempre                        | Esquema Parquet de 5 colunas (ver abaixo)                |
+| `stochastic/correlation.json`                | Sempre                        | Igual ao de entrada `scenarios/correlation.json`         |
+| `stochastic/fitting_report.json`             | Houve estimação               | Relatório de diagnóstico JSON (ver abaixo)               |
+| `stochastic/noise_openings.parquet`          | Sempre                        | Mesmo esquema de `scenarios/noise_openings.parquet`      |
+| `stochastic/load_seasonal_stats.parquet`     | Algum modelo de carga tem `std_mw > 0` | Igual ao de entrada `scenarios/load_seasonal_stats.parquet`    |
+
+Os cinco arquivos incondicionais contêm o modelo usado na execução, tenha o Novo Modelo
+estimado esse modelo a partir de `inflow_history.parquet` ou lido de `scenarios/`.
+`fitting_report.json` só é gravado quando o Novo Modelo estimou parte ou a totalidade do
+modelo de afluências (suas estatísticas sazonais, seus coeficientes AR ou ambos) a partir de
+`inflow_history.parquet`.
+
+Se um arquivo não puder ser gravado, o Novo Modelo imprime um aviso no stderr, como `warning: stochastic export failed (noise_openings: <error>)`, e a execução prossegue com os demais arquivos e com o treinamento. `--quiet` suprime o aviso.
+
+Para reutilizar um modelo exportado como entrada em uma execução posterior, siga [Exportação de Artefatos Estocásticos → Fluxo de ida e volta](/pt-br/running/running-studies/#fluxo-de-ida-e-volta).
+
+---
+
+## `stochastic/noise_openings.parquet`
+
+A árvore de aberturas usada durante o treinamento, gravada no mesmo esquema do
+arquivo de entrada `scenarios/noise_openings.parquet`. Consulte
+[Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosnoise_openingsparquet)
+para o esquema de 4 colunas (`stage_id`, `opening_index`, `entity_index`, `value`).
+Para uma árvore gerada, os valores são as aberturas depois do casamento de momentos (moment matching)
+([`training.scenario_source.openings`](/pt-br/running/configuration/#trainingscenario_sourceopenings)),
+de modo que uma execução que lê a cópia as usa como fornecidas.
+O `stage_id` exportado é a posição do estágio com base 0, enquanto o arquivo de entrada
+exige o id declarado do estágio; por isso, uma cópia só é carregada quando os ids
+declarados dos estágios são 0, 1, 2, ….
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation)
+
+---
+
+## `stochastic/inflow_annual_component.parquet`
+
+A componente anual de afluência, por `(hydro, stage)`, do modelo usado na execução,
+tenha o Novo Modelo ajustado essa componente ou lido de `scenarios/`. O arquivo não tem linhas, a menos que algum modelo de afluências contenha componente anual. O esquema tem 5 colunas, todas não anuláveis.
+
+**Metodologia:** [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model)
+
+| Nome                 | Tipo    | Anulável | Unidade | Descrição                                                           |
+| -------------------- | ------- | -------- | ----- | ------------------------------------------------------------------- |
+| `hydro_id`           | Int32   | Não      | —     | Identificador da usina hidrelétrica.                                |
+| `stage_id`           | Int32   | Não      | —     | Identificador do estágio ao qual a componente se aplica.            |
+| `annual_coefficient` | Float64 | Não      | —     | Coeficiente ajustado da componente anual para esta usina e estágio. |
+| `annual_mean_m3s`    | Float64 | Não      | m³/s  | Afluência média anual para esta usina e estágio, em m³/s.           |
+| `annual_std_m3s`     | Float64 | Não      | m³/s  | Desvio-padrão anual da afluência para esta usina e estágio, em m³/s. |
+
+---
+
+## `stochastic/fitting_report.json`
+
+Relatório de diagnóstico JSON do ajuste do modelo PAR. Este arquivo só é gravado
+quando o Novo Modelo realizou a estimação a partir de `inflow_history.parquet`.
+
+**Metodologia:** [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model)
+
+**Estrutura:**
+
+```json
+{
+  "hydros": {
+    "<hydro_id>": {
+      "selected_order": 3,
+      "coefficients": [[0.42, -0.11, 0.07]],
+      "contribution_reductions": [
+        {
+          "season_id": 4,
+          "original_order": 3,
+          "reduced_order": 2,
+          "contributions": [0.42, -0.11, 0.07],
+          "reason": "negative_contribution"
+        }
+      ]
+    }
+  }
+}
+```
+
+| Nome                                        | Tipo    | Anulável | Unidade | Descrição                                                                                                               |
+| ------------------------------------------- | ------- | -------- | ----- | ----------------------------------------------------------------------------------------------------------------------- |
+| `hydros.<hydro_id>.selected_order`          | integer | Não      | —     | Ordem do modelo AR selecionada para esta usina hidrelétrica.                                                            |
+| `hydros.<hydro_id>.coefficients`            | array   | Não      | —     | Array de arrays de números: uma linha por período sazonal; cada linha contém os coeficientes AR daquele período sazonal.       |
+| `hydros.<hydro_id>.contribution_reductions` | array   | Sim      | —     | Reduções de ordem aplicadas durante o ajuste, uma entrada por período sazonal afetado. Opcional; omitido quando nenhuma redução foi necessária. |
+
+**Campos de `contribution_reductions[]`:**
+
+| Nome                                                         | Tipo    | Anulável | Unidade | Descrição                                                                                                     |
+| ------------------------------------------------------------ | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------- |
+| `hydros.<hydro_id>.contribution_reductions[].season_id`      | integer | Não      | —     | Período sazonal em que ocorreu a redução.                                                                     |
+| `hydros.<hydro_id>.contribution_reductions[].original_order` | integer | Não      | —     | Ordem do modelo AR antes da redução.                                                                          |
+| `hydros.<hydro_id>.contribution_reductions[].reduced_order`  | integer | Não      | —     | Ordem do modelo AR após a redução.                                                                            |
+| `hydros.<hydro_id>.contribution_reductions[].contributions`  | array   | Não      | —     | Array de números: valores de contribuição na ordem original que acionaram a redução.                          |
+| `hydros.<hydro_id>.contribution_reductions[].reason`         | string  | Não      | —     | Mecanismo que acionou a redução: `"magnitude_bound"`, `"phi1_negative"` ou `"negative_contribution"`.         |
+
+Este arquivo é apenas de diagnóstico. Ele não é consumido como entrada em execuções subsequentes.

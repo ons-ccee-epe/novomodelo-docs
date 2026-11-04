@@ -1,0 +1,91 @@
+Comportamento não normativo do software para usinas termelétricas, contratos,
+usinas elevatórias e NCS — o que o Novo Modelo faz em tempo de execução, além das
+equações acima. Esta aba remete ao corpo metodológico para as deduções, em vez de
+reproduzi-las.
+
+### Janela de operação: linhas de saída fora da janela
+
+Fora da sua janela de operação
+([Janela de Operação Compartilhada](#janela-de-operacao-comum)) uma entidade
+continua emitindo suas linhas de saída, zeradas em vez de ausentes, com o mesmo
+`operative_state_code` de quando está em operação.
+
+### Contratos não têm estado
+
+Um contrato de energia contribui com exatamente uma coluna do PL por patamar e por
+sentido e **não possui variável de estado** — não faz parte da recursão de Bellman
+e não contribui com nenhum termo para os cortes de Benders ([Formulações específicas por equipamento §3](/pt-br/math/equipment-formulations#3-contratos-de-importacaoexportacao)). Essa é
+uma diferença estrutural em relação às usinas hidrelétricas e às termelétricas com
+antecipação de despacho, cujas variáveis de estado de armazenamento e do commitment
+ring contribuem com um termo nos cortes. Um `min_mw` não nulo nos estágios
+ativos de um contrato é um piso rígido do tipo take-or-pay: o PL deve despachar ao
+menos essa quantidade ao preço do contrato, independentemente de alternativas mais
+baratas em outros pontos do sistema. Todo o custo de contratos — o custo de
+importação ou a receita (negativa) de exportação — tem coluna própria,
+`contract_cost`, no detalhamento de custos por estágio de `simulation/costs/`, ao
+lado de `thermal_cost`.
+
+### Usinas elevatórias não têm custo explícito na função objetivo
+
+A variável de vazão de uma usina elevatória **não tem termo direto na função
+objetivo** ([Formulações específicas por equipamento §4](/pt-br/math/equipment-formulations#4-usinas-elevatorias)). O custo do bombeamento é
+inteiramente implícito: o bombeamento consome potência no barramento conectado, em
+proporção à vazão bombeada, e esse consumo é valorado pelo custo marginal do
+barramento naquele estágio e cenário — barato quando há excedente hidrelétrico ou
+renovável na margem, caro quando o despacho térmico define o preço. Por isso o
+bombeamento se concentra, por critério econômico, nos períodos de preço baixo, sem
+nenhum coeficiente de custo específico de bombeamento a ajustar.
+
+### Termelétricas com antecipação de despacho são a exceção à regra de "sem estado entre estágios" dos equipamentos
+
+Todos os demais tipos de equipamento deste capítulo não têm memória: seu despacho no
+estágio `t` depende apenas dos limites e do preço do próprio estágio. Uma
+termelétrica com antecipação de despacho (`anticipated_config`) é a única exceção —
+seu compromisso de despacho, decidido em um estágio anterior ou antes do estudo, é
+mantido como estado do commitment ring até o seu estágio de entrega, no qual a
+geração da usina deve cumpri-lo ([Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho)). A
+expressão de restrição genérica `anticipated_decision(N)` permite ao autor do caso
+impor diretamente um teto ou um piso a esse compromisso antecipado; referenciar com
+essa expressão uma termelétrica sem antecipação é um erro fatal na carga, e
+referenciar a geração por patamar de uma termelétrica com antecipação com
+`thermal_generation(N)` é aceito, mas sinalizado, pois não lê o compromisso
+antecipado.
+
+### Compromisso excessivo é rejeitado na carga do caso, não conciliado a cada resolução
+
+O valor antecipado de um compromisso entregue é mantido como estado do commitment
+ring; assim, no seu estágio de entrega, a linha de saída do ring ([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#linhas-do-ring)) lê o valor calculado pelo
+solver — exato apenas até a tolerância de viabilidade do backend de PL, não
+exatamente. O Novo Modelo **não** executa nenhuma etapa de conciliação a cada
+resolução. Em vez disso, o estado de saída é **canonicalizado sobre seus limites
+admissíveis quando é lido de volta** de cada resolução, e essa projeção é a
+identidade para um valor já dentro dos limites: um compromisso que se acomoda uma
+fração fora do seu teto é trazido de volta para dentro dos limites antes de ser
+propagado, de modo que o treinamento (training) prossegue normalmente em vez de
+apresentar um PL inviável espúrio. Esse é o único ponto de canonicalização na
+leitura de volta que a metodologia enuncia uma única vez — veja
+[Algoritmo da PDDE §3.1](/pt-br/math/sddp-algorithm#31-simulacao-forward) e
+[Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos).
+
+Um compromisso **de fato** além dos limites de geração da usina não é um artefato
+do solver e não é absorvido por esse ajuste. Ele é detectado **na carga do caso**,
+quando são validadas as janelas `past_anticipated_commitments` de
+`initial_conditions.json` (veja a aba Configurar). Um `value_mw` fora dos limites
+admissíveis em um estágio de entrega coberto é um erro nomeado de carga que
+identifica a termelétrica, a janela problemática, o `value_mw` e os limites que ele
+viola — e não um PL inviável sem explicação surgindo no meio da resolução. Veja
+[Códigos de erro](/pt-br/reference/error-codes) para a classe da falha.
+
+### NCS com geração compulsória e a armadilha do desconto em dobro
+
+O indicador `allow_curtailment: false` fixa a coluna de geração de uma NCS na
+disponibilidade realizada em todo cenário — uma igualdade de limites, e não apenas
+um limite superior. Ele existe especificamente para montantes agregados de geração
+não simulada (PCHs, biomassa, geração distribuída) que um modelo de origem a
+montante já abateu da carga antes de o PL de despacho ser executado: deixar um
+agregado desse tipo sujeito a corte permite que o PL "corte" energia que nunca
+esteve disponível separadamente para ser cortada, barateando silenciosamente o
+despacho hidrotérmico em relação ao modelo de referência que se pretende
+reproduzir. Usinas eólicas e solares individuais, para as quais o corte de geração
+(curtailment) é uma escolha física e econômica real, usam o comportamento padrão,
+sujeito a corte.

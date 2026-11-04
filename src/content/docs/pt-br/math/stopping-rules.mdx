@@ -1,0 +1,195 @@
+---
+title: Critérios de parada
+description: Critérios de parada disponíveis no solver PDDE (SDDP) do Novo Modelo — limite de iterações, limite de tempo, estagnação do limite, parada por gap, encerramento controlado e a combinação dos critérios.
+---
+
+import ConvergencePanelsPlot from "../../../../components/ConvergencePanelsPlot.astro";
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as StoppingConfigure } from './_impl/_stopping.configure.mdx';
+
+## Objetivo
+
+Este capítulo define os critérios de parada disponíveis no solver PDDE (SDDP) do Novo Modelo e a forma como se combinam. Abrange o limite de iterações, o limite de tempo, a estagnação do limite (bound stalling) e o critério de parada recomendado, baseado no gap.
+
+## 1 Critérios de parada disponíveis
+
+A PDDE pode terminar com base em múltiplos critérios. Cada critério é avaliado de forma independente, e `stopping_mode` determina como eles se combinam:
+
+- `"any"`: para quando **qualquer** critério é acionado (lógica OU)
+
+- `"all"`: para quando todos os critérios, exceto os limites de iterações, são acionados na mesma iteração (lógica E); o maior limite de iterações limita a execução
+
+## 2 Limite de iterações
+
+**Avaliação**:
+
+$$
+\text{STOP} \iff k \geq k_{max}
+$$
+
+em que $k$ é a iteração corrente e $k_{max}$ é o limite.
+
+**Finalidade**: limite de segurança para evitar laços infinitos.
+
+## 3 Limite de tempo
+
+**Avaliação**:
+
+$$
+\text{STOP} \iff t_{elapsed} \geq t_{max}
+$$
+
+O tempo de relógio (wall-clock) é verificado ao final de cada iteração.
+
+## 4 Estagnação do limite
+
+**Avaliação**:
+
+Acompanha-se o limite inferior $\underline{z}^k$ ao longo das iterações. Uma vez registrados $\tau$ limites, calcula-se a melhoria relativa na janela dos últimos $\tau$ limites inferiores registrados, $\underline{z}^{k-\tau+1}, \ldots, \underline{z}^k$ (o parâmetro `iterations`):
+
+$$
+\Delta_k = \frac{\underline{z}^k - \underline{z}^{k-\tau+1}}{\max(1, |\underline{z}^k|)}
+$$
+
+**Condição de parada**:
+
+$$
+\text{STOP} \iff |\Delta_k| < \varepsilon_{\text{stall}}
+$$
+
+em que $\varepsilon_{\text{stall}}$ é a tolerância de estagnação do limite sobre a melhoria relativa, definida pelo parâmetro `tolerance` do critério.
+
+**Interpretação**: o limite atingiu um patamar — a melhoria relativa ao longo dos últimos $\tau$ limites inferiores registrados está abaixo da tolerância especificada, o que indica retornos decrescentes de iterações adicionais.
+
+:::note[Observação sobre aversão ao risco]
+Com uma medida avessa ao risco, o limite inferior $\underline{z}^k$ é um limite inferior válido para o objetivo aninhado ajustado ao risco sob as [hipóteses da Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido), de modo que a estagnação do limite o monitora como no caso neutro ao risco. O critério de gap exige o limite superior exato ([Gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade)).
+:::
+
+## 5 Parada por gap (recomendada)
+
+<ConvergencePanelsPlot />
+
+_Evolução ilustrativa dos limites ao longo das iterações $k$. Nos dois painéis, o limite inferior $\underline{z}^k$ cresce monotonicamente (o conjunto de cortes só recebe acréscimos). À esquerda, uma simulação forward amostrada: o limite superior $\bar{z}^k$ é uma estimativa, e sua faixa de confiança reflete um erro amostral que persiste à medida que o gap se fecha, de modo que, no fim da execução, a faixa abrange o limite inferior e nada certifica. À direita, uma simulação forward enumerada: o limite superior exato não tem faixa, permanece acima do limite inferior e converge para ele — a comparação que o critério de gap testa._
+
+### Gap de otimalidade
+
+Na iteração $k$, o gap de otimalidade (optimality gap) é a diferença entre o limite superior $\bar{z}^k$ e o limite inferior $\underline{z}^k$, qualquer que seja o mecanismo que fornece o limite superior — a estimativa estatística de uma simulação forward amostrada ou o limite exato de uma enumerada ([Avaliação do limite superior](/pt-br/math/upper-bound-evaluation)):
+
+$$
+\text{gap}^k = \bar{z}^k - \underline{z}^k
+$$
+
+O gap percentual o normaliza pelo limite inferior:
+
+$$
+100 \cdot \frac{\text{gap}^k}{\max(1, |\underline{z}^k|)}
+$$
+
+Ambos os limites estão em unidades monetárias não escalonadas — as unidades de custo originais, com o [escalonamento de custos](/pt-br/math/lp-layout-and-scaling#21-escalonamento-de-custos) do PL do estágio desfeito —, de modo que $\text{gap}^k$ está em unidades monetárias e o gap percentual é adimensional. O denominador é o módulo do limite **inferior**, **nunca** do limite superior, com piso de uma unidade monetária para que a razão permaneça limitada quando o limite inferior está próximo de zero. O gap reportado a cada iteração e o ramo relativo do critério de gap abaixo compartilham esse denominador, de modo que os dois nunca divergem sobre o significado de "gap relativo".
+
+O critério de gap encerra o treinamento (training) assim que o limite superior exato converge para o limite inferior.
+
+**Avaliação**:
+
+O critério avalia o [gap de otimalidade](#gap-de-otimalidade) com o limite superior exato, $\bar{z}^k = \bar{z}_{\text{exact}}$, e o compara truncado em zero, $\max(0,\; \text{gap}^k)$; o truncamento pertence à comparação do critério, não à definição do gap. Em aritmética exata, o limite superior exato satisfaz $\bar{z} \geq \underline{z}$ sempre que o limite inferior é válido ([Gerenciamento de cortes — Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido)), e o truncamento então apenas absorve ruído de ponto flutuante depois que o gap se fechou até (numericamente) zero. Com um método de truncamento de [Métodos de tratamento de afluências negativas §7](/pt-br/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior) em um modelo PAR com termos de defasagem (ordem acima de zero ou componente anual), o limite inferior pode exceder o limite superior exato; o truncamento interpreta esse gap negativo como fechado, de modo que o critério pode parar sem certificado de otimalidade: o limite superior exato é o custo de uma política viável, mas um limite inferior inválido não limita o ótimo por baixo.
+
+**Condição de parada** — dois ramos combinados por disjunção (qualquer um é suficiente):
+
+$$
+\text{STOP} \iff \max(0,\; \text{gap}^k) \leq \varepsilon_{\text{abs}} \quad\text{or}\quad 100 \cdot \max(0,\; \text{gap}^k) / \max(1, |\underline{z}^k|) \leq \varepsilon_{\text{rel}}
+$$
+
+A tolerância absoluta $\varepsilon_{\text{abs}}$, em unidades monetárias, é definida pelo parâmetro `tolerance` do critério. A tolerância relativa $\varepsilon_{\text{rel}}$, em percentual, é definida pelo parâmetro `relative_tolerance` do critério. Qualquer uma das tolerâncias pode ser configurada isoladamente; quando ambas são configuradas, o treinamento para assim que qualquer um dos ramos é satisfeito.
+
+**Admissibilidade**: a comparação acima só é válida quando o limite superior utilizado é o limite *exato*, e não uma estimativa estatística. As duas condições a seguir devem ser satisfeitas:
+
+- A simulação forward [enumera a árvore de cenários](/pt-br/math/policy-graphs) exaustivamente, em vez de amostrá-la, de modo que o limite superior é exato — sem erro amostral — e não uma aproximação amostrada.
+- A medida de risco é **uniforme em todos os estágios**: ou o valor esperado em todos os estágios, ou uma mesma medida CVaR (o mesmo peso de aversão ao risco $\lambda$ e a mesma fração de cauda $\alpha$) em todos os estágios. Sob o valor esperado, o limite exato é o custo ponderado pelas probabilidades $\sum_{\ell} P(\ell)\, C(\ell)$ sobre todos os cenários $\ell$; sob um CVaR uniforme, é o limite de risco aninhado e consistente no tempo sobre a mesma árvore enumerada ([Avaliação do limite superior §2](/pt-br/math/upper-bound-evaluation)). Uma medida **variável por estágio** — o par $(\lambda_t, \alpha_t)$ diferindo entre estágios, sendo que todo estágio com $\lambda_t = 0$ corresponde ao valor esperado, qualquer que seja seu $\alpha_t$ — não é admissível, pois nesse caso nenhuma medida única agrega a árvore.
+
+Com uma simulação forward amostrada, ou com uma medida variável por estágio, a comparação com o limite exato da qual o critério depende não está disponível, e o critério de gap é rejeitado na preparação da execução com um erro de validação nomeado, em vez de ser avaliado silenciosamente com base em uma comparação inconsistente.
+
+**Por que é recomendado**: diferentemente da estagnação do limite (um indicador indireto de convergência) ou dos limites de iterações e de tempo (limites de segurança sem relação com a convergência), um gap fechado é um certificado direto de otimalidade no regime de limite exato que o critério exige — uma simulação forward enumerada com uma medida de risco uniforme entre os estágios — sobre um limite inferior válido.
+
+A decisão de admissibilidade avalia as duas condições em ordem: primeiro, se a simulação forward é enumerada; depois, se a medida é a mesma em todos os estágios. Satisfeitas ambas, o critério de gap é admitido e passa a comparar o limite inferior com o limite superior exato, de modo que um gap fechado certifica a otimalidade sob as hipóteses da [Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap); se qualquer uma falhar, o critério é rejeitado na preparação — nesse caso, encerre a execução por estagnação do limite e limite de iterações, como em [Execuções amostradas](#execucoes-amostradas).
+
+```d2
+direction: down
+
+start: "Conjunto de critérios\ncom critério de gap" {shape: oval}
+enum: "Simulação forward\nenumerada?" {shape: diamond}
+same: "Mesma medida\nem todo estágio?" {shape: diamond}
+ok: "Critério de gap admitido\nlimite exato, certificado" {shape: oval}
+rej: "Critério de gap rejeitado na preparação\nparar por estagnação do limite, limite de iterações" {shape: oval}
+
+start -> enum
+enum -> same: sim
+enum -> rej: não
+same -> ok: sim
+same -> rej: não
+```
+
+### Execuções amostradas
+
+Com uma simulação forward amostrada, o critério de gap não está disponível. Encerre uma execução amostrada por estagnação do limite ([§4](#4-estagnacao-do-limite)) e limite de iterações ([§2](#2-limite-de-iteracoes)), combinados de modo que o primeiro a ser acionado encerre a execução ([§7](#7-combinacao-de-criterios)). O limite superior de uma execução amostrada é uma estimativa estatística: seu intervalo de confiança descreve o custo médio da simulação forward amostrada, e nenhuma estimativa amostral certifica a otimalidade ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)).
+
+## 6 Encerramento controlado
+
+Uma solicitação de encerramento finaliza o laço de treinamento em uma fronteira de iteração, com a política
+da última iteração concluída persistida.
+
+**Garantia**: a política no momento do encerramento é utilizável. O laço lê uma solicitação
+uma vez por iteração, após o cálculo do limite inferior e antes da decisão de parada, e
+conclui essa iteração antes de parar, de modo que os cortes
+e limites de todas as iterações executadas são registrados e nenhuma iteração parcial é deixada
+para trás. A garantia de encerramento controlado é um caso particular do compromisso mais amplo
+de rastreabilidade descrito em [Determinismo e rastreabilidade §5](/pt-br/math/determinism-guarantees#5-rastreabilidade):
+os artefatos de saída estão sempre em estado consistente, seja porque a execução atingiu um
+critério de parada configurado, seja porque uma solicitação de encerramento a finalizou.
+
+**Incondicional**: o encerramento controlado não é um critério configurável; é uma propriedade
+de segurança incondicional do laço de treinamento. Ele não é listado em `stopping_rules` na
+configuração do caso e não está sujeito à lógica de combinação de `stopping_mode`. As interfaces
+que podem emitir uma solicitação estão listadas na aba Configurar, em
+[Implementação no Novo Modelo](#implementacao-no-novo-modelo).
+
+**Compromisso**: uma solicitação produz efeito em uma fronteira de iteração, e a iteração que
+a lê é executada até o fim; assim, a solicitação produz efeito após a conclusão da iteração que a lê, e não no momento em que é emitida. A alternativa
+(encerramento imediato) deixaria o estado da política inconsistente.
+
+## 7 Combinação de critérios
+
+**Modo: `"any"` (padrão)**:
+
+$$
+\text{STOP} \iff \text{Rule}_1 \lor \text{Rule}_2 \lor \ldots
+$$
+
+O primeiro critério acionado provoca o encerramento.
+
+**Modo: `"all"`**:
+
+$$
+\text{STOP} \iff (\text{Rule}_1 \land \text{Rule}_2 \land \ldots) \lor k \geq k_{max}
+$$
+
+A conjunção abrange os critérios diferentes dos limites de iterações e é falsa quando não há nenhum; $k_{max}$ é o maior limite de iterações, e um limite de iterações menor não tem efeito.
+
+O encerramento controlado independe da lógica de combinação de `stopping_mode` — ele finaliza
+o laço de treinamento independentemente de algum ou de todos os critérios configurados terem sido acionados.
+
+## Implementação no Novo Modelo
+
+A metodologia acima define quando cada critério interrompe o treinamento; a aba abaixo remete às entradas de configuração dos critérios, informa quais interfaces podem emitir uma solicitação de encerramento e lista o que uma execução interrompida registra.
+
+<Tabs>
+  <TabItem label="Configurar"><StoppingConfigure /></TabItem>
+</Tabs>
+
+## Referências cruzadas
+
+- [Convenções de notação](/pt-br/overview/notation-conventions) — Definições de símbolos para limites e grandezas estatísticas
+- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — Laço principal de iterações que avalia os critérios de parada
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — Geração e seleção de cortes, que afetam a velocidade de convergência
+- [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) — Os estimadores exato (determinístico) e estatístico do limite superior; o limite exato é aquele com o qual o critério de gap compara
+- [Medidas de risco](/pt-br/math/risk-measures) — Formulações avessas ao risco que afetam a interpretação dos limites
+- [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees#5-rastreabilidade) — Compromisso de rastreabilidade do qual a garantia de encerramento controlado é um caso particular

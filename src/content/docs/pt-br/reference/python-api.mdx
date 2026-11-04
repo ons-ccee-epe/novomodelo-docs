@@ -1,0 +1,1076 @@
+---
+title: API Python
+description: Referência do pacote Python novomodelo - Study, Policy, run, io, results, model, errors e schema - com assinaturas, valores padrão, formatos de retorno e classes de exceção levantadas.
+---
+
+O pacote `novomodelo` é o binding Python do solver Novo Modelo (`import novomodelo`). Esta página lista a assinatura, o comportamento, o formato de retorno e as classes de exceção levantadas de cada nome público do pacote `novomodelo`, de `novomodelo.run`, `novomodelo.io`, `novomodelo.results`, `novomodelo.errors` e `novomodelo.schema`, além dos campos das classes de dados em `novomodelo.model` e dos dicts de resultado tipados em `novomodelo._types`. Para instalar o pacote, veja [Instalação](/pt-br/getting-started/installation/); para uma primeira sessão guiada, veja o [Guia rápido em Python](/pt-br/getting-started/python-quickstart/).
+
+Convenções usadas em todas as entradas:
+
+- Os caminhos aceitam `str` ou `pathlib.Path`.
+- O pacote é executado em um único processo. Ele nunca inicializa o MPI e libera o GIL (o global interpreter lock do Python) enquanto o solver calcula.
+- Os diagnósticos de aviso são gravados no descritor de arquivo 2. `contextlib.redirect_stderr` não os captura.
+- Cada cabeçalho é o nome qualificado de um símbolo e é a âncora dessa entrada (`#novomodelostudytrain` para `novomodelo.Study.train`).
+
+## `novomodelo`
+
+### `novomodelo.__version__`
+
+```python
+__version__: str
+```
+
+A string de versão do pacote, por exemplo `0.20.0`.
+
+### `novomodelo.version_info`
+
+```python
+def version_info() -> dict[str, Any]: ...
+```
+
+Descreve a compilação em execução. O dict tem as chaves `version` (igual a `novomodelo.__version__`), `solver` (o backend de PL e sua versão), `comm` (sempre `local`, pois o pacote é de processo único), `zstd` (`enabled`), `arch` (arquitetura-alvo e sistema operacional) e `build` (`debug` ou `release`).
+
+**Retorna**: o dict de descrição da compilação.
+
+{/* capture: python t231-version-info | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none */}
+
+```python
+import novomodelo
+
+print(novomodelo.version_info())
+```
+
+```text
+{'version': '0.20.0', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
+```
+
+### `novomodelo.Study`
+
+```python
+class Study:
+    def __init__(
+        self,
+        case_dir: str | Path,
+        output_dir: str | Path | None = None,
+        threads: int | None = None,
+        config_overrides: Mapping[str, Any] | None = None,
+    ) -> None: ...
+```
+
+Um estudo carregado e reutilizável. A construção carrega o caso, resolve a configuração, executa o pré-processamento estocástico e dos modelos hidrelétricos e grava `training/scaling_report.json`, `training/model_provenance.json` e `training/hydro_models.json` (além das exportações estocásticas, quando habilitadas) em `output_dir`. A validação ocorre aqui: um caso ou uma configuração que falha na validação levanta exceção no construtor, de modo que um `Study` construído é válido.
+
+**Parâmetros**
+
+- `case_dir`: o diretório do caso.
+- `output_dir`: onde os resultados são gravados. Padrão: `<case_dir>/output`.
+- `threads`: threads de trabalho para o treinamento (training) e a simulação, no mínimo 1. `None` executa em uma thread, e não em todos os núcleos. O valor é armazenado para `train` e `simulate` e não é usado durante a carga.
+- `config_overrides`: um mapeamento plano de chaves com pontos, mesclado em profundidade em `config.json`. `{"training.enabled": False}` define apenas essa chave e mantém as chaves irmãs. Um valor aninhado sob uma única chave substitui o objeto inteiro nessa chave; assim, `{"training": {"enabled": False}}` descarta todas as demais chaves de `training` e falha na validação. Uma chave desconhecida falha na validação. Para as chaves, veja [Configuração](/pt-br/running/configuration/).
+
+**Levanta**
+
+- `OSError` (embutida) quando `case_dir` não existe, antes de qualquer processamento.
+- `ValueError` (embutida) quando `threads` é `0`, ou quando `config_overrides` tem uma chave que não é `str` ou um tipo de valor não suportado.
+- `novomodelo.errors.ValidationError` para falha de sobrescrita, de interpretação ou de leitura da configuração; para arquivo do caso ausente ou ilegível; para falha de esquema, de interpretação ou de restrição nos dados do caso; para um `policy.path` recusado; e para falha de preparação por entrada inválida, como um modelo estocástico não suportado (`no valid historical windows found`).
+- `novomodelo.errors.CaseIoError` quando a gravação de um desses arquivos falha, por exemplo em um `output_dir` sem permissão de escrita.
+- `novomodelo.errors.SolverError` para falha do solver ou falha interna durante o pré-processamento ou a construção.
+
+#### `novomodelo.Study.output_dir`
+
+```python
+@property
+def output_dir(self) -> str: ...
+```
+
+O diretório de saída resolvido, como string.
+
+#### `novomodelo.Study.system`
+
+```python
+@property
+def system(self) -> System: ...
+```
+
+O [`novomodelo.model.System`](#novomodelomodelsystem) carregado. A propriedade compartilha o sistema do estudo; não o copia.
+
+#### `novomodelo.Study.stochastic`
+
+```python
+@property
+def stochastic(self) -> StochasticSummary: ...
+```
+
+O resumo estrutural da parte estocástica, um dict fixado na construção. Seu formato é [`novomodelo._types.StochasticSummary`](#novomodelo_typesstochasticsummary).
+
+#### `novomodelo.Study.hydro_models`
+
+```python
+@property
+def hydro_models(self) -> HydroModelsSummary: ...
+```
+
+O resumo estrutural dos modelos hidrelétricos, um dict fixado na construção. Seu formato é [`novomodelo._types.HydroModelsSummary`](#novomodelo_typeshydromodelssummary); para o caso-modelo 1dtoy, ele vale `{'n_constant': 1, 'n_fpha': 0, 'total_planes': 0, 'n_evaporation': 0, 'n_no_evaporation': 1}`.
+
+#### `novomodelo.Study.provenance`
+
+```python
+@property
+def provenance(self) -> ProvenanceReport: ...
+```
+
+O relatório de procedência do modelo, um dict fixado na construção. Seu formato é [`novomodelo._types.ProvenanceReport`](#novomodelo_typesprovenancereport).
+
+#### `novomodelo.Study.validate`
+
+```python
+def validate(self) -> dict[str, Any]: ...
+```
+
+Reporta os avisos capturados durante a construção e verifica a carga da política configurada em relação ao `output_dir` do estudo, sem reler o caso.
+
+**Retorna**: `{"valid": True, "errors": [], "warnings": [...]}`. O resultado tem o mesmo formato de [`novomodelo.io.validate`](#novomodeloiovalidate). `valid` é `False`, com o erro que `novomodelo.io.validate` reporta para esse diretório, quando a carga da política configurada falha; os avisos da carga da política são acrescentados a `warnings`.
+
+#### `novomodelo.Study.train`
+
+```python
+def train(
+    self,
+    on_iteration: Callable[[dict[str, Any]], Any] | None = None,
+) -> Policy: ...
+```
+
+Treina uma política PDDE (SDDP) sobre a preparação em memória do estudo e retorna um [`novomodelo.Policy`](#novomodelopolicy). A chamada grava a política em `<output_dir>/<policy.path>` (padrão `policy/`) e os artefatos do treinamento em `training/`. O GIL é liberado enquanto o solver calcula; o callback é executado em uma thread separada, que só obtém o GIL nas fronteiras entre iterações.
+
+**Parâmetros**
+
+- `on_iteration`: chamado uma vez em cada fronteira entre iterações com um dict contendo `kind`, `iteration`, `lower_bound`, `upper_bound`, `gap` e `wall_time_ms`. `gap` é o gap relativo bruto, não multiplicado por 100. Um retorno verdadeiro solicita uma parada cooperativa em uma fronteira de iteração posterior; a parada é assíncrona, de modo que a iteração em que a execução termina não é fixa. Uma exceção levantada pelo callback é relançada sem alteração depois que os artefatos são gravados.
+
+Uma parada solicitada pelo callback, ou uma exceção levantada por ele, encerra a execução com `convergence.termination_reason` igual a `"graceful_shutdown"` e `status` igual a `"partial"` em `training/metadata.json`, a menos que os critérios de parada ou o limite de iterações também a tenham encerrado nessa iteração; veja [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson).
+
+**Retorna**: um [`novomodelo.Policy`](#novomodelopolicy). Com `training.enabled` igual a `false`, `train` retorna uma política com zero iterações e sem cortes; `simulate` a rejeita. Nesse caso, carregue uma política treinada com `load_policy`.
+
+Uma segunda chamada a `train` no mesmo `Study` é executada sobre uma preparação que já contém os cortes da primeira chamada, portanto não é um treinamento do zero. No caso-modelo 1dtoy, a segunda chamada levanta `SolverError` (`basis row count mismatch`).
+
+**Levanta**
+
+- `novomodelo.errors.SolverError` para falha de inicialização do solver ou falha de treinamento classificada pelo solver.
+- `novomodelo.errors.ValidationError` para diretório de política anterior ausente em partida a quente (warm-start) ou retomada (`Policy directory not found: ...`), e para entrada de fronteira ou de treinamento recusada.
+- `novomodelo.errors.PolicyIncompatibleError` quando o checkpoint de partida a quente ou de retomada em `policy.path` não atende ao [Contrato de carga da política](/pt-br/running/policy-management/#contrato-de-carga-da-politica), quando um checkpoint de `policy.boundary` foi gravado por outro software ou outra versão, ou quando o `manifest.bin` de um checkpoint está ausente ou não pode ser decodificado.
+- `novomodelo.errors.CaseIoError` quando a gravação da política ou de um artefato do treinamento falha; uma falha na gravação de checkpoint periódico levanta `FileNotFoundError`, `CaseIoError`, `novomodelo.errors.OutputError` ou `ValidationError`, conforme a causa.
+- `novomodelo.errors.InternalError` quando a thread do callback entra em pânico (panic).
+- Qualquer exceção levantada pelo callback, e `KeyboardInterrupt`, relançadas depois que os artefatos são gravados.
+
+#### `novomodelo.Study.load_policy`
+
+```python
+def load_policy(
+    self,
+    output_dir: str | Path | None = None,
+) -> Policy: ...
+```
+
+Lê um checkpoint da política de `<output_dir>/<policy.path>/` e retorna um [`novomodelo.Policy`](#novomodelopolicy) que `simulate` aceita da mesma forma que uma política treinada. O checkpoint é sempre verificado em relação à dimensão do estado, ao número de estágios e ao manifesto de entidades terminais do estudo.
+
+**Parâmetros**
+
+- `output_dir`: o diretório que contém a política. Padrão: o `output_dir` do estudo.
+
+**Retorna**: o [`novomodelo.Policy`](#novomodelopolicy) carregado.
+
+**Levanta**
+
+- `novomodelo.errors.ValidationError` quando o diretório da política está ausente (`Policy directory not found: ...`).
+- `novomodelo.errors.PolicyIncompatibleError` quando o checkpoint não pode ser lido, decodificado ou reconstruído, ou quando a validação da política o rejeita.
+- `novomodelo.errors.CaseIoError` quando um arquivo do checkpoint não pode ser aberto.
+
+#### `novomodelo.Study.simulate`
+
+```python
+def simulate(
+    self,
+    policy: Policy,
+    output_dir: str | Path | None = None,
+) -> dict[str, Any]: ...
+```
+
+Executa a fase de simulação com `policy` e grava os artefatos de `simulation/`. Cada chamada grava um conjunto novo de saídas, e uma mesma política pode alimentar chamadas repetidas.
+
+**Parâmetros**
+
+- `policy`: um [`novomodelo.Policy`](#novomodelopolicy) obtido de `train` ou `load_policy`.
+- `output_dir`: onde o diretório `simulation/` é gravado. Padrão: o `output_dir` do estudo.
+
+**Retorna**: `{"n_scenarios": int, "completed": int}`, por exemplo `{'n_scenarios': 10, 'completed': 10}`.
+
+**Levanta**
+
+- `novomodelo.errors.SolverError` quando a política não tem cortes (`Policy has no cuts to simulate; when training is disabled, call Study.load_policy() to load a trained policy before simulate()`), ou em falha de inicialização do espaço de trabalho da simulação.
+- `novomodelo.errors.SimulationError` para falha da simulação.
+- `novomodelo.errors.CaseIoError` para falha do gravador.
+- `novomodelo.errors.InternalError` quando a thread de trabalho entra em pânico (panic).
+
+### `novomodelo.Policy`
+
+```python
+class Policy: ...
+```
+
+Uma política treinada ou carregada: os cortes de Benders que aproximam o custo futuro de cada estágio, juntamente com os dados de que `novomodelo.Study.simulate` precisa. A classe não tem construtor Python; `novomodelo.Policy()` levanta `TypeError` (`cannot create 'builtins.Policy' instances`). Obtenha uma instância a partir de [`novomodelo.Study.train`](#novomodelostudytrain) ou [`novomodelo.Study.load_policy`](#novomodelostudyload_policy).
+
+Todo argumento `stage` é numerado a partir de 0: o estágio `t` da numeração a partir de 1 usada na metodologia é `stage = t - 1`.
+
+`evaluate` e `cut_matrix` leem o conjunto de cortes em memória, que armazena termos independentes e coeficientes na escala de custo do solver: unidades monetárias divididas pelo `cost_scale_factor` do conjunto (`modeling.cost_scale_factor`, `1000000.0` por padrão). O checkpoint armazena os mesmos valores escalonados, de modo que [`novomodelo.results.load_policy`](#novomodeloresultsload_policy) também os retorna. Multiplique por `cost_scale_factor` para obter unidades monetárias. `final_lower_bound` e `final_upper_bound` estão em unidades monetárias. Para a conversão, veja [Canonicalização da escala de custo](/pt-br/running/policy-management/#canonicalizacao-da-escala-de-custo).
+
+#### `novomodelo.Policy.iterations`
+
+```python
+@property
+def iterations(self) -> int: ...
+```
+
+O número de iterações de treinamento concluídas. Uma política obtida de `load_policy` reporta o `completed_iterations` do checkpoint; uma política com treinamento desabilitado reporta `0`.
+
+#### `novomodelo.Policy.final_lower_bound`
+
+```python
+@property
+def final_lower_bound(self) -> float: ...
+```
+
+O limite inferior final, em unidades monetárias. Uma política obtida de `load_policy` reporta o limite inferior final registrado no checkpoint; uma política com treinamento desabilitado reporta `0.0`.
+
+#### `novomodelo.Policy.final_upper_bound`
+
+```python
+@property
+def final_upper_bound(self) -> float: ...
+```
+
+O [limite superior](/pt-br/math/upper-bound-evaluation/) médio final, em unidades monetárias. Uma política obtida de `load_policy` reporta o limite superior registrado no checkpoint (o valor da última iteração do treinamento, e não o melhor valor acumulado), ou `inf` quando o checkpoint não registra nenhum; uma política com treinamento desabilitado reporta `inf`.
+
+#### `novomodelo.Policy.evaluate`
+
+```python
+def evaluate(self, stage: int, state: Sequence[float]) -> float: ...
+```
+
+Avalia a função de custo futuro em `state`: o máximo, sobre os cortes ativos do estágio, de `intercept + coeffs · state`. O valor está na escala de custo do solver, e não em unidades monetárias (veja [`novomodelo.Policy`](#novomodelopolicy)). Um estágio sem corte ativo retorna `float('-inf')`; o último estágio do caso 1dtoy não tem nenhum.
+
+**Parâmetros**
+
+- `stage`: o índice do estágio, a partir de 0.
+- `state`: o estado de entrada, um float por dimensão do estado da política (`1` para o caso 1dtoy).
+
+**Retorna**: o valor do custo futuro como `float`.
+
+**Levanta**
+
+- `IndexError` (embutida) quando `stage` é maior ou igual ao número de estágios (`stage 4 out of range (policy has 4 stages)`).
+- `ValueError` (embutida) quando `state` tem comprimento errado (`state has length 2, expected 1 (policy state dimension)`).
+- `OverflowError` (embutida) quando `stage` é negativo.
+
+#### `novomodelo.Policy.cut_matrix`
+
+```python
+def cut_matrix(self, stage: int) -> tuple[Any, Any]: ...
+```
+
+Retorna os cortes ativos de um estágio como dois arrays NumPy, em ordem crescente de slot. Leia o corte `k` como `θ ≥ intercepts[k] + coeffs[k] · state`. Os coeficientes são os valores armazenados, sem negação. Os valores estão na escala de custo do solver, e não em unidades monetárias (veja [`novomodelo.Policy`](#novomodelopolicy)).
+
+**Parâmetros**
+
+- `stage`: o índice do estágio, a partir de 0.
+
+**Retorna**: `(intercepts, coeffs)`, dois arrays `float64` com formatos `(n_cuts,)` e `(n_cuts, dim)`, em que `dim` é a dimensão do estado da política. Um estágio sem corte ativo retorna os formatos `(0,)` e `(0, dim)`.
+
+**Levanta**
+
+- `IndexError` (embutida) quando `stage` é maior ou igual ao número de estágios.
+- `OverflowError` (embutida) quando `stage` é negativo.
+- `ImportError` (embutida) quando o NumPy não está instalado.
+
+{/* capture: python t232-policy-units | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
+
+```python
+import novomodelo
+import novomodelo.results
+
+study = novomodelo.Study("case", output_dir="output")
+policy = study.train()
+
+intercepts, coeffs = policy.cut_matrix(0)
+print(intercepts.shape, coeffs.shape)
+print(policy.evaluate(0, [50.0]))
+
+saved = novomodelo.results.load_policy("output")
+stage0 = saved["stage_cuts"][0]
+print(intercepts[0], stage0["cuts"][0]["intercept"])
+print(stage0["cost_scale_factor"])
+print(round(stage0["cuts"][0]["intercept"] / intercepts[0]))
+```
+
+```text
+(128,) (128, 1)
+29.299602605817142
+59.78879458073435 59.78879458073435
+1000000.0
+1
+```
+
+O termo independente salvo é igual ao que está em memória: ambos estão na escala de `cost_scale_factor`. O resultado de `evaluate`, de cerca de `29.30`, corresponde portanto a cerca de `29299603` em unidades monetárias.
+
+### `novomodelo.write_policy_checkpoint`
+
+```python
+def write_policy_checkpoint(
+    path: str | Path,
+    stage_cuts: Sequence[Mapping[str, Any]],
+    metadata: Mapping[str, Any],
+    stage_bases: Sequence[Mapping[str, Any]] | None = None,
+    stage_states: Sequence[Mapping[str, Any]] | None = None,
+    inflow_lag_depth: int | None = None,
+) -> None: ...
+```
+
+Grava um checkpoint da política em `path` a partir de dicts Python simples. `stage_cuts`, `metadata`, `stage_bases` e `stage_states` têm os formatos das chaves que [`novomodelo.results.load_policy`](#novomodeloresultsload_policy) retorna, de modo que um checkpoint carregado faz o percurso de ida e volta; as chaves de um resultado carregado que o gravador não lê são ignoradas. `stage_bases` e `stage_states` são vazios por padrão. Toda entrada de `stage_cuts` exige um `cost_scale_factor`, finito e positivo: os termos independentes e coeficientes da entrada estão nas unidades desse fator, de modo que uma política elaborada em unidades monetárias informa `1.0`. O `cost_scale_factor` de `metadata["producer"]` serve apenas como procedência e nunca substitui um fator ausente do conjunto. O checkpoint sempre registra a versão do novomodelo em execução; as chaves `software`, `software_version` ou `novomodelo_version` em `metadata` são ignoradas. Para os formatos dos dicts, veja [Gravar um checkpoint](/pt-br/running/policy-management/#gravar-um-checkpoint), [Exemplo de ida e volta](/pt-br/running/policy-management/#exemplo-de-ida-e-volta) e [Validação da entrada](/pt-br/running/policy-management/#validacao-das-entradas).
+
+`inflow_lag_depth = N` com `N > 0` reserva `N` slots de estado de tendência hidrológica por usina com reservatório em cada estágio e posiciona os `inflow_lag_coefficients` de cada corte em suas posições `(hydro, depth)`. Use-o para elaborar uma política de fronteira para um caso convertido que não tenha modelo PAR(p) do qual inferir a profundidade. Ausente ou `0`, o checkpoint é idêntico a um gravado sem o argumento.
+
+**Retorna**: `None`.
+
+**Levanta**
+
+- `ValueError` (embutida) quando um dict contém uma chave que não faz parte de um checkpoint da política: `active_cut_indices` em uma entrada de `stage_cuts`, `cut_id` em um corte, ou `num_cut_rows`, `num_columns` ou `num_rows` em uma entrada de `stage_bases` (`stage_cuts[0]: key 'active_cut_indices' is not part of a policy checkpoint (format 4); remove it`, indicando a posição). Essas chaves são verificadas antes da leitura de `stage_cuts` e `stage_bases`.
+- `ValueError` (embutida) quando o `cost_scale_factor` de uma entrada de `stage_cuts` está ausente, não é finito ou não é positivo (`stage_cuts[{index}] (stage_id {id}): cost_scale_factor is required; the intercepts and coefficients are in the units of this factor (pass 1.0 for values in currency units)`, ou `must be finite and positive, got {value}` no lugar de `is required`).
+- `ValueError` (embutida) quando o comprimento de `coefficients` de um corte difere do `state_dimension` de seu estágio, quando um corte contém `inflow_lag_coefficients` sem um `inflow_lag_depth` positivo ou, com `inflow_lag_depth` definido, quando o manifesto de um estágio não tem um bloco inicial de armazenamento ou um coeficiente de tendência hidrológica não tem slot onde ser posicionado.
+- `ValueError` (embutida) quando `metadata["producer"]["basis_store_complete"]` é `True` e `stage_bases` não contém nenhuma base, ou quando o `state_history` do produtor é diferente de `None`, `"whole"` ou de um inteiro positivo (um `bool` é recusado).
+- `ValueError` (embutida), com a mensagem da regra, quando os dados violam uma regra do checkpoint antes que algo seja gravado: ordem dos slots, contagem de linhas (incluindo um comprimento dos dados de estado de um estágio diferente de `count * state_dimension`), presença de contadores, datas, id repetido ou limite de tamanho ([Validação da entrada](/pt-br/running/policy-management/#validacao-das-entradas)).
+- [`novomodelo.errors.ValidationError`](#novomodeloerrorsvalidationerror) (uma `ValueError`) quando `path` (no caso de um link, seu destino) ou seu irmão `.staging` ou `.previous` contém uma entrada que nenhum gravador de checkpoint deixaria ali (`refusing to write a checkpoint: ...`); nada é alterado no disco.
+- Uma classe de [`novomodelo.errors`](#novomodeloerrors) mapeada a partir da falha de gravação subjacente, para qualquer outro erro, como [`novomodelo.errors.OutputError`](#novomodeloerrorsoutputerror).
+
+## `novomodelo.run`
+
+### `novomodelo.run.run`
+
+```python
+def run(
+    case_dir: str | Path,
+    output_dir: str | Path | None = None,
+    threads: int | None = None,
+    config_overrides: Mapping[str, Any] | None = None,
+    on_iteration: Callable[[dict[str, Any]], bool | None] | None = None,
+) -> RunResult: ...
+```
+
+Carrega um caso, executa o treinamento, executa a simulação quando a configuração a habilita e grava os resultados. Um único `novomodelo.Study` conduz a chamada. As fases executadas seguem a configuração, em três ramos.
+
+**Parâmetros**
+
+- `case_dir`, `output_dir`, `threads`, `config_overrides`: como em [`novomodelo.Study`](#novomodelostudy).
+- `on_iteration`: como em [`novomodelo.Study.train`](#novomodelostudytrain).
+
+**Retorna**: um dict com o formato [`novomodelo._types.RunResult`](#novomodelo_typesrunresult). Todas as chaves estão presentes em todos os ramos; os valores abaixo diferem por ramo.
+
+| Ramo | `converged` | `iterations` | `lower_bound` | `upper_bound` | `gap_percent` | `simulation` |
+| --- | --- | --- | --- | --- | --- | --- |
+| Treinamento habilitado | `True` quando os critérios de parada encerraram o treinamento e uma regra `gap` ou `bound_stalling` foi acionada nessa iteração; `False` para qualquer outro motivo de parada | iterações executadas | limite inferior final | [limite superior](/pt-br/math/upper-bound-evaluation/) final | gap vezes 100 | o dict de resumo, ou `None` se a simulação estiver desabilitada |
+| Treinamento desabilitado, simulação habilitada (somente simulação) | `False` | `0` | o limite inferior do checkpoint | o limite superior registrado no checkpoint (o valor da última iteração do treinamento), `None` se não for finito | `None` | o dict de resumo |
+| Ambos desabilitados | `False` | `0` | `0.0` | `None` | `None` | `None` |
+
+`gap_percent` é o gap relativo vezes 100; veja [Gap de otimalidade](/pt-br/math/stopping-rules/#gap-de-otimalidade). Uma execução somente de simulação carrega a política de `<output_dir>/<policy.path>/` (padrão `policy/`); veja [Modo somente simulação](/pt-br/running/policy-management/#modo-somente-de-simulacao). As chaves `stochastic`, `hydro_models` e `provenance` contêm os mesmos resumos que as propriedades de `Study`.
+
+Um Ctrl-C durante a execução é entregue como `KeyboardInterrupt` depois que a chamada retorna ao interpretador, e não em uma fronteira entre iterações. Para encerrar uma execução antecipadamente, retorne um valor verdadeiro em `on_iteration`.
+
+Uma parada solicitada por `on_iteration` registra `convergence.termination_reason` como `"graceful_shutdown"` em `training/metadata.json`, a menos que os critérios de parada ou o limite de iterações também a tenham encerrado nessa iteração; veja [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson).
+
+**Levanta**
+
+- `OSError` (embutida) quando `case_dir` não existe.
+- `ValueError` (embutida) quando `threads` é `0`, ou quando `config_overrides` está malformado.
+- As classes listadas para [`novomodelo.Study`](#novomodelostudy), [`novomodelo.Study.train`](#novomodelostudytrain) e [`novomodelo.Study.simulate`](#novomodelostudysimulate), conforme a fase que falhar.
+- Qualquer exceção levantada pelo callback, relançada sem alteração depois que os artefatos são gravados.
+
+{/* capture: python t231-run-on-iteration | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
+
+```python
+import novomodelo.run
+
+
+def on_iteration(info):
+    print(info)
+    return info["iteration"] >= 3  # um retorno verdadeiro solicita a parada
+
+
+novomodelo.run.run("case", output_dir="output", on_iteration=on_iteration)
+```
+
+```text
+{'kind': 'iteration', 'iteration': 1, 'lower_bound': 12282078.645359315, 'upper_bound': 21236944.064237505, 'gap': 0.7291001529502268, 'wall_time_ms': 5}
+{'kind': 'iteration', 'iteration': 2, 'lower_bound': 14580933.83976896, 'upper_bound': 594119.170972256, 'gap': -0.959253695442207, 'wall_time_ms': 8}
+{'kind': 'iteration', 'iteration': 3, 'lower_bound': 15245185.133569838, 'upper_bound': 18707186.646276362, 'gap': 0.2270881909517261, 'wall_time_ms': 12}
+```
+
+`wall_time_ms` varia entre execuções. A parada solicitada na iteração 3 só tem efeito em uma fronteira de iteração posterior, de modo que a execução pode terminar depois de mais de três iterações.
+
+## `novomodelo.io`
+
+### `novomodelo.io.load_case`
+
+```python
+def load_case(path: str | Path) -> model.System: ...
+```
+
+Carrega e valida um diretório de caso por meio de todo o processo de validação e retorna um [`novomodelo.model.System`](#novomodelomodelsystem). Um caminho relativo é resolvido a partir do diretório de trabalho do processo.
+
+**Parâmetros**
+
+- `path`: o diretório do caso.
+
+**Retorna**: o [`novomodelo.model.System`](#novomodelomodelsystem) validado.
+
+**Levanta**
+
+- `OSError` (embutida) quando o diretório não existe.
+- `novomodelo.errors.ValidationError` para arquivo do caso ausente ou ilegível (reportado como violação de restrição `[FileNotFound]`) e para falha de interpretação, de esquema ou de restrição.
+
+### `novomodelo.io.validate`
+
+```python
+def validate(
+    path: str | Path,
+    config_overrides: Mapping[str, Any] | None = None,
+    *,
+    output_dir: str | Path | None = None,
+) -> dict[str, Any]: ...
+```
+
+Executa todo o processo de validação (estrutura do caso, esquema, configuração, preparação estocástica, modelos hidrelétricos, restrições genéricas, montagem do estudo, conciliação da fronteira quando configurada e a carga da política configurada — partida a quente, retomada ou somente simulação — a partir de `<output_dir>/<policy.path>`) e para na primeira falha. `validate` retorna as falhas como dados; não levanta exceção para um caso inválido.
+
+**Parâmetros**
+
+- `path`: o diretório do caso. Um diretório ausente produz uma entrada de falha do tipo `IoError`.
+- `config_overrides`: como em [`novomodelo.Study`](#novomodelostudy).
+- `output_dir`: somente nomeado (keyword-only); o diretório de onde a carga da política lê. Padrão: `<path>/output`; um caminho relativo é resolvido a partir do diretório de trabalho. Nada é gravado, e um diretório ausente não é criado.
+
+**Retorna**: um dict com `valid` (`bool`), `errors` (uma lista de dicts `{"kind", "message"}`; vazia quando `valid` é `True`) e `warnings` (uma lista de dicts `{"kind", "message", "file", "entity"}`). Os avisos não alteram `valid`.
+
+**Levanta**
+
+- `ValueError` (embutida) apenas quando `config_overrides` está malformado.
+
+{/* capture: python t231-io-validate | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
+
+```python
+import novomodelo.io
+
+report = novomodelo.io.validate("case")
+print(report)
+```
+
+```text
+{'valid': True, 'errors': [], 'warnings': []}
+```
+
+## `novomodelo.results`
+
+Funções de carga dos artefatos que uma execução grava em seu diretório de saída. Todas as funções recebem `output_dir`, o diretório que contém `training/`, `simulation/`, `policy/` e `stochastic/`. Um caminho relativo é resolvido a partir do diretório de trabalho do processo, e um `output_dir` ausente levanta `FileNotFoundError`. NumPy e pyarrow são dependências opcionais, importadas apenas pelas funções que retornam seus tipos. Para interpretar os números, veja [Convergência e diagnóstico](/pt-br/running/interpreting-results/).
+
+### `novomodelo.results.load_results`
+
+```python
+def load_results(output_dir: str | Path) -> dict[str, Any]: ...
+```
+
+Lê os manifestos da execução.
+
+**Parâmetros**
+
+- `output_dir`: o diretório de saída.
+
+**Retorna**: um dict com dois sub-dicts.
+
+- `"training"`: `"metadata"`, o `training/metadata.json` interpretado; `"manifest"`, um alias de `"metadata"` com o mesmo conteúdo; `"convergence_path"` e `"timing_path"`, os caminhos absolutos de `training/convergence.parquet` e `training/timing/iterations.parquet`; e `"complete"`.
+- `"simulation"`: `"manifest"`, o `simulation/metadata.json` interpretado, ou `None` quando esse arquivo está ausente (a simulação não foi executada); e `"complete"`.
+
+Os dois valores `"complete"` são indicadores do marcador `_SUCCESS`, e não um veredito sobre a execução. `training["complete"]` é sempre `True` em um dict retornado, porque a chamada levanta exceção quando o marcador `training/_SUCCESS` está ausente. `simulation["complete"]` é `True` quando `simulation/_SUCCESS` existe, e `False` caso contrário. Para saber como uma execução terminou, leia os dicts `metadata`; veja [Arquivos de metadados](/pt-br/reference/output/metadata/).
+
+**Levanta**
+
+- `FileNotFoundError` (embutida) quando `output_dir` ou `training/_SUCCESS` está ausente.
+- `ValueError` (embutida) quando um arquivo de metadados não é um JSON válido.
+- `OSError` (embutida) para outras falhas de leitura.
+
+### `novomodelo.results.load_convergence`
+
+```python
+def load_convergence(output_dir: str | Path) -> Any: ...
+```
+
+Lê `training/convergence.parquet`; para as colunas, veja [`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet).
+
+**Parâmetros**
+
+- `output_dir`: o diretório de saída.
+
+**Retorna**: uma `list[dict]` com um dict por linha (uma por iteração do treinamento), com as chaves correspondentes às colunas do próprio arquivo. A lista é vazia quando o arquivo não tem linhas.
+
+**Levanta**
+
+- `FileNotFoundError` (embutida) quando `output_dir` ou `training/convergence.parquet` está ausente.
+- `OSError` (embutida) para outras falhas de E/S e falhas de decodificação do Parquet.
+
+{/* capture: python t232-load-convergence | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
+
+```python
+import novomodelo.results
+import novomodelo.run
+
+novomodelo.run.run("case", output_dir="output")
+
+rows = novomodelo.results.load_convergence("output")
+print(len(rows))
+print(sorted(rows[0]))
+```
+
+```text
+128
+['cuts_active', 'cuts_added', 'cuts_removed', 'forward_passes', 'gap_percent', 'iteration', 'lazy_round_cap_hits', 'lower_bound', 'lp_solves', 'mean_rows_in_lp', 'time_backward_ms', 'time_forward_ms', 'time_total_ms', 'upper_bound', 'upper_bound_kind', 'upper_bound_std']
+```
+
+### `novomodelo.results.load_convergence_arrow`
+
+```python
+def load_convergence_arrow(output_dir: str | Path) -> Any: ...
+```
+
+Lê o mesmo arquivo que [`novomodelo.results.load_convergence`](#novomodeloresultsload_convergence) sem construir objetos Python para cada valor.
+
+**Parâmetros**
+
+- `output_dir`: o diretório de saída.
+
+**Retorna**: uma `pyarrow.Table` com o esquema de `training/convergence.parquet`.
+
+**Levanta**
+
+- `FileNotFoundError` (embutida) quando `output_dir` ou `training/convergence.parquet` está ausente.
+- `OSError` (embutida) para falhas de decodificação do Parquet ou erros de serialização Arrow.
+- `ImportError` (embutida) quando o pyarrow não está instalado.
+
+### `novomodelo.results.load_simulation`
+
+```python
+def load_simulation(
+    output_dir: str | Path,
+    entity_type: str | None = None,
+) -> Any: ...
+```
+
+Lê os arquivos Parquet particionados no estilo Hive em `simulation/`; veja [Saídas da simulação](/pt-br/reference/output/simulation/) e [Particionamento Hive](/pt-br/reference/output/#particionamento-hive). Cada dict de linha contém uma chave `scenario_id`, lida da coluna `scenario_id` do próprio arquivo ou, quando o arquivo não a tem, do caminho da partição, e as linhas são ordenadas por `scenario_id`.
+
+**Parâmetros**
+
+- `output_dir`: o diretório de saída.
+- `entity_type`: o nome de um subdiretório de `simulation/`, como `"costs"`, `"hydros"` ou `"thermals"`. `None` carrega todos os diretórios de entidade existentes.
+
+**Retorna**: com `entity_type`, uma `list[dict]` de dicts de linha. Sem ele, um `dict[str, list[dict]]` com chaves por tipo de entidade (para o caso 1dtoy: `buses`, `costs`, `hydro_bus_generation`, `hydros`, `inflow_lags` e `thermals`).
+
+**Levanta**
+
+- `FileNotFoundError` (embutida) quando `output_dir`, `simulation/` ou o diretório de entidade indicado está ausente.
+- `OSError` (embutida) para arquivos Parquet corrompidos e outras falhas de E/S.
+
+### `novomodelo.results.load_simulation_arrow`
+
+```python
+def load_simulation_arrow(
+    output_dir: str | Path,
+    entity_type: str | None = None,
+) -> Any: ...
+```
+
+Lê os mesmos arquivos que [`novomodelo.results.load_simulation`](#novomodeloresultsload_simulation) como tabelas Arrow, com todos os cenários concatenados em ordem crescente de `scenario_id`.
+
+**Parâmetros**
+
+- `output_dir`, `entity_type`: como em `load_simulation`.
+
+**Retorna**: com `entity_type`, uma `pyarrow.Table`. Sem ele, um `dict[str, pyarrow.Table]` com chaves por tipo de entidade. A primeira coluna de cada tabela é `scenario_id` (as três primeiras colunas da tabela `costs` do 1dtoy são `scenario_id`, `stage_id` e `node_id`).
+
+**Levanta**
+
+- `FileNotFoundError` (embutida) quando `output_dir`, `simulation/` ou o diretório de entidade indicado está ausente.
+- `OSError` (embutida) para arquivos Parquet corrompidos ou erros de serialização Arrow.
+- `ImportError` (embutida) quando o pyarrow não está instalado.
+
+### `novomodelo.results.load_policy`
+
+```python
+def load_policy(
+    output_dir: str | Path,
+    policy_subdir: str = "policy",
+) -> Any: ...
+```
+
+Lê o checkpoint da política de `<output_dir>/<policy_subdir>` para dicts simples; veja [Checkpoint da política](/pt-br/reference/output/policy/). A função não verifica a versão do novomodelo que gravou o checkpoint. Para as tabelas de chaves, veja [Carregar uma política](/pt-br/running/policy-management/#carregar-uma-politica).
+
+**Parâmetros**
+
+- `output_dir`: o diretório de saída.
+- `policy_subdir`: o diretório do checkpoint dentro de `output_dir`. Informe o `policy.path` configurado quando ele não for `policy`.
+
+**Retorna**: um dict com as chaves `metadata`, `stage_cuts`, `stage_bases` e `stage_states`, os quatro argumentos de [`novomodelo.write_policy_checkpoint`](#novomodelowrite_policy_checkpoint), de modo que regravá-los reproduz o checkpoint. `stage_states` contém uma entrada por conjunto que armazena estados visitados, e é uma lista vazia quando nenhum conjunto os armazena. `stage_cuts` contém uma entrada por conjunto de cortes, uma por estágio em uma cadeia de estágios (quatro no caso 1dtoy). Os termos independentes e coeficientes estão na escala do `cost_scale_factor` da entrada, os mesmos valores que [`novomodelo.Policy.cut_matrix`](#novomodelopolicycut_matrix) retorna; multiplique por `cost_scale_factor` para obter unidades monetárias.
+
+**Levanta**
+
+- `FileNotFoundError` (embutida) quando `output_dir` está ausente, ou quando o diretório da política (no caso de um link, seu destino) está ausente e nem `<policy>.staging` nem `<policy>.previous` contém um `manifest.bin`.
+- `novomodelo.errors.OutputError` (uma `OSError`) quando um buffer do checkpoint não pode ser lido.
+
+### `novomodelo.results.load_stochastic`
+
+```python
+def load_stochastic(output_dir: str | Path) -> Stochastic: ...
+```
+
+Lê o modelo estocástico ajustado de `stochastic/inflow_ar_coefficients.parquet` e `stochastic/noise_openings.parquet`; veja [Artefatos estocásticos](/pt-br/reference/output/stochastic/). Esses arquivos só existem quando a execução teve `exports.stochastic` habilitado. A construção do objeto não exige NumPy.
+
+**Parâmetros**
+
+- `output_dir`: o diretório de saída.
+
+**Retorna**: um objeto [`novomodelo.results.Stochastic`](#novomodeloresultsstochastic).
+
+**Levanta**
+
+- `FileNotFoundError` (embutida) quando `output_dir` ou um arquivo necessário está ausente. Sem as exportações, a mensagem é `.../stochastic/inflow_ar_coefficients.parquet not found — stochastic artifacts are written only when exports.stochastic is enabled in config.json`.
+- `OSError` (embutida) quando um arquivo Parquet não pode ser decodificado.
+
+### `novomodelo.results.Stochastic`
+
+```python
+class Stochastic: ...
+```
+
+Uma visão somente leitura do modelo estocástico ajustado de uma execução. A classe não tem construtor Python; `novomodelo.results.Stochastic()` levanta `TypeError`. Obtenha um objeto a partir de [`novomodelo.results.load_stochastic`](#novomodeloresultsload_stochastic).
+
+#### `novomodelo.results.Stochastic.par_coefficients`
+
+```python
+def par_coefficients(self) -> Any: ...
+```
+
+Retorna os coeficientes ajustados do modelo PAR(p), na ordem das linhas de `stochastic/inflow_ar_coefficients.parquet`.
+
+**Retorna**: um array NumPy `float64` com formato `(n_rows, 4)` e colunas `[hydro_id, stage_id, lag, coefficient]`. As três colunas inteiras são convertidas para `float64`, e `lag` é numerado a partir de 1. O array não tem linhas em um caso com ordem do modelo AR igual a 0, como o caso 1dtoy.
+
+**Levanta**
+
+- `ImportError` (embutida) quando o NumPy não está instalado.
+
+#### `novomodelo.results.Stochastic.opening_tree`
+
+```python
+def opening_tree(self, stage: int) -> Any: ...
+```
+
+Retorna as aberturas de ruído de um estágio a partir de `stochastic/noise_openings.parquet`. A linha `k` é o vetor de ruído da abertura `k`.
+
+**Parâmetros**
+
+- `stage`: o índice do estágio, a partir de 0.
+
+**Retorna**: um array NumPy `float64` com formato `(n_openings, dim)`, por exemplo `(10, 1)` em qualquer estágio do caso 1dtoy.
+
+**Levanta**
+
+- `IndexError` (embutida) quando o estágio não está presente no arquivo (`stage 9 not present in the opening tree (valid stages are 0..=3)`).
+- `OverflowError` (embutida) quando `stage` é negativo.
+- `ImportError` (embutida) quando o NumPy não está instalado.
+
+## `novomodelo.model`
+
+As classes de `novomodelo.model` são visões imutáveis, somente leitura, retornadas por `novomodelo.io.load_case` e `novomodelo.Study.system`; um `System` não pode ser construído a partir do Python, e atribuir um valor a um campo levanta `AttributeError`. Cada lista de entidades contém seus itens na ordem canônica `(operational_start_date, id)`, e o significado dos campos segue os arquivos do caso, cujos JSON Schemas estão listados em [Esquemas JSON](/pt-br/reference/json-schemas/).
+
+Cada classe reporta `__module__` como `builtins`; acesse-a como `novomodelo.model.<Name>`. Duas leituras da mesma lista podem retornar objetos Python diferentes para a mesma entidade; portanto, compare entidades pelos valores dos campos, e não pela identidade (`is`).
+
+### `novomodelo.model.System`
+
+O sistema carregado: contagens de entidades e uma lista por classe de entidade.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `n_buses` | `int` | O número de barramentos. |
+| `n_hydros` | `int` | O número de usinas hidrelétricas. |
+| `n_lines` | `int` | O número de linhas de transmissão. |
+| `n_stages` | `int` | O número de estágios, do estudo e anteriores ao estudo. |
+| `n_thermals` | `int` | O número de usinas termelétricas. |
+| `buses` | `list[Bus]` | Os barramentos, na ordem canônica. |
+| `hydros` | `list[Hydro]` | As usinas hidrelétricas, na ordem canônica. |
+| `lines` | `list[Line]` | As linhas de transmissão, na ordem canônica. Vazia quando o caso não tem nenhuma. |
+| `thermals` | `list[Thermal]` | As usinas termelétricas, na ordem canônica. |
+| `contracts` | `list[EnergyContract]` | Os contratos de energia, na ordem canônica. Vazia quando o caso não tem nenhum. |
+| `pumping_stations` | `list[PumpingStation]` | As usinas elevatórias, na ordem canônica. Vazia quando o caso não tem nenhuma. |
+| `non_controllable_sources` | `list[NonControllableSource]` | As fontes não despacháveis, na ordem canônica. Vazia quando o caso não tem nenhuma. |
+
+{/* capture: python t231a-load-case | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
+
+```python
+import novomodelo.io
+
+system = novomodelo.io.load_case("case")
+print(system.n_hydros)
+print([h.name for h in system.hydros])
+print(system.hydros[0].max_storage_hm3)
+```
+
+```text
+1
+['UHE1']
+1000.0
+```
+
+### `novomodelo.model.Bus`
+
+Um nó da rede elétrica no qual se mantém o balanço de energia.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | `int` | O id da entidade no arquivo do caso. |
+| `name` | `str` | O nome da entidade no arquivo do caso. |
+| `deficit_segments` | `list[dict]` | Os segmentos da curva de custo de déficit linear por partes, um dict por segmento com as chaves `depth_mw` (`float`, ou `None` para o último segmento, ilimitado) e `cost_per_mwh` (`float`, R\$/MWh). |
+| `excess_cost` | `float` | O custo de absorver o excedente de geração, em R\$/MWh. |
+
+### `novomodelo.model.Line`
+
+Uma interligação de transmissão que transporta potência nos dois sentidos entre dois barramentos.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | `int` | O id da entidade no arquivo do caso. |
+| `name` | `str` | O nome da entidade no arquivo do caso. |
+| `source_bus_id` | `int` | O id do barramento na extremidade de origem. |
+| `target_bus_id` | `int` | O id do barramento na extremidade de destino. |
+| `direct_capacity_mw` | `float` | O fluxo máximo da origem para o destino, em MW. |
+| `reverse_capacity_mw` | `float` | O fluxo máximo do destino para a origem, em MW. |
+| `losses_percent` | `float` | As perdas de transmissão em percentual; `2.5` significa 2,5%. |
+| `exchange_cost` | `float` | O custo de regularização por MWh de intercâmbio, em R\$/MWh. |
+
+### `novomodelo.model.Thermal`
+
+Uma usina termelétrica com custo marginal escalar.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | `int` | O id da entidade no arquivo do caso. |
+| `name` | `str` | O nome da entidade no arquivo do caso. |
+| `bus_id` | `int` | O id do barramento que a usina alimenta. |
+| `min_generation_mw` | `float` | A geração elétrica mínima (inflexibilidade), em MW. |
+| `max_generation_mw` | `float` | A geração elétrica máxima (potência instalada), em MW. |
+| `cost_per_mwh` | `float` | O custo marginal de geração (CVU), em R\$/MWh. |
+
+### `novomodelo.model.Hydro`
+
+Uma usina hidrelétrica com reservatório. As usinas formam uma cascata por meio de `downstream_id`.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | `int` | O id da entidade no arquivo do caso. |
+| `name` | `str` | O nome da entidade no arquivo do caso. |
+| `downstream_id` | `int \| None` | O id da próxima usina da cascata. `None` para uma usina sem usina a jusante. |
+| `min_storage_hm3` | `float` | O armazenamento operativo mínimo (volume morto), em hm³. |
+| `max_storage_hm3` | `float` | O armazenamento operativo máximo (nível de controle de cheias), em hm³. |
+| `min_turbined_m3s` | `float` | A vazão turbinada mínima, em m³/s. |
+| `max_turbined_m3s` | `float` | A vazão turbinada máxima (capacidade instalada das turbinas), em m³/s. |
+| `productivity_mw_per_m3s` | `float \| None` | Sempre `None`. A produtibilidade é resolvida por estágio a partir dos arquivos de modelos de produção. |
+
+### `novomodelo.model.EnergyContract`
+
+Um contrato bilateral de energia com um sistema externo.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | `int` | O id da entidade no arquivo do caso. |
+| `name` | `str` | O nome da entidade no arquivo do caso. |
+| `operational_start_date` | `str` | A data em que a entidade entra em operação, como string ISO 8601 `YYYY-MM-DD`. |
+| `bus_id` | `int` | O id do barramento ao qual o contrato se conecta. |
+| `contract_type` | `str` | O sentido do fluxo de energia: `"import"` ou `"export"`. |
+| `entry_stage_id` | `int \| None` | O índice do estágio em que o contrato entra em vigor. `None` quando está ativo desde o primeiro estágio. |
+| `exit_stage_id` | `int \| None` | O índice do estágio em que o contrato expira. `None` quando nunca expira. |
+| `price_per_mwh` | `float` | O preço do contrato, em R\$/MWh. Um valor negativo representa receita de exportação. |
+| `min_mw` | `float` | A potência contratada mínima, em MW. |
+| `max_mw` | `float` | A potência contratada máxima, em MW. |
+
+### `novomodelo.model.PumpingStation`
+
+Uma usina elevatória (estação de bombeamento) que transfere água entre reservatórios de usinas hidrelétricas.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | `int` | O id da entidade no arquivo do caso. |
+| `name` | `str` | O nome da entidade no arquivo do caso. |
+| `operational_start_date` | `str` | A data em que a entidade entra em operação, como string ISO 8601 `YYYY-MM-DD`. |
+| `bus_id` | `int` | O id do barramento do qual a estação consome energia. |
+| `source_hydro_id` | `int` | O id da usina hidrelétrica de onde a água bombeada é retirada. |
+| `destination_hydro_id` | `int` | O id da usina hidrelétrica que recebe a água bombeada. |
+| `entry_stage_id` | `int \| None` | O índice do estágio em que a estação entra em operação. `None` quando está ativa desde o primeiro estágio. |
+| `exit_stage_id` | `int \| None` | O índice do estágio em que a estação é desativada. `None` quando nunca é desativada. |
+| `consumption_mw_per_m3s` | `float` | O consumo de potência por unidade de vazão bombeada, em MW/(m³/s). |
+| `min_flow_m3s` | `float` | A vazão bombeada mínima, em m³/s. |
+| `max_flow_m3s` | `float` | A vazão bombeada máxima (capacidade instalada de bombeamento), em m³/s. |
+
+### `novomodelo.model.NonControllableSource`
+
+Uma fonte de geração intermitente que não é despachada.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | `int` | O id da entidade no arquivo do caso. |
+| `name` | `str` | O nome da entidade no arquivo do caso. |
+| `operational_start_date` | `str` | A data em que a entidade entra em operação, como string ISO 8601 `YYYY-MM-DD`. |
+| `bus_id` | `int` | O id do barramento que a fonte alimenta. |
+| `entry_stage_id` | `int \| None` | O índice do estágio em que a fonte entra em operação. `None` quando está ativa desde o primeiro estágio. |
+| `exit_stage_id` | `int \| None` | O índice do estágio em que a fonte é desativada. `None` quando nunca é desativada. |
+| `max_generation_mw` | `float` | A geração máxima (potência instalada), em MW. |
+| `allow_curtailment` | `bool` | Se o PL pode aplicar corte de geração (curtailment) à fonte. `False` corresponde ao regime de geração compulsória (must-run). |
+| `curtailment_cost` | `float` | O custo resolvido da geração cortada, em R\$/MWh. Não é usado quando `allow_curtailment` é `False`. |
+
+## `novomodelo.errors`
+
+Toda classe-folha é subclasse de `novomodelo.errors.NovomodeloError` e de uma exceção embutida, e seu `__module__` é `novomodelo.errors`. A própria `NovomodeloError` é subclasse direta de `Exception` e reporta `__module__` como `errors`. Para as mensagens e códigos de saída de cada tipo, veja [Códigos de erro](/pt-br/reference/error-codes/); para saber qual caminho de carga da política levanta qual classe, veja [Erros de carga da política](/pt-br/reference/error-codes/#erros-de-carga-da-politica).
+
+### `novomodelo.errors.NovomodeloError`
+
+```python
+class NovomodeloError(Exception): ...
+```
+
+A classe base de todas as exceções do Novo Modelo. Capture a classe tipada para um tipo de falha, a base embutida (`ValueError`, `OSError`, `RuntimeError`) para manter o tratamento no estilo das exceções embutidas, ou `NovomodeloError` para todas elas.
+
+### `novomodelo.errors.ValidationError`
+
+```python
+class ValidationError(NovomodeloError, ValueError): ...
+```
+
+Os dados do caso ou a configuração falharam na validação. Levantada para um erro da classe de entrada inválida, qualquer que seja o prefixo da mensagem (inclusive um `policy.path` recusado, um diretório de política anterior ausente e uma gravação de checkpoint recusada por causa de seu manifesto ou de uma entrada estranha), para os prefixos de mensagem `config override error`, `config parse error`, `config read error` e `setup validation error`, e para falhas de interpretação, de esquema e de restrição nos dados do caso. Também abrange um arquivo do caso ausente ou ilegível.
+
+### `novomodelo.errors.PolicyIncompatibleError`
+
+```python
+class PolicyIncompatibleError(NovomodeloError, ValueError): ...
+```
+
+Uma política é incompatível com o sistema ou a compilação atual. Levantada para um erro da classe de política incompatível: um checkpoint de partida a quente, retomada ou somente simulação recusado por causa de seu software, de sua versão ou de uma verificação de contrato que falhou; um checkpoint de fronteira recusado por causa de seu software ou de sua versão; um arquivo de checkpoint de partida a quente, retomada ou somente simulação ausente ou que não pode ser decodificado; e uma falha na construção da FCF.
+
+### `novomodelo.errors.CaseIoError`
+
+```python
+class CaseIoError(NovomodeloError, OSError): ...
+```
+
+Uma falha de leitura ou gravação no sistema de arquivos durante a carga ou a gravação de um caso. Levantada para os prefixos de mensagem `output write error` e `policy checkpoint error`. Também abrange uma leitura de checkpoint da política que o sistema operacional recusa.
+
+### `novomodelo.errors.OutputError`
+
+```python
+class OutputError(NovomodeloError, OSError): ...
+```
+
+Uma falha de serialização ou de esquema de saída, levantada por `novomodelo.write_policy_checkpoint`, `novomodelo.results.load_policy` e por uma gravação de checkpoint periódico durante o treinamento. Um erro de E/S do tipo "não encontrado" levanta a exceção embutida `FileNotFoundError`, e os demais erros de E/S levantam `CaseIoError`. Uma falha de manifesto ou uma entrada estranha levanta `ValidationError`, e não `OutputError`.
+
+### `novomodelo.errors.SolverError`
+
+```python
+class SolverError(NovomodeloError, RuntimeError):
+    stage: int | None
+    iteration: int | None
+    scenario: int | None
+```
+
+Uma falha de treinamento ou do solver. Um erro da classe do solver ou interna levanta `SolverError`, assim como uma mensagem cujo prefixo não é reivindicado por nenhuma outra classe; uma falha da simulação levanta `SimulationError`. Os três atributos estão sempre presentes. Em um subproblema inviável, eles contêm as coordenadas inteiras da inviabilidade; em qualquer outra falha, são `None`.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `stage` | `int \| None` | O estágio do subproblema inviável. |
+| `iteration` | `int \| None` | A iteração do treinamento do subproblema inviável. |
+| `scenario` | `int \| None` | O cenário do subproblema inviável. |
+
+### `novomodelo.errors.SimulationError`
+
+```python
+class SimulationError(NovomodeloError, RuntimeError): ...
+```
+
+Uma falha na fase de simulação. Levantada para o prefixo de mensagem `simulation error`.
+
+### `novomodelo.errors.InternalError`
+
+```python
+class InternalError(NovomodeloError, RuntimeError): ...
+```
+
+Uma falha interna do software ou do ambiente, como o pânico (panic) de uma thread de trabalho. Levantada para o prefixo de mensagem `internal error`.
+
+Algumas falhas levantam uma exceção embutida que não é uma `NovomodeloError`: diretório do caso ausente (`OSError`), `threads=0` e mapeamento `config_overrides` malformado (`ValueError`), e a própria exceção de um callback.
+
+{/* capture: python t231-validation-error | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
+
+```python
+import novomodelo
+from novomodelo.errors import ValidationError
+
+try:
+    novomodelo.Study("case", config_overrides={"trainning.enabled": False})
+except ValidationError as err:
+    print(isinstance(err, ValueError))
+    print(err)
+```
+
+```text
+True
+config override error: schema error in <config_overrides>, field trainning: unknown field `trainning`, expected one of `$schema`, `modeling`, `training`, `upper_bound_evaluation`, `policy`, `simulation`, `exports`, `estimation`
+```
+
+## `novomodelo.schema`
+
+### `novomodelo.schema.export`
+
+```python
+def export(output_dir: str | Path = ".") -> int: ...
+```
+
+Grava o arquivo JSON Schema de cada tipo de entrada do diretório do caso em `output_dir`, criando o diretório se necessário e sobrescrevendo arquivos existentes. Para os esquemas, veja [Esquemas JSON](/pt-br/reference/json-schemas/).
+
+**Parâmetros**
+
+- `output_dir`: o diretório que recebe os arquivos. Padrão: o diretório atual.
+
+**Retorna**: o número de arquivos gravados, como `int`.
+
+**Levanta**
+
+- `ValueError` (embutida) quando a geração ou a serialização do esquema falha.
+- `OSError` (embutida) quando o diretório não pode ser criado ou um arquivo não pode ser gravado.
+
+{/* capture: python t232-schema-export | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none */}
+
+```python
+import novomodelo.schema
+
+print(novomodelo.schema.export("schemas"))
+```
+
+```text
+18
+```
+
+## `novomodelo._types`
+
+Os nomes em `novomodelo._types` são classes `TypedDict` usadas apenas para tipagem, correspondentes aos dicts que `novomodelo.run.run` e as propriedades de `novomodelo.Study` retornam; um verificador de tipos os lê a partir dos stubs do pacote. `import novomodelo._types` levanta `ModuleNotFoundError` em tempo de execução, e `novomodelo.StochasticSummary`, `novomodelo.HydroModelsSummary`, `novomodelo.ProvenanceReport` e `novomodelo.System` são, da mesma forma, reexportações existentes apenas nos stubs, ausentes em tempo de execução. Importe os nomes sob `typing.TYPE_CHECKING` e acesse a classe de sistema em tempo de execução como [`novomodelo.model.System`](#novomodelomodelsystem).
+
+```python
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from novomodelo._types import RunResult
+
+
+def final_lower_bound(result: RunResult) -> float:
+    return result["lower_bound"]
+```
+
+`StochasticSummary`, `HydroModelsSummary` e `ProvenanceReport` são declarados com `total=False`; os dicts que o pacote retorna contêm todas as chaves listadas.
+
+### `novomodelo._types.RunResult`
+
+O dict que `novomodelo.run.run` retorna.
+
+| Chave | Tipo | Descrição |
+| --- | --- | --- |
+| `converged` | `bool` | `True` quando os critérios de parada encerraram o treinamento e uma regra `gap` ou `bound_stalling` foi acionada nessa iteração. `False` para qualquer outro motivo de parada e para uma execução sem treinamento. |
+| `iterations` | `int` | O número de iterações de treinamento executadas. `0` quando o treinamento não foi executado. |
+| `lower_bound` | `float` | O limite inferior final, em unidades monetárias. |
+| `upper_bound` | `float \| None` | O limite superior final, em unidades monetárias. `None` quando não está disponível. |
+| `gap_percent` | `float \| None` | O gap de otimalidade relativo vezes 100. `None` quando o treinamento não foi executado. |
+| `total_time_ms` | `int` | O tempo de treinamento em milissegundos. `0` quando o treinamento não foi executado. |
+| `output_dir` | `str` | O diretório de saída em que a execução gravou. |
+| `simulation` | `SimulationSummary \| None` | O resumo da simulação. `None` quando a simulação não foi executada. |
+| `stochastic` | `StochasticSummary \| None` | O mesmo resumo que `novomodelo.Study.stochastic`. `novomodelo.run.run` sempre o define. |
+| `hydro_models` | `HydroModelsSummary \| None` | O mesmo resumo que `novomodelo.Study.hydro_models`. `novomodelo.run.run` sempre o define. |
+| `provenance` | `ProvenanceReport \| None` | O mesmo resumo que `novomodelo.Study.provenance`. `novomodelo.run.run` sempre o define. |
+
+Todas as chaves estão presentes em todos os ramos. Após o treinamento, `upper_bound` e `gap_percent` estão definidos. Em uma execução somente de simulação (treinamento desabilitado, simulação habilitada), `iterations` é `0`, `gap_percent` é `None` e `upper_bound` é o limite superior registrado no checkpoint carregado (o valor da última iteração do treinamento) quando é finito, ou `None` caso contrário. Com as duas fases desabilitadas, `lower_bound` é `0.0` e `upper_bound`, `gap_percent` e `simulation` são `None`.
+
+### `novomodelo._types.TrainingSummary`
+
+As seis chaves principais do treinamento que `RunResult` contém em seu nível superior. Nenhuma função retorna um `TrainingSummary`; use-o para anotar essas chaves isoladamente.
+
+| Chave | Tipo | Descrição |
+| --- | --- | --- |
+| `converged` | `bool` | `True` quando os critérios de parada encerraram o treinamento e uma regra `gap` ou `bound_stalling` foi acionada nessa iteração. `False` para qualquer outro motivo de parada e para uma execução sem treinamento. |
+| `iterations` | `int` | O número de iterações de treinamento executadas. `0` quando o treinamento não foi executado. |
+| `lower_bound` | `float` | O limite inferior final, em unidades monetárias. |
+| `upper_bound` | `float \| None` | O limite superior final, em unidades monetárias. `None` quando não está disponível. |
+| `gap_percent` | `float \| None` | O gap de otimalidade relativo vezes 100. `None` quando o treinamento não foi executado. |
+| `total_time_ms` | `int` | O tempo de treinamento em milissegundos. `0` quando o treinamento não foi executado. |
+
+### `novomodelo._types.SimulationSummary`
+
+O dict em `RunResult["simulation"]` e o valor de retorno de `novomodelo.Study.simulate`.
+
+| Chave | Tipo | Descrição |
+| --- | --- | --- |
+| `n_scenarios` | `int` | O número de cenários da simulação. |
+| `completed` | `int` | O número de cenários concluídos. |
+
+### `novomodelo._types.StochasticSummary`
+
+O dict que `novomodelo.Study.stochastic` retorna.
+
+| Chave | Tipo | Descrição |
+| --- | --- | --- |
+| `inflow_source` | `str \| None` | A fonte das estatísticas sazonais de afluência: um de `"estimated"` (calculadas a partir do histórico de vazões), `"loaded"` (lidas dos arquivos do caso) ou `None` (o componente não é modelado). |
+| `n_hydros` | `int` | O número de usinas hidrelétricas. |
+| `n_seasons` | `int` | O número de períodos sazonais do modelo PAR(p). |
+| `ar_order` | `dict \| None` | O resumo das ordens do modelo autorregressivo (AR); `None` quando o sistema não tem usinas hidrelétricas. O dict tem as chaves `method` (`str`, o método de seleção de ordem: `"PACF"` ou `"PACF_ANNUAL"` para o `estimation.order_selection` executado, ou `"fixed"` quando as ordens vêm dos arquivos do caso), `min_order` e `max_order` (`int`), `n_hydros` (`int`) e `order_counts` (`list[int]`, o número de usinas em cada ordem, indexado pela ordem). |
+| `correlation_source` | `str \| None` | A fonte dos dados de correlação: um de `"estimated"` (calculados a partir do histórico de vazões), `"loaded"` (lidos dos arquivos do caso) ou `None` (o componente não é modelado). |
+| `correlation_target` | `str \| None` | A série a partir da qual a correlação espacial foi estimada, o `estimation.correlation_target` da execução: `"inflows"` ou `"residuals"`. `None`, a menos que `correlation_source` seja `"estimated"`. O `training/model_provenance.json` a registra como [`inflow.correlation_target`](/pt-br/reference/output/metadata/#trainingmodel_provenancejson). |
+| `correlation_dim` | `str \| None` | A dimensão da matriz de correlação como string, por exemplo `"1x1"`. `None` quando não há matriz de correlação. |
+| `opening_tree_source` | `str \| None` | A fonte da árvore de aberturas: um de `"estimated"` (calculada a partir do histórico de vazões), `"loaded"` (lida dos arquivos do caso) ou `None` (o componente não é modelado). |
+| `opening_tree_moment_matching` | `str \| None` | O casamento de momentos (moment matching) da árvore de aberturas gerada, o `training.scenario_source.openings.moment_matching` da execução: `"per_coordinate"` (o padrão) ou `"none"`, registrado quer algum estágio tenha sido ajustado, quer não. `None`, a menos que `opening_tree_source` seja `"estimated"`. O `training/model_provenance.json` o registra como [`inflow.opening_tree_moment_matching`](/pt-br/reference/output/metadata/#trainingmodel_provenancejson). |
+| `openings_per_stage` | `list[int]` | O número de aberturas em cada estágio. |
+| `n_stages` | `int` | O número de estágios no contexto estocástico. |
+| `n_load_buses` | `int` | O número de barramentos com ruído estocástico de carga. |
+| `seed` | `int` | A semente aleatória usada na geração dos ruídos. |
+
+### `novomodelo._types.HydroModelsSummary`
+
+O dict que `novomodelo.Study.hydro_models` retorna.
+
+| Chave | Tipo | Descrição |
+| --- | --- | --- |
+| `n_constant` | `int` | O número de usinas hidrelétricas que usam produtibilidade constante. |
+| `n_fpha` | `int` | O número de usinas hidrelétricas que usam o modelo de produção FPHA. |
+| `total_planes` | `int` | O número total de hiperplanos de todas as usinas com FPHA. |
+| `n_evaporation` | `int` | O número de usinas hidrelétricas com evaporação linearizada. |
+| `n_no_evaporation` | `int` | O número de usinas hidrelétricas sem modelo de evaporação. |
+
+### `novomodelo._types.ProvenanceReport`
+
+O dict que `novomodelo.Study.provenance` retorna.
+
+| Chave | Tipo | Descrição |
+| --- | --- | --- |
+| `estimation_path` | `str` | O caminho de estimação seguido, um de `"deterministic"`, `"user_stats_white_noise"`, `"user_provided_no_history"`, `"full_estimation"`, `"user_ar_history_stats"`, `"partial_estimation"` ou `"user_provided_all"`. |
+| `seasonal_stats_source` | `str` | A origem da média e do desvio-padrão sazonais: um de `"estimated"` (calculados a partir do histórico de vazões), `"user_file"` (lidos de um arquivo do caso) ou `"n/a"` (não se aplica). |
+| `ar_coefficients_source` | `str` | A origem dos coeficientes AR: um de `"estimated"` (calculados a partir do histórico de vazões), `"user_file"` (lidos de um arquivo do caso) ou `"n/a"` (não se aplica). |
+| `correlation_source` | `str` | A origem da correlação espacial: um de `"estimated"` (calculada a partir do histórico de vazões), `"user_file"` (lida de um arquivo do caso) ou `"n/a"` (não se aplica). |
+| `correlation_target` | `str \| None` | A série a partir da qual a correlação espacial foi estimada, o `estimation.correlation_target` da execução: `"inflows"` ou `"residuals"`. `None`, a menos que `correlation_source` seja `"estimated"`. O `training/model_provenance.json` a registra como [`inflow.correlation_target`](/pt-br/reference/output/metadata/#trainingmodel_provenancejson). |
+| `opening_tree_source` | `str` | A origem da árvore de aberturas de ruído: um de `"estimated"` (calculada a partir do histórico de vazões), `"user_file"` (lida de um arquivo do caso) ou `"n/a"` (não se aplica). |
+| `opening_tree_moment_matching` | `str \| None` | O casamento de momentos (moment matching) da árvore de aberturas gerada, o `training.scenario_source.openings.moment_matching` da execução: `"per_coordinate"` (o padrão) ou `"none"`, registrado quer algum estágio tenha sido ajustado, quer não. `None`, a menos que `opening_tree_source` seja `"estimated"`. O `training/model_provenance.json` o registra como [`inflow.opening_tree_moment_matching`](/pt-br/reference/output/metadata/#trainingmodel_provenancejson). |
+| `n_hydros` | `int` | O número de usinas hidrelétricas. |
+| `ar_method` | `str \| None` | O método de seleção de ordem usado quando os coeficientes AR foram estimados: `"PACF"` ou `"PACF_ANNUAL"`. `None` quando não foram estimados. |
+| `ar_max_order` | `int \| None` | A ordem AR máxima entre todas as usinas hidrelétricas quando os coeficientes AR foram estimados. `None` caso contrário. |
+| `white_noise_fallbacks` | `list[int]` | Os ids das usinas hidrelétricas que recorreram a ruído branco. Vazia, a menos que o caminho seja `"partial_estimation"`. |
+| `hydro_production` | `dict` | As contagens das fontes de produção hidrelétrica. O dict tem as chaves inteiras `n_fpha_computed_from_geometry`, `n_fpha_precomputed_hyperplanes`, `n_evaporation_ref_user_supplied` e `n_evaporation_ref_default_midpoint`. |

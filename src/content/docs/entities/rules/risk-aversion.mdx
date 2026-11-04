@@ -1,0 +1,75 @@
+---
+title: Risk aversion (CVaR)
+description: How Novomodelo puts more weight on the worst scenarios — the combination of expected value and CVaR, its two per-stage parameters and the effect on the SDDP bounds.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import CvarPlot from '../../../../components/CvarPlot.astro';
+
+<EntityHero family="rules" icon="risk" lead="Risk aversion makes the model weight high-cost scenarios more heavily instead of looking only at the expected cost. Novomodelo uses a combination of the expected value and the CVaR (Conditional Value at Risk), which is the expected cost over the worst fraction of scenarios." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'The average can hide bad scenarios', text: 'Risk-neutral SDDP minimises only the expected cost, which can lead to policies that perform poorly in adverse scenarios. The risk-averse version protects against those tail risks and preserves the convexity properties needed to generate valid cuts.' },
+  { title: 'CVaR is the average of the tail', text: 'CVaR with tail fraction 1 is the expected value, that is, risk-neutral. With fraction 0.5 it is the average of the worst 50% of outcomes; with 0.2, the worst 20%; with 0.05, the worst 5%. The smaller the fraction, the more risk-averse the stance.' },
+  { title: 'Two parameters, per stage', text: 'The measure combines the expected value and the CVaR: one parameter is the tail fraction and the other is the weight on the CVaR. With weight 0 the measure is the expected value; with weight 1 it is pure CVaR. Each stage can have its own.' },
+]} />
+
+## The tail of the worst outcomes
+
+<figure class="entity-illustration entity-rules">
+  <CvarPlot />
+  <figcaption>Figure: cost distribution, with the mean, the value at risk (VaR) and the CVaR marked and the tail of the worst outcomes shaded. The CVaR is the average cost inside the tail.</figcaption>
+</figure>
+
+## What the model decides
+
+<DecisionChips family="rules" items={[
+  { label: 'Weight of each opening in the cut aggregation' },
+  { label: 'Risk-adjusted lower bound of the first stage', unit: '$' },
+]} note="Under risk aversion, cut aggregation stops using uniform probabilities and reweights the openings towards the worst outcomes. The model computes these weights; you provide only the measure of each stage." />
+
+## What you provide
+
+- The risk measure of each stage, in the `risk_measure` field of `stages.json`. The value `"expectation"`, assumed when the field is absent, is risk-neutral. Any other string is rejected.
+- For CVaR, the two parameters, both required: the tail fraction (`alpha`, greater than 0 and up to 1) and the weight on the CVaR (`lambda`, from 0 to 1).
+- A zero weight is equivalent to the expected value, whatever the tail fraction.
+- The measure can vary from one stage to another.
+
+:::caution[The tail fraction is not a confidence level]
+`alpha` is the fraction of the worst outcomes that enters the CVaR. So `0.95` averages the worst 95% of outcomes and is nearly risk-neutral; the worst 5% correspond to `0.05`. A tool that takes a confidence level `c` corresponds to `alpha = 1 - c`.
+:::
+
+## Which stage weights what
+
+A stage's `risk_measure` weights the next stage's openings in the cuts that stage stores. The first stage's also weights the first stage's own openings in the lower bound. The last stage's does not enter any cut.
+
+## What changes in the bounds
+
+- **Lower bound.** Under a coherent measure, the training lower bound remains valid, whether or not the measure varies across stages, and does not decrease across iterations. Its validity rests on the methodology's Tier 1 assumptions.
+- **Upper bound.** A sampled forward pass does not give an exact upper bound. The mean cost of the sampled paths estimates the policy's expected cost, not its risk-adjusted value, and can fall below the lower bound.
+- **Gap certificate.** The gap stopping rule requires an enumerated forward pass and a measure that is uniform across all stages: the expected value or the same CVaR measure.
+- **In practice.** To monitor convergence, the methodology recommends lower-bound stalling. The simulation reports the policy's cost distribution, which bounds no risk-adjusted value.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'Risk Measures §2 — Conditional Value-at-Risk (CVaR)', href: '/math/risk-measures/#2-conditional-value-at-risk-cvar' },
+  { kind: 'Methodology', title: 'Risk Measures §3 — convex combination risk measure', href: '/math/risk-measures/#3-convex-combination-risk-measure' },
+  { kind: 'Methodology', title: 'Risk Measures §7 — cut generation with risk measures', href: '/math/risk-measures/#7-cut-generation-with-risk-measures' },
+  { kind: 'Methodology', title: 'Risk Measures §8 — upper bound', href: '/math/risk-measures/#8-upper-bound-with-risk-measures' },
+  { kind: 'Methodology', title: 'Risk Measures §9 — lower bound validity', href: '/math/risk-measures/#9-lower-bound-validity-with-risk-measures' },
+  { kind: 'Methodology', title: 'Risk Measures — risk_measure configuration', href: '/math/risk-measures/#stagesrisk_measure--risk-measure' },
+  { kind: 'Overview', title: 'SDDP on one page §3 — risk measures', href: '/overview/sddp-framework-overview/#3-risk-measures' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'stages.json (stages[].risk_measure)', href: '/reference/case-format/stages/#stagesjson' },
+]} />

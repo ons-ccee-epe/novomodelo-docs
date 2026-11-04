@@ -1,0 +1,395 @@
+---
+title: "Arquivos de restrições"
+description: Os arquivos de constraints/ que substituem limites das entidades por estágio e patamar e definem as restrições genéricas, seus limites e seus parâmetros nomeados, campo a campo.
+---
+
+Esta página documenta os arquivos de `constraints/` que substituem limites das entidades por estágio e patamar
+(limites de usinas termelétricas, hidrelétricas, grupos de unidades geradoras, linhas, bombeamento, contratos e NCS) e os arquivos que definem as
+restrições genéricas: `generic_constraints.json`, `generic_constraint_bounds.parquet` e
+`generic_parameters.json`. Os demais arquivos do caso, inclusive as substituições de penalidades que compartilham o diretório `constraints/`, estão listados na visão geral do [Formato do caso](/pt-br/reference/case-format/#resumo-dos-arquivos).
+
+Todos os arquivos Parquet de limites usam armazenamento esparso: somente os pares `(entity_id, stage_id)`
+que diferem do valor base da entidade precisam de linhas. Na ausência de linhas, usa-se o
+valor da entidade sem alteração.
+
+---
+
+## `constraints/thermal_bounds.parquet`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Substituições, variáveis por estágio, da geração e do custo das usinas termelétricas.
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| ------------------- | ---------------- | -------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thermal_id`        | Int32            | Sim      | —       | —       | ID da usina termelétrica |
+| `stage_id`          | Int32            | Sim      | —       | —       | ID do estágio |
+| `min_generation_mw` | Float64          | Não      | —       | MW      | Substituição da geração mínima (MW) |
+| `max_generation_mw` | Float64          | Não      | —       | MW      | Substituição da geração máxima (MW) |
+| `cost_per_mwh`      | Float64          | Não      | —       | R\$/MWh | Substituição do custo de despacho (R\$/MWh) |
+| `block_id`          | Int32 (nullable) | Não      | —       | —       | Índice do patamar no estágio, com base zero, que seleciona a substituição de `min_generation_mw`/`max_generation_mw` de um patamar. `null` aplica-se ao nível do estágio. Um `cost_per_mwh` não nulo na mesma linha, ou qualquer `block_id` em uma usina termelétrica que declara `anticipated_config`, é rejeitado na validação. |
+
+`cost_per_mwh` deliberadamente **não** admite valor por patamar, ao contrário de
+[`contract_bounds.price_per_mwh`](#constraintscontract_boundsparquet) — o compromisso de despacho é uma decisão no nível do estágio,
+de modo que um custo de despacho por patamar não teria a que se associar.
+
+**Validação:**
+
+- Todo valor de substituição deve ser finito; `cost_per_mwh` deve ser `>= 0`.
+
+---
+
+## `constraints/hydro_bounds.parquet`
+
+**Metodologia:** [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements/)
+
+Substituições, variáveis por estágio, dos limites operativos das usinas hidrelétricas.
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| ---------------------- | ---------------- | -------- | ------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hydro_id`             | Int32            | Sim      | —       | —     | ID da usina hidrelétrica |
+| `stage_id`             | Int32            | Sim      | —       | —     | ID do estágio |
+| `min_turbined_m3s`     | Float64          | Não      | —       | m³/s  | Vazão turbinada mínima da usina (m³/s). Quando excede a soma dos mínimos resolvidos dos grupos de unidades geradoras, aplica-se à vazão turbinada total da usina, com o não atendimento cobrado uma única vez pela penalidade da usina; um valor menor deixa ativos os mínimos dos grupos, e a preparação do estudo emite um aviso |
+| `max_turbined_m3s`     | Float64          | Não      | —       | m³/s  | Vazão turbinada máxima (m³/s). Limita a parcela de cada barramento e, em uma usina cujos grupos de unidades geradoras estão em vários barramentos, o total da usina quando inferior à soma das capacidades dos barramentos |
+| `min_storage_hm3`      | Float64          | Não      | —       | hm³   | Armazenamento mínimo do reservatório (hm³) |
+| `max_storage_hm3`      | Float64          | Não      | —       | hm³   | Armazenamento máximo do reservatório (hm³) |
+| `min_outflow_m3s`      | Float64          | Não      | —       | m³/s  | Vazão defluente total mínima (m³/s) |
+| `max_outflow_m3s`      | Float64          | Não      | —       | m³/s  | Vazão defluente total máxima (m³/s) |
+| `min_generation_mw`    | Float64          | Não      | —       | MW    | Geração mínima da usina (MW). Quando excede a soma dos mínimos resolvidos dos grupos de unidades geradoras, aplica-se à geração total da usina, com o não atendimento cobrado uma única vez pela penalidade da usina; um valor menor deixa ativos os mínimos dos grupos, e a preparação do estudo emite um aviso |
+| `max_generation_mw`    | Float64          | Não      | —       | MW    | Geração máxima (MW). Limita a parcela de cada barramento e, em uma usina cujos grupos de unidades geradoras estão em vários barramentos, o total da usina quando inferior à soma das capacidades dos barramentos |
+| `max_diversion_m3s`    | Float64          | Não      | —       | m³/s  | Vazão desviada máxima (m³/s); um valor positivo exige um canal `diversion` declarado |
+| `min_diversion_m3s`    | Float64          | Não      | —       | m³/s  | Vazão desviada mínima (m³/s); um valor positivo exige um canal `diversion` declarado |
+| `min_spillage_m3s`     | Float64          | Não      | —       | m³/s  | Vertimento mínimo (m³/s) |
+| `max_spillage_m3s`     | Float64          | Não      | —       | m³/s  | Vertimento máximo (m³/s); `>= min_spillage_m3s` |
+| `filling_min_rate_m3s` | Float64          | Não      | —       | m³/s  | Substituição da taxa mínima de enchimento (m³/s) |
+| `water_withdrawal_m3s` | Float64          | Não      | —       | m³/s  | Retirada de água (m³/s) |
+| `block_id`             | Int32 (nullable) | Não      | —       | —     | Índice do patamar no estágio, com base zero, que seleciona a substituição de vazão turbinada/defluência/geração/desvio/vertimento de um patamar. `null` aplica-se ao nível do estágio. Um valor não nulo de `min_storage_hm3`/`max_storage_hm3`/`filling_min_rate_m3s`/`water_withdrawal_m3s` na mesma linha é rejeitado na validação — esses quatro permanecem apenas no nível do estágio, sem variante por patamar. |
+
+Uma substituição positiva de `min_diversion_m3s` ou `max_diversion_m3s` em uma usina que
+não declara canal `diversion` é rejeitada na validação — sem canal, a
+coluna de desvio é fixada em `[0, 0]`: um piso positivo seria inviável, e um
+teto positivo desviaria água que nenhuma usina recebe. `min_diversion_m3s`,
+`min_spillage_m3s` e `max_spillage_m3s` devem ser, cada um, não negativos, e uma
+linha que combine `min_spillage_m3s` e `max_spillage_m3s` com
+`min_spillage_m3s > max_spillage_m3s` é rejeitada. Ver [Códigos de erro](/pt-br/reference/error-codes) para
+o catálogo completo de modos de falha.
+
+Os mínimos declarados da própria usina não podem exceder a soma dos mínimos dos seus grupos de unidades geradoras, e
+seus máximos declarados não podem ser inferiores à soma dos máximos deles (ver
+[`system/hydros.json`](/pt-br/reference/case-format/hydros/#systemhydrosjson)), de modo que
+somente uma substituição neste arquivo se aplica ao total da usina. Uma
+substituição de `min_turbined_m3s` ou `min_generation_mw` abaixo da soma dos mínimos
+dos grupos não tem efeito: a preparação do estudo imprime uma linha `WARN` identificando a usina, o campo,
+o número de estágios afetados e o primeiro deles, e os mínimos a reduzir são
+os dos próprios grupos, em
+[`constraints/hydro_unit_group_bounds.parquet`](#constraintshydro_unit_group_boundsparquet).
+O não atendimento do mínimo da usina é reportado nas colunas `turbined_slack_m3s` e
+`generation_slack_mw` de
+[`simulation/hydros/`](/pt-br/reference/output/simulation/#simulationhydros).
+
+**Validação:**
+
+- O `max_turbined_m3s` ou o `max_generation_mw` de uma linha não pode exceder o valor declarado da usina.
+- Todo valor de substituição deve ser finito.
+- `filling_min_rate_m3s` deve ser `>= 0`.
+
+---
+
+## `constraints/hydro_unit_group_bounds.parquet`
+
+**Metodologia:** [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements/)
+
+Substituições de limites, variáveis por estágio e opcionalmente por patamar, para os
+grupos de unidades geradoras declarados de uma usina hidrelétrica (`hydros[].unit_groups[]`; ver
+[`system/hydros.json`](/pt-br/reference/case-format/hydros/#systemhydrosjson)). Uma linha substitui um dos
+quatro limites declarados de um grupo para um `(hydro_id, hydro_unit_group_id,
+stage_id)`, opcionalmente restrito a um único patamar; um grupo sem linha de
+substituição usa seu valor declarado. O `id` do grupo é único dentro da
+usina, não necessariamente denso nem com base 0, e `hydro_unit_group_id` identifica o grupo por esse id declarado.
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| --------------------- | ---------------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `hydro_id`            | Int32            | Sim      | —       | —     | ID da usina hidrelétrica |
+| `hydro_unit_group_id` | Int32            | Sim      | —       | —     | ID do grupo de unidades geradoras (`unit_groups[].id`), único dentro da usina |
+| `stage_id`            | Int32            | Sim      | —       | —     | ID do estágio |
+| `min_turbined_m3s`    | Float64          | Não      | —       | m³/s  | Substituição da vazão turbinada mínima deste grupo (m³/s) |
+| `max_turbined_m3s`    | Float64          | Não      | —       | m³/s  | Substituição da vazão turbinada máxima deste grupo (m³/s) |
+| `min_generation_mw`   | Float64          | Não      | —       | MW    | Substituição da geração mínima deste grupo (MW) |
+| `max_generation_mw`   | Float64          | Não      | —       | MW    | Substituição da geração máxima deste grupo (MW) |
+| `block_id`            | Int32 (nullable) | Não      | —       | —     | Índice do patamar no estágio, com base zero, que seleciona a substituição de um patamar. `null` aplica-se ao nível do estágio; as quatro colunas de limite admitem valor por patamar. |
+
+**Validação:**
+
+- O `max_turbined_m3s` ou o `max_generation_mw` de uma linha não pode exceder o valor declarado desse grupo.
+- Todo valor de substituição deve ser finito.
+
+---
+
+## `constraints/line_bounds.parquet`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Substituições, variáveis por estágio, da capacidade de fluxo das linhas de transmissão, em MW absolutos.
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| ------------ | ---------------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `line_id`    | Int32            | Sim      | —       | —     | ID da linha de transmissão |
+| `stage_id`   | Int32            | Sim      | —       | —     | ID do estágio |
+| `direct_mw`  | Float64          | Não      | —       | MW    | Substituição da capacidade no sentido direto (MW) |
+| `reverse_mw` | Float64          | Não      | —       | MW    | Substituição da capacidade no sentido inverso (MW) |
+| `block_id`   | Int32 (nullable) | Não      | —       | —     | Índice do patamar no estágio, com base zero, que seleciona a substituição de `direct_mw`/`reverse_mw` de um patamar. `null` aplica-se ao nível do estágio. |
+
+A capacidade das linhas por patamar é declarada aqui em MW absolutos; `direct_mw = 0.0`
+fecha a linha no sentido direto naquele patamar, ou no estágio quando
+`block_id` é `null` (e `reverse_mw = 0.0`, no sentido inverso).
+
+---
+
+## `constraints/pumping_bounds.parquet`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Limites de vazão, variáveis por estágio, das usinas elevatórias.
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| -------------------- | ---------------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `pumping_station_id` | Int32            | Sim      | —       | —     | ID da usina elevatória |
+| `stage_id`           | Int32            | Sim      | —       | —     | ID do estágio |
+| `min_m3s`            | Float64          | Não      | —       | m³/s  | Vazão bombeada mínima (m³/s) |
+| `max_m3s`            | Float64          | Não      | —       | m³/s  | Vazão bombeada máxima (m³/s) |
+| `block_id`           | Int32 (nullable) | Não      | —       | —     | Índice do patamar no estágio, com base zero, que seleciona a substituição de `min_m3s`/`max_m3s` de um patamar. `null` aplica-se ao nível do estágio. |
+
+**Validação:**
+
+- Todo valor de substituição deve ser finito e `>= 0`.
+- O `min_m3s` de uma linha não pode exceder o seu `max_m3s`.
+
+---
+
+## `constraints/contract_bounds.parquet`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Substituições, variáveis por estágio, da potência e do preço dos contratos de energia.
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| --------------- | ---------------- | -------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `contract_id`   | Int32            | Sim      | —       | —       | ID do contrato de energia |
+| `stage_id`      | Int32            | Sim      | —       | —       | ID do estágio |
+| `min_mw`        | Float64          | Não      | —       | MW      | Potência mínima (MW) |
+| `max_mw`        | Float64          | Não      | —       | MW      | Potência máxima (MW) |
+| `price_per_mwh` | Float64          | Não      | —       | R\$/MWh | Substituição do preço (R\$/MWh) |
+| `block_id`      | Int32 (nullable) | Não      | —       | —       | Índice do patamar no estágio, com base zero, que seleciona a substituição de `min_mw`/`max_mw`/`price_per_mwh` de um patamar. `null` aplica-se ao nível do estágio. |
+
+`price_per_mwh` admite valor por patamar — o cálculo de custos da simulação de um estudo respeita um
+preço de contrato por patamar —, em assimetria deliberada com
+[`thermal_bounds.cost_per_mwh`](#constraintsthermal_boundsparquet), que não admite.
+
+---
+
+## `constraints/ncs_bounds.parquet`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Limites de geração disponível, variáveis por estágio, das fontes não despacháveis. Na ausência de linhas, mantém-se o
+`max_generation_mw` declarado da entidade sem alteração; uma linha presente substitui essa
+capacidade da entidade pelo seu `available_generation_mw` por estágio para a célula `(ncs_id, stage_id)`.
+As linhas aplicam-se a uma fonte sem modelo estocástico de disponibilidade. Uma fonte com linhas em
+[`scenarios/non_controllable_stats.parquet`](/pt-br/reference/case-format/scenarios/#scenariosnon_controllable_statsparquet), ou que obtém sua
+disponibilidade de
+[`scenarios/external_ncs_scenarios.parquet`](/pt-br/reference/case-format/scenarios/#scenariosexternal_ncs_scenariosparquet) sob o esquema `external`,
+ignora suas linhas aqui: sua geração disponível segue o modelo ou as realizações (ver
+[Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis)).
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| ------------------------- | ------- | -------- | ------- | ----- | --------------------------------------------------------------- |
+| `ncs_id`                  | Int32   | Sim      | —       | —     | ID da fonte não despachável |
+| `stage_id`                | Int32   | Sim      | —       | —     | ID do estágio |
+| `available_generation_mw` | Float64 | Sim      | —       | MW    | Geração disponível máxima neste estágio (MW). Deve ser >= 0. |
+
+Para uma fonte à qual essas linhas se aplicam, o limite de geração disponível por patamar no PL é:
+`available_mw_block = available_generation_mw * block_factor` (`max_generation_mw` no lugar de
+`available_generation_mw` em um estágio sem linha), em que
+`block_factor` vem de `scenarios/non_controllable_factors.json`
+(padrão 1,0 quando ausente).
+
+---
+
+## `constraints/generic_constraints.json`
+
+**Metodologia:** [Restrições genéricas](/pt-br/reference/generic-constraints/) · [Formulação do PL](/pt-br/math/lp-formulation/)
+
+Restrições lineares definidas pelo usuário, acrescentadas ao PL de cada estágio junto com o
+conjunto de restrições nativas. O arquivo é opcional; quando ausente, nenhuma restrição
+genérica é acrescentada.
+
+**Estrutura de nível superior:**
+
+```json
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "cap_ant_t1",
+      "expression": "anticipated_decision(2)",
+      "slack": { "enabled": false }
+    }
+  ],
+  "expressions": [
+    {
+      "name": "total_hydro",
+      "expression": "hydro_generation(1) + hydro_generation(2)"
+    }
+  ]
+}
+```
+
+**Campos por entrada (`constraints[]`):**
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| ----------------------------- | -------------- | ----------- | ------- | ----- | ---------------------------------------------------------------------------------------------------------------------- |
+| `constraints[].id`            | integer        | Sim         | —       | —     | Identificador da restrição. Deve ser único no arquivo. |
+| `constraints[].name`          | string         | Sim         | —       | —     | Nome curto usado em relatórios e no log. |
+| `constraints[].expression`    | string         | Sim         | —       | —     | Expressão aritmética sobre referências a variáveis, números e referências `@name`, linear nas variáveis (ver abaixo). |
+| `constraints[].description`   | string \| null | Não         | —       | —     | Descrição opcional legível. |
+| `constraints[].slack`         | object         | Sim         | —       | —     | Configuração da variável de folga: `enabled`, `penalty` e `penalty_basis`. |
+| `constraints[].slack.enabled` | boolean        | Sim         | —       | —     | Indica se é permitida uma variável de folga. |
+| `constraints[].slack.penalty` | number \| null | Condicional | —       | R\$/(unidade da restrição·h) ou R\$/unidade da restrição | Penalidade por unidade de violação, interpretada segundo `penalty_basis`. Obrigatória e `> 0` quando `enabled` é `true`; ausente quando é `false`. |
+| `constraints[].slack.penalty_basis` | string \| null | Condicional | —  | —     | Um de `"per_hour"`, `"per_unit"`. `"per_hour"` cobra a penalidade por hora do período da restrição: use-o para uma restrição em MW ou m³/s; `"per_unit"` a cobra uma única vez por unidade de violação: use-o para uma restrição em MWh ou hm³. Obrigatório quando `enabled` é `true`; ausente quando é `false`. Ver [Base de penalização](/pt-br/reference/generic-constraints/#base-de-penalizacao). |
+
+**Expressões nomeadas (`expressions[]`):**
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| --------------------------- | -------------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------- |
+| `expressions`               | array          | Não      | —       | —     | Expressões lineares nomeadas, compartilhadas por todas as restrições e referenciadas por `@name`. Ausente significa nenhuma. |
+| `expressions[].name`        | string         | Sim      | —       | —     | Nome associado à expressão. Deve ser único no arquivo e distinto de todos os nomes de parâmetros escalares. |
+| `expressions[].expression`  | string         | Sim      | —       | —     | Expressão linear representada por `name`, escrita na mesma gramática de `constraints[].expression`, sem operador relacional; deve ler pelo menos uma variável do PL. |
+| `expressions[].description` | string \| null | Não      | —       | —     | Descrição opcional legível. |
+
+A gramática de `expression`, as variáveis que ela pode referenciar, as expressões nomeadas (`@name`) e a forma como
+a forma de uma restrição decorre dos seus limites estão especificadas em
+[Restrições genéricas](/pt-br/reference/generic-constraints/):
+[Gramática das expressões](/pt-br/reference/generic-constraints/#gramatica-das-expressoes),
+[Catálogo de variáveis](/pt-br/reference/generic-constraints/#catalogo-de-variaveis),
+[A gramática de `@name`](/pt-br/reference/generic-constraints/#a-gramatica-name),
+[Intervalo e derivação da forma](/pt-br/reference/generic-constraints/#derivacao-do-intervalo-e-da-forma).
+
+---
+
+## `constraints/generic_constraint_bounds.parquet`
+
+**Metodologia:** [Restrições genéricas](/pt-br/reference/generic-constraints/) · [Formulação do PL](/pt-br/math/lp-formulation/)
+
+Substituições dos limites do lado direito, variáveis por estágio e opcionalmente por patamar, das restrições
+genéricas declaradas em `constraints/generic_constraints.json`. Esta tabela
+**é** a grade de ativação: uma restrição está ativa em um dado `(stage[,
+block])` se, e somente se, existir uma linha para ela aqui, independentemente de essa
+linha fornecer ou não algum valor de limite (um resto afim embutido na expressão pode fornecer o
+valor — ver abaixo).
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| --------------- | ------------------ | -------- | ------- | ----- | ----------------------------------------------------------------------------------------- |
+| `constraint_id` | Int32              | Sim      | —       | —     | ID da restrição genérica |
+| `stage_id`      | Int32              | Sim      | —       | —     | ID do estágio |
+| `block_id`      | Int32 (nullable)   | Não      | —       | —     | Índice do patamar no estágio, com base zero. `null` aplica-se a todos os patamares do estágio. |
+| `bound_lower`   | Float64 (nullable) | Não      | —       | —     | Extremo inferior do intervalo. `null` quando a restrição não tem limite inferior nesta célula. |
+| `bound_upper`   | Float64 (nullable) | Não      | —       | —     | Extremo superior do intervalo. `null` quando a restrição não tem limite superior nesta célula. |
+
+Como os dois extremos definem a forma:
+[Intervalo e derivação da forma](/pt-br/reference/generic-constraints/#derivacao-do-intervalo-e-da-forma).
+Quais linhas são rejeitadas:
+[A grade de ativação](/pt-br/reference/generic-constraints/#a-grade-de-ativacao).
+
+---
+
+## `constraints/generic_parameters.json`
+
+**Metodologia:** [Restrições genéricas](/pt-br/reference/generic-constraints/) · [Formulação do PL](/pt-br/math/lp-formulation/)
+
+Parâmetros escalares nomeados que podem ser referenciados nas expressões de coeficientes das restrições genéricas
+por meio do sinal `@name`. O arquivo é opcional; quando ausente, nenhum
+parâmetro é carregado, e qualquer token `@name` que não corresponda a uma expressão nomeada
+causa erro na carga. Um parâmetro `expression` também pode ler outros parâmetros
+por `@name`.
+
+**Estrutura de nível superior:**
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/generic_parameters.schema.json",
+  "scalar_parameters": [
+    {
+      "id": 1,
+      "name": "rho_eq_h1",
+      "kind": "computed",
+      "computed_spec": { "tag": "equivalent_productivity", "hydro_id": 1 }
+    }
+  ]
+}
+```
+
+**Campos por entrada:**
+
+| Nome | Tipo | Obrigatório | Padrão | Unidade | Descrição |
+| -------------------------------------------- | -------------- | ----------- | ------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scalar_parameters[].id`                     | integer        | Sim         | —       | —     | Identificador único do parâmetro (int32) |
+| `scalar_parameters[].name`                   | string         | Sim         | —       | —     | Nome único do parâmetro (não vazio, sem espaços em branco no início ou no fim) |
+| `scalar_parameters[].kind`                   | string         | Sim         | —       | —     | Um de `"constant"`, `"per_stage"`, `"seasonal"`, `"computed"`, `"per_stage_block"`, `"expression"`. |
+| `scalar_parameters[].value`                  | number \| null | Condicional | —       | —     | Valor f64 finito. Obrigatório para `constant`. Ausente nos demais casos. |
+| `scalar_parameters[].values`                 | array \| null  | Condicional | —       | —     | Vetor de pares `[index, value]`. Obrigatório para `per_stage` e `seasonal`. |
+| `scalar_parameters[].computed_spec`          | object \| null | Condicional | —       | —     | `{"tag": "<variant>", "hydro_id": <int>}`. Obrigatório para `computed`. |
+| `scalar_parameters[].computed_spec.tag`      | string         | Sim         | —       | —     | Um de `"equivalent_productivity"`, `"accumulated_productivity"`, `"reference_volume"`, `"reference_turbine"`, `"min_storage"`, `"max_storage"`, `"specific_productivity"`, `"integrated_equivalent_productivity"`, `"integrated_accumulated_productivity"`, `"max_stored_energy"`, `"integrated_equivalent_productivity_mwh_per_hm3"`, `"integrated_accumulated_productivity_mwh_per_hm3"`, `"max_stored_energy_mwh"`. Ver a tabela de valores de tag de `computed_spec` abaixo. |
+| `scalar_parameters[].computed_spec.hydro_id` | integer        | Sim         | —       | —     | ID da usina hidrelétrica. |
+| `scalar_parameters[].block_values`           | array \| null  | Condicional | —       | —     | Vetor de triplas `[stage_id, block_id, value]`. Obrigatório para `per_stage_block`; cada par `(stage_id, block_id)` dentro de uma entrada deve ser único. |
+| `scalar_parameters[].expression`             | string \| null | Condicional | —       | —     | Fórmula aritmética sobre números e outros parâmetros escalares (`@name`), sem variável do PL, expressão nomeada nem operador relacional. Obrigatório para `expression`. |
+
+**Valores de tag de `computed_spec`:**
+
+| Valor | Descrição |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `equivalent_productivity`             | Produtibilidade equivalente ρ_eq |
+| `accumulated_productivity`            | Produtibilidade acumulada na cascata ρ_acum |
+| `reference_volume`                    | Volume de referência do reservatório V_ref |
+| `reference_turbine`                   | Vazão turbinada de referência Q_ref |
+| `min_storage`                         | Armazenamento mínimo físico `reservoir.min_storage_hm3` (a faixa da usina invariante no tempo, e não uma substituição por estágio de `hydro_bounds`) |
+| `max_storage`                         | Armazenamento máximo físico `reservoir.max_storage_hm3` (a faixa da usina invariante no tempo, e não uma substituição por estágio de `hydro_bounds`) |
+| `specific_productivity`               | Produtibilidade específica ρ_esp |
+| `integrated_equivalent_productivity`  | Produtibilidade equivalente média na faixa útil ρ̄_eq (nível de montante calculado como média sobre a faixa física de armazenamento) |
+| `integrated_accumulated_productivity` | ρ̄_eq somada ao longo da cascata a jusante — o coeficiente que forma par com `max_stored_energy` |
+| `max_stored_energy`                   | `integrated_accumulated_productivity` × (`max_storage_hm3` − `min_storage_hm3`) sobre a faixa física, em MW/(m³/s)·hm³ — **não** MWh |
+| `integrated_equivalent_productivity_mwh_per_hm3`  | `integrated_equivalent_productivity` × 10⁶/3600, em MWh/hm³ |
+| `integrated_accumulated_productivity_mwh_per_hm3` | `integrated_accumulated_productivity` × 10⁶/3600, em MWh/hm³ — o coeficiente que forma par com `max_stored_energy_mwh` |
+| `max_stored_energy_mwh`                           | `max_stored_energy` × 10⁶/3600, em MWh |
+
+As grandezas de produtibilidade e de energia armazenada correspondentes a essas tags estão definidas em
+[Modelos de função de produção hidrelétrica §4](/pt-br/math/hydro-production-models#4-grandezas-de-conversao-de-energia).
+
+**Validação:**
+
+- Os valores de `id` devem ser únicos entre todas as entradas.
+- Os valores de `name` devem ser únicos (diferenciando maiúsculas de minúsculas), não vazios e sem espaços em branco
+  no início ou no fim.
+- `kind` deve ser exatamente um dos seis valores válidos, e uma entrada contém apenas
+  o campo de conteúdo do seu tipo (`value`, `values`, `computed_spec`,
+  `block_values` ou `expression`); um campo de conteúdo de outro tipo é rejeitado.
+- Para `per_stage`: os pares de `values` devem ter chaves `stage_id` contíguas a partir
+  de 0, uma por estágio do estudo; duplicatas, lacunas e uma quantidade diferente do número
+  de estágios do estudo são rejeitadas.
+- Para `seasonal`: as chaves `season_id` dentro de uma entrada devem ser únicas; duplicatas
+  são rejeitadas. Todo período sazonal em que cai algum estágio do estudo precisa de um valor; a
+  ausência de um deles interrompe a preparação do estudo, com a identificação do parâmetro e do período sazonal.
+- Para `computed`: `computed_spec` deve estar presente, com uma `tag` válida e um `hydro_id`
+  inteiro. A usina referenciada deve existir em `hydros.json`.
+- Para `per_stage_block`: `block_values` deve estar presente, e cada
+  par `(stage_id, block_id)` dentro de uma entrada deve ser único; duplicatas são
+  rejeitadas. As triplas devem cobrir todos os patamares de todos os estágios do estudo; a ausência de uma
+  célula, ou uma célula que indique um estágio ou patamar inexistente no estudo, interrompe a
+  preparação do estudo, com a identificação do parâmetro e da célula.
+- Para `expression`: `expression` deve estar presente, ler apenas números e outros
+  parâmetros escalares e não conter operador relacional; um ciclo de referências entre
+  parâmetros `expression` é rejeitado. Uma fórmula cujo valor não seja finito em
+  algum estágio e patamar é rejeitada na preparação do estudo.
+- Campos JSON desconhecidos em qualquer entrada são rejeitados imediatamente.
+
+Para o significado de cada tipo, ver
+[Os tipos de parâmetro](/pt-br/reference/generic-constraints/#generic_parametersjson-os-tipos-de-parametro).

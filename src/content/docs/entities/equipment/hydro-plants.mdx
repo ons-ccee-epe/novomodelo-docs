@@ -1,0 +1,84 @@
+---
+title: Hydro plants
+description: How Novomodelo treats hydro plants — reservoir, turbines, spillways and cascades.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import HydroPlant from '../../../../components/entity/illustrations/HydroPlant.astro';
+
+<EntityHero family="equipment" icon="hydro" lead="Hydro plants convert the potential energy of stored water into electricity. Each plant has a reservoir, turbines and spillways, and plants are typically arranged in cascades, where the upstream outflow becomes the downstream inflow." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'Water stored today, used tomorrow', text: 'Reservoir storage creates temporal coupling: water saved today is available tomorrow.' },
+  { title: 'Uncertain future rain', text: 'Inflows are stochastic: future rain or snowmelt is uncertain.' },
+  { title: 'Value of water', text: 'The opportunity cost of using water now instead of storing it emerges from the optimization.' },
+]} />
+
+## The water paths
+
+<HydroPlant lang="en" />
+
+## What the model decides
+
+<DecisionChips family="hydrology" items={[
+  { label: 'End-of-stage storage', unit: 'hm³' },
+  { label: 'Turbined flow', unit: 'm³/s' },
+  { label: 'Spillage', unit: 'm³/s' },
+  { label: 'Diversion', unit: 'm³/s' },
+  { label: 'Generation', unit: 'MW' },
+]} note="End-of-stage storage is a state variable: the value the optimizer chooses links the stage to the next one. Total outflow is turbined flow plus spillage." />
+
+## What you provide
+
+- The downstream plant (cascade topology) and, optionally, the water travel time to it, in hours.
+- Reservoir storage limits (the minimum is the dead volume), in hm³, and total outflow limits, in m³/s.
+- One or more generating unit groups, each with its own bus, turbined-flow limits and generation limits.
+- Generation model: constant productivity or FPHA (approximated hydro production function), with its data coming from the production-model files.
+- Optionally: evaporation (12 monthly values), a diversion channel (destination plant and capacity), dead-volume filling and plant-specific penalties.
+- Entry and exit stages, when the plant does not exist throughout the study.
+- The initial storage of each reservoir, in the initial conditions.
+
+## Plant lifecycle
+
+At each stage, a hydro plant is in pre-filling, dead-volume filling or operation:
+
+<WhyCards items={[
+  { title: '1. Pre-filling', text: 'The plant does not yet exist in the dispatch. Turbined flow, spillage and diversion are fixed at zero, storage is held constant, and the natural inflow is passed to the first downstream plant that is not in pre-filling.' },
+  { title: '2. Dead-volume filling', text: 'Runs from the filling start stage to the entry stage. The plant does not generate and the reservoir accumulates water up to the dead volume, following a per-stage filling floor. Spillage is a free decision.' },
+  { title: '3. Operating', text: 'The plant can generate and is subject to the generation constraints. For a plant that went through filling, the dead volume applies again as a soft storage floor.' },
+]} />
+
+A plant without filling and without an operation window is operating at every stage. With a window, it is operating inside it and in pre-filling before the entry stage and from the exit stage onward. A plant with filling has no exit stage, so it never returns to pre-filling.
+
+## Travel time along the cascade
+
+By default, water released by a plant reaches the downstream plant within the same stage. When the reach between the two is long enough, the plant can declare a water travel time on its main cascade reach: part of the outflow arrives downstream within the stage and the rest arrives in later stages.
+
+Water still in transit becomes part of the model state (in-transit buckets), together with storage and the inflow lags. Travel time applies only to the main cascade reach; diversion and pumping are instantaneous, and a missing or zero time means an instantaneous transfer. When the study starts with water already in transit, the pre-study outflows are provided in the initial conditions.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'System elements overview — hydro plants', href: '/math/system-elements/#5-hydro-plants' },
+  { kind: 'Methodology', title: 'LP formulation §4 — hydro water balance', href: '/math/lp-formulation/#4-hydro-water-balance' },
+  { kind: 'Methodology', title: 'LP formulation — lifecycle phases', href: '/math/lp-formulation/#lifecycle-phases' },
+  { kind: 'Methodology', title: 'Hydro production function models', href: '/math/hydro-production-models/' },
+  { kind: 'Methodology', title: 'State augmentation §6 — water travel time', href: '/math/state-augmentation/#6-water-travel-time' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'system/hydros.json', href: '/reference/case-format/hydros/#systemhydrosjson' },
+  { dir: 'in', path: 'system/hydro_production_models.json', href: '/reference/case-format/production-models/#systemhydro_production_modelsjson' },
+  { dir: 'in', path: 'system/hydro_geometry.parquet', href: '/reference/case-format/production-models/#systemhydro_geometryparquet' },
+  { dir: 'in', path: 'initial_conditions.json', href: '/reference/case-format/initial-conditions/#initial_conditionsjson' },
+  { dir: 'out', path: 'simulation/hydros/', href: '/reference/output/simulation/#simulationhydros' },
+  { dir: 'out', path: 'simulation/hydro_bus_generation/', href: '/reference/output/simulation/#simulationhydro_bus_generation' },
+]} />

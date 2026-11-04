@@ -1,0 +1,98 @@
+Esta aba registra como o Novo Modelo implementa [§2.2 Amostragem Reprodutível](/pt-br/math/scenario-generation#22-amostragem-reprodutivel), [§2.3 Árvore de Aberturas](/pt-br/math/scenario-generation#23-arvore-de-aberturas), [§2.5 Aberturas por Resíduos Históricos](/pt-br/math/scenario-generation#25-aberturas-por-residuos-historicos), [§4.3 Inversão de Ruídos para Cenários Externos e Históricos](/pt-br/math/scenario-generation#43-inversao-de-ruidos-para-cenarios-externos-e-historicos) e [§4.5 Consistência de x₀ na Reprodução Histórica](/pt-br/math/scenario-generation#45-consistencia-de-x-na-reproducao-historica),
+e lista os layouts de bytes, a cadeia de defasagens, a tolerância, os avisos e o limite que a metodologia não detalha.
+
+### Derivação das sementes
+
+Toda semente é um digest SipHash-1-3 de uma concatenação de bytes little-endian, e o digest de 64 bits inicializa o gerador PCG64 que sorteia os ruídos. Os layouts, sendo a semente o primeiro campo de cada um:
+
+| Semente                 | Bytes, em ordem                                                                    | Comprimento          | Valor da semente                                                                                    | Sorteio                                                                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Forward                 | seed `u64`, iteration `u32`, scenario `u32`, stage `u32`                           | 20                   | `training.tree_seed` para a escolha dentro da amostra (in-sample); uma base fixa para a seleção de janela e de cenário externo | A escolha dentro da amostra de uma abertura; com base fixa, a escolha de uma janela histórica ou de um cenário externo.         |
+| Lote do estágio         | seed `u64`, stage `u32`                                                            | 12                   | `training.tree_seed`                                                                                | Um lote da árvore de aberturas por hipercubo latino, Sobol ou Halton.                                                          |
+| Abertura                | seed `u64`, opening index `u32`, stage `u32`                                       | 16                   | `training.tree_seed`                                                                                | Um sorteio Monte Carlo da árvore de aberturas e a janela lida por uma abertura por resíduos históricos.                        |
+| Forward agrupado        | tag byte `0x01`, seed `u64`, iteration `u32`, scenario `u32`, noise-group id `u32` | 21                   | A semente forward da classe                                                                         | O sorteio forward fora da amostra (out-of-sample) do método Monte Carlo, ao qual recorrem os estágios `selective` e `historical_residuals`. |
+| Forward da classe       | tag byte `0x02`, seed `u64`, class name bytes                                      | 9 + comprimento do nome | A semente forward da fase                                                                        | A semente forward da classe de carga e da classe NCS.                                                                          |
+
+O layout Forward agrupado usa como semente a semente forward da classe: a semente forward da fase, para a classe de afluências, e o digest Forward da classe calculado sobre ela, para a classe de carga e a classe NCS. A semente forward da fase é `training.scenario_source.seed` no treinamento (training) e, na simulação, `simulation.scenario_source.seed`, ou `training.scenario_source.seed` quando `simulation.scenario_source` está ausente. O layout Forward da classe aplica o hash à semente forward da fase junto com os bytes do nome da classe, `load` ou `ncs`; a classe de afluências não tem digest próprio. As três classes, portanto, sorteiam ruídos independentes, pois suas sementes diferem.
+
+A seleção de janela e de cenário externo aplica o hash a `(iteration, scenario)` com o layout Forward, estágio `0` e uma base fixa no lugar da semente: `0x6869_7374_6f72_6963` (o texto ASCII `historic`, byte mais significativo primeiro) seleciona uma janela histórica, e `0x6578_7465_726e_616c` (`external`) seleciona um cenário externo. Nenhuma semente do usuário entra em qualquer das duas seleções.
+
+### Cadeia de defasagens da inversão
+
+{/* quoted from source: crates/novomodelo-sddp/src/setup/mod.rs:1802-1816 at novomodelo v0.20.0 */}
+A inversão do §4.3 avança sua cadeia de defasagens com as transições de defasagem por estágio usadas pelo PL. `resolve_stage_lag_transitions` deriva a ordem PAR a jusante e as transições de defasagem por estágio (`StageLagTransition`) e é, nas palavras do código-fonte, "The sole owner of both derivations" (a única responsável por ambas as derivações); a montagem do PL e a biblioteca de cenários históricos a chamam uma vez cada, sobre seus próprios modelos PAR.
+
+A biblioteca guarda uma impressão digital (fingerprint) da tendência hidrológica que originou sua cadeia de inversão: um digest SipHash-1-3 dos valores de defasagem da tendência como bytes `f64` little-endian. O Novo Modelo o reporta como `historical_library_seed_digest` em `training/model_provenance.json` (veja [Arquivos de metadados](/pt-br/reference/output/metadata/#trainingmodel_provenancejson)) e o omite quando nenhuma biblioteca foi construída. Um digest diferente do digest da tendência recém-derivada indica uma biblioteca invertida a partir de outro x₀, cuja reprodução não é exata.
+
+### Tolerância determinística
+
+A regra σ = 0 do §4.3 compara o desvio-padrão com `0.0` de forma exata. Com σ = 0, a inversão retorna ruído `0` quando o valor-alvo difere do valor determinístico por menos de `1e-10` em módulo, e `NEG_INFINITY` caso contrário. A validação da biblioteca recusa ruídos `NEG_INFINITY` ou NaN. A verificação V2.3 cobre o conjunto de janelas históricas, e a verificação V3.7, uma biblioteca externa; as mensagens de erro trazem esses identificadores (veja [Códigos de erro](/pt-br/reference/error-codes/#stochasticpreparationerror)).
+
+### Avisos
+
+O Novo Modelo registra estes oito avisos no log e prossegue. Cada texto abaixo é fixo, exceto pelos valores em seus marcadores. No `novomodelo run` com dois ou mais processos MPI, apenas o rank 0 os imprime.
+
+- **Limitação por cenários externos.** Uma classe no esquema externo tem, em um estágio, menos cenários externos brutos que o `branching_factor` do estágio, e nenhuma limitação mais restritiva se aplica:
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:142-150 at novomodelo v0.20.0 */}
+  ```text
+  External scenarios: {} raw scenarios < branching_factor {}; opening tree clamped to {} openings
+  ```
+- **Limitação pelo conjunto de janelas.** Um estágio `historical_residuals` tem um conjunto de janelas menor que seu `branching_factor`:
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:285-293 at novomodelo v0.20.0 */}
+  ```text
+  HistoricalResiduals: {} historical windows < branching_factor {}; opening tree clamped to {} openings
+  ```
+- **Recurso alternativo fora da amostra.** Uma classe no esquema `out_of_sample` tem estágios que selecionam `selective` ou `historical_residuals`, e a simulação forward sorteia ruídos Monte Carlo simples nesses estágios:
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/mod.rs:567-569 at novomodelo v0.20.0 */}
+  ```text
+  class '{class_str}' has {count} out-of-sample forward stage(s) selecting {methods} noise, not implemented in the forward pass; falling back to the sample-average method for stage id(s) {stage_ids:?}
+  ```
+
+  O marcador `{methods}` assume `selective`, `historical_residuals` ou `selective or historical_residuals`, e o método de média amostral (sample-average) é o método Monte Carlo simples (`saa`).
+- **Poucas janelas históricas.** O conjunto de janelas históricas contém menos janelas que o número de simulações forward:
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/window.rs:145-153 at novomodelo v0.20.0 */}
+  ```text
+  fewer windows ({}) than forward passes ({forward_passes}): historical sampling will repeat windows across forward passes
+  ```
+- **Poucas janelas na biblioteca histórica.** O Novo Modelo verifica novamente o conjunto de janelas históricas ao validar a biblioteca construída a partir dele, de modo que a mesma insuficiência gera um segundo aviso:
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:609-617 at novomodelo v0.20.0 */}
+  ```text
+  historical library has fewer windows ({}) than forward passes ({}); windows will be reused across forward passes
+  ```
+- **Poucos cenários na biblioteca externa.** Nenhum estágio de uma biblioteca de cenários externos contém tantos cenários quanto o número de simulações forward; cada classe no esquema externo é verificada separadamente:
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/external.rs:785-795 at novomodelo v0.20.0 */}
+  ```text
+  external {class} library has fewer scenarios ({n_scenarios}) than forward passes ({forward_passes}); scenarios will be reused across forward passes
+  ```
+
+  O marcador `{class}` assume `inflow`, `load` ou `ncs`.
+- **Coordenadas constantes no casamento de momentos.** O casamento de momentos (moment matching) encontra usinas hidrelétricas cujas aberturas em um estágio gerado são todas iguais e as mantém como sorteadas; as contagens abrangem a árvore inteira:
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:163-171 at novomodelo v0.20.0 */}
+  ```text
+  moment matching left {coordinates} inflow coordinate(s) in {stages} stage(s) as drawn: every opening is equal there
+  ```
+- **Cópias menores de grupo de ruído no casamento de momentos.** Um estágio de um grupo de ruído tem menos aberturas que o primeiro estágio ajustado do seu grupo, de modo que as aberturas que ele copia não passam, como conjunto, pelo casamento de momentos:
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:172-178 at novomodelo v0.20.0 */}
+  ```text
+  {stages} stage(s) copy a noise-group stage with a different opening count; their copied openings are not moment-matched
+  ```
+
+### Limite de dimensão do Sobol
+
+{/* quoted from source: crates/novomodelo-stochastic/src/tree/qmc_sobol/sobol_directions.rs:25 at novomodelo v0.20.0 */}
+
+Os números de direção de Sobol cobrem `SOBOL_MAX_DIM: usize = 21201` dimensões. Um estágio em `qmc_sobol` cujo vetor de ruídos tenha mais coordenadas é rejeitado com o erro abaixo, em que `{method}` é `sobol`.
+
+{/* quoted from source: crates/novomodelo-stochastic/src/error.rs:46 at novomodelo v0.20.0 */}
+
+`noise dimension {dim} exceeds maximum supported dimension {max_dim} for {method}`
+
+### Árvore de aberturas entre ranks MPI
+
+{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-401 and crates/novomodelo-stochastic/src/tree/opening_tree.rs:258-275 at novomodelo v0.20.0 */}
+
+Com dois ou mais processos MPI, o `novomodelo run` verifica, depois da montagem, que todos os ranks construíram a mesma árvore de aberturas. Cada rank calcula o hash da sua árvore com FNV-1a de 64 bits sobre o número de estágios, a dimensão do ruído, o número de aberturas de cada estágio, o padrão de bits de cada valor de ruído e a ordem de solução, e os ranks trocam o menor e o maior resumo (digest). Quando os dois diferem, a execução para com código `4` antes do treinamento ([Falhas de comunicação](/pt-br/reference/error-codes/#falhas-de-comunicacao)):
+
+```text
+opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same tree from the broadcast inputs
+```

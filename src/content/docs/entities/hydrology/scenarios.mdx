@@ -1,0 +1,85 @@
+---
+title: Scenarios and openings
+description: How Novomodelo represents the possible futures — the opening tree, the sampling schemes of the forward pass, and the nodes of the policy graph.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import Scenarios from '../../../../components/entity/illustrations/Scenarios.astro';
+
+<EntityHero family="hydrology" icon="scenarios" lead="A scenario is one realization of the uncertain quantities (inflows, load and non-controllable sources) along the planning horizon. To train the policy, Novomodelo fixes at each stage a finite set of noise vectors, the openings, and the forward and backward passes use that set in different ways." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'The policy is trained on a sample', text: 'Each stage\'s noise distribution is replaced by a finite, equiprobable sample of noise vectors: the opening tree. This is the sample average approximation (SAA), and the backward pass builds its cuts on that sample.' },
+  { title: 'Generated once, kept fixed', text: 'The opening tree is generated once before training begins and reused in every iteration, so the backward pass always sees the same tree at every node.' },
+  { title: 'The number of openings is a trade-off', text: 'The backward pass solves one subproblem per opening at each node, so its cost grows in proportion to the number of openings. Every count yields valid cuts: the choice affects the cost of an iteration and the speed of convergence, not the validity of the lower bound.' },
+]} />
+
+## One tree, two ways to walk it
+
+<Scenarios lang="en" />
+
+## What the model decides
+
+Nothing about the scenarios themselves: they are data, drawn and evaluated by the model. In the forward pass the model follows a single trajectory, one node per stage along the path it visits. In the backward pass it evaluates every opening of each node at the states visited by the forward pass, and builds the cuts from them.
+
+## What you provide
+
+- The number of openings of each stage (`num_openings`), required on the plain stage chain and wherever the openings are generated.
+- The method that generates the openings of each stage (`sampling_method`), which can vary by stage.
+- The forward-pass noise source of each stochastic class (inflow, load, non-controllable sources), in the run configuration. When not set, every class draws from the opening tree.
+- Optionally, external scenarios, a supplied opening tree, or the inflow history for replay.
+- Optionally, spatial correlation between the plants of the same group, and a seed for the opening tree.
+
+## How the forward pass chooses its noise
+
+The sampling scheme selects the noise that the forward pass uses at each stage, separately for each class. There are four.
+
+- **In-sample.** The default. The forward pass draws an opening from the same opening tree that the backward pass uses.
+- **Out-of-sample.** It draws fresh noise from the applied model, with a seed independent of the opening tree's. Its forward costs estimate the cost of the policy under the model, not under the tree.
+- **External.** It reads the scenarios you supply.
+- **Historical.** It replays the inflow record. It exists for the inflow class only.
+
+The backward pass is not affected: it always evaluates all the openings of the tree. With the external and historical schemes, the forward trajectories follow the external or historical law while the cuts and the lower bound are built on the opening tree, so the gap compares two different problems and need not close.
+
+## How the openings are generated
+
+The method of each stage decides how the tree is filled, independently of the sampling scheme.
+
+- **Plain Monte Carlo.** The default. Independent standard-normal components, equiprobable openings.
+- **Latin hypercube, scrambled Sobol and scrambled Halton.** Stratified or low-discrepancy samples of the same distribution.
+- **Selective.** The openings come from a tree you supply, and Novomodelo generates none.
+- **Historical residuals.** Each opening carries the standardized inflow noise of one window of the historical record, which already embeds the correlation between plants.
+
+The correlation between plants of the same group is applied after the draws in the first four methods.
+
+## Nodes and transitions
+
+By default the policy graph is a chain with one node per stage. Declaring nodes explicitly lets a stage hold several. A transition is a directed edge to a node exactly one stage later, weighted by a probability. Two probabilities stay distinct: the one on the edge says which child node a trajectory moves to, and the one on the openings says which realization is evaluated once the node is reached.
+
+An enumerated pass, with no sampling, visits every node and every path of a finite graph, so its bounds are those of the declared tree. It suits short horizons and trees that branch at few stages.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'Scenario Generation §2.3 — opening tree', href: '/math/scenario-generation/#23-opening-tree' },
+  { kind: 'Methodology', title: 'Scenario Generation §2.3a — sampling method and opening tree generation', href: '/math/scenario-generation/#23a-sampling-method-and-opening-tree-generation' },
+  { kind: 'Methodology', title: 'Scenario Generation §3 — sampling scheme abstraction', href: '/math/scenario-generation/#3-sampling-scheme-abstraction' },
+  { kind: 'Methodology', title: 'Policy Graphs §1 — nodes, transitions and future-cost pools', href: '/math/policy-graphs/#1-nodes-transitions-and-future-cost-pools' },
+  { kind: 'Methodology', title: 'Policy Graphs §2 — two probability axes', href: '/math/policy-graphs/#2-two-probability-axes' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'stages.json', href: '/reference/case-format/stages/#stagesjson' },
+  { dir: 'in', path: 'config.json (training.scenario_source)', href: '/running/configuration/#trainingscenario_source' },
+  { dir: 'in', path: 'config.json (simulation.scenario_source)', href: '/running/configuration/#simulationscenario_source' },
+  { dir: 'in', path: 'scenarios/noise_openings.parquet', href: '/reference/case-format/scenarios/#scenariosnoise_openingsparquet' },
+  { dir: 'in', path: 'scenarios/external_inflow_scenarios.parquet', href: '/reference/case-format/scenarios/#scenariosexternal_inflow_scenariosparquet' },
+  { dir: 'out', path: 'stochastic/noise_openings.parquet', href: '/reference/output/stochastic/#stochasticnoise_openingsparquet' },
+]} />

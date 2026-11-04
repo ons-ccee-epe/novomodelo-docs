@@ -1,0 +1,75 @@
+---
+title: Fontes não despacháveis
+description: Como o Novo Modelo trata eólicas, solares e pequenas hidrelétricas a fio d'água — disponibilidade como dado, corte de geração e geração compulsória.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import NonControllableSource from '../../../../../components/entity/illustrations/NonControllableSource.astro';
+
+<EntityHero family="equipment" icon="solar" lead="Uma fonte não despachável representa geração intermitente (parques eólicos, usinas solares, pequenas hidrelétricas a fio d'água) cuja produção disponível depende de condições externas, como clima e vazão do rio, e não de decisões de despacho." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'A disponibilidade é um dado', text: 'O modelo recebe a geração disponível como dado e só pode reduzir a geração abaixo desse montante. Não pode despachar acima do que a natureza oferece.' },
+  { title: 'Energia quase gratuita', text: 'As fontes não despacháveis têm custo marginal próximo de zero. Cortar geração disponível descarta energia gratuita, e por isso o modelo atribui ao corte um pequeno custo de regularização, como o custo de vertimento de uma hidrelétrica.' },
+  { title: 'Incerta por cenário', text: 'Quando a fonte tem um modelo de disponibilidade, sua disponibilidade é sorteada em cada cenário. Caso contrário, o modelo usa a geração disponível do estágio.' },
+]} />
+
+## Disponibilidade, corte de geração e geração compulsória
+
+<NonControllableSource lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="equipment" items={[
+  { label: 'Geração', unit: 'MW' },
+]} note="A geração de cada patamar fica entre zero e a geração disponível, e esses limites são rígidos, sem folga. O corte de geração não é uma decisão separada: é a geração disponível menos a geração despachada. Uma fonte de geração compulsória (must-run) não tem o que decidir, pois sua geração é igual à sua disponibilidade." />
+
+## O que você informa
+
+- O barramento em que a geração é injetada.
+- A capacidade instalada, em MW. Ela escala a disponibilidade estocástica e não limita a geração disponível.
+- Se a fonte admite corte de geração. O padrão é que admite; a alternativa é a geração compulsória (must-run).
+- Opcionalmente, um custo de corte de geração para a fonte. Quando ausente, vale o padrão do caso no arquivo de penalidades.
+- Estágios de entrada e de saída de operação, quando a fonte não existe durante todo o estudo.
+- O modelo de disponibilidade, quando a fonte tem um: a média e o desvio-padrão do fator de disponibilidade de cada estágio. Com eles o modelo sorteia a razão de disponibilidade de cada estágio e cenário, entre 0 e 1.
+- Fatores de patamar, quando a disponibilidade difere entre os patamares de um estágio, como em um perfil diário de irradiância solar. Quando não informados, o fator é 1.
+- Para uma fonte sem modelo de disponibilidade, a geração disponível de cada estágio. Quando o estágio não a define, vale a capacidade instalada.
+
+## Como se forma a geração disponível
+
+Para cada estágio e cenário, a geração disponível de um patamar é a capacidade instalada, multiplicada pela razão de disponibilidade e pelo fator de patamar. Uma fonte sem modelo de disponibilidade usa a geração disponível do estágio no lugar da capacidade vezes a razão, e o fator de patamar continua valendo. Uma fonte que obtém sua disponibilidade do modelo ou de cenários fornecidos ignora os valores por estágio.
+
+## Com corte de geração e geração compulsória
+
+- **Com corte de geração (padrão).** A geração é livre entre zero e a geração disponível. O modelo corta quando isso compensa, e o corte é valorado pelo custo de corte de geração. É o modelo padrão para usinas eólicas e solares isoladas, nas quais reduzir a geração é fisicamente viável.
+- **Geração compulsória (must-run).** A geração é fixada na geração disponível em todos os cenários. Nada é cortado.
+
+A geração compulsória é necessária quando o pipeline de cenários alimenta o modelo com um agregado já abatido da demanda por um modelo a montante, como um total de geração não simulada (pequenas hidrelétricas, térmicas distribuídas, eólica, solar, microgeração distribuída). Deixar o modelo cortar esse agregado descontaria a contribuição duas vezes e subestimaria o custo hidrotérmico.
+
+Como os demais equipamentos, a fonte não despachável segue sua janela de operação: fora dela, a geração é nula em todos os patamares, com ou sem geração compulsória.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Visão geral da modelagem dos elementos — fontes não despacháveis', href: '/pt-br/math/system-elements/#6-fontes-de-geracao-nao-despachaveis' },
+  { kind: 'Metodologia', title: 'Visão geral da modelagem dos elementos — com corte de geração vs. geração compulsória', href: '/pt-br/math/system-elements/#sujeita-a-corte-vs-geracao-compulsoria' },
+  { kind: 'Metodologia', title: 'Formulações por equipamento §6 — fontes de geração não despacháveis', href: '/pt-br/math/equipment-formulations/#6-fontes-de-geracao-nao-despachaveis' },
+  { kind: 'Metodologia', title: 'Fontes com geração compulsória e a armadilha do desconto em dobro', href: '/pt-br/math/equipment-formulations/#ncs-com-geracao-compulsoria-e-a-armadilha-do-desconto-em-dobro' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'system/non_controllable_sources.json', href: '/pt-br/reference/case-format/system/#systemnon_controllable_sourcesjson' },
+  { dir: 'in', path: 'scenarios/non_controllable_stats.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosnon_controllable_statsparquet' },
+  { dir: 'in', path: 'scenarios/non_controllable_factors.json', href: '/pt-br/reference/case-format/scenarios/#scenariosnon_controllable_factorsjson' },
+  { dir: 'in', path: 'penalties.json', href: '/pt-br/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'constraints/ncs_bounds.parquet', href: '/pt-br/reference/case-format/constraints/#constraintsncs_boundsparquet' },
+  { dir: 'out', path: 'simulation/non_controllables/', href: '/pt-br/reference/output/simulation/#simulationnon_controllables' },
+]} />

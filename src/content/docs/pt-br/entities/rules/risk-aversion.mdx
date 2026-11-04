@@ -1,0 +1,75 @@
+---
+title: Aversão a risco (CVaR)
+description: Como o Novo Modelo dá mais peso aos piores cenários — a combinação do valor esperado com o CVaR, seus dois parâmetros por estágio e o efeito sobre os limites da PDDE (SDDP).
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import CvarPlot from '../../../../../components/CvarPlot.astro';
+
+<EntityHero family="rules" icon="risk" lead="A aversão a risco faz o modelo dar mais peso aos cenários de custo alto, em vez de olhar só o custo esperado. O Novo Modelo usa uma combinação do valor esperado com o CVaR (Valor em Risco Condicional), que é o custo esperado na fração dos piores cenários." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'A média pode esconder cenários ruins', text: 'A PDDE (SDDP) neutra ao risco minimiza apenas o custo esperado, o que pode levar a políticas com desempenho ruim em cenários adversos. A versão avessa ao risco protege contra esses riscos de cauda e preserva as propriedades de convexidade necessárias para gerar cortes válidos.' },
+  { title: 'O CVaR é a média da cauda', text: 'O CVaR com fração de cauda 1 é o valor esperado, ou seja, neutro ao risco. Com fração 0,5, é a média dos 50% piores resultados; com 0,2, a dos 20% piores; com 0,05, a dos 5% piores. Quanto menor a fração, mais avessa ao risco é a postura.' },
+  { title: 'Dois parâmetros, por estágio', text: 'A medida combina o valor esperado e o CVaR: um parâmetro é a fração de cauda e o outro é o peso do CVaR. Com peso 0 a medida é o valor esperado; com peso 1 é o CVaR puro. Cada estágio pode ter a sua.' },
+]} />
+
+## A cauda dos piores resultados
+
+<figure class="entity-illustration entity-rules">
+  <CvarPlot />
+  <figcaption>Figura: distribuição do custo, com a média, o valor em risco (VaR) e o CVaR marcados e a cauda dos piores resultados sombreada. O CVaR é o custo médio dentro da cauda.</figcaption>
+</figure>
+
+## O que o modelo decide
+
+<DecisionChips family="rules" items={[
+  { label: 'Peso de cada abertura na agregação dos cortes' },
+  { label: 'Limite inferior do primeiro estágio, ajustado ao risco', unit: 'R$' },
+]} note="Sob aversão a risco, a agregação dos cortes deixa de usar probabilidades uniformes e repondera as aberturas em direção aos piores resultados. O modelo calcula esses pesos; você informa só a medida de cada estágio." />
+
+## O que você informa
+
+- A medida de risco de cada estágio, no campo `risk_measure` de `stages.json`. O valor `"expectation"`, assumido quando o campo está ausente, é neutro ao risco. Qualquer outra string é rejeitada.
+- Para o CVaR, os dois parâmetros, ambos obrigatórios: a fração de cauda (`alpha`, no intervalo de 0 exclusive a 1) e o peso do CVaR (`lambda`, de 0 a 1).
+- Um peso zero equivale ao valor esperado, qualquer que seja a fração de cauda.
+- A medida pode variar de um estágio para outro.
+
+:::caution[A fração de cauda não é um nível de confiança]
+`alpha` é a fração dos piores resultados que entra no CVaR. Assim, `0.95` calcula a média dos 95% piores resultados e é quase neutro ao risco; os 5% piores correspondem a `0.05`. Uma ferramenta que recebe um nível de confiança `c` corresponde a `alpha = 1 - c`.
+:::
+
+## Qual estágio pesa o quê
+
+O `risk_measure` de um estágio pondera as aberturas do estágio seguinte nos cortes que esse estágio armazena. O do primeiro estágio pondera também as aberturas do próprio primeiro estágio no limite inferior. O do último estágio do estudo não entra em nenhum corte.
+
+## O que muda nos limites
+
+- **Limite inferior.** Sob uma medida coerente, o limite inferior do treinamento (training) continua válido, quer a medida varie ou não entre estágios, e não decresce ao longo das iterações. A validade se apoia nas hipóteses da Camada 1 da metodologia.
+- **Limite superior.** Uma simulação forward amostrada não fornece um limite superior exato. A média dos custos dos caminhos amostrados estima o custo esperado da política, e não o seu valor ajustado ao risco, e pode ficar abaixo do limite inferior.
+- **Certificado do gap.** O critério de parada por gap exige uma simulação forward enumerada e uma medida uniforme em todos os estágios: o valor esperado ou a mesma medida CVaR.
+- **Na prática.** Para monitorar a convergência, a metodologia recomenda a estagnação do limite inferior. A simulação reporta a distribuição de custos da política, que não limita nenhum valor ajustado ao risco.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Medidas de risco §2 — Valor em Risco Condicional (CVaR)', href: '/pt-br/math/risk-measures/#2-valor-em-risco-condicional-cvar' },
+  { kind: 'Metodologia', title: 'Medidas de risco §3 — medida por combinação convexa', href: '/pt-br/math/risk-measures/#3-medida-de-risco-por-combinacao-convexa' },
+  { kind: 'Metodologia', title: 'Medidas de risco §7 — geração de cortes com medidas de risco', href: '/pt-br/math/risk-measures/#7-geracao-de-cortes-com-medidas-de-risco' },
+  { kind: 'Metodologia', title: 'Medidas de risco §8 — limite superior', href: '/pt-br/math/risk-measures/#8-limite-superior-com-medidas-de-risco' },
+  { kind: 'Metodologia', title: 'Medidas de risco §9 — validade do limite inferior', href: '/pt-br/math/risk-measures/#9-validade-do-limite-inferior-com-medidas-de-risco' },
+  { kind: 'Metodologia', title: 'Medidas de risco — configuração de risk_measure', href: '/pt-br/math/risk-measures/#stagesrisk_measure--medida-de-risco' },
+  { kind: 'Visão geral', title: 'A PDDE em uma página §3 — medidas de risco', href: '/pt-br/overview/sddp-framework-overview/#3-medidas-de-risco' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'stages.json (stages[].risk_measure)', href: '/pt-br/reference/case-format/stages/#stagesjson' },
+]} />

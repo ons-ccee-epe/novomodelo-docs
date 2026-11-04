@@ -1,0 +1,108 @@
+Este é um índice, restrito ao tema, dos arquivos envolvidos na estimação do modelo PAR(p) —
+nomeia cada arquivo e sua função, sem repetir seus esquemas campo a campo além
+do que a aba Configurar já mostra para a parte de autoria da configuração.
+A referência exaustiva, campo a campo, do diretório do caso e das saídas
+pertence ao acervo de Referência (páginas [Formato do caso](/pt-br/reference/case-format/)
+e [Formato de saída](/pt-br/reference/output/)).
+
+### Entradas
+
+| Arquivo | Função |
+| ---- | ---- |
+| `scenarios/inflow_history.parquet` | Observações históricas de vazão em janelas, por (UHE, `[start_date, end_date)`). Tem quatro funções, da estimação às aberturas por resíduos históricos (listadas abaixo da tabela). |
+| `scenarios/inflow_seasonal_stats.parquet` | Estatísticas sazonais fornecidas pelo usuário ou estimadas, por (UHE, estágio). A coluna `std_m3s` é o **desvio-padrão amostral armazenado** da série histórica — não o desvio-padrão do ruído (inovação) usado para escalar o ruído (veja Notas de implementação). |
+| `scenarios/inflow_ar_coefficients.parquet` | Coeficientes AR padronizados, fornecidos pelo usuário ou estimados, uma linha por (UHE, estágio, defasagem) — esquema `[hydro_id, stage_id, lag, coefficient]`. A ordem do modelo AR é deduzida da contagem de linhas, não é armazenada explicitamente. |
+| `scenarios/inflow_annual_component.parquet` | Trinca anual opcional do PAR(p)-A fornecida pelo usuário (coeficiente, média e desvio-padrão da média móvel de 12 meses). Respeitada apenas nos caminhos de repasse — os caminhos de estimação a sobrescrevem com valores estimados (veja a aba Configurar). |
+| `scenarios/correlation.json` | Perfis nomeados de correlação espacial e cronograma opcional por estágio. Quando presente, prevalece sobre a correlação estimada ou identidade em todos os caminhos de origem das afluências. |
+| `initial_conditions.json` (linhas `recent_observations`) | Camada de condicionamento sobre o registro em janelas `inflow_history`: vazão observada em períodos parciais antes do início do estudo, sobrepondo-se a `inflow_history` dia a dia onde os dois coincidem. Alimenta a tendência hidrológica derivada, consumida pelos termos de defasagem e pelo acumulador de meio de período dos estágios iniciais do estudo (metodologia §2.5 e aba Configurar). |
+
+`scenarios/inflow_history.parquet` tem quatro funções:
+
+1. Conduz o caminho de estimação (H) quando presente.
+2. É a camada base da tendência hidrológica derivada em todos os caminhos (veja a aba Configurar).
+3. Fornece as janelas de reprodução histórica do esquema forward `historical`.
+4. Fornece as aberturas por resíduos históricos dos estágios cujo `sampling_method` é `historical_residuals`.
+
+As duas últimas são descritas em [Geração de cenários](/pt-br/math/scenario-generation).
+
+Para o esquema completo, campo a campo, de cada arquivo acima, consulte a
+página de referência [Formato do caso](/pt-br/reference/case-format/) no
+acervo de Referência.
+
+### Modelos PAR ajustados externamente
+
+O Novo Modelo aceita parâmetros inteiramente fornecidos pelo usuário — é possível ajustar um modelo PAR($p$) com
+**qualquer** método fora do Novo Modelo e entregar a ele os dois arquivos parquet (os
+caminhos `UserProvidedNoHistory` e `UserProvidedAll` da aba Configurar).
+O Novo Modelo então pula o ajuste, valida as entradas e deriva a escala do
+ruído $r_m$ a partir do $\psi^*$ fornecido, pelo fechamento da ACF periódica (veja
+[Derivação da escala do ruído](/pt-br/math/par-inflow-model#41-derivacao-da-escala-do-ruido)). Os campos **não**
+codificam o método de ajuste do Novo Modelo — codificam a [representação em dois
+planos](/pt-br/math/par-inflow-model) —, de modo que qualquer ajuste se mapeia neles pela tabela
+abaixo. Seja $s_m$ o desvio-padrão amostral sazonal da sua série e $\psi_{m,\ell}$ seus
+coeficientes AR em unidades originais.
+
+| Coluna (arquivo)                                | Preencher com                              | Significado                                               |
+| ----------------------------------------------- | ------------------------------------------ | --------------------------------------------------------- |
+| `mean_m3s` (`inflow_seasonal_stats`)            | $\mu_m$                                     | Média sazonal da série (m³/s)                             |
+| `std_m3s` (`inflow_seasonal_stats`)             | $s_m$                                       | Desvio-padrão **amostral** sazonal da série (m³/s)        |
+| `coefficient` (`inflow_ar_coefficients`)        | $\psi^*_{m,\ell} = \psi_{m,\ell}\,s_{m-\ell}/s_m$ | Coeficiente AR **padronizado pelo desvio-padrão sazonal** |
+
+Não há coluna para o desvio-padrão do ruído do seu próprio modelo, $\sigma_m$: o Novo Modelo
+sempre **deriva** $r_m = \sigma_m/s_m$ a partir dos $\psi^*_{m,\ell}$ fornecidos,
+da mesma forma que deriva $r_m$ para um modelo ajustado internamente (veja
+[Derivação da escala do ruído](/pt-br/math/par-inflow-model#41-derivacao-da-escala-do-ruido)). Se o
+$\hat\sigma_m$ do seu ajuste não for exatamente consistente com o $\psi^*$ fornecido sob o
+fechamento da ACF periódica, o $\sigma_m$ derivado pelo Novo Modelo difere do seu ajuste
+original — o fechamento deriva a escala do ruído de modo que o desvio-padrão sazonal $s_m$
+fornecido seja respeitado exatamente.
+
+Regras que o Novo Modelo impõe (ou que, se violadas, distorcem silenciosamente a escala do modelo):
+
+- **Padronize pelo desvio-padrão sazonal, de forma consistente.** Os coeficientes são os
+  da série padronizada pelo seu desvio-padrão amostral sazonal — a padronização
+  clássica — e o $s_m$ pelo qual se divide deve ser exatamente o `std_m3s`
+  armazenado: o Novo Modelo reconstrói $\psi_{m,\ell}$ e $\sigma_m$ a partir do `std_m3s` armazenado,
+  de modo que uma inconsistência passa despercebida.
+- **O Novo Modelo rejeita sumariamente um conjunto de coeficientes que não passa no teste de estacionariedade.**
+  O teste aplica o [fechamento da ACF periódica](/pt-br/math/par-inflow-model) ao
+  $\psi^*$ fornecido e rejeita toda a carga quando o sistema do fechamento é
+  singular, quando a variância do ruído implícita está no piso numérico ou abaixo dele em
+  algum período sazonal, quando alguma autocorrelação implícita tem módulo maior que 1, ou quando uma
+  estimativa conservadora do raio espectral da monodromia periódica atinge 1. O teste é aplicado
+  apenas a coeficientes fornecidos diretamente; coeficientes ajustados internamente
+  não são testados quanto à estacionariedade, mas, como em todo caminho de carga, são protegidos
+  pela salvaguarda própria da derivação do fechamento — um $r_m$ derivado não finito é um
+  erro fatal de carga que identifica a UHE e o período sazonal.
+- As defasagens devem ser contíguas $1, 2, \ldots, p$; a **ordem AR $p$ é implícita**
+  na contagem de linhas (não há coluna de ordem). Ruído branco = nenhuma linha de coeficiente
+  para aquele (UHE, estágio), isto é, ordem 0, para a qual o fechamento dá $r_m = 1$.
+- **É exigido contexto de período sazonal resolvível sempre que alguma ordem AR for $>0$.**
+  Todo grupo (UHE, estágio) com pelo menos uma linha de coeficiente deve ser associado
+  a um período sazonal via `season_definitions` ou via `season_id` por estágio (veja
+  [Formato do caso](/pt-br/reference/case-format/) e
+  [Configuração](/pt-br/running/configuration/)) — isso vale em
+  todo caminho de carga, inclusive uma simples leitura de arquivo sem ajuste.
+- **As defasagens só avançam sob `season_definitions`.** Um `season_id` por estágio
+  satisfaz a regra acima, mas sem `season_definitions` nenhum
+  estágio completa um período de defasagem e a tendência hidrológica derivada é toda nula,
+  qualquer que seja o conteúdo de `inflow_history` e `recent_observations`: a carga é bem-sucedida
+  (com um aviso de que as defasagens iniciais de afluência são inicializadas com 0), e todo estágio
+  recebe essas defasagens nulas.
+
+### Saídas
+
+O diretório `output/stochastic/` inteiro é gravado **apenas quando o caso define `exports.stochastic: true`** (no bloco de configuração `exports`); essa opção vem **desligada por padrão**, de modo que uma execução padrão não produz nenhum diretório `stochastic/`. As condições por arquivo na tabela abaixo são **secundárias** — decidem quais artefatos aparecem *dentro* do diretório quando a exportação estocástica está habilitada.
+
+| Arquivo | Função |
+| ---- | ---- |
+| `output/stochastic/inflow_seasonal_stats.parquet` | As estatísticas sazonais usadas na execução, estimadas ou lidas de `scenarios/`, com o mesmo esquema do arquivo de entrada — gravado em toda exportação estocástica. |
+| `output/stochastic/inflow_ar_coefficients.parquet` | Os coeficientes AR usados na execução, estimados ou lidos de `scenarios/`, com o mesmo esquema do arquivo de entrada — gravado em toda exportação estocástica. |
+| `output/stochastic/inflow_annual_component.parquet` | A trinca anual do PAR(p)-A usada na execução, estimada ou lida de `scenarios/` — gravado em toda exportação estocástica; contém linhas apenas para os modelos de estágio com termo anual (um modelo PAR(p) clássico não tem nenhum), podendo, portanto, não conter linhas. |
+| `output/stochastic/fitting_report.json` | Resumo por UHE da ordem AR selecionada e dos coeficientes, complemento legível às saídas parquet acima — gravado apenas quando o Novo Modelo estimou parte ou todo o modelo de afluências (suas estatísticas sazonais, seus coeficientes AR ou ambos) a partir de `inflow_history.parquet`. |
+| `output/stochastic/correlation.json` | Exportação de ida e volta do modelo de correlação resolvido, no mesmo esquema da entrada `scenarios/correlation.json`. |
+| `output/stochastic/noise_openings.parquet` | A árvore de aberturas da simulação backward efetivamente usada durante o treinamento (training), exportada quando `exports.stochastic: true`. Para reproduzi-la em uma execução subsequente, siga [Executando estudos — Fluxo de ida e volta](/pt-br/running/running-studies/#fluxo-de-ida-e-volta), que trata da cópia para `scenarios/noise_openings.parquet` e da declaração `openings`; a cópia só é carregada quando os ids de estágio declarados no caso são 0, 1, 2, … (a exportação numera os estágios pela posição a partir de 0, e a carga recusa outros ids) — veja [Geração de cenários](/pt-br/math/scenario-generation) para a mecânica da árvore de aberturas em si (fora do escopo aqui). |
+
+Para o esquema completo de saída (colunas, tipos, organização dos arquivos), consulte a
+página de referência [Formato de saída](/pt-br/reference/output/) no acervo de
+Referência.

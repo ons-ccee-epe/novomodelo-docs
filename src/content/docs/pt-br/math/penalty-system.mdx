@@ -1,0 +1,228 @@
+---
+title: Sistema de penalidades
+description: Taxonomia unificada de penalidades para viabilidade do PL, violações de restrições e regularização — resolução em cascata, ordem de prioridade das penalidades e variáveis de folga bidirecionais.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as PenaltiesConfigure } from './_impl/_penalties.configure.mdx';
+import { Content as PenaltiesIO } from './_impl/_penalties.io.mdx';
+
+## Objetivo
+
+Este capítulo define o sistema unificado de penalidades, que garante a viabilidade do PL em todos os cenários e, ao mesmo tempo, valora corretamente os custos operativos e as violações de restrições. Cada penalidade entra na função objetivo do estágio conforme enunciado em [Formulação do PL §2](/pt-br/math/lp-formulation#2-funcao-objetivo) e [§9](/pt-br/math/lp-formulation#9-termos-de-penalidade-por-violacao-de-restricoes).
+
+## 1. Resolução em cascata
+
+O PL deve ser sempre viável. Diversas restrições físicas e operativas podem ser impossíveis de atender em cenários extremos (secas, falhas de equipamentos etc.). O sistema de penalidades fornece variáveis de folga com custos graduados para manter a viabilidade e, ao mesmo tempo, sinalizar a gravidade das violações.
+
+A cascata de penalidades do Novo Modelo tem três níveis de especificidade: uma sobreposição por estágio, definida sobre uma tripla (entidade, estágio, penalidade), é a mais específica; uma sobreposição por entidade, definida para cada entidade, vem em seguida; e um padrão global no nível do caso é o valor de último recurso. Prevalece o valor mais específico presente. A [aba Configurar](#implementacao-no-novo-modelo) lista os níveis suportados por cada custo, com um exemplo.
+
+## 2. Categorias de penalidades
+
+As penalidades cumprem três finalidades distintas na formulação do PL. Compreender essas categorias é importante para definir ordens de grandeza adequadas para os custos e para interpretar os resultados.
+
+### Categoria 1: folgas de recurso (viabilidade do PL)
+
+Essas penalidades garantem que o algoritmo de PDDE (SDDP) tenha recurso relativamente completo — todo subproblema deve ser viável, qualquer que seja a realização do cenário. Sem essas folgas, o PL seria inviável quando a geração não consegue atender à demanda, quando o excesso de geração não controlável não pode ser absorvido ou quando uma realização negativa de afluência deixa o balanço hídrico de uma usina hidrelétrica sem solução.
+
+| Penalidade            | Unidade  | Aplica-se a                | Finalidade                         |
+| ------------------ | ------ | ------------------------- | ------------------------------- |
+| Déficit ($c^{def}_{b,s}$) | R\$/MWh | Carga não atendida por barramento, por patamar de déficit | Custo linear por partes do corte de carga |
+| Excesso ($c^{exc}_b$) | R\$/MWh | Excesso de geração por barramento | Absorver o excedente não controlável |
+| Não negatividade da afluência ($c^{inf}_h$) | R\$/(m³/s·h) | Água adicionada ao balanço hídrico de uma UHE (métodos de afluência `penalty` e `truncation_with_penalty`) | Manter o balanço hídrico viável sob uma realização negativa de afluência |
+
+Déficit e excesso são, conceitualmente, variáveis de folga da restrição de atendimento à carga, mas recebem nomes específicos pela sua importância na aplicação de despacho hidrotérmico. O déficit representa o valor da carga não suprida; o excesso é um custo de nível de regularização para eliminar geração espúria por folga.
+
+:::note[Observação sobre a faixa do custo de excesso]
+O custo abrange uma faixa ampla porque atende a dois casos de uso distintos. No extremo inferior, atua como termo de regularização pura, que desfaz a degenerescência do solver sem distorcer a política. No extremo superior, cumpre um papel de conformação da política, desestimulando ativamente o excesso de geração para manter as soluções de despacho fisicamente realistas. Consulte a aba Configurar abaixo para o valor padrão concreto no nível do caso.
+:::
+
+### Categoria 2: penalidades por violação de restrições (conformação da política)
+
+Essas penalidades fornecem folga para restrições físicas ou operativas que podem ser impossíveis de atender em condições extremas (por exemplo, seca ou diretrizes ambientais do operador do sistema). Seu custo deve ser alto o suficiente para afetar a função de valor nos estágios anteriores, sinalizando que o sistema deve evitar estados que levem a essas violações.
+
+| Penalidade                           | Unidade       | Aplica-se a                     | Finalidade                                            |
+| --------------------------------- | ----------- | ------------------------------ | -------------------------------------------------- |
+| Armazenamento abaixo do mínimo ($c^{sv-}_h$) | R\$/hm³ | Armazenamento < mínimo (volume morto) de uma UHE em enchimento após entrar em operação | Reservatório abaixo do volume morto — próximo do limite físico |
+| Déficit em relação à meta de enchimento ($c^{fill}_h$) | R\$/hm³ | Piso de enchimento do estágio não atingido | Cronograma de enchimento da entrada em operação — abaixo do déficit na hierarquia |
+| Vazão turbinada abaixo do mínimo ($c^{tv-}_h$) | R\$/(m³/s·h) | Vazão turbinada < mínima | Limites de equipamento / vazão ecológica |
+| Vazão defluente abaixo do mínimo ($c^{ov-}_h$) | R\$/(m³/s·h) | Vazão defluente < mínima | Vazão mínima ambiental (operador/regulação) |
+| Vazão defluente acima do máximo ($c^{ov+}_h$) | R\$/(m³/s·h) | Vazão defluente > máxima | Prevenção de cheias a jusante |
+| Geração abaixo do mínimo ($c^{gv-}_h$) | R\$/MWh | Geração < mínima | Geração mínima contratual ou ambiental |
+| Evaporação acima ou abaixo da meta ($c^{ev+}_h$, $c^{ev-}_h$) | R\$/(m³/s·h) | Restrição de evaporação | Restrição física (bidirecional, ver Seção 5) |
+| Retirada acima ou abaixo do previsto ($c^{wv+}_h$, $c^{wv-}_h$) | R\$/(m³/s·h) | Retirada de água não atendida | Compromissos de consumo humano / irrigação |
+| Violação de restrição genérica (custo definido pelo usuário) | R\$/(unidade da restrição·h) ou R\$/unidade da restrição | Violações de restrições genéricas | Restrições físicas ou operativas definidas pelo usuário |
+
+Essas penalidades criam um custo artificial na função objetivo que se propaga para trás pela função de valor, indicando aos estágios anteriores que armazenem mais água (ou despachem de outra forma) para evitar atingir estados em que as violações sejam necessárias.
+
+### Categoria 3: custos de regularização (orientação da solução)
+
+São custos pequenos inseridos na função objetivo para orientar o solver em direção a soluções fisicamente preferíveis quando, de outro modo, o PL seria indiferente. Não representam custos reais e devem ser ordens de grandeza menores que qualquer custo econômico, para não distorcer a política ótima.
+
+| Penalidade            | Unidade       | Aplica-se a                     | Finalidade                                                                                                |
+| ------------------ | ----------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Vertimento ($c^{spill}_h$) | R\$/(m³/s·h) | Água vertida | Preferir armazenar a verter quando o solver é indiferente |
+| Vazão turbinada ($c^{tc}_h$) | R\$/(m³/s·h) | Vazão turbinada (todas as UHEs) | Preferir verter a turbinar água que não produz valor (ver abaixo) |
+| Desvio ($c^{div}_h$) | R\$/(m³/s·h) | Água desviada | Preferir o escoamento pelo leito principal; maior que o vertimento (a água sai da cascata) |
+| Corte de geração ($c^{curt}_r$) | R\$/MWh | Geração não despachável cortada | Priorizar o uso da geração não despachável disponível em vez de cortá-la |
+| Intercâmbio ($c^{exch}_n$) | R\$/MWh | Fluxo de potência nas linhas | Preferir o suprimento local; evitar fluxos de potência desnecessários entre barramentos |
+
+**Custo de turbinamento**: o custo $c^{tc}_h$ é cobrado sobre a vazão turbinada de cada célula de toda UHE, qualquer que seja seu modelo de produção. Onde a energia não tem valor marginal, a água turbinada nada produz, e o PL fica indiferente entre turbiná-la e vertê-la; $c^{tc}_h > c^{spill}_h$ desempata a favor do vertimento. Em um plano da FPHA com $\gamma_q^m = 0$ (o plano de capacidade instalada, [Modelos de função de produção hidrelétrica §2.6](/pt-br/math/hydro-production-models#26-processo-de-ajuste-da-fpha-calculada)), mais vazão turbinada também não acrescenta geração, mas o vertimento rebaixa o plano por meio de seu coeficiente $\gamma_s^m \leq 0$ ([§2.7](/pt-br/math/hydro-production-models#27-secante-de-vazao-lateral)); assim, onde esse plano está ativo, o PL pondera a geração que o vertimento faria perder contra $c^{tc}_h - c^{spill}_h$. Uma UHE que usa FPHA exige $c^{tc}_h \geq 0$, pois um custo negativo recompensaria turbinar água que nada gera; $c^{tc}_h > c^{spill}_h$ é recomendado para toda UHE, mas não é imposto ([aba Configurar](#implementacao-no-novo-modelo)).
+
+### Ordem de prioridade das penalidades
+
+Os custos têm unidades diferentes: R\$/hm³ para as folgas de violação de armazenamento e de meta de enchimento; R\$/(m³/s·h) para as folgas de turbinamento, vazão defluente, evaporação, retirada e não negatividade da afluência e para os custos de vertimento, turbinamento e desvio; e R\$/MWh para o déficit, o excesso, a folga de geração mínima e todos os custos não hidráulicos. A ordenação os compara como custos equivalentes em energia, em R\$/MWh.
+
+A água na UHE $h$ no estágio $t$ produz energia segundo sua produtibilidade acumulada $\bar\rho_{acum,h,t}$, a soma das produtibilidades médias na faixa útil da usina e de todas as usinas a jusante ([Modelos de função de produção hidrelétrica §4.3](/pt-br/math/hydro-production-models#43-produtibilidade-media-na-faixa-util)). Um hm³ corresponde a $\kappa = 10^6/3600$ (m³/s)·h; assim, para uma usina com $\bar\rho_{acum,h,t} > 0$, um custo de armazenamento $c$ equivale a $c/(\kappa\,\bar\rho_{acum,h,t})$ R\$/MWh e um custo de vazão $c$ equivale a $c/\bar\rho_{acum,h,t}$ R\$/MWh. Nessas unidades, os níveis são ordenados do mais alto para o mais baixo:
+
+$$
+\begin{aligned}
+\frac{c^{sv-}}{\kappa\,\bar\rho_{acum}} \;&>\; c^{def} \\
+&>\; \frac{c^{tv-}}{\bar\rho_{acum}},\; \frac{c^{ov\pm}}{\bar\rho_{acum}},\; c^{gv-},\; \frac{c^{ev\pm}}{\bar\rho_{acum}},\; \frac{c^{wv\pm}}{\bar\rho_{acum}},\; \frac{c^{inf}}{\bar\rho_{acum}} \\
+&>\; c^{th},\; c^{ctr} \\
+&>\; \frac{c^{spill}}{\bar\rho_{acum}},\; \frac{c^{tc}}{\bar\rho_{acum}},\; \frac{c^{div}}{\bar\rho_{acum}},\; c^{curt},\; c^{exch}
+\end{aligned}
+$$
+
+Cada desigualdade vale para toda UHE, barramento, patamar de déficit, UTE, contrato, fonte e linha que envolve, sendo $\bar\rho_{acum}$ a produtibilidade acumulada da UHE cujo custo é convertido e tomando-se o preço negativo de um contrato de exportação pelo seu módulo.
+
+O custo de **violação de armazenamento mínimo** valora o piso flexível de volume morto de uma UHE em enchimento a partir de seu estágio de entrada em operação (o volume morto de todas as demais UHEs em operação é um limite rígido). É a penalidade mais alta do sistema: deve superar o custo de déficit, porque manter um reservatório acima de seu volume morto é mais crítico do que atender à carga (operar abaixo do volume morto põe em risco a segurança da barragem e pode danificar equipamentos). O déficit, por sua vez, supera os níveis de restrições operativas, de recursos e de regularização.
+
+A penalidade de **meta de enchimento** ocupa um degrau separado, **abaixo** do déficit:
+
+$$
+c^{def} \;>\; \frac{c^{fill}}{\kappa\,\bar\rho_{acum}}
+$$
+
+Um cronograma de enchimento para a entrada em operação não deve ser defendido com o mesmo rigor que o corte de carga — quando a natureza fisicamente não permite atender à carga e, ao mesmo tempo, manter um reservatório em enchimento no seu cronograma de acumulação, o solver deve atender à carga e deixar o piso de enchimento ceder. A posição da penalidade de meta de enchimento _em relação ao nível de restrições operativas_ (vazão turbinada mínima, vazão defluente, geração, evaporação, retirada) fica a cargo da calibração do estudo: o Novo Modelo espera que ela fique abaixo do déficit e não impõe nada em relação a essas folgas operativas.
+
+### Validação da ordem das penalidades
+
+O Novo Modelo verifica os custos configurados no carregamento do caso. As verificações comparam os valores como informados, sem a conversão acima; portanto, um caso aprovado nelas ainda pode inverter a ordenação equivalente em energia. Elas emitem avisos sem interromper a execução, e duas regras rejeitam o caso: um custo de turbinamento negativo em uma UHE com FPHA e um cronograma de enchimento que não consegue atingir o volume morto. A [aba Configurar](#implementacao-no-novo-modelo) as lista.
+
+## 3. Valores padrão e sobreposições das penalidades
+
+Cada custo tem um valor padrão no nível do caso e pode ser sobreposto por entidade e por estágio. As folgas de evaporação e de retirada são valoradas por custos direcionais cujos valores padrão seguem os custos simétricos; a [aba Configurar](#implementacao-no-novo-modelo) lista os campos, os níveis e a ordem de fallback. [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity) aborda os limites e o preço da folga de afluência em cada método.
+
+### Déficit linear por partes
+
+O déficit é valorado de forma linear por partes. Cada patamar cobre uma profundidade de carga não atendida a um custo próprio, os custos crescem de um patamar para o seguinte e o último patamar é ilimitado, de modo que o PL é sempre viável. Os patamares podem ser sobrepostos por barramento, mas não por estágio.
+
+## 4. Cobertura das violações de restrições
+
+Esta seção enumera todas as restrições do PL que usam variáveis de folga, organizadas pelo elemento do sistema ao qual pertencem. Para as formulações completas das restrições do PL, consulte [Formulação do PL](/pt-br/math/lp-formulation).
+
+### Nível do sistema (barramento)
+
+| Tipo de restrição | Variável de folga | Sentido                  | Penalidade            | Categoria |
+| --------------- | -------------- | -------------------------- | ------------------ | -------- |
+| Atendimento à carga | $\delta_{b,k,s}$ | Inferior (demanda não atendida) | $c^{def}_{b,s}$ | Recurso |
+| Atendimento à carga | $\epsilon_{b,k}$ | Superior (excedente de geração) | $c^{exc}_b$ | Recurso |
+
+### UHE — restrições de vazão e de geração
+
+| Tipo de restrição    | Variável de folga                   | Sentido   | Penalidade                               | Categoria             |
+| ------------------ | -------------------------------- | ----------- | ------------------------------------- | -------------------- |
+| Armazenamento mínimo (UHE em enchimento, a partir do estágio de entrada em operação) | $\sigma^{v-}_h$ | Limite inferior | $c^{sv-}_h$ | Violação de restrição |
+| Meta de enchimento | $\sigma^{fill}_h$ | Limite inferior | $c^{fill}_h$ | Violação de restrição |
+| Turbinamento mínimo | $\sigma^{q-}_{h,b,k}$ | Limite inferior | $c^{tv-}_h$ | Violação de restrição |
+| Turbinamento mínimo da usina (residual) | $\sigma^{Q-}_{h,k}$ | Limite inferior | $c^{tv-}_h$ | Violação de restrição |
+| Vazão defluente mínima | $\sigma^{o-}_{h,k}$ | Limite inferior | $c^{ov-}_h$ | Violação de restrição |
+| Vazão defluente máxima | $\sigma^{o+}_{h,k}$ | Limite superior | $c^{ov+}_h$ | Violação de restrição |
+| Geração mínima | $\sigma^{g-}_{h,b,k}$ | Limite inferior | $c^{gv-}_h$ | Violação de restrição |
+| Geração mínima da usina (residual) | $\sigma^{G-}_{h,k}$ | Limite inferior | $c^{gv-}_h$ | Violação de restrição |
+| Evaporação | $\sigma^{e+}_h$ | Acima da meta | $c^{ev+}_h$ | Violação de restrição |
+| Evaporação | $\sigma^{e-}_h$ | Abaixo da meta | $c^{ev-}_h$ | Violação de restrição |
+| Retirada de água | $\sigma^{w+}_h$ | Retirada acima do previsto | $c^{wv+}_h$ | Violação de restrição |
+| Retirada de água | $\sigma^{w-}_h$ | Retirada abaixo do previsto | $c^{wv-}_h$ | Violação de restrição |
+| Balanço hídrico (todo método de afluência exceto `none`; valorada em `penalty` e `truncation_with_penalty`) | $\sigma^{inf}_h$ | Água adicionada | $c^{inf}_h$ | Recurso |
+
+### UHE — limites de armazenamento
+
+O **armazenamento mínimo** $\underline{V}_h$ (o volume morto) é um limite rígido para toda UHE, exceto para uma UHE em enchimento, cujo piso de volume morto a partir do estágio de entrada em operação é flexível por meio de $\sigma^{v-}_h$, valorada a $c^{sv-}_h$ (custo muito alto, acima do déficit), e para uma UHE em fase de pré-enchimento (PreFilling), cujo armazenamento é mantido por sua identidade congelada ([Formulação do PL §8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo)). Operar abaixo do volume morto põe em risco a segurança da barragem e pode danificar equipamentos. A folga garante a viabilidade do PL em cenários extremos (seca severa ou a transição do enchimento para a operação quando o reservatório não atingiu plenamente $\underline{V}_h$).
+
+O **armazenamento máximo** $\bar{V}_h$ é um limite físico rígido (a capacidade do reservatório); o excesso de água sai por vertimento. Não se usa variável de folga.
+
+**Pisos de enchimento**: enquanto uma usina está em enchimento, do estágio de início do enchimento até o estágio de entrada em operação, exclusive, cada estágio tem um **armazenamento mínimo ao final do estágio** $V^{\text{target}}_t$ que atinge exatamente o volume morto no último estágio de enchimento. Cada piso é flexível, $v_h + \sigma^{fill}_h \geq V^{\text{target}}_t$, valorado a $c^{fill}_h$. Essa penalidade fica **abaixo** do déficit (um cronograma de enchimento não é defendido com o mesmo rigor que o atendimento à carga); a folga absorve a diferença somente quando nenhum despacho viável mais barato atinge o piso. Consulte [§6 Particularidades do enchimento de volume morto](#particularidades-do-enchimento-de-volume-morto) para a trajetória do piso.
+
+### Linhas
+
+Os **limites de intercâmbio** são limites rígidos das variáveis de fluxo nos sentidos direto e reverso. Sem variáveis de folga. O custo de intercâmbio $c^{exch}_n$ é um termo de regularização sobre os próprios fluxos direto e reverso, não uma penalidade por violação.
+
+### UTEs
+
+Os **limites das UTEs** $\underline{G}_j$ e $\bar{G}_j$ são restrições rígidas. Sem variáveis de folga. O despacho térmico é diretamente controlável (ao contrário do hidráulico, que depende de afluências exógenas); portanto, se os limites não puderem ser atendidos, isso indica erro nos dados.
+
+### Restrições genéricas
+
+As restrições genéricas definidas pelo usuário podem, opcionalmente, ter variáveis de folga com custos de penalidade especificados pelo usuário. Em geral, são usadas para diretrizes físicas ou operativas do operador do sistema e se enquadram na categoria de **violação de restrição**. Uma restrição genérica bilateral (com piso e teto) tem duas colunas de folga, uma por extremo; a violação reportada é o seu saldo com sinal, e ambas são penalizadas. O custo é declarado em uma de duas bases: por unidade e por hora, para uma linha cuja grandeza é uma taxa (MW, m³/s), cobrado sobre as horas do patamar da linha ou, em uma linha no nível do estágio, sobre as horas do estágio; ou por unidade, para uma linha cuja grandeza é uma quantidade (MWh, hm³), cobrado uma única vez, qualquer que seja a duração ([Formulação do PL §10](/pt-br/math/lp-formulation#10-restricoes-genericas)).
+
+### Fontes não despacháveis
+
+**Limites da geração não despachável**: a geração de uma fonte é limitada superiormente pela sua geração disponível no patamar e, para uma fonte de geração compulsória (must-run), também inferiormente por ela ([Visão geral da modelagem dos elementos do sistema §6](/pt-br/math/system-elements#sujeita-a-corte-vs-geracao-compulsoria)). Ambos os limites são rígidos, sem variáveis de folga. O custo de corte de geração (curtailment) $c^{curt}_r$ é um termo de regularização (Categoria 3), análogo ao custo de vertimento das UHEs: torna o despacho da geração não despachável disponível mais barato do que seu corte ([Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis) apresenta o termo da função objetivo).
+
+## 5. Folgas bidirecionais
+
+### Evaporação líquida com sinal
+
+A vazão de evaporação na superfície do reservatório $e_h$ ($e_{h,k}$ por patamar em um estágio cronológico) é um **fluxo líquido com sinal**: valores positivos representam perda líquida por evaporação, e valores negativos representam aporte líquido de chuva sobre a superfície do lago (a precipitação sobre o reservatório supera a evaporação de superfície livre). Em bacias tropicais e subtropicais, o coeficiente líquido é negativo durante boa parte do período úmido, de modo que o caso negativo é comum, e não excepcional. Outras situações que podem produzir um valor negativo incluem condensação em climas úmidos e artefatos de linearização em determinadas combinações de volume e coeficiente.
+
+A coluna de evaporação tem limites simétricos, $e_h \in [-q^{\max}_{ev,h},\, +q^{\max}_{ev,h}]$, em que $q^{\max}_{ev,h}$ é recalculado em cada estágio como o módulo da meta linearizada desse estágio no armazenamento máximo, multiplicado por uma margem de segurança fixa. O limite simétrico permite que a mesma coluna absorva os dois sentidos sem forçar o acionamento da folga de sobre-evaporação em todos os estágios dos meses úmidos. Um $e_h$ negativo entra na equação de balanço hídrico com o mesmo coeficiente de um valor positivo; o próprio sinal de $e_h$ determina se o termo subtrai (perda) ou adiciona (aporte de chuva) ao armazenamento.
+
+A [linha de evaporação](/pt-br/math/lp-formulation#linha-de-evaporacao) iguala $e_h$ à meta de evaporação linearizada mais $\sigma^{e+}_h$ menos $\sigma^{e-}_h$. As folgas são unilaterais, $\sigma^{e+}_h \geq 0$ e $\sigma^{e-}_h \geq 0$: absorvem a evaporação acima e abaixo da meta e são valoradas a $c^{ev+}_h$ e $c^{ev-}_h$. Os sinais de $e_h$ e da meta, e não as folgas, carregam o sentido do fluxo líquido. Um estágio paralelo tem um único par no nível do estágio, e um estágio cronológico tem um par por patamar, $\sigma^{e+}_{h,k}$ e $\sigma^{e-}_{h,k}$.
+
+:::note[Valoração das folgas de evaporação]
+Em um estágio paralelo, uma usina tem uma linha de evaporação e um par de folgas para o estágio inteiro, qualquer que seja o número de patamares, e cada folga é valorada ao seu custo multiplicado pelas horas do estágio. Em um estágio cronológico, cada patamar tem sua própria linha e seu par de folgas, valorados ao custo multiplicado pelas horas do patamar. Os custos são expressos em R\$/(m³/s·h).
+:::
+
+:::note[A evaporação exige a curva de área do reservatório]
+A meta linearizada exige a curva área–volume do reservatório. Uma usina que declara evaporação sem essa curva é rejeitada no carregamento do caso, e uma curva cuja área é nula em toda a sua extensão desativa a evaporação da usina; as notas de implementação de [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models/) tratam dos dois casos.
+:::
+
+### Folgas de retirada
+
+A meta de retirada com sinal $r_h$, em m³/s, é positiva para uma retirada e negativa para um retorno entre bacias. É uma grandeza no nível do estágio no lado direito do balanço hídrico da UHE ([Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas)). Duas folgas unilaterais no nível do estágio a relaxam, de modo que a retirada realizada é $r_h - \sigma^{w-}_h + \sigma^{w+}_h$: a retirada abaixo do previsto $\sigma^{w-}_h$ é valorada a $c^{wv-}_h$ e a retirada acima do previsto $\sigma^{w+}_h$ a $c^{wv+}_h$, ambas sobre as horas do estágio $H_t$. A folga que inverteria o sinal da retirada realizada é limitada a $\lvert r_h \rvert$ ([Formulação do PL §9](/pt-br/math/lp-formulation#9-termos-de-penalidade-por-violacao-de-restricoes)).
+
+## 6. Resumo dos limites das variáveis hidráulicas
+
+Os limites de cada variável e a folga associada a cada limite estão tabelados na [aba Configurar](#implementacao-no-novo-modelo).
+
+### Particularidades do enchimento de volume morto
+
+Durante o período de enchimento, do estágio de início do enchimento até o estágio de entrada em operação, exclusive, a UHE está em estado de entrada em operação: o reservatório acumula água em direção ao volume morto $\underline{V}_h$ antes de poder começar a gerar. Esse é o modelo próprio do Novo Modelo para o enchimento de volume morto, cujo cronograma de acumulação por estágio é especificado abaixo.
+
+:::note[Antes do enchimento — a fase de pré-enchimento]
+Estas particularidades regem a janela de **enchimento**, do estágio de início do enchimento até o estágio de entrada em operação, exclusive. Antes dessa janela — e, para uma UHE **sem enchimento**, em qualquer estágio fora de sua janela de entrada em operação — a usina está em **pré-enchimento**: ainda não existe no despacho. Turbinamento, vertimento e desvio são todos fixados em zero; assim, **o vertimento fica congelado e não incorre em custo de vertimento** (ao contrário do que ocorre durante o enchimento), o armazenamento é mantido constante por uma identidade congelada e a vazão natural afluente é encaminhada, contornando o local, para a primeira usina a jusante que não esteja em pré-enchimento. [Formulação do PL — Fases do ciclo de vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida) tabela todas as fases.
+:::
+
+O enchimento é regido por uma **taxa mínima de acumulação**, e não por uma única meta ao final do período. A taxa _não_ é uma afluência aplicada e _não_ é um teto para a vazão natural afluente — é o piso abaixo do qual o reservatório não pode ficar atrasado em relação ao cronograma de enchimento. A partir dela, o Novo Modelo deriva um **armazenamento mínimo ao final de cada estágio** $V^{\text{target}}_t$ que atinge exatamente o volume morto no último estágio de enchimento $L$, o estágio anterior ao de entrada em operação.
+
+[Formulação do PL §8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo) apresenta o piso em forma fechada: o volume morto em $L$ menos a acumulação que o cronograma ainda deve após o estágio $t$, nunca acima do volume morto vigente no estágio $t$. O cronograma deve ser capaz de atingir o volume morto declarado da usina, e não uma sobreposição dele por estágio, a partir do armazenamento com que a usina inicia o enchimento; o Novo Modelo rejeita um caso cujo cronograma não consiga fazê-lo ([aba Configurar](#implementacao-no-novo-modelo)).
+
+**Restrições operativas durante o enchimento**:
+
+- **Sem geração**: a vazão turbinada e a geração são $0$ (restrição rígida — turbinas não instaladas/não operacionais, de modo que a usina é excluída das restrições da função de produção); um piso positivo de turbinamento ou de geração da usina recai então inteiramente sobre sua folga ([Fases do ciclo de vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida))
+- **Defluência somente por vertimento**: as turbinas e o desvio são fixados em zero enquanto a usina enche, de modo que ela libera água apenas vertendo; o vertimento é uma decisão livre dentro de seus limites, qualquer que seja o nível de armazenamento.
+- **Exigência de vazão defluente mínima**: uma vazão defluente mínima é atendida por vertimento; quando o reservatório não consegue liberar água suficiente, a folga de vazão defluente abaixo do mínimo absorve a diferença ao custo de sua penalidade.
+- **A vazão natural afluente escoa livremente**: a vazão incremental e as defluências da cascata a montante entram no reservatório pelo balanço hídrico usual — não há retenção nem teto de represamento que desvie afluência para o armazenamento. O que a natureza fornece é o que enche o reservatório.
+- **O piso de armazenamento é o cronograma de enchimento**: o volume morto $\underline{V}_h$ **não** se aplica como limite durante o enchimento — o armazenamento pode estar em qualquer ponto de $[0, \bar{V}_h]$. O piso ativo é a meta flexível por estágio descrita abaixo.
+
+**Pisos de enchimento por estágio**: em todo estágio de enchimento, o armazenamento ao final do estágio mais a folga $\sigma^{fill}_h$ deve atingir $V^{\text{target}}_t$, com a folga valorada a $c^{fill}_h$. Essa penalidade fica **abaixo do déficit** na hierarquia — quando a natureza não permite atender à carga e manter o reservatório no cronograma, o solver deixa o piso de enchimento ceder em vez de cortar carga. A folga é valorada de modo que o PL a use somente quando não houver despacho viável mais barato: quando o armazenamento e a afluência da usina não conseguem atingir o piso desse estágio, ou quando atender integralmente ao piso custaria pelo menos tanto, incluindo o custo futuro, quanto usar a folga ao custo de sua penalidade.
+
+**Transição para a operação**: no estágio de entrada em operação, a UHE passa a operar. O armazenamento ao final do último estágio de enchimento torna-se o armazenamento inicial do primeiro estágio de operação, e passa a valer seu piso flexível de volume morto $v_h + \sigma^{v-}_h \geq \underline{V}_h$. Se o enchimento ficou aquém (folga de enchimento $\sigma^{fill}_h$ positiva em $L$), a folga desse piso do estágio de operação absorve a diferença — ambos os PLs permanecem viáveis.
+
+**Penalidades durante o enchimento**: aplica-se o mesmo custo de violação de vazão defluente, e o vertimento durante o enchimento continua incorrendo em seu custo de vertimento. A folga de armazenamento abaixo do mínimo $\sigma^{v-}_h$ **não** está ativa durante o enchimento — a folga de enchimento por estágio $\sigma^{fill}_h$ é a que é acionada, e o armazenamento pode, por construção, ficar abaixo do volume morto.
+
+## Implementação no Novo Modelo
+
+A metodologia acima define a taxonomia de penalidades e a ordem de prioridade; as abas abaixo mostram como a interface do software Novo Modelo configura e reporta os custos de penalidade que a implementam.
+
+<Tabs>
+  <TabItem label="Configurar"><PenaltiesConfigure /></TabItem>
+  <TabItem label="Entradas e saídas"><PenaltiesIO /></TabItem>
+</Tabs>
+
+## Referências cruzadas
+
+- [Formulação do PL](/pt-br/math/lp-formulation) — Taxonomia de custos (§1) e termos de penalidade (§9)
+- [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity) — A folga de não negatividade da afluência em cada método de afluência e o efeito do truncamento sobre o limite inferior

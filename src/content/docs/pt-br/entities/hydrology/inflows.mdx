@@ -1,0 +1,94 @@
+---
+title: Afluências e modelo PAR(p)
+description: Como o Novo Modelo representa as afluências incertas — um modelo autorregressivo periódico ajustado ao histórico de vazões, sua ordem e estatísticas sazonais, e o tratamento de valores negativos.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import Inflow from '../../../../../components/entity/illustrations/Inflow.astro';
+
+<EntityHero family="hydrology" icon="inflow" lead="Afluência é a água que chega a cada usina hidrelétrica em um estágio, e é a principal fonte de incerteza do estudo. O Novo Modelo a descreve com um modelo autorregressivo periódico, o PAR(p), que captura tanto o padrão sazonal das vazões quanto a memória dos períodos passados." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Sazonal e incerta', text: 'Cada período sazonal tem sua própria média e sua própria variabilidade. O que não pode ser previsto a partir do passado é representado por um termo aleatório, o ruído (inovação), um ruído padronizado e independente.' },
+  { title: 'Com memória das vazões passadas', text: 'As afluências dos períodos anteriores (defasagens do modelo AR) entram no cálculo da afluência atual. A ordem pode variar com o período sazonal e com a usina, e ordem zero significa nenhuma memória: cada período sazonal é amostrado sozinho.' },
+  { title: 'Ajustada ou informada', text: 'O Novo Modelo pode ajustar o modelo a partir do histórico de vazões, ou você pode informar diretamente as estatísticas sazonais e os coeficientes. A escala do ruído nunca é um dado de entrada: é derivada dos coeficientes.' },
+]} />
+
+## Do histórico às séries sintéticas
+
+<Inflow lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="hydrology" items={[
+  { label: 'Afluência incremental realizada, por usina e estágio', unit: 'm³/s' },
+  { label: 'Folga de não negatividade da afluência (todos os métodos, exceto none; fixa em truncation)', unit: 'm³/s' },
+]} note="A afluência não é uma decisão: resulta da base sazonal, das defasagens trazidas dos estágios anteriores e do ruído do cenário. O modelo decide apenas quanta água somar para absorver um valor negativo no balanço hídrico, e só nos métodos que permitem isso (veja Afluências negativas abaixo). A afluência é incremental: a vazão natural de uma usina menos a vazão das usinas a montante." />
+
+## O que você informa
+
+- O histórico de vazões: para cada usina hidrelétrica, janelas com data de início, data de fim e vazão média na janela, em m³/s. As janelas de uma mesma usina não podem se sobrepor, e valores negativos são aceitos.
+- As estatísticas sazonais: a média e o desvio-padrão de cada usina e estágio, em m³/s.
+- Os coeficientes AR de cada usina, estágio e defasagem. A escala do ruído não é informada: é derivada dos coeficientes.
+- Qualquer um dos dois conjuntos acima pode ser omitido, e o Novo Modelo o estima a partir do histórico. A estimação exige o mapa de períodos sazonais do arquivo de estágios.
+- Opcionalmente, a componente anual da extensão PAR(p)-A, que acrescenta um coeficiente anual à estrutura sazonal para capturar a persistência hidrológica ao longo de vários anos.
+- Opcionalmente, a correlação espacial: usinas do mesmo grupo de correlação recebem ruídos correlacionados, enquanto usinas de grupos diferentes, ou de nenhum, são independentes.
+- O método que trata as afluências negativas, na configuração da execução.
+
+## A tendência hidrológica
+
+Os primeiros estágios do estudo precisam de afluências anteriores ao início do estudo para preencher suas defasagens. Essa tendência hidrológica (inflow-lag seed) é o histórico de vazões, sobrescrito pelas observações recentes das condições iniciais onde ambos cobrem uma mesma data.
+
+## Como o modelo é ajustado
+
+- **Estatísticas sazonais.** A média e o desvio-padrão de cada usina e período sazonal são calculados a partir do histórico.
+- **Períodos sem variação.** Um período sazonal cujas observações são todas iguais, ou em que um único valor ocupa mais da metade das observações (um limite de vazão ou uma vazão mínima constante), recebe desvio-padrão zero e ordem zero, sem memória.
+- **Ordem.** Para cada período sazonal, a ordem é a maior defasagem cuja autocorrelação parcial é significativa ao nível de confiança de 95%, até uma defasagem máxima. Se nenhuma defasagem é significativa, a ordem é zero (no modelo clássico).
+- **Verificações após o ajuste.** Um período sazonal cujo primeiro coeficiente é negativo volta à ordem zero. Um período em que alguma defasagem teria influência negativa sobre a afluência atual perde uma defasagem e é ajustado de novo, até que nenhum período falhe.
+- **Armazenamento.** Os coeficientes são armazenados padronizados, isto é, adimensionais, e convertidos para as unidades originais na carga, com as estatísticas sazonais.
+- **Estudos que cobrem parte do ano.** Quando o estudo cobre só parte do ano, os períodos sazonais anteriores ao seu início são acrescentados para que as defasagens dos primeiros estágios tenham suas estatísticas.
+
+## Afluências negativas
+
+O modelo pode produzir uma afluência negativa, e isso não é impossível em si: a afluência é incremental, de modo que um valor negativo é hidrologia real, um trecho que perde água no período. O que os métodos resolvem é a consequência para o balanço hídrico, que de outro modo poderia se tornar inviável. Nenhum método altera a afluência em si, e as defasagens dos estágios seguintes mantêm o valor bruto. Os métodos diferem na água que somam ao balanço.
+
+- **none.** Nenhuma água é somada, e o problema pode se tornar inviável quando a afluência é negativa.
+- **penalty.** Uma coluna de folga soma qualquer quantidade de água a um custo, o que garante a viabilidade. Esse custo fica acima dos custos térmicos e de contratos e abaixo do custo de déficit.
+- **truncation.** A folga é fixada na parte negativa da afluência, sem custo, o que eleva a afluência a zero e garante a viabilidade.
+- **truncation_with_penalty.** A folga fica entre zero e a parte negativa, a um custo, e a viabilidade é garantida.
+
+Nos dois métodos de truncamento, com defasagens no modelo (ordem acima de zero ou componente anual), a validade do limite inferior não é garantida.
+
+## Nos resultados
+
+A pasta `stochastic/` guarda o modelo que a execução usou, tenha ele sido estimado ou lido do caso. Quando o Novo Modelo estimou parte do modelo a partir do histórico, ele também escreve um relatório de ajuste.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Modelo de afluências PAR(p) §1 — definição do modelo', href: '/pt-br/math/par-inflow-model/#1-definicao-do-modelo' },
+  { kind: 'Metodologia', title: 'Modelo de afluências PAR(p) §3 — estimação', href: '/pt-br/math/par-inflow-model/#3-estimacao' },
+  { kind: 'Metodologia', title: 'Modelo de afluências PAR(p) §3.6 — seleção de ordem', href: '/pt-br/math/par-inflow-model/#36-selecao-de-ordem' },
+  { kind: 'Metodologia', title: 'Modelo de afluências PAR(p) §7 — componente anual (PAR(p)-A)', href: '/pt-br/math/par-inflow-model/#7-extensao-com-componente-anual-parp-a' },
+  { kind: 'Metodologia', title: 'Métodos de tratamento de afluências negativas §8 — resumo comparativo', href: '/pt-br/math/inflow-nonnegativity/#8-resumo-comparativo' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'scenarios/inflow_history.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosinflow_historyparquet' },
+  { dir: 'in', path: 'scenarios/inflow_seasonal_stats.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosinflow_seasonal_statsparquet' },
+  { dir: 'in', path: 'scenarios/inflow_ar_coefficients.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosinflow_ar_coefficientsparquet' },
+  { dir: 'in', path: 'scenarios/inflow_annual_component.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosinflow_annual_componentparquet' },
+  { dir: 'in', path: 'scenarios/correlation.json', href: '/pt-br/reference/case-format/scenarios/#scenarioscorrelationjson' },
+  { dir: 'in', path: 'stages.json', href: '/pt-br/reference/case-format/stages/#stagesjson' },
+  { dir: 'in', path: 'config.json (modeling.inflow_non_negativity)', href: '/pt-br/running/configuration/#modelinginflow_non_negativity' },
+  { dir: 'out', path: 'stochastic/inflow_seasonal_stats.parquet', href: '/pt-br/reference/output/stochastic/#arquivos-exportados' },
+  { dir: 'out', path: 'stochastic/fitting_report.json', href: '/pt-br/reference/output/stochastic/#stochasticfitting_reportjson' },
+]} />

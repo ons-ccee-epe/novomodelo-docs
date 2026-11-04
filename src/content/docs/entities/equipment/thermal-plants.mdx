@@ -1,0 +1,70 @@
+---
+title: Thermal plants
+description: How Novomodelo treats thermal plants — variable cost, minimum generation and anticipated dispatch.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import ThermalPlant from '../../../../components/entity/illustrations/ThermalPlant.astro';
+
+<EntityHero family="equipment" icon="thermal" lead="A thermal plant represents dispatchable generation from fuel (natural gas, coal, oil, biomass, nuclear). Each plant has a single marginal cost per MWh generated, the unit variable cost (CVU)." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'Main controllable cost', text: 'Thermal costs are actual operating expenses, which vary with the fuel type, and make up the main controllable cost in the objective function.' },
+  { title: 'Directly controllable dispatch', text: 'Unlike hydro plants, which depend on exogenous inflows, thermal dispatch is controllable, and thermal plants are independent of each other, with no cascade coupling.' },
+  { title: 'Fuel ordered in advance', text: 'LNG terminals and long-haul coal contracts require the dispatched quantity to be committed before delivery. The model represents this as anticipated dispatch.' },
+]} />
+
+## Generation range and anticipated dispatch
+
+<ThermalPlant lang="en" />
+
+## What the model decides
+
+<DecisionChips family="equipment" items={[
+  { label: 'Generation', unit: 'MW' },
+  { label: 'Dispatch commitment (anticipated plants only)', unit: 'MW' },
+]} note="Generation in each block lies between the plant's minimum generation and its capacity, and these limits are hard, with no slack. The model has no binary commitment variables: minimum generation is a plain lower bound in every block where the plant is in operation, so a plant with minimum generation above zero is never switched off." />
+
+## What you provide
+
+- The bus where the generation is injected.
+- Minimum generation (inflexibility) and maximum generation, in MW. These limits can vary by stage and by block.
+- The CVU, in \$/MWh (fuel + O&M), which varies only by stage.
+- Entry and exit stages, when the plant does not exist throughout the study.
+- For anticipated dispatch, the lead, given as a number of stages or in hours (only one of the two).
+- For anticipated dispatch, the commitments the plant already decided before the study, in the initial conditions, with the committed power in MW for each date window, including zero power.
+
+## Anticipated dispatch (LNG)
+
+A plant can be flagged as anticipated. It decides the commitment of each delivery at a stage before its delivery stage, and the plant's generation at that stage must match the commitment. Plants without the flag use the standard thermal model.
+
+- **Decision stage.** The lead fixes the stage at which each delivery is decided. A delivery decided within its own stage, because the physical lead is shorter than the duration of the delivery stage, is not anticipated: at that stage the plant dispatches as an ordinary thermal.
+- **Commitment ring.** Every commitment decided but not yet delivered is model state: the plant holds it in its commitment ring, in a ring slot, from the decision stage to the delivery stage. Anticipated thermals are the only non-hydro elements with state variables.
+- **Delivery.** The commitment is carried unchanged through the intermediate stages and delivered at the delivery stage. Its limits are the plant's generation limits at that stage, and it is zero when the plant is out of operation there.
+- **Cost.** The commitment is charged at the decision stage and discounted from the delivery stage. The plant's per-block generation has no cost at a stage where it delivers a commitment, so the same energy is priced only once.
+- **Before the study.** Deliveries decided before the study and falling within it seed their ring slots at the first stage. Those beyond the horizon are fixed commitments, priced only by the terminal boundary.
+- **Beyond the horizon.** A delivery beyond the horizon can only be decided in the study when the case declares a post-study schedule that reaches it.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'System elements overview — thermal plants', href: '/math/system-elements/#4-thermal-plants' },
+  { kind: 'Methodology', title: 'Anticipated thermal plants', href: '/math/system-elements/#anticipated-thermal-plants' },
+  { kind: 'Methodology', title: 'Equipment formulations §1.1 — standard thermals', href: '/math/equipment-formulations/#11-standard-thermals' },
+  { kind: 'Methodology', title: 'State augmentation §5 — anticipated thermal commitments', href: '/math/state-augmentation/#5-anticipated-thermal-commitments' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'system/thermals.json', href: '/reference/case-format/system/#systemthermalsjson' },
+  { dir: 'in', path: 'initial_conditions.json', href: '/reference/case-format/initial-conditions/#initial_conditionsjson' },
+  { dir: 'out', path: 'simulation/thermals/', href: '/reference/output/simulation/#simulationthermals' },
+  { dir: 'out', path: 'simulation/anticipated_lanes/', href: '/reference/output/simulation/#simulationanticipated_lanes' },
+]} />

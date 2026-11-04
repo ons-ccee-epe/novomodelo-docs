@@ -1,0 +1,160 @@
+---
+title: "Grafos da política"
+description: A generalização da cadeia de estágios em nós, transições e conjuntos de cortes — estrutura de nós e arestas, os dois eixos de probabilidade, a convenção de desconto por estágio, o mapeamento para o SDDP.jl, as limitações estruturais e o requisito de árvore enumerada.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as PolicyGraphConfigure } from './_impl/_policy-graph.configure.mdx';
+
+## Objetivo
+
+O índice de estágio $t \in \{1, \ldots, T\}$ usado ao longo de [Algoritmo da PDDE (SDDP)](/pt-br/math/sddp-algorithm) (a [convenção matemática com base 1](/pt-br/overview/notation-conventions#indexacao-dos-estagios)) é o caso particular de uma estrutura mais geral: um **grafo da política (policy graph)** formado por nós e transições, em que um estágio pode conter mais de um nó e um nó pode ter sua própria realização local. Este capítulo define essa estrutura — nós, transições e conjuntos de cortes de custo futuro; os dois eixos de probabilidade de um grafo da política; por que o desconto é uma grandeza do estágio, e não da aresta; como a estrutura se relaciona com a família SDDP.jl; suas limitações estruturais atuais; e a restrição adicional que uma simulação backward/forward exata (enumerada) impõe e que uma simulação amostrada não impõe. Trata-se da base estrutural sobre a qual se apoiam os demais capítulos de modelagem estocástica.
+
+## 1. Nós, Transições e Conjuntos de Cortes de Custo Futuro
+
+Um **nó** $n$ tem um identificador único, situa-se em um estágio do estudo $t(n)$, pode apontar para a coluna de realizações do próprio estágio (presente apenas quando o estágio do nó tem um cenário fornecido externamente) e pode ter um rótulo.
+
+Uma **transição** é uma aresta orientada de um nó para outro nó exatamente um estágio adiante, ponderada por uma probabilidade de transição. Toda aresta avança o grafo exatamente um estágio — um grafo da política não tem arestas no mesmo estágio nem arestas para trás.
+
+O grafo da política mais simples é uma **cadeia de estágios implícita**: nenhum nó é declarado, cada estágio contém exatamente um nó (sem nome), e as extremidades de cada transição são ids de estágio, e não ids de nó. Essa é a cadeia já descrita em [Algoritmo da PDDE §2](/pt-br/math/sddp-algorithm) e é o grafo pressuposto por todos os capítulos anteriores. Declarar os nós explicitamente generaliza a mesma estrutura: um estágio pode então conter vários nós, cada um com sua própria identidade e (opcionalmente) seu próprio ponteiro de realização.
+
+Um nó sem transição de saída é uma **folha**; um nó sem transição de entrada é uma **raiz**. Todo nó que não é folha possui seu próprio conjunto de cortes de custo futuro (cortes de Benders) — a generalização por nó do conjunto de cortes por estágio descrito em [Gerenciamento de cortes](/pt-br/math/cut-management). Na cadeia de estágios implícita, um nó por estágio reduz isso exatamente ao conjunto por estágio lá documentado. Todas as folhas do grafo compartilham um único conjunto, ao qual a simulação backward não acrescenta cortes, pois o custo futuro de uma folha é a condição terminal compartilhada (§5).
+
+A **simulação backward**, executada nó a nó das folhas em direção à raiz, constrói o corte de um nó a partir dos subproblemas de seus filhos: em cada estado visitado, resolve cada filho sob cada abertura desse filho e agrega todos os pares (filho, abertura) de uma só vez (§2). A **simulação forward** amostra uma única trajetória raiz→folha — um nó por estágio ao longo do caminho percorrido — e toma decisões usando a aproximação de cortes atual de cada nó visitado.
+
+```d2
+direction: down
+
+classes: {
+  n: {shape: circle; width: 46; height: 46}
+  leaf: {shape: oval; width: 64; height: 40}
+}
+
+topologies: "Topologias de grafo da política" {
+  grid-columns: 1
+
+  chain: "Cadeia de estágios — um nó por estágio" {
+    direction: right
+    c0: "0" {class: n}
+    c1: "1" {class: n}
+    c2: "2" {class: leaf}
+    c0 -> c1: "1.0"
+    c1 -> c2: "1.0"
+  }
+
+  fan: "Leque terminal — árvore, grau de entrada 1 em todos os nós" {
+    direction: right
+    f0: "0" {class: n}
+    f1: "1a" {class: leaf}
+    f2: "1b" {class: leaf}
+    f3: "1c" {class: leaf}
+    f0 -> f1: "p₁"
+    f0 -> f2: "p₂"
+    f0 -> f3: "p₃"
+  }
+
+  hybrid: "Híbrido com recombinação — grau de entrada 2 na junção" {
+    direction: right
+    h0: "0" {class: n}
+    h1: "1a" {class: n}
+    h2: "1b" {class: n}
+    h3: "2" {class: leaf}
+    h0 -> h1: "p₁"
+    h0 -> h2: "p₂"
+    h1 -> h3: "q"
+    h2 -> h3: "1−q"
+  }
+}
+```
+
+Os círculos são nós que possuem conjunto de cortes (não folhas); as elipses são folhas que compartilham o único conjunto terminal. Os três painéis são grafos da política finitos/acíclicos válidos. A **cadeia de estágios** e o **leque terminal** são árvores — todo nó tem grau de entrada no máximo 1 —, enquanto o **híbrido com recombinação** une dois nós do estágio 1 em um único nó do estágio 2, que passa a ter grau de entrada 2. A §6 retoma por que essa distinção importa.
+
+## 2. Dois Eixos de Probabilidade
+
+Um grafo da política tem duas estruturas de probabilidade que permanecem conceitualmente distintas:
+
+- **Pesos entre nós (arestas).** As probabilidades das transições de saída de cada nó somam 1 (a verificação feita na carga está na aba Configurar de [Implementação no Novo Modelo](#implementacao-no-novo-modelo)). Este eixo determina *para qual nó filho* uma trajetória se move.
+- **Aberturas dentro do nó.** Independentemente de suas arestas de saída, um nó tem seu próprio conjunto local de aberturas $\Omega_n$ — as realizações $\omega \in \Omega_n$ sob as quais seu subproblema do estágio é avaliado. Este eixo determina *qual realização* é avaliada depois que o próprio nó é alcançado; trata-se do mesmo conceito de abertura dentro do estágio descrito para a cadeia em [Algoritmo da PDDE §3](/pt-br/math/sddp-algorithm) e em [Geração de cenários](/pt-br/math/scenario-generation), com escopo por nó em vez de por estágio.
+
+A simulação backward compõe os dois eixos em uma única lei conjunta. O corte de um nó $n$ é construído sobre os pares $(n', \omega)$ formados por um filho $n'$ e uma abertura $\omega \in \Omega_{n'}$ desse filho, cada par ponderado pelo produto $P(n \to n')\, p_{n'}(\omega)$ da probabilidade de transição da aresta pela probabilidade da abertura dentro do filho, uniforme sobre $\Omega_{n'}$. A medida de risco do estágio do nó $n$ atua uma única vez sobre essa lei conjunta, e não sobre as aberturas de cada filho com os resultados depois ponderados entre os filhos.
+
+### Equação de Bellman do Nó e Corte
+
+Seja $V_n$ a função de custo futuro aproximada pelo conjunto de cortes do nó $n$, uma função do estado $x$ que o nó $n$ transmite aos seus filhos; na cadeia de estágios, $V_n = V_{t(n)+1}$, a função de valor de [Algoritmo da PDDE §2](/pt-br/math/sddp-algorithm) no estágio seguinte ao do nó. Sob o valor esperado,
+
+$$
+V_n(x) = \sum_{n'} P(n \to n') \sum_{\omega \in \Omega_{n'}} p_{n'}(\omega) \min_{(x', u) \in \mathcal{X}_{n'}(x, \omega)} \Big\{ c_{n'}(x', u) + d_{t(n') \to t(n')+1}\, V_{n'}(x') \Big\}
+$$
+
+em que a soma externa percorre os filhos $n'$ de $n$, $\mathcal{X}_{n'}(x, \omega)$ é o conjunto viável do estado $x'$ e do controle $u$ do filho $n'$ dados o estado de entrada $x$ e a abertura $\omega$, $c_{n'}$ é o custo imediato do filho e $d_{t(n') \to t(n')+1}$ é o fator de desconto do seu estágio (§3). Em uma folha, $V_n$ é a função terminal compartilhada por todas as folhas (§5): zero, ou a função terminal importada fixa de [Algoritmo da PDDE §7](/pt-br/math/sddp-algorithm#7-cortes-de-fronteira-terminal).
+
+O corte do nó $n$ em um estado visitado $\hat{x}$ limita a variável de custo futuro $\theta_n$ do nó $n$:
+
+$$
+\theta_n \geq \bar{\beta}_0 + \bar{\beta}^{\top} x
+$$
+
+com
+
+$$
+\bar{\beta}_0 = \sum_{(n', \omega)} P(n \to n')\, p_{n'}(\omega)\, \beta_0(n', \omega), \qquad \bar{\beta} = \sum_{(n', \omega)} P(n \to n')\, p_{n'}(\omega)\, \beta(n', \omega)
+$$
+
+em que $\beta(n', \omega)$ é o vetor de coeficientes obtido do subproblema do filho $n'$ em $\hat{x}$ sob a abertura $\omega$, e $\beta_0(n', \omega) = Q_{n'}(\hat{x}, \omega) - \beta(n', \omega)^{\top} \hat{x}$ é seu termo independente, sendo $Q_{n'}(\hat{x}, \omega)$ o valor ótimo desse subproblema ([Gerenciamento de cortes §2](/pt-br/math/cut-management#2-extracao-pelos-custos-reduzidos) e [§3](/pt-br/math/cut-management#3-agregacao-em-corte-unico)). Sob uma medida de risco, a soma dupla de $V_n$ é substituída pela medida de risco do estágio do nó $n$ aplicada uma única vez à lei conjunta dos pares $(n', \omega)$, e os produtos $P(n \to n')\, p_{n'}(\omega)$ no corte são substituídos pelas probabilidades ajustadas ao risco de [Medidas de risco](/pt-br/math/risk-measures) calculadas sobre essa lei.
+
+## 3. O Desconto É Definido por Estágio, Não por Aresta
+
+O fator de desconto $d_{t \to t+1}$ definido em [Formulação da taxa de desconto](/pt-br/math/discount-rate) é uma propriedade da **transição de estágio** $t \to t+1$, e não de uma aresta do grafo da política. O modelo-base (template) do estágio $t$ o contém uma única vez, como coeficiente de $\theta$ na função objetivo, e contém o desconto de entrega de [Formulação da taxa de desconto](/pt-br/math/discount-rate#forma-com-seta-e-desconto-de-entrega) em cada coluna de decisão antecipada ([Aumento do espaço de estados](/pt-br/math/state-augmentation#contribuicoes-a-funcao-objetivo)); ambos são fixos por estágio.
+
+Um grafo de nós explícito mantém essa convenção por estágio: uma substituição do desconto aplica-se a um estágio, e uma transição entre dois nós declarados não pode ter sua própria substituição de desconto. A razão é estrutural, e não acidental — como os fatores de desconto são fixados no modelo-base do estágio uma vez por estágio, uma substituição por aresta (e, portanto, potencialmente por nó) exigiria um modelo-base separado por nó, o que o modelo-base único compartilhado do estágio não suporta. Existe um ponto de declaração por transição, preparado para o futuro, justamente porque a cadeia de estágios implícita tem uma transição por estágio, de modo que uma declaração por aresta ali equivale a uma declaração por estágio; quando um estágio pode conter vários nós, essa equivalência se rompe e apenas a declaração por estágio continua significativa.
+
+## 4. Correspondência com a Família SDDP.jl
+
+A estrutura de nós/transições/conjuntos de cortes acima é a mesma abstração que [Dowson (2020)](/pt-br/reference/bibliography/#fundamentos-da-pdde-sddp) define como **policy graph** e que o pacote SDDP.jl implementa ([Dowson & Kapelevich, 2021](/pt-br/reference/bibliography/#referencias-de-software)): cada nó tem um subproblema local e seu próprio conjunto de cortes, ligados por arcos ponderados por probabilidades, e a simulação backward agrega os conjuntos dos sucessores no corte do nó pai exatamente como descrito na §1. O grafo do Novo Modelo é o membro finito, acíclico e terminado em folhas dessa família — toda trajetória começa em uma raiz e termina em uma folha após um número limitado de estágios, sem ciclo de volta a um estágio anterior. A §5 enuncia as restrições adicionais que o Novo Modelo impõe dentro desse membro.
+
+## 5. Limitações Conhecidas
+
+O grafo da política do Novo Modelo tem três limitações estruturais além da própria forma finita/acíclica/terminada em folhas:
+
+- **Um único nó inicial.** Um caso fornece um único registro de condições iniciais para todo o grafo, de modo que o estado de entrada que ancora o grafo é compartilhado por construção — o grafo é ancorado em uma única raiz, mesmo onde o esquema permitiria estruturalmente mais de um nó no estágio 0.
+- **Um único valor terminal compartilhado entre as folhas.** Toda folha, independentemente do nó ou do caminho que a alcança, remete ao mesmo conjunto terminal compartilhado, ao qual a simulação backward não acrescenta cortes. Isso generaliza a condição terminal de [Algoritmo da PDDE §2](/pt-br/math/sddp-algorithm): há um único valor de custo futuro terminal para todo o grafo, e não um por folha — zero, $V_{T+1}(x) = 0$, ou a função terminal importada fixa de [Algoritmo da PDDE §7](/pt-br/math/sddp-algorithm#7-cortes-de-fronteira-terminal).
+- **Apenas horizonte finito.** Somente a forma de grafo acíclica e terminada em folhas é aceita; a variante cíclica (horizonte periódico infinito) é reservada e rejeitada na carga do caso. Veja [Modos de horizonte](/pt-br/math/horizon-modes) para o projeto cíclico pretendido que essa reserva antecipa.
+
+## 6. O Requisito Estrutural de Árvore Enumerada
+
+Uma simulação backward/forward **enumerada** (exata) — em oposição a uma amostrada — visita todos os nós de forma determinística e reconstrói o estado de entrada de cada nó ao longo de um único caminho a partir de seu pai. Essa reconstrução só é bem definida sob duas restrições adicionais sobre o grafo, além da forma finita/acíclica/terminada em folhas:
+
+1. **Um conjunto de aberturas unitário em cada nó** ($|\Omega_n| = 1$). Uma simulação exata avalia exatamente uma abertura por nó: um nó com mais de uma abertura é rejeitado na preparação, de modo que a ramificação é expressa estruturalmente, como nós irmãos distintos, cada um com sua única abertura.
+2. **Grau de entrada 1 em todos os nós — uma árvore pura, sem recombinação.** Um nó alcançado a partir de mais de um predecessor (o painel *híbrido com recombinação* da §1) tem mais de um estado de entrada candidato. Reconstruir seu estado ao longo do caminho de apenas um dos pais descartaria silenciosamente as trajetórias que chegam pelo outro pai.
+
+Ambas as restrições existem pela mesma razão: uma simulação exata não guarda, por trajetória, a memória de como chegou a um nó; logo, o estado de entrada de um nó deve corresponder exata e inequivocamente ao único caminho que leva a ele. Uma simulação **amostrada** carrega seu próprio estado de entrada junto com cada trajetória que avalia, e por isso não está sujeita a nenhuma das restrições — ela avalia o conjunto de aberturas de um nó por sorteio, em vez de enumerá-lo, e resolve nativamente uma junção de recombinação, em vez de reconstruir um único caminho.
+
+Como a contagem enumerada cresce multiplicativamente ao longo de cada caminho raiz→folha, o número total de folhas que uma simulação enumerada visitaria é verificado quanto a estouro (overflow) antes da execução; um grafo cuja enumeração exata estouraria é rejeitado na preparação, em vez de ser truncado silenciosamente ou sofrer transbordamento circular.
+
+Dos três painéis da §1: a **cadeia de estágios** e o **leque terminal** são árvores puras e admitem uma simulação exata (sujeita à restrição de abertura unitária em cada nó); o **híbrido com recombinação** é rejeitado para uma simulação exata em sua junção com grau de entrada 2 e exige, em vez disso, uma simulação amostrada.
+
+## Implementação no Novo Modelo
+
+A metodologia acima define os nós, as transições e suas probabilidades; a aba abaixo mostra como a interface do software Novo Modelo os declara e verifica as probabilidades na carga.
+
+<Tabs>
+  <TabItem label="Configurar"><PolicyGraphConfigure /></TabItem>
+</Tabs>
+
+## Referências Cruzadas
+
+- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — a estrutura das simulações forward/backward e a condição terminal que este capítulo generaliza para um grafo
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — o conjunto de cortes incremental (append-only) que este capítulo generaliza do nível de estágio para o nível de nó
+- [Formulação da taxa de desconto](/pt-br/math/discount-rate) — o fator de desconto por estágio referido na §3
+- [Geração de cenários](/pt-br/math/scenario-generation) — o conjunto de aberturas dentro do nó referido na §2
+- [Modos de horizonte](/pt-br/math/horizon-modes) — a variante cíclica do grafo reservada na §5
+- [Arquivos de estágios](/pt-br/reference/case-format/stages/#stagesjson) — a referência campo a campo de `stages.json` para a forma de nós/transições introduzida conceitualmente na §1
+- [Configuração](/pt-br/running/configuration) — como um estudo escolhe entre uma simulação enumerada e uma amostrada (§6)
+- [Glossário](/pt-br/reference/glossary) — definições dos termos nó, transição e grafo da política
+
+## Referências
+
+- [Dowson (2020)](/pt-br/reference/bibliography/#fundamentos-da-pdde-sddp)
+- [Dowson & Kapelevich (2021)](/pt-br/reference/bibliography/#referencias-de-software)
+
+Consulte a [Bibliografia](/pt-br/reference/bibliography) completa para todas as fontes citadas na metodologia.

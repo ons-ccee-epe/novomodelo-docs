@@ -1,0 +1,94 @@
+---
+title: Inflows and the PAR(p) model
+description: How Novomodelo represents uncertain inflows — a periodic autoregressive model fitted to the inflow history, its order and seasonal statistics, and the treatment of negative values.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import Inflow from '../../../../components/entity/illustrations/Inflow.astro';
+
+<EntityHero family="hydrology" icon="inflow" lead="Inflow is the water that reaches each hydro plant in a stage, and it is the main source of uncertainty in the study. Novomodelo describes it with a periodic autoregressive model, PAR(p), which captures both the seasonal pattern of the flows and their memory of past periods." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'Seasonal and uncertain', text: 'Each season has its own mean and its own variability. What cannot be predicted from the past is represented by a random term, the innovation, an independent standardized noise.' },
+  { title: 'With memory of past flows', text: 'The inflows of previous periods (AR lags) enter the calculation of the current one. The order can vary by season and by hydro plant, and order zero means no memory: each season is sampled on its own.' },
+  { title: 'Fitted or supplied', text: 'Novomodelo can fit the model from the inflow history, or you can supply the seasonal statistics and the coefficients directly. The scale of the noise is never an input: it is derived from the coefficients.' },
+]} />
+
+## From the record to synthetic series
+
+<Inflow lang="en" />
+
+## What the model decides
+
+<DecisionChips family="hydrology" items={[
+  { label: 'Realized incremental inflow, per plant and stage', unit: 'm³/s' },
+  { label: 'Inflow non-negativity slack (all methods except none; fixed under truncation)', unit: 'm³/s' },
+]} note="The inflow is not a decision: it follows from the seasonal base, the lags carried in from earlier stages and the noise of the scenario. The model decides only how much water to add to absorb a negative value in the water balance, and only under the methods that allow it (see Negative inflows below). The inflow is incremental: a plant's natural flow minus the flow of its upstream plants." />
+
+## What you provide
+
+- The inflow history: for each hydro plant, windows with a start date, an end date and the mean inflow over the window, in m³/s. Windows of one plant must not overlap, and negative values are accepted.
+- The seasonal statistics: the mean and the standard deviation of each plant and stage, in m³/s.
+- The AR coefficients of each plant, stage and lag. The scale of the noise is not provided: it is derived from the coefficients.
+- Either set above may be left out, and Novomodelo then estimates it from the history. Estimation requires the season map of the stage file.
+- Optionally, the annual component of the PAR(p)-A extension, which adds one annual coefficient on top of the seasonal structure to capture hydrological persistence over several years.
+- Optionally, spatial correlation: plants in the same correlation group receive correlated noise, while plants in different groups, or in none, are independent.
+- The method that treats negative inflows, in the run configuration.
+
+## The inflow-lag seed
+
+The first study stages need inflows from before the study starts to fill their AR lags. This inflow-lag seed (the hydrological trend, *tendência hidrológica*) is the inflow history, overridden by the recent observations of the initial conditions wherever both cover a date.
+
+## How the model is fitted
+
+- **Seasonal statistics.** The mean and the standard deviation of each plant and season are computed from the history.
+- **Seasons with no variation.** A season whose observations are all equal, or in which one value takes more than half of the observations (a flow cap or a low-flow constant), is given zero standard deviation and order zero, with no memory.
+- **Order.** For each season, the order is the largest lag whose partial autocorrelation is significant at 95% confidence, up to a maximum lag. If no lag is significant, the order is zero (in the classic model).
+- **Checks after the fit.** A season whose first coefficient is negative falls back to order zero. A season in which a lag would have a negative influence on the current inflow loses one lag and is fitted again, until no season fails.
+- **Storage.** The coefficients are stored standardized, that is, dimensionless, and converted to the original units at load with the seasonal statistics.
+- **Partial-year studies.** When the study covers only part of the year, the seasons before its start are added so that the lags of the first stages have their statistics.
+
+## Negative inflows
+
+The model can produce a negative inflow, and that is not impossible in itself: the inflow is incremental, so a negative value is real hydrology, a reach that loses water over the period. What the methods solve is the consequence for the water balance, which could otherwise become infeasible. No method changes the inflow itself, and the lags of later stages keep the raw value. The methods differ in the water they add to the balance.
+
+- **none.** No water is added, and the problem may become infeasible when the inflow is negative.
+- **penalty.** A slack column adds any amount of water at a cost, which guarantees feasibility. That cost lies above thermal and contract costs and below the deficit cost.
+- **truncation.** The slack is fixed at the negative part of the inflow, at no cost, which lifts the inflow to zero and guarantees feasibility.
+- **truncation_with_penalty.** The slack lies between zero and the negative part, at a cost, and feasibility is guaranteed.
+
+Under both truncation methods, with lags in the model (an order above zero or an annual component), the validity of the lower bound is not guaranteed.
+
+## In the results
+
+The `stochastic/` folder holds the model that the run used, whether it was estimated or read from the case. When Novomodelo estimated part of the model from the history, it also writes a fitting report.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'PAR(p) Inflow Model §1 — model definition', href: '/math/par-inflow-model/#1-model-definition' },
+  { kind: 'Methodology', title: 'PAR(p) Inflow Model §3 — estimation', href: '/math/par-inflow-model/#3-estimation' },
+  { kind: 'Methodology', title: 'PAR(p) Inflow Model §3.6 — order selection', href: '/math/par-inflow-model/#36-order-selection' },
+  { kind: 'Methodology', title: 'PAR(p) Inflow Model §7 — annual component (PAR(p)-A)', href: '/math/par-inflow-model/#7-annual-component-extension-parp-a' },
+  { kind: 'Methodology', title: 'Inflow Non-Negativity Solution Methods §8 — comparison', href: '/math/inflow-nonnegativity/#8-comparison-summary' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'scenarios/inflow_history.parquet', href: '/reference/case-format/scenarios/#scenariosinflow_historyparquet' },
+  { dir: 'in', path: 'scenarios/inflow_seasonal_stats.parquet', href: '/reference/case-format/scenarios/#scenariosinflow_seasonal_statsparquet' },
+  { dir: 'in', path: 'scenarios/inflow_ar_coefficients.parquet', href: '/reference/case-format/scenarios/#scenariosinflow_ar_coefficientsparquet' },
+  { dir: 'in', path: 'scenarios/inflow_annual_component.parquet', href: '/reference/case-format/scenarios/#scenariosinflow_annual_componentparquet' },
+  { dir: 'in', path: 'scenarios/correlation.json', href: '/reference/case-format/scenarios/#scenarioscorrelationjson' },
+  { dir: 'in', path: 'stages.json', href: '/reference/case-format/stages/#stagesjson' },
+  { dir: 'in', path: 'config.json (modeling.inflow_non_negativity)', href: '/running/configuration/#modelinginflow_non_negativity' },
+  { dir: 'out', path: 'stochastic/inflow_seasonal_stats.parquet', href: '/reference/output/stochastic/#exported-files' },
+  { dir: 'out', path: 'stochastic/fitting_report.json', href: '/reference/output/stochastic/#stochasticfitting_reportjson' },
+]} />

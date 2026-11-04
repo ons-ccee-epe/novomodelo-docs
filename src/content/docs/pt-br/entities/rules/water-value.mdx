@@ -1,0 +1,88 @@
+---
+title: Valor da água e custo futuro
+description: Como o Novo Modelo resume o futuro em uma função de custo futuro, construída por cortes de Benders, e como dela emerge o valor da água — o custo de oportunidade de usar a água agora em vez de guardá-la.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import ValueFunctionPlot from '../../../../../components/ValueFunctionPlot.astro';
+
+<EntityHero family="rules" icon="water" lead="O valor da água é o custo de oportunidade de usar a água agora em vez de guardá-la. Ele não é um dado de entrada: emerge da otimização. O Novo Modelo resume o futuro em uma função de custo futuro (FCF), que a PDDE (SDDP) constrói aos poucos com cortes de Benders." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'O futuro cabe em uma função', text: 'A função de custo futuro é o custo esperado do estágio corrente até o fim do horizonte, em função do estado inicial: níveis dos reservatórios e defasagens das afluências. Quando os subproblemas são PLs, ela é convexa e linear por partes.' },
+  { title: 'Construída por baixo, corte a corte', text: 'A PDDE nunca constrói a função inteira. Ela a aproxima por baixo com uma coleção crescente de cortes de Benders, cada um uma subestimativa válida. Durante o treinamento (training), nenhum corte ativo sai do problema do limite inferior, então esse limite não decresce.' },
+  { title: 'A inclinação da função diz quanto vale guardar água', text: 'Cada corte tem, para cada reservatório, um coeficiente de armazenamento, o valor marginal da água. Seu sinal é, em geral, negativo ou nulo: mais armazenamento costuma significar menor custo futuro.' },
+]} />
+
+## Os cortes desenham a função de custo futuro
+
+<figure class="entity-illustration entity-rules">
+  <ValueFunctionPlot />
+  <figcaption>Figura: o custo futuro em função do armazenamento. Cada corte é uma tangente em um estado visitado, e a envoltória dos cortes se aproxima por baixo da função verdadeira, que é convexa, à medida que cortes são acrescentados.</figcaption>
+</figure>
+
+## O que o modelo decide
+
+<DecisionChips family="rules" items={[
+  { label: 'Custo futuro aproximado de cada estágio', unit: 'R$' },
+  { label: 'Valor da água de cada usina, por estágio e patamar', unit: 'R$/hm³' },
+]} note="O modelo não recebe o valor da água: ele resulta da otimização. Em cada estágio, a variável de custo futuro é limitada por todos os cortes vigentes, e o balanço hídrico de cada usina fornece o valor da água do estágio." />
+
+## O que você informa
+
+Não há valor da água a informar. O que você controla é como o treinamento (training) constrói a função e de onde ele parte.
+
+- Os critérios de parada do treinamento: um limite de iterações ou de tempo, o limite inferior estagnado ou, com um limite superior exato, um gap dentro da tolerância.
+- O modo da política: começar do zero, com uma função de custo futuro vazia, ou partir de um checkpoint anterior.
+- A condição no fim do horizonte: por padrão, o custo futuro após o último estágio é zero, mas um estudo pode importá-la de uma fronteira terminal (cortes de fronteira).
+- Opcionalmente, a seleção de cortes e um limite de cortes ativos, para controlar o crescimento do conjunto de cortes.
+
+## Como a função é construída
+
+Cada iteração da PDDE tem duas etapas.
+
+1. **Simulação forward.** Simula-se um lote de trajetórias de cenários sob a política vigente, e registra-se o estado que cada trajetória atinge em cada estágio: os estados visitados.
+2. **Simulação backward.** Do último estágio ao segundo, resolve-se o subproblema de cada estágio em cada estado visitado, para todas as aberturas do estágio. Dos custos reduzidos das colunas fixadas do estado de entrada saem os coeficientes do corte, e agrega-se um novo corte, por estado visitado, para o estágio anterior.
+
+Depois dessas etapas, o limite inferior é avaliado resolvendo-se o primeiro estágio sobre suas aberturas com os cortes vigentes. O ciclo se repete até que os critérios de parada sejam atendidos, e os cortes finais definem a política.
+
+## Dois números parecidos, mas distintos
+
+Na metodologia, o coeficiente de armazenamento do corte é chamado de valor marginal da água. O valor da água informado nos resultados é outra grandeza: a variável dual da restrição de balanço hídrico da usina, em R\$/hm³. Os dois se distinguem porque o coeficiente do corte é o custo reduzido da coluna fixada do armazenamento inicial, que combina a dual do balanço hídrico com as duais das demais restrições que leem o armazenamento inicial, como as da função de produção e da evaporação.
+
+## Como ler o valor da água nos resultados
+
+- A coluna `water_value_per_hm3` de `simulation/hydros/` traz o valor da água de cada usina. Em um estágio cronológico, cada patamar traz o valor do seu próprio patamar; em um estágio paralelo, todos os patamares trazem o valor da linha do estágio.
+- Para agregar um estágio cronológico, pondere os patamares pelas horas de cada um.
+- O valor é nulo ou negativo sempre que um hm³ adicional reduz o custo, porque a água desloca geração térmica ou déficit, agora ou mais tarde. Uma magnitude maior significa água mais escassa, que o solver preserva para estágios posteriores; um valor próximo de zero significa reservatório abundante.
+- Um valor positivo aparece quando a água adicional só pode sair do reservatório com custo, por exemplo por meio de uma penalidade de vertimento.
+
+O detalhamento de custos por estágio traz o custo imediato e o custo futuro separadamente.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Visão geral', title: 'A PDDE em uma página §1 — a ideia central', href: '/pt-br/overview/sddp-framework-overview/#1-a-ideia-central' },
+  { kind: 'Metodologia', title: 'Algoritmo da PDDE §2 — formulação multiestágio e funções de valor', href: '/pt-br/math/sddp-algorithm/#2-formulacao-como-programacao-estocastica-multiestagio' },
+  { kind: 'Metodologia', title: 'Algoritmo da PDDE §3.1 — simulação forward', href: '/pt-br/math/sddp-algorithm/#31-simulacao-forward' },
+  { kind: 'Metodologia', title: 'Algoritmo da PDDE §3.2 — simulação backward', href: '/pt-br/math/sddp-algorithm/#32-simulacao-backward' },
+  { kind: 'Metodologia', title: 'Gerenciamento de cortes §1 — definição do corte', href: '/pt-br/math/cut-management/#1-definicao-do-corte' },
+  { kind: 'Metodologia', title: 'Gerenciamento de cortes §4 — validade dos cortes', href: '/pt-br/math/cut-management/#4-validade-dos-cortes' },
+  { kind: 'Metodologia', title: 'Visão geral dos elementos do sistema §5 — usinas hidrelétricas', href: '/pt-br/math/system-elements/#5-usinas-hidreletricas' },
+  { kind: 'Resultados', title: 'Valor da água (preço-sombra) a partir da saída das UHEs', href: '/pt-br/running/interpreting-results/#d-valor-da-agua-preco-sombra-a-partir-da-saida-das-uhes' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'config.json (policy)', href: '/pt-br/running/policy-management/#modos-da-politica' },
+  { dir: 'out', path: 'simulation/hydros/ (water_value_per_hm3)', href: '/pt-br/reference/output/simulation/#simulationhydros' },
+  { dir: 'out', path: 'simulation/costs/ (future_cost)', href: '/pt-br/reference/output/simulation/#simulationcosts' },
+  { dir: 'out', path: 'policy/cuts/NNN.bin', href: '/pt-br/reference/output/policy/#policycutsnnnbin' },
+]} />

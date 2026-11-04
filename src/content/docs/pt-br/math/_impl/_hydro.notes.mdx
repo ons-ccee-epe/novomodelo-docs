@@ -1,0 +1,237 @@
+Comportamento não normativo do software para os modelos de produção hidrelétrica — o que o Novo Modelo
+faz em tempo de execução, além das equações acima. Esta aba remete ao
+corpo da metodologia para as derivações, em vez de repeti-las.
+
+### Comportamento do ajuste da FPHA calculada
+
+O caminho calculado (§2.6–§2.7 acima) avalia a função de produção exata
+em uma grade (volume, vazão turbinada) com o vertimento fixado em `0`. O eixo de vazão
+começa em `q = 0`; essa coluna de vazão nula tem geração nula por construção
+e ancora o fechamento inferior da nuvem, de modo que o ajustador não precisa nem de um
+ponto de fechamento sintético nem de um eixo de vertimento na própria nuvem — a
+sensibilidade ao vertimento é capturada separadamente pela secante de vazão lateral por plano
+(§2.7), e não pelo acréscimo de uma terceira dimensão à grade. A secante amostra a vazão
+lateral em `101` valores igualmente espaçados de `[0, S_max]`, incluindo ambos os extremos (`N = 100`
+na §2.7), em todos os pontos da mesma grade (volume, vazão turbinada), e um ponto da
+grade conta para um plano quando esse plano fica a no máximo `1e-8` MW do
+mínimo ponto a ponto naquele ponto. O extremo superior `turbined_fit_max_m3s` do eixo
+de vazão e o extremo superior `spillage_fit_max_m3s` da amostra de vazão lateral são
+definidos por entrada do modelo de produção (aba Configurar).
+
+As facetas da envoltória superior da envoltória convexa 3-D são corrigidas por um único
+escalar de mínimos quadrados $k_{FPHA}$. Essa correção escala o **plano afim
+inteiro** — intercepto e ambas as inclinações juntos —, e não apenas o intercepto, ao contrário
+do fator `kappa` dos planos pré-calculados, que escala apenas o intercepto
+(validado em `(0, 1]`).
+
+Inclinações de vazão lateral acima de `-1e-10` — um resíduo negativo próximo de zero ou qualquer
+valor positivo — são fixadas em exatamente `0`, de modo que nenhum coeficiente próximo de zero chega
+à coluna de vertimento.
+
+Quando alguma usina usa FPHA calculada, as famílias de `system/tailrace_curves.parquet` são verificadas à medida que os
+modelos de produção são construídos: segmentos consecutivos de uma família devem se encontrar (o
+`outflow_max_m3s` anterior e o `outflow_min_m3s` seguinte diferem no máximo `1e-6` m³/s) e dar o mesmo
+nível na fronteira comum, a menos do maior valor entre `0.001` m e `1e-4` do maior dos dois
+níveis. Uma lacuna, uma sobreposição ou uma divergência de nível além desses limites é um erro que identifica a usina pelo
+id e a fronteira.
+
+### Suporte a usinas a fio d'água
+
+Uma usina cuja faixa de volume de ajuste se reduz a um único ponto (nível de
+montante constante) é ajustada sintetizando-se duas amostras de volume próximas, para que a envoltória 3-D
+permaneça não degenerada, e depois ajustando o resíduo `gamma_v` resultante para
+exatamente `0` quando sua magnitude é no máximo `1e-6` MW por hm³. Isso impõe a
+semântica correta de fio d'água — a geração nesses
+planos não varia com o armazenamento — e é por isso que as usinas a fio d'água são
+suportadas no caminho calculado, em vez de rejeitadas.
+
+As duas amostras ficam uma de cada lado desse volume único, cada uma deslocada pelo
+maior valor entre meio por cento do armazenamento útil da usina e `1` hm³, de modo que uma
+usina sem armazenamento útil ainda recebe duas amostras distintas; quando a
+curva cota-volume abrange uma faixa de volumes, ambas as amostras são limitadas a
+essa faixa.
+
+### FPHA sem capacidade de turbinamento
+
+Uma usina que solicita FPHA, calculada (`fpha_config.source: "computed"` em
+qualquer uma das suas entradas de modelo de produção) ou pré-calculada sem nenhuma linha em
+`system/fpha_hyperplanes.parquet`, e que declara `max_turbined_m3s` menor ou igual a
+`1e-9` não é ajustada; ela é modelada com produtibilidade nula em todos os estágios
+([§2.6.1](#261-grade-e-nuvem) acima). Os pré-requisitos da FPHA calculada se aplicam
+a uma usina calculada: `tailrace`, `hydraulic_losses` e `efficiency` em `hydros.json` e
+linhas de geometria em `system/hydro_geometry.parquet`; a ausência de qualquer um deles é um erro
+na carga.
+
+Um aviso identifica a usina; `novomodelo validate` e `novomodelo run` o imprimem:
+
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json hydro 0: generation.model fpha, generation.max_turbined_m3s and unit_groups[0].max_turbined_m3s 0.0, specific_productivity_mw_per_m3s_per_m 0.0091 added, tailrace polynomial with coefficients [5.0, 0.001] added, hydraulic_losses factor 0.03 added, efficiency constant 0.93 added; system/hydro_production_models.json: the one stage range set to model fpha with fpha_config.source computed, productivity_mw_per_m3s removed; system/hydro_geometry.parquet added with hydro_id [0, 0, 0], volume_hm3 [0, 500, 1000], height_m [100, 110, 120], area_km2 [10, 15, 20], zstd compression; run with NO_COLOR=1; exit 0; excerpt: the WARN line is quoted, the closing Valid case line is not) */}
+
+```text
+ WARN hydro UHE1 (id=0) requests FPHA but has no turbine capacity (max_turbined_m3s = 0); modeling it with zero productivity
+```
+
+Todo processo MPI prepara os modelos de produção, de modo que uma execução com vários processos imprime o
+aviso uma vez por processo.
+
+A usina é contabilizada como de produtibilidade constante: em `n_constant` de
+`training/hydro_models.json`, na sua lista `no_turbine_capacity`, em
+`n_constant` do resumo `hydro_models` em Python e na
+contagem `constant` da linha `Production:` da CLI. Ela não aparece em
+`n_fpha`, `total_planes` e `fpha_details`, em
+`n_fpha_computed_from_geometry` e `n_fpha_precomputed_hyperplanes` de
+`training/model_provenance.json`, nem em
+`hydro_models/fpha_hyperplanes.parquet`.
+
+### Aviso de qualidade do ajuste
+
+Após o processo completo, o Novo Modelo compara a envoltória mínima ajustada com a
+função de produção exata sobre a grade com vertimento `0` e calcula o seu
+desvio absoluto médio relativo. Quando ele excede 5%, é registrado um aviso
+que identifica a usina e o estágio:
+
+```
+FPHA fit for hydro UHE Example (stage 3) deviates 6.2% from the exact production function (mean |Δ| 4.1 MW, max 9.7 MW); the convex-hull approximation is poor here — typically a strongly non-concave production surface that no single α correction can track
+```
+
+O aviso é informativo — a execução prossegue com os planos ajustados. Um
+desvio elevado tipicamente indica uma superfície de produção fortemente não côncava,
+que nenhum escalar $k_{FPHA}$ único consegue acompanhar bem; reduzir `fitting_window`,
+diminuir `turbined_fit_max_m3s` ou aumentar as quantidades de pontos da discretização são
+as soluções usuais.
+
+### Garantias de determinismo
+
+Os pontos da nuvem de ajuste e a saída da envoltória são ordenados de forma canônica, de modo que os
+hiperplanos ajustados são idênticos bit a bit, independentemente da ordem da entrada e do número de
+processos MPI. Os sorteios amostrais do método de distância de `fpha_plane_reduction` usam
+sementes derivadas da identidade estável usina/estágio/par de planos — nunca do relógio do sistema nem do processo
+MPI —, de modo que suas fusões são igualmente reprodutíveis.
+
+### Evaporação: desabilitada com área nula, rejeitada sem geometria
+
+Uma usina que declara `evaporation.coefficients_mm` precisa de uma curva
+área-volume — as linhas em `system/hydro_geometry.parquet` — para linearizar seu
+fluxo de evaporação, e as duas formas pelas quais essa curva pode estar ausente são tratadas
+de modo diferente:
+
+- **Nenhuma linha de geometria** é um **erro rígido na carga**. Uma usina que
+  declara `evaporation.coefficients_mm`, mas não tem nenhuma linha em
+  `system/hydro_geometry.parquet`, é rejeitada na carga, com a identificação da usina: a
+  linearização da evaporação exige dados da curva área-volume, e nenhum está
+  presente.
+- **Linhas presentes, mas com todo `area_km2` nulo** resulta em evaporação **desabilitada com
+  aviso**. A curva existe, mas descreve área superficial nula em toda a faixa, de modo que
+  o fluxo de evaporação é identicamente nulo, quaisquer que sejam os coeficientes
+  informados. O Novo Modelo desabilita a evaporação (fluxo nulo) para essa usina e
+  registra um aviso identificando a usina, em vez de interromper a execução.
+
+Duas condições detectadas durante a construção da linearização por estágio continuam sendo erros
+rígidos na carga: um estágio cuja duração total dos patamares não é positiva, e um
+coeficiente de evaporação calculado — inclinação em relação ao volume ou intercepto — que não é
+finito (sinal de uma curva área-volume degenerada). O mês do calendário
+que seleciona o coeficiente mensal de evaporação de cada estágio é obtido da data de início
+desse estágio. Ver
+[Sistema de penalidades — Evaporação Líquida com Sinal](/pt-br/math/penalty-system#evaporacao-liquida-com-sinal)
+para o tratamento do fluxo resultante no balanço hídrico.
+
+### Entrada em operação: o estado de pré-enchimento (PreFilling)
+
+A janela de operação `entry_stage_id`/`exit_stage_id` de uma usina hidrelétrica é respeitada mesmo para uma usina **sem enchimento** (sem bloco `filling`). Em qualquer estágio fora da sua janela — antes de `entry_stage_id`, ou a partir de `exit_stage_id` — a usina está em **pré-enchimento**: o aproveitamento não está em operação, de modo que suas colunas de turbinamento, vertimento e desvio são fixadas em zero, seu armazenamento é congelado pela identidade $v_h = v^{in}_h$, e sua afluência incremental, com a folga de não negatividade da afluência, as defluências de montante, as vazões desviadas para ela e a água em trânsito que chega a ela são encaminhadas, passando pelo aproveitamento, para a primeira usina de jusante que não esteja em PreFilling (ou deixam o sistema modelado, se não houver nenhuma). Uma usina inativa antes do seu `entry_stage_id` mantém, portanto, o armazenamento de `initial_conditions.json` em todos os estágios inativos. Em um estágio de PreFilling, a coluna de armazenamento tem piso `0` e teto nunca inferior ao `max_storage_hm3` da própria usina, de modo que um `max_storage_hm3` de estágio em `constraints/hydro_bounds.parquet` abaixo do armazenamento mantido não torna esse estágio inviável. Diferentemente da fixação genérica em zero fora da janela usada para os demais tipos de entidade, o rio nunca fica retido nem duplicado em um aproveitamento que não está em operação. Ver [Formulação do PL — Fases do Ciclo de Vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida) para todas as fases e [Sistema de penalidades](/pt-br/math/penalty-system) para a distinção entre vertimento congelado e vertimento com custo.
+
+### Tempo de viagem da água: semente de água em trânsito e validação
+
+Quando uma usina declara um arco com tempo de viagem, as defluências já em trânsito no
+início do estudo devem ser fornecidas, para que os buckets de chegada defasada dos primeiros estágios sejam
+inicializados, em vez de começarem vazios. Esse histórico fica em
+`initial_conditions.past_defluences`: registros de defluências pré-estudo por janela (um
+`hydro_id`, uma janela de liberação e uma vazão média em m³/s) para as usinas cuja
+defluência alimenta um arco declarado.
+
+Validação na carga de um arco declarado:
+
+- **Profundidade do histórico.** As janelas de `past_defluences` devem cobrir o intervalo
+  em trânsito do arco no início do estudo — o intervalo `[start_0 − travel_time, start_0)`
+  que termina no início do estudo. Uma lacuna, ou a ausência de janelas, é um erro na carga,
+  e nenhuma janela pode ter data futura além do início do estudo — não há semente substituta
+  nem alternativa a partir de qualquer outra fonte.
+- **A usina de jusante deve estar em operação.** Uma defluência em um estágio anterior ao
+  `entry_stage_id` da usina de jusante — enquanto ela está em pré-enchimento ou em enchimento de volume morto (Filling) — é rejeitada;
+  a verificação abrange cada estágio de liberação dentro do estudo, inclusive o primeiro, de modo que a
+  usina de jusante deve ter entrado em operação até o primeiro estágio do estudo.
+- **Tempos de viagem heterogêneos com patamares cronológicos.** Quando dois ou mais
+  arcos declarados alimentam a _mesma_ usina de jusante com valores _diferentes_ de
+  `travel_time_hours` e pelo menos um estágio do estudo usa o modo de patamares
+  cronológico, o caso é rejeitado na carga com um erro `NotImplemented`, cuja mensagem diz "unsupported in v1", identificando
+  a usina de jusante e os arcos conflitantes; alinhe os
+  `travel_time_hours` dos arcos ou mantenha todos os estágios do estudo no modo de patamares paralelo. Tempos
+  de viagem iguais em uma confluência, ou um estudo sem estágio cronológico, não são
+  afetados. Ver [Códigos de Erro — `NotImplemented`](/pt-br/reference/error-codes/#notimplemented).
+- **Tempo de viagem nulo, ausente ou inválido.** Um `travel_time_hours` nulo ou ausente
+  é tratado como não declarado — uma transferência instantânea que não cria
+  arco entre estágios, não acrescenta in-transit bucket e não exige semente
+  `past_defluences`. Um `0.0` **explícito** registra adicionalmente um **aviso de qualidade do modelo** de que
+  está sendo lido como não declarado, de modo que um zero intencional é sinalizado, enquanto um
+  campo omitido permanece silencioso. Um `travel_time_hours` **negativo ou não finito**
+  é um erro rígido na carga. Ver [Códigos de erro](/pt-br/reference/error-codes).
+- **Avisos de qualidade do modelo (não bloqueantes).** Duas outras condições sobre um
+  arco declarado são reportadas como linhas `warning:` após `Valid case: …`; o caso
+  ainda é carregado e executado. Ver
+  [Códigos de erro — `ModelQuality`](/pt-br/reference/error-codes/#modelquality).
+  - **Tempo de viagem desprezível.** Quando `travel_time_hours` é inferior a 1% da
+    duração de todos os estágios do estudo (`travel_time_hours / stage hours < 0.01` em todos os
+    estágios), o arco transporta uma fração desprezível entre estágios; o aviso
+    sugere não declará-lo.
+  - **Maior que o horizonte de estudo restante.** Quando `travel_time_hours`
+    excede o horizonte de estudo restante a partir de algum estágio, as defluências desse
+    estágio em diante nunca chegam dentro do estudo, e o aviso identifica o
+    primeiro desses estágios como o ponto a partir do qual o arco é economicamente inerte.
+    O dimensionamento da água em trânsito permanece seguro.
+
+A água em trânsito que chega a uma usina em um estágio no qual a usina está em
+pré-enchimento entra na restrição da primeira usina de jusante que não esteja em pré-enchimento, e
+só deixa o sistema modelado quando essa usina não existe.
+
+**Limitação do horizonte.** Sem uma fronteira terminal carregada, a água em trânsito
+que chegaria após o último estágio é descartada; com uma fronteira, ela é transportada até
+o estágio terminal e valorada ali ([Aumento do espaço de estados — Limitação do
+horizonte](/pt-br/math/state-augmentation#limitacao-de-horizonte), [Fronteira
+Pós-Estudo e Estudos Encadeados](/pt-br/math/post-study-boundary)).
+
+### Usina particionada por barramento: colapso de células e a ressalva da soma da geração
+
+Os `unit_groups` de uma usina a particionam em uma **célula** por `bus_id` distinto:
+o PL tem uma coluna de turbinamento e uma coluna de geração FPHA por célula.
+Quando todos os grupos compartilham um mesmo barramento, a usina se reduz a uma única célula — a
+mesma forma de PL, idêntica byte a byte, de uma usina que não declara grupos além do
+obrigatório. O compartilhamento das colunas de turbinamento e de geração de uma célula por grupos do mesmo
+barramento é exato para as restrições de caixa (os limites próprios de cada grupo são consolidados
+independentemente antes de serem somados na célula), porque todos os grupos de uma usina
+compartilham o mesmo modelo de produção e os mesmos coeficientes de produtibilidade — não existe
+campo de produtibilidade por grupo.
+
+A saída `simulation/hydro_bus_generation/` soma exatamente, bit a bit, o próprio
+`turbined_m3s` da usina em qualquer modelo, já que ambos são uma soma simples das mesmas
+colunas de turbinamento por célula. `generation_mw` soma exatamente apenas para usinas com FPHA
+e usinas de célula única: para `ConstantProductivity`, a
+linha da usina calcula `(Σ_c turbined_c) × ρ` — soma primeiro a vazão turbinada
+das células e depois multiplica uma vez —, enquanto cada linha de célula por barramento calcula
+`turbined_c × ρ` independentemente. As duas expressões são iguais em aritmética
+exata, mas a multiplicação em ponto flutuante não é distributiva em relação à
+adição bit a bit, de modo que o total da usina pode não ser igual à soma das
+linhas das células até o último bit quando a usina abrange mais de uma célula. Usinas com
+FPHA são exceção porque tanto a linha da usina quanto as linhas das células somam as
+mesmas colunas subjacentes de geração FPHA por célula da mesma forma; uma
+usina de célula única é exceção porque há apenas um termo em qualquer caso.
+
+### Exportação parquet de ida e volta
+
+Quando os hiperplanos são ajustados em tempo de execução (`source: "computed"`), os
+coeficientes ajustados são gravados automaticamente em
+`output/hydro_models/fpha_hyperplanes.parquet`, com o mesmo esquema da
+entrada `system/fpha_hyperplanes.parquet`. Para reutilizar um ajuste anterior sem
+reajustar em uma execução subsequente, copie esse arquivo de saída para `system/` e
+altere `source` para `"precomputed"` em `hydro_production_models.json`.
+
+Uma usina sem capacidade de turbinamento não tem linhas no arquivo exportado e não precisa
+de nenhuma: copiado para `system/`, o arquivo é carregado sem edição, e a usina permanece com
+produtibilidade nula.

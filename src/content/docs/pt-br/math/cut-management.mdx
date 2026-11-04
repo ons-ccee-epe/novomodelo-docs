@@ -1,0 +1,325 @@
+---
+title: "Gerenciamento de cortes"
+description: Ciclo de vida completo dos cortes de Benders — definição do corte, extração pelos custos reduzidos, agregação em corte único, condições de validade, crescimento do conjunto de cortes, seleção Nível 1, o método dinâmico preguiçoso e o limite de cortes ativos.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as CutConfigure } from './_impl/_cut-management.configure.mdx';
+import { Content as CutIO } from './_impl/_cut-management.io.mdx';
+import { Content as CutNotes } from './_impl/_cut-management.notes.mdx';
+
+## Objetivo
+
+Este capítulo define o ciclo de vida completo dos cortes de Benders no Novo Modelo: o que os cortes representam matematicamente, como os coeficientes dos cortes se relacionam com as variáveis duais do PL, como os cortes por cenário são agregados em um corte único, sob quais condições os cortes são válidos e quais métodos de seleção estão disponíveis para controlar o crescimento do conjunto de cortes.
+
+## 1. Definição do Corte
+
+Um **corte de Benders** no estágio $t-1$ é uma desigualdade linear que fornece um limite inferior para a função de custo futuro $V_t(x)$ sob as condições de validade da [§4](#4-validade-dos-cortes):
+
+$$
+\theta \geq \beta_0 + \beta^{\top} x
+$$
+
+onde:
+
+- $\theta$ é a variável de custo futuro no PL do estágio $t-1$
+- $\beta_0$ é o termo independente do corte
+- $x$ é o vetor das componentes do estado sobre as quais o corte se projeta, e $\beta$ o vetor dos respectivos coeficientes do corte, um por componente
+- $\beta^v_h$ é o coeficiente de armazenamento da hidrelétrica $h$ (valor marginal da água)
+- $\beta^{lag}_{h,\ell}$ é o coeficiente da defasagem AR da hidrelétrica $h$, defasagem $\ell$ (valor marginal da tendência hidrológica)
+- $v_h$, $a_{h,\ell}$ são as variáveis de estado de armazenamento e de defasagem AR (veja [Aumento do espaço de estados §1](/pt-br/math/state-augmentation#1-vetor-de-estado))
+
+O corte tem um coeficiente para cada dimensão de estado **habilitada**: o armazenamento $v_h$ e as defasagens de afluência $a_{h,\ell}$, quando a seleção de projeção do estágio as mantém ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)), e os in-transit buckets e os slots do commitment ring, quando presentes, sempre. Um corte é armazenado de forma densa sobre as componentes nas quais se projeta: cada uma dessas componentes tem um coeficiente em todo corte, lido do custo reduzido de sua coluna fixada (§2), e um coeficiente pode ser zero; a linha do corte no PL omite as componentes cujo coeficiente é estruturalmente zero.
+
+O Novo Modelo acrescenta cortes de forma monotônica ao longo das iterações: um corte ativo nunca é removido do PL do limite inferior durante uma execução de treinamento (training). Como o conjunto de cortes só cresce, a estimativa do limite inferior é não decrescente ao longo das iterações de uma execução de treinamento. Trata-se de uma garantia em nível metodológico — a aproximação externa da função de valor só pode se tornar mais justa a cada iteração.
+
+## 2. Extração pelos Custos Reduzidos
+
+Depois de resolver o subproblema do estágio $t$ para o estado visitado $\hat{x}_{t-1}$ e o cenário $\omega_t$, os coeficientes do corte são obtidos dos **custos reduzidos** do PL nas colunas de estado de entrada fixadas — as colunas cujos limites inferior e superior foram igualados ao valor do estado de entrada (veja [Aumento do espaço de estados §2](/pt-br/math/state-augmentation#2-fixacao-por-limites-de-coluna)).
+
+O armazenamento e as defasagens de afluência seguem o mesmo padrão: uma variável do PL do estado de entrada é fixada no valor visitado por limites de coluna iguais, e o custo reduzido dessa coluna fornece diretamente o coeficiente do corte:
+
+| Coluna fixada                  | Custo reduzido             | Coeficiente do corte                                                    | Unidade     |
+| ------------------------------ | ------------------------ | ------------------------------------------------------------------ | --------- |
+| Armazenamento de entrada (hidrelétrica $h$)   | $\bar{c}^{in}_h$         | $\beta^v_{t,h} = \bar{c}^{in}_h / d^{col}_h$                         | R\$/hm³    |
+| Defasagem AR (hidrelétrica $h$, defasagem $\ell$) | $\bar{c}^{lag}_{h,\ell}$ | $\beta^{lag}_{t,h,\ell} = \bar{c}^{lag}_{h,\ell} / d^{col}_{h,\ell}$ | R\$/(m³/s) |
+
+onde $d^{col}$ é o fator de pré-escalonamento por coluna que desfaz o escalonamento do custo reduzido; um fator adicional $K$ converte para as unidades de custo originais na fronteira de relatório (veja [Estrutura e escalonamento do PL §2](/pt-br/math/lp-layout-and-scaling#2-escalonamento-do-pl)). Quando o estudo tem água em trânsito ou térmicas com antecipação de despacho, cada coluna de bucket de entrada e cada coluna de slot de entrada do commitment ring contribui com um coeficiente pela mesma regra; o coeficiente multiplica a coluna de saída correspondente do estágio do corte ([Aumento do espaço de estados §3](/pt-br/math/state-augmentation#3-estado-de-saida-e-a-linha-de-corte); [Aumento do espaço de estados — Coeficiente do Corte dos Ring Slots](/pt-br/math/state-augmentation#coeficiente-de-corte-dos-ring-slots)).
+
+O termo independente do corte garante que o corte passe pelo estado visitado:
+
+$$
+\beta_{0,t} = Q_t(\hat{x}_{t-1}, \omega_t) - \beta_t^{\top} \hat{x}_{t-1}
+$$
+
+onde $Q_t(\hat{x}_{t-1}, \omega_t)$ é o valor ótimo da função objetivo do subproblema do estágio $t$, e o produto $\beta_t^{\top} \hat{x}_{t-1}$ percorre as componentes sobre as quais o corte se projeta (§1), cada coeficiente pareado com o valor visitado de sua própria componente: armazenamento e defasagens de afluência quando o estágio as mantém, buckets e ring slots sempre. Uma componente que o corte elimina na projeção não contribui com termo no produto; seu termo linear no valor visitado é incorporado ao termo independente ([§4](#4-validade-dos-cortes), condição 4). O estado visitado $\hat{x}_{t-1}$ no qual esse termo independente se ancora é o estado de saída canonicalizado (relido e limitado) da resolução forward do estágio anterior — o primal do PL projetado sobre seus limites admissíveis —, de modo que as colunas de estado de entrada fixadas e o termo independente compartilham uma mesma âncora dentro da caixa (veja [Algoritmo da PDDE §3.1](/pt-br/math/sddp-algorithm#31-simulacao-forward)).
+
+**Convenção de sinais**: pelo teorema do envelope em PL, $\partial Q_t / \partial \hat{x}_j = \beta_j$, a sensibilidade do valor ótimo em relação ao estado de entrada fixado. Para uma coluna fixada em $\underline{x}_j = \bar{x}_j = \hat{x}_j$, essa sensibilidade é exatamente o custo reduzido da coluna — igual, pela paridade KKT, ao multiplicador que a restrição de igualdade equivalente $x^{in}_j = \hat{x}_j$ teria —, de modo que o coeficiente do corte é tomado diretamente do custo reduzido, sem inversão de sinal (após o desfazimento do escalonamento por coluna descrito acima). O custo reduzido captura automaticamente todos os efeitos a jusante: para o armazenamento, isso inclui as contribuições do balanço hídrico, dos hiperplanos da FPHA, da restrição de evaporação e de quaisquer restrições genéricas que referenciem a variável de armazenamento de entrada $v^{in}_h$ (veja [Formulação do PL](/pt-br/math/lp-formulation)).
+
+**Sinal do coeficiente de armazenamento**: mais armazenamento de entrada reduz $Q_t$ sempre que a água adicional desloca geração térmica ou déficit, neste estágio ou em um posterior, de modo que o coeficiente de armazenamento é não positivo nesses casos; ele pode tornar-se positivo quando a água adicional só pode deixar o reservatório a um custo, como um custo de vertimento ou uma penalidade por limite de vazão defluente.
+
+:::note[Nota de projeto]
+Fixar uma coluna de estado de entrada no valor visitado e ler seu custo reduzido fornece a sensibilidade diretamente. O Novo Modelo implementa isso por meio de **limites de coluna**, e não de uma restrição de igualdade: o custo reduzido de uma coluna fixada por limites é a sensibilidade, o que elimina as $N(1+P^{\max})$ restrições de igualdade redundantes por estágio, mais uma por bucket e por ring slot, mantendo a propriedade de que um único valor por coordenada do estado captura automaticamente todos os efeitos a jusante. Veja [Aumento do espaço de estados §2](/pt-br/math/state-augmentation#2-fixacao-por-limites-de-coluna).
+:::
+
+### Dimensão do corte: o subconjunto de estados habilitados
+
+Os cortes de cada estágio se projetam sobre as componentes do estado que a seleção do estágio mantém — o armazenamento e as defasagens de afluência conforme cada estágio os seleciona, os in-transit buckets e os slots do commitment ring sempre —, conforme definido em [Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte).
+
+Em uma execução com vários processos (ranks MPI), a sincronização de cortes de cada estágio deriva seu leiaute de transmissão da própria dimensão de corte desse estágio. A aba Configurar, em [Implementação no Novo Modelo](#implementacao-no-novo-modelo), lista o campo por estágio.
+
+## 3. Agregação em Corte Único
+
+Na formulação de corte único (single-cut), os cortes por resultado da simulação backward são agregados em um único corte por estado visitado. O corte de um nó $n$ do grafo da política (policy graph) ([Grafos da política](/pt-br/math/policy-graphs)) agrega sobre os pares $(n', \omega)$ formados por todo filho $n'$ de $n$ e toda abertura $\omega \in \Omega_{n'}$ desse filho, cada par ponderado pelo produto $P(n \to n')\, p_{n'}(\omega)$ da probabilidade de transição de $n$ para $n'$ pela probabilidade da abertura $\omega$ dentro de $n'$. Sob a esperança, o corte agregado é a esperança dos cortes por par sob essa lei conjunta:
+
+$$
+\bar{\beta}_0 = \sum_{(n', \omega)} P(n \to n')\, p_{n'}(\omega)\, \beta_0(n', \omega)
+$$
+
+$$
+\bar{\beta} = \sum_{(n', \omega)} P(n \to n')\, p_{n'}(\omega)\, \beta(n', \omega)
+$$
+
+onde $\beta_0(n', \omega)$ e $\beta(n', \omega)$ são o termo independente e o vetor de coeficientes do corte lidos do subproblema do filho $n'$ sob a abertura $\omega$ no estado visitado (§2). A soma dos coeficientes é uma soma vetorial sobre todas as componentes nas quais o corte se projeta (§1): o armazenamento e as defasagens de afluência quando a projeção os mantém, e os in-transit buckets e os slots do commitment ring sempre. Sob uma medida de risco, os produtos $P(n \to n')\, p_{n'}(\omega)$ são substituídos pelas probabilidades ajustadas ao risco de [Medidas de risco](/pt-br/math/risk-measures), calculadas sobre essa mesma lei conjunta: a medida de risco do estágio do nó $n$ atua uma única vez sobre todos os pares em conjunto, nunca sobre as aberturas de cada filho separadamente com a posterior média dos resultados entre os filhos.
+
+Na cadeia de estágios, todo nó que não é folha tem um único filho, alcançado com probabilidade $1$, de modo que os pares são as aberturas $\omega \in \Omega_t$ do estágio $t$ e seus pesos são os uniformes $p(\omega)$: a agregação percorre as aberturas de um único estágio.
+
+:::note[Correspondência com a árvore de aberturas]
+Os cortes por par $\beta_0(n', \omega)$, $\beta(n', \omega)$ correspondem às aberturas de cada filho: os vetores de ruído que a **árvore de aberturas fixa** — um conjunto pré-gerado de ramificações criado uma única vez antes do início do treinamento — contém para o filho, ou a única realização fornecida externamente de um filho que tenha uma. A simulação backward sempre avalia todas as aberturas de todos os filhos, de modo que os pesos são uniformes dentro das aberturas de cada filho, $p_{n'}(\omega) = 1/|\Omega_{n'}|$, o que na cadeia de estágios é $p(\omega) = 1/N_{\text{openings}}$. Veja [Geração de cenários](/pt-br/math/scenario-generation).
+:::
+
+O corte agregado $(\bar{\beta}_0, \bar{\beta})$ é adicionado ao conjunto de cortes do nó $n$, que na cadeia de estágios é o conjunto de cortes do estágio $t-1$.
+
+:::note[Fator de desconto]
+Quando o problema usa taxas de desconto dependentes do estágio, o desconto é aplicado à variável $\theta$ na função objetivo do estágio $t-1$ (isto é, $d_{t-1 \to t} \cdot \theta$), em vez de escalar diretamente os coeficientes do corte. Isso é mais simples — os cortes permanecem inalterados e o fator de desconto aparece apenas no objetivo. Veja [Formulação da taxa de desconto](/pt-br/math/discount-rate) para a equação de Bellman com desconto e para a interação dos fatores de desconto com a geração de cortes.
+:::
+
+:::note[Formulação multicorte]
+O Novo Modelo implementa a formulação de corte único acima, com uma variável de custo futuro por estágio; não implementa nenhuma variante multicorte (multi-cut).
+:::
+
+## 4. Validade dos Cortes
+
+Um corte é **válido** se for um limite inferior da verdadeira função de custo futuro em todo o espaço de estados viável:
+
+$$
+\beta_{0,i} + \beta_i^\top x \leq V_{t+1}(x) \quad \forall x \in \mathcal{X}_t
+$$
+
+Aqui, $\beta_i$ é lido como zero em toda componente que o corte elimina na projeção, de modo que o corte é constante nessas componentes.
+
+**Condições de validade**: os cortes gerados pela PDDE são válidos sob:
+
+1. **Convexidade do custo futuro em relação ao estado de entrada** — o estado de entrada entra de forma afim em cada problema de estágio, pelos limites de suas colunas fixadas; a [Camada 1](#camada-1-limite-inferior-valido) indica o que viola essa condição.
+2. **Recurso relativamente completo** — viabilidade para todos os estados e cenários. No Novo Modelo, isso é garantido pelo sistema de folgas de recurso (penalidades da Categoria 1): toda restrição que possa ser violada pela incerteza exógena tem uma variável de folga penalizada, garantindo que o PL seja sempre viável. Veja [Sistema de penalidades](/pt-br/math/penalty-system).
+3. **Extração correta das sensibilidades** — os custos reduzidos usados como coeficientes do corte devem provir de uma solução ótima do PL (e não de uma inviável ou ilimitada)
+4. **Cortes abrangem todas as componentes do estado das quais o custo futuro depende** — o termo independente absorve a contribuição de toda componente que o corte elimina na projeção ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)), em seu valor visitado, de modo que só se garante que o corte fique abaixo do custo futuro na fatia que passa pelo estado visitado na qual essas componentes mantêm seus valores visitados. Quando o custo futuro depende de uma dessas componentes, como depende das defasagens de afluência sob um modelo PAR com termos de defasagem, não há garantia de que $\underline{z}^k$ seja um limite inferior, e o gap não é um certificado.
+
+### Quando os Limites e Certificados Valem
+
+Três garantias se associam aos limites que a PDDE informa, cada uma sob suas próprias hipóteses: um limite inferior válido, a convergência desse limite e um certificado sobre o gap entre os dois limites. As Camadas 2 e 3 exigem, cada uma, a Camada 1. A tabela resume os três graus; as subseções enunciam cada hipótese e o que a viola.
+
+| Camada                                            | O que vale                                                             | Requer                                                                                                                                                                                                           | Violado por                                                                                                                                                         |
+| ------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [1. Limite inferior válido](#camada-1-limite-inferior-valido) | $\underline{z}^k$ é no máximo o valor ótimo do modelo tal como treinado | Um custo futuro convexo em relação ao estado de entrada e não negativo; recurso relativamente completo; cortes exatos em seus estados visitados e abrangendo todas as componentes do estado das quais o custo futuro depende; uma função terminal fixa | Um método de não negatividade das afluências por truncamento em um modelo PAR com termos de defasagem; um corte que omite uma componente do estado da qual o custo futuro depende; um custo futuro que assume valores negativos |
+| [2. Convergência](#camada-2-convergencia)             | $\underline{z}^k$ converge para esse valor ótimo com probabilidade 1 sob uma medida de esperança em todos os estágios   | Camada 1; um número finito de aberturas em todo nó; uma simulação forward que amostra os caminhos de cenários da simulação backward ou os enumera; uma seleção que preserva a aproximação em todo estado visitado               | Uma simulação forward que sorteia de outra distribuição; a seleção de cortes Nível 1 (Level-1) tal como o Novo Modelo a executa; um limite por estágio de cortes ativos; um $k_1$ finito |
+| [3. Certificado do gap](#camada-3-certificado-do-gap)     | $\bar{z}^k - \underline{z}^k$ limita o gap de otimalidade da política  | Camada 1; um limite superior exato sobre a mesma árvore e sob a mesma medida: uma simulação forward enumerada e uma medida uniforme entre os estágios                                                                               | Um limite superior amostrado, fora da amostra (out-of-sample), histórico ou externo; uma medida que varia entre os estágios                                                                 |
+
+#### Camada 1: Limite Inferior Válido
+
+Em toda iteração $k$, $\underline{z}^k$ é no máximo o valor ótimo do modelo tal como treinado, sob o objetivo aninhado ajustado ao risco de [Medidas de risco](/pt-br/math/risk-measures). Ele se apoia nas seguintes hipóteses:
+
+- **Convexidade.** O custo futuro de todo estágio é convexo em relação ao estado de entrada: o estado de entrada entra de forma afim em cada problema de estágio, pelos limites de suas colunas fixadas. Os métodos de truncamento de [Métodos de tratamento de afluências negativas §7](/pt-br/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior) violam essa propriedade nas componentes de defasagem de afluência sob um modelo PAR com termos de defasagem (ordem acima de zero ou componente anual), porque a correção que aplicam, o montante truncado $\max(0, -a_h)$ da realização bruta $a_h$, é uma função não afim da realização e, portanto, das defasagens do estado visitado; manter as componentes de defasagem no corte não restaura a propriedade. Cada corte fica abaixo do problema de estágio com a correção congelada em seu próprio estado visitado, mas, longe desse ponto, pode ficar acima do custo futuro, e o limite inferior pode exceder o limite superior. Sem método de não negatividade, ou com o método de penalidade, a afluência permanece afim nas defasagens.
+- **Recurso relativamente completo.** Todo problema de estágio é viável para todo estado de entrada e toda realização, o que as folgas penalizadas de [Sistema de penalidades](/pt-br/math/penalty-system) proporcionam.
+- **Cortes exatos.** Todo corte é exato em seu estado visitado e fica abaixo do custo futuro ajustado ao risco em todo ponto: a simulação backward resolve até a otimalidade o problema de estágio de todo par sucessor–abertura e combina os cortes resultantes com probabilidades do conjunto de risco da medida de risco coerente do estágio que atingem essa medida no estado visitado.
+- **Abrangência completa do estado.** Os cortes abrangem todas as componentes do estado das quais o custo futuro depende. Quando uma componente da qual o custo futuro depende é eliminada na projeção do corte ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)), só se garante que o corte fique abaixo do custo futuro onde essa componente é igual ao seu valor visitado.
+- **Custo futuro não negativo.** O custo futuro de todo estágio é não negativo. A variável de custo futuro $\theta$ é limitada inferiormente por zero, de modo que a aproximação só fica abaixo do custo futuro onde esse custo futuro é não negativo.
+- **Função terminal fixa.** A função terminal é fixa durante toda a execução: zero, ou uma fronteira terminal importada ([Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)).
+
+#### Camada 2: Convergência
+
+Sob uma medida de esperança em todos os estágios, $\underline{z}^k$ converge com probabilidade 1 para o valor ótimo do modelo tal como treinado. Isso requer as hipóteses abaixo; a [§9](#9-garantia-de-convergencia) enuncia o teorema, que é demonstrado para esse caso. Sob uma medida avessa ao risco em qualquer estágio, a Camada 1 ainda limita inferiormente o valor ótimo, mas o teorema citado não estabelece a convergência de $\underline{z}^k$.
+
+- A Camada 1 vale, e todo nó tem um número finito de aberturas.
+- A simulação forward sorteia os próprios caminhos de cenários da simulação backward, cada um com probabilidade positiva, ou os enumera. Uma simulação forward que sorteia de outra distribuição, como ruído fora da amostra, registros históricos ou cenários externos, está fora das hipóteses do teorema.
+- A seleção mantém a aproximação que o teorema da §9 pressupõe: nenhuma seleção, ou o método dinâmico da §8 com todo corte ativo como candidato, $k_1 = \infty$, cujas resoluções retornam o ótimo sobre os cortes ativos a menos da tolerância de violação da §8.1.
+
+Três características da seleção de cortes desta página saem da última hipótese:
+
+- A seleção Nível 1 (§7), tal como o Novo Modelo a executa, afasta-se da regra coberta pelo teorema (§9): é executada a cada $n_{\text{sel}}$ iterações, deixa sem seleção o conjunto de cortes do primeiro estágio e, com uma janela $w$, avalia os cortes apenas nos estados visitados das últimas $w$ iterações. Nenhum resultado de convergência é reivindicado para ela.
+- Um limite por estágio no número de cortes ativos (§5) desativa os cortes que estiveram ativos na solução há mais tempo, assim que o limite é excedido, qualquer que seja seu valor nos estados visitados armazenados; apenas os cortes da iteração corrente e os cortes carregados ficam isentos.
+- Com um $k_1$ finito (§8.2), o método dinâmico nunca avalia um corte gerado $k_1$ ou mais iterações antes, de modo que seu laço pode terminar deixando de fora um corte antigo violado.
+
+#### Camada 3: Certificado do Gap
+
+$\bar{z}^k - \underline{z}^k$ limita superiormente o gap de otimalidade da política, a diferença entre o custo ajustado ao risco da política e o valor ótimo. Isso requer a Camada 1 e um limite superior exato sobre a mesma árvore e sob a mesma medida: uma simulação forward enumerada, que avalia a política em todos os caminhos da árvore usada pela simulação backward, e uma medida uniforme entre os estágios, seja a esperança em todos os estágios, seja uma mesma medida CVaR, com o mesmo peso de aversão ao risco e a mesma fração da cauda, em todos os estágios; um estágio cujo peso de aversão ao risco é zero corresponde à esperança, qualquer que seja sua fração da cauda. Uma estimativa amostrada, fora da amostra, histórica ou externa não é um certificado: ela carrega erro amostral ou avalia outra distribuição, e pode ficar abaixo de $\underline{z}^k$. Veja [Gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) para o gap e [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) para o limite exato.
+
+## 5. Crescimento dos Cortes e Motivação para a Seleção
+
+O número de cortes cresce como $\mathcal{O}(\text{iterations} \times N_{\text{forward\_passes}})$. Muitos cortes antigos tornam-se redundantes à medida que cortes novos e mais justos são gerados. Sem seleção, o número de linhas de corte no PL cresce linearmente com o número de iterações.
+
+**Conjunto somente de acréscimo com posições estáveis**: os cortes nunca são apagados. Todo corte já gerado é mantido durante toda a execução em um **índice de posição estável e determinístico** — a posição é uma função fixa da iteração e do índice da simulação forward, o que torna a ordem dos cortes reproduzível entre execuções e números de processos (veja [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees)). O conjunto nunca é compactado.
+
+**Mecanismo de desativação** (seleção Nível 1 e limite de cortes ativos): a desativação é um indicador de atividade no conjunto, associado a uma posição estável — não altera nenhuma linha nem limite do PL. Um corte desativado mantém sua posição, mas é excluído da reconstrução do modelo-base (template) a cada iteração, de modo que apenas os cortes ativos são codificados como linhas do PL em cada resolução forward/backward. O PL persistente do limite inferior é **somente de acréscimo**: suas linhas de corte nunca são removidas (de modo que o limite inferior permanece monotônico), e cada linha continua restringindo depois de acrescentada. Como o índice de posição é preservado, a **reativação é exata**: um corte que a seleção restaura posteriormente é reincorporado ao modelo-base na mesma posição, com os coeficientes com que foi gerado.
+
+Há dois métodos de seleção disponíveis. A **seleção Nível 1** (§7) executa uma passagem de posse a cada $n_{\text{sel}}$ iterações: mantém os cortes que detêm a posse de um estado visitado armazenado e desativa os demais. O **método dinâmico** (§8) mantém o conjunto inteiramente somente de acréscimo — nunca desativa nenhum corte — e, em vez disso, controla quais cortes estão residentes em cada resolução individual do PL do estágio.
+
+**Limite de cortes ativos**: um limite $B$ no número de cortes ativos gerados pela execução corrente no conjunto de cada nó estritamente entre o primeiro e o último estágio. Ele se aplica em toda iteração, depois que os cortes da iteração são adicionados e depois da passagem Nível 1, quando houver, com ou sem método de seleção. Quando a contagem excede $B$, o excedente é removido dentre os cortes de iterações anteriores, em ordem crescente da iteração em que o corte esteve ativo na solução pela última vez (um corte que nunca esteve ativo conta a partir da iteração que o gerou), depois do número de resoluções em que esteve ativo e, por fim, da posição. Os cortes da iteração corrente contam para $B$ e nunca são removidos, e os cortes carregados não contam nem são removidos, de modo que um conjunto pode conter mais de $B$ cortes ativos. A remoção desativa o corte e o mantém no conjunto; uma passagem Nível 1 posterior reativa um corte removido que detém a posse de um estado visitado armazenado, e o limite é então aplicado novamente na mesma iteração. O limite não é admitido com o método dinâmico, que nunca reativa um corte, nem com uma simulação forward enumerada, que não registra atividade das restrições.
+
+## 6. Atividade dos Cortes
+
+A seleção Nível 1 trabalha a partir de uma visão de atividade por **avaliação de valor**. Em um estado visitado armazenado $\hat{x}$ de um conjunto, o valor de cada corte é $\beta_{0,i} + \beta_i^\top \hat{x}$, e o melhor valor por estado é
+
+$$
+V^*(\hat{x}) = \max_{i \in \mathcal{L}} \left\{ \beta_{0,i} + \beta_i^\top \hat{x} \right\}
+$$
+
+tomado sobre os cortes **vivos** $\mathcal{L}$ do conjunto: todo corte **avaliado** — os cortes cujo próprio estado visitado o conjunto armazenou quando foram gravados, ativos e inativos — e todo corte carregado sem estado visitado armazenado enquanto estiver ativo. O corte vivo que atinge $V^*(\hat{x})$ **detém a posse** de $\hat{x}$; quando vários o atingem exatamente, o corte na posição mais baixa detém a posse. Os valores são comparados exatamente, sem faixa de tolerância:
+
+$$
+\text{owner}(\hat{x}) = \min \left\{ i \in \mathcal{L} : \beta_{0,i} + \beta_i^\top \hat{x} = V^*(\hat{x}) \right\}
+$$
+
+Um corte no máximo por estado é aquele sobre o qual a variável de custo futuro $\theta$ repousa em $\hat{x}$, de modo que um corte que detém a posse de um estado é a contrapartida, na avaliação de valor, de um corte ativo nesse ponto. Como a ordem das posições segue a ordem de geração, a posição mais baixa é a do mais antigo dos cortes empatados.
+
+Estar ativo em uma solução do PL é uma grandeza diferente: uma linha de corte **está ativa** em uma resolução quando seu multiplicador dual excede um limiar (§10). Esse registro é lido apenas pelo limite de cortes ativos (§5) e pela janela de semeadura do método dinâmico (§8.1); não tem papel algum na posse.
+
+## 7. Seleção Nível 1
+
+A seleção Nível 1 segue o Nível 1 de [de Matos, Philpott & Finardi (2015)](/pt-br/reference/bibliography/#gerenciamento-de-cortes-e-convergencia): cada estado visitado armazenado tem um único detentor (§6), e uma execução da seleção mantém os cortes que detêm a posse de algum estado. Ela avalia o conjunto de cortes de todo nó estritamente entre o primeiro e o último estágio; o conjunto do primeiro estágio e o conjunto terminal compartilhado nunca passam por seleção.
+
+**A regra.** A cada $n_{\text{sel}}$ iterações, após a simulação backward:
+
+- Um corte avaliado que detém a posse de pelo menos um estado armazenado fica ativo; um corte avaliado que não detém a posse de nenhum é desativado e mantido no conjunto.
+- Um corte avaliado inativo que detém a posse de um estado é reativado, de modo que desativação e reativação são simétricas dentro de uma mesma passagem.
+- Um corte da iteração corrente é julgado como qualquer outro: não há isenção.
+- Um corte carregado sem estado visitado armazenado mantém a atividade com que foi carregado; enquanto ativo, disputa a posse e pode manter inativo um corte empatado em posição mais alta.
+
+Nenhum valor de corte é comparado com uma tolerância, de modo que o conjunto ativo após uma passagem é função apenas dos estados armazenados e dos coeficientes dos cortes. A passagem é determinística bit a bit, independentemente do número de threads e de processos (veja [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees)).
+
+**Estados armazenados e a janela.** Todo corte que a execução gera em um conjunto sujeito a seleção é avaliado: o conjunto armazena o estado visitado no qual o corte foi calculado. Um corte carregado é avaliado quando a política da qual provém o registra assim, e então disputa a posse nos estados armazenados, incluindo seu próprio estado armazenado quando a política o contém. Por padrão, uma execução mantém os estados visitados de toda a execução, de modo que a memória que ocupam cresce com o número de cortes. Com uma janela de $w$ iterações, uma execução da seleção na iteração $k$ mantém apenas os estados visitados dos cortes gerados após a iteração $k - w$ e descarta os mais antigos; um estado carregado com um corte de outra execução conta como anterior à primeira iteração da execução. A janela é de pelo menos $n_{\text{sel}}$, de modo que todo estado é avaliado ao menos uma vez antes de poder ser descartado. Uma janela descarta estados, nunca cortes: um corte cujo estado foi descartado continua avaliado e ainda disputa a posse nos estados que restam.
+
+**Propriedade da envoltória.** Logo após uma execução da seleção na qual o limite de cortes ativos não remove nada, o detentor de todo estado armazenado está ativo, de modo que os cortes ativos do conjunto atingem $V^*(\hat{x})$ em todo estado armazenado. Um estado armazenado após a execução pode ter como detentor um corte inativo até a próxima execução, e o limite, aplicado após a passagem, pode desativar um corte que detém a posse de estados; a passagem seguinte o reativa.
+
+**Diferenças em relação ao artigo.**
+
+1. O conjunto do primeiro estágio nunca passa por seleção.
+2. A seleção é executada a cada $n_{\text{sel}}$ iterações, e não toda vez que um corte é adicionado.
+3. O artigo não define regra para um empate exato; a posição mais baixa é uma escolha do Novo Modelo.
+
+**Custo**: $\mathcal{O}(|\text{new cuts}| \times |\text{stored states}| + |\text{cuts}| \times |\text{new states}|)$ multiplicações-adições por conjunto e passagem: o registro de posse é atualizado incrementalmente, avaliando os cortes e estados gravados desde a passagem anterior contra os demais, como um produto de matrizes em blocos.
+
+## 8. O Método Dinâmico
+
+O método dinâmico é a geração preguiçosa de linhas própria do Novo Modelo; não é a Seleção Dinâmica de Cortes (Dynamic Cut Selection) de [de Matos, Philpott & Finardi (2015)](/pt-br/reference/bibliography/#gerenciamento-de-cortes-e-convergencia). Ele é **mutuamente exclusivo** com a seleção Nível 1 e é **inadmissível com uma simulação forward enumerada**: a combinação é rejeitada na preparação do estudo com um erro de validação nomeado, cujo motivo é dado na aba Notas de implementação, em [Implementação no Novo Modelo](#implementacao-no-novo-modelo). Ele nunca desativa cortes do conjunto — mantém o conjunto inteiramente somente de acréscimo e controla apenas **quais cortes estão residentes em cada PL do estágio** no momento da resolução.
+
+**Motivação**: quando o conjunto de cortes de um estágio é grande, resolver cada PL do estágio com todos os cortes ativos domina o tempo de execução. O método dinâmico mantém o conjunto inteiro e resolve cada PL com um pequeno **subconjunto residente** dele, ampliado até que nenhum corte candidato seja violado na solução, de modo que uma resolução retorna o ótimo sobre seus candidatos a menos da tolerância de violação; quando todo corte ativo é candidato (§8.2), esse é o ótimo com todos os cortes ativos. Ele só pode ser combinado com uma simulação forward amostrada, como impõe a verificação de preparação acima.
+
+### 8.1 Procedimento por resolução
+
+A partir da iteração em que o laço preguiçoso começa, cada resolução do treinamento para um (estágio, cenário) executa este laço; antes dela, as resoluções contêm todos os cortes ativos.
+
+1. **Semear o conjunto residente** com os cortes ativos cuja última ativação ocorreu há no máximo $k_2$ iterações (a _janela de semeadura_; um corte que ainda não esteve ativo conta a partir da iteração que o gerou), mais todo corte gerado na iteração corrente. A semente é derivada apenas de metadados sincronizados do conjunto, por posição — a iteração em que cada corte esteve ativo pela última vez e a iteração em que foi gerado —, nunca de um registro de resolução por worker. Isso torna a semente idêntica bit a bit para qualquer número de threads e de processos MPI.
+
+2. **Resolver** o PL do estágio com o conjunto residente corrente. Sejam $x^*$ o vetor de estado ótimo e $\theta^*$ o valor ótimo do custo futuro.
+
+3. **Avaliar os cortes candidatos omitidos (não residentes).** Os coeficientes dos cortes são armazenados no espaço bruto (sem escalonamento), enquanto o PL é resolvido no espaço escalonado, de modo que tanto $\theta^*$ quanto cada coluna de estado precisam primeiro ter o escalonamento desfeito: cada valor escalonado $x_{\text{scaled}}$ é multiplicado pelo fator de escalonamento de sua coluna, o $d^{col}$ da §2, resultando em $x_{\text{raw}}$. Para o corte candidato $i$ com termo independente $\beta_{0,i}$ e coeficiente $\beta_i$, o piso de custo futuro que ele imporia em $x^*$ é
+
+   $$
+   f_i = \beta_{0,i} + \beta_i^\top x^*_{\text{raw}}
+   $$
+
+   O candidato é **violado** se, e somente se,
+
+   $$
+   f_i - \theta^*_{\text{raw}} > \varepsilon_{\text{viol}} \cdot \max\left(\lvert \theta^*_{\text{raw}} \rvert, \lvert f_i \rvert\right)
+   $$
+
+   (estrito), com $\varepsilon_{\text{viol}} \in (0, 1)$ uma tolerância **relativa**. Isso decorre da convenção da linha de corte $-\beta^\top x + \theta \ge \beta_0$.
+
+4. **Adicionar os $n_{\text{adic}}$ candidatos mais violados** (ordenados por $f_i - \theta^*_{\text{raw}}$ decrescente, com empates desfeitos pelo id de posição crescente). Resolver novamente, a partir da base mantida quando a fase usa aproveitamento de base (§8.4), e voltar ao passo 2.
+
+5. **Parar** quando nenhum candidato for violado. A resolução só retorna então, de modo que seu objetivo $z_R$ e o ótimo $z_C$ sobre o conjunto de candidatos satisfazem $z_R \le z_C \le z_R + d\,\frac{\varepsilon_{\text{viol}}}{1 - \varepsilon_{\text{viol}}}\,\lvert \theta^* \rvert$, sendo $d$ o coeficiente de $\theta$ no objetivo. Os duais da simulação backward e os primais da simulação forward são extraídos desse PL final.
+
+### 8.2 Janela de recência dos candidatos
+
+Por padrão, todo corte ativo é candidato ($k_1 = \infty$), de modo que a janela não exclui nenhum corte e a saída do passo 5 é o ótimo sobre todos os cortes ativos, a menos da tolerância de violação. Um $k_1$ finito restringe os candidatos aos cortes gerados nas últimas $k_1$ iterações e aos cortes carregados. Trata-se de uma aceleração deliberada e **inexata**: o resultado passa a ser o ótimo sobre esses candidatos junto com a semente, e um corte mais antigo nunca é avaliado nem adicionado, mesmo quando violado.
+
+### 8.3 Rodadas limitadas
+
+Rodadas que adicionam no máximo $n_{\text{adic}}$ cortes cada são executadas até um número fixo de rodadas. Além dele, o limite por rodada é suspenso: todo candidato violado é adicionado em cada rodada, e o laço continua terminando apenas na parada do passo 5 da §8.1. O laço termina porque todo candidato reportado passa a ser residente, de modo que cada rodada reduz o conjunto finito de candidatos omitidos.
+
+### 8.4 Uniformidade entre simulações e sinergia com o aproveitamento de base
+
+O laço é executado na **simulação backward** e na **simulação forward** do treinamento, e em ambas vai até a parada do passo 5 da §8.1 — sem parada antecipada — para evitar deriva de trajetória: uma parada antecipada na simulação forward deslocaria os estados que a simulação backward visita, produzindo deriva da política. Uma resolução da simulação final semeia o conjunto residente com todos os cortes ativos, de modo que as janelas $k_1$ e $k_2$ se aplicam apenas ao treinamento.
+
+Em uma fase com aproveitamento de base, cada nova resolução interna acrescenta apenas algumas linhas e recomeça a partir da base deixada pela resolução anterior, de modo que o laço limitado permanece barato; em uma fase sem aproveitamento de base, toda nova resolução interna também parte a frio ([Aproveitamento de base do PL](/pt-br/math/lp-warm-start)). A base armazenada de [Aproveitamento de base do PL](/pt-br/math/lp-warm-start) não é aplicada a uma resolução do método dinâmico: a primeira resolução de cada PL do estágio começa sem base armazenada e, em uma simulação backward com aproveitamento de base, as aberturas seguintes de um estado visitado são resolvidas a quente a partir do PL deixado pela abertura anterior.
+
+### 8.5 Janela de semeadura nula
+
+Uma janela de semeadura $k_2 = 0$ é válida e significativa: o conjunto residente é semeado com os cortes gerados na iteração corrente e com os que estiveram ativos nela, e o laço preguiçoso então amplia o conjunto residente a partir daí em cada resolução. Um $k_2$ maior troca um PL inicial um pouco maior por menos iterações internas.
+
+### 8.6 Determinismo
+
+A seleção do conjunto residente é idêntica bit a bit para qualquer número de threads e de processos MPI:
+
+- A semente vem de metadados sincronizados do conjunto (a iteração em que cada corte esteve ativo pela última vez e a iteração em que foi gerado), e não de registros por worker.
+- O estado ótimo $x^*$ é determinístico por cenário (função do PL, não do processo).
+- A avaliação dos candidatos usa um produto de matrizes em lote determinístico bit a bit.
+- A ordenação das violações usa uma ordem total com desempate por posição crescente, tornando estável a seleção dos $n_{\text{adic}}$ primeiros.
+
+Veja [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees).
+
+## 9. Garantia de Convergência
+
+**Teorema** ([Bandarra & Guigues, 2021](/pt-br/reference/bibliography/#gerenciamento-de-cortes-e-convergencia)): para um objetivo de esperança em todos os estágios, a PDDE com um número finito de cenários e seleção de cortes Nível 1 ou Nível 1 com Memória Limitada (Limited-Memory Level 1), aplicada em toda iteração e avaliada em todos os estados visitados, alcança uma solução ótima do primeiro estágio após um número finito de iterações com probabilidade 1.
+
+**Ideia central**: remover cortes que nunca estão no máximo em nenhum estado visitado não altera a aproximação externa nesses pontos, e o argumento de convergência usa a aproximação apenas neles. Com um número finito de cenários, só pode surgir um número finito de cortes e estados visitados distintos, cada um lido de uma solução básica de um problema de estágio, de modo que o argumento não exige densidade dos estados visitados: a convergência é alcançada após um número finito de iterações.
+
+**A seleção Nível 1 tal como o Novo Modelo a executa** afasta-se da regra coberta pelo teorema: é executada a cada $n_{\text{sel}}$ iterações, deixa sem seleção o conjunto do primeiro estágio, resolve um empate exato pela posição mais baixa e, com uma janela, avalia apenas os estados visitados dentro dela (§7). Nenhum resultado de convergência é reivindicado para ela, e de Matos, Philpott & Finardi (2015) não enunciam nenhum para o seu Nível 1.
+
+**O método dinâmico e a exatidão**: uma resolução do método dinâmico retorna, no passo 5 da §8.1, o ótimo sobre seus candidatos a menos da tolerância relativa de violação. Com $k_1 = \infty$, os candidatos são todos os cortes ativos e, como o método não desativa nenhum corte, os cortes ativos são o próprio conjunto, exceto os cortes carregados que uma execução de origem deixou inativos. Um $k_1$ finito sacrifica essa propriedade.
+
+A [Camada 2](#camada-2-convergencia) enuncia as hipóteses sobre a medida de risco, a simulação forward e a seleção de cortes que uma execução de treinamento deve satisfazer para que o teorema se aplique, e as características da seleção que ficam fora delas.
+
+## 10. Parâmetros de Seleção
+
+A tabela associa cada chave do objeto `training.cut_selection` ao seu símbolo nesta página, quando houver, e aos métodos que a leem; [`training.cut_selection`](/pt-br/running/configuration/#trainingcut_selection) informa o tipo, o valor padrão e as restrições de cada chave.
+
+| Símbolo matemático                 | Chave de configuração                        | Aplica-se a                         |
+| --------------------------- | --------------------------------- | ---------------------------------- |
+| —                           | `row_activity_tolerance`          | O limite (§5) e `dynamic` (§8.1)  |
+| $B$                         | `max_active_per_stage`            | Nenhum método ou `level1`              |
+| $n_{\text{sel}}$            | `selection.check_frequency`       | `level1`                           |
+| $w$                         | `selection.lookback_iterations`   | `level1`                           |
+| $k_2$                       | `selection.seed_window`           | `dynamic`                          |
+| $k_1$                       | `selection.candidate_recency`     | `dynamic`                          |
+| $n_{\text{adic}}$           | `selection.max_added_per_round`   | `dynamic`                          |
+| $\varepsilon_{\text{viol}}$ | `selection.violation_tolerance`   | `dynamic`                          |
+| —                           | `selection.start_iteration`       | `dynamic`                          |
+
+## Implementação no Novo Modelo
+
+A metodologia acima define o ciclo de vida completo dos cortes de Benders; as abas abaixo mostram como a interface de software do Novo Modelo configura, persiste e gerencia os cortes em tempo de execução.
+
+<Tabs>
+  <TabItem label="Configurar"><CutConfigure /></TabItem>
+  <TabItem label="Entradas e saídas"><CutIO /></TabItem>
+  <TabItem label="Notas de implementação"><CutNotes /></TabItem>
+</Tabs>
+
+## Referências Cruzadas
+
+- [Formulação do PL](/pt-br/math/lp-formulation) — Restrições de corte de Benders no PL
+- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — Fixação do estado por limites de coluna, cujos custos reduzidos fornecem os coeficientes dos cortes; projeção do estado do corte sobre as componentes do estado que cada estágio seleciona
+- [Aproveitamento de base do PL](/pt-br/math/lp-warm-start) — Aproveitamento da base armazenada nas resoluções dos estágios; uma resolução do método dinâmico não a aplica (§8.4)
+- [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — Variáveis de estado de defasagem AR que aparecem nos coeficientes dos cortes
+- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — Estrutura das simulações forward/backward que conduz a geração de cortes
+- [Geração de cenários](/pt-br/math/scenario-generation) — Árvore de aberturas fixa que define as ramificações da simulação backward; abstração do esquema de amostragem
+- [Sistema de penalidades](/pt-br/math/penalty-system) — Folgas de recurso que garantem o recurso relativamente completo (condição de validade dos cortes)
+- [Critérios de parada](/pt-br/math/stopping-rules) — Critérios de convergência que dependem da qualidade dos cortes
+- [Formulação da taxa de desconto](/pt-br/math/discount-rate) — Escala pelo fator de desconto na agregação dos cortes
+- [Medidas de risco](/pt-br/math/risk-measures) — Geração de cortes avessa ao risco (o CVaR modifica os pesos da agregação)
+- [Variantes de formulação dos patamares](/pt-br/math/block-formulations) — Estrutura de patamares que afeta como os duais por patamar contribuem para os coeficientes dos cortes
+- [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) — Resultados idênticos bit a bit para qualquer número de threads e de processos MPI, incluindo a semeadura do conjunto residente do método dinâmico
+- **Executando o Novo Modelo:** [Gerenciamento da política](/pt-br/running/policy-management/) — o guia de software para persistir e recarregar este conjunto de cortes entre execuções.

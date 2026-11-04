@@ -1,0 +1,119 @@
+---
+title: "A PDDE em uma página"
+description: Contexto mínimo sobre a ideia da PDDE — simulação forward, simulação backward, limites, convergência e medidas de risco em uma página.
+---
+
+import ValueFunctionPlot from "../../../../components/ValueFunctionPlot.astro";
+import ConvergencePlot from "../../../../components/ConvergencePlot.astro";
+import CvarPlot from "../../../../components/CvarPlot.astro";
+
+## Objetivo
+
+Este capítulo oferece ao leitor que não conhece a programação dinâmica estocástica o contexto mínimo necessário para acompanhar o restante deste site. Ele apresenta a ideia da PDDE (SDDP) em uma página; os capítulos para os quais ele aponta, a começar por [Algoritmo da PDDE](/pt-br/math/sddp-algorithm), desenvolvem cada afirmação em detalhe.
+
+## 1. A Ideia Central
+
+O despacho ótimo ao longo de um horizonte multiestágio não pode ser resolvido pela enumeração de todos os cenários: o número de trajetórias de cenários cresce exponencialmente com o número de estágios. A PDDE evita a enumeração explorando a estrutura do problema.
+
+Os estágios e as trajetórias de cenários apresentados aqui são o caso particular de um **grafo da política (policy graph)** mais geral, formado por nós e transições; veja [Grafos da política](/pt-br/math/policy-graphs) para a estrutura geral.
+
+Em cada estágio, o futuro é resumido por uma **função de custo futuro** $V_t$ — o custo esperado mínimo daquele estágio em diante, como função do estado de entrada (níveis dos reservatórios, defasagens das afluências). O problema de despacho obedece a uma recursão por estágios (de Bellman): o custo futuro no estágio $t$ é o custo esperado da melhor decisão no presente mais o custo futuro do estado que essa decisão deixa:
+
+$$
+V_t(x_{t-1}) = \mathbb{E}_{\omega_t}\!\left[\, \min_{x_t, u_t}\; c_t(x_t, u_t) + V_{t+1}(x_t) \,\right]
+$$
+
+com condição terminal $V_{T+1}(x) = 0$. A minimização percorre o estado viável do estágio $t$, $x_t$, e o controle $u_t$, $(x_t, u_t) \in \mathcal{X}_t(x_{t-1}, \omega_t)$, dados o estado de entrada $x_{t-1}$ e a incerteza realizada $\omega_t$. Para subproblemas de PL, $V_t$ é convexa e linear por partes — a propriedade que a PDDE explora.
+
+A PDDE nunca constrói $V_{t+1}$ explicitamente. Ela a aproxima por baixo com uma coleção crescente de funções afins chamadas **cortes de Benders**, cada uma delas uma subestimativa válida em todo o domínio:
+
+$$
+V_{t+1}(x) \;\ge\; \beta_{0,i} + \beta_i^\top x \qquad \text{for every cut } i
+$$
+
+No problema do estágio, o custo futuro é representado por uma variável de epígrafo (epigraph variable) $\theta_t$, que aproxima $V_{t+1}(x_t)$ e é limitada por todos os cortes ($\theta_t \ge \beta_{0,i} + \beta_i^\top x_t$), de modo que a aproximação é a envoltória superior $\max_i (\beta_{0,i} + \beta_i^\top x)$.
+
+A aproximação melhora iterativamente. Partindo de nenhum corte, o algoritmo alterna duas etapas:
+
+**Simulação forward**: partindo do estado inicial, simula-se um lote de trajetórias de cenários ao longo de todos os estágios sob a **política** vigente — a regra que define as decisões de cada estágio resolvendo o problema do estágio com os cortes vigentes —, registrando o estado que cada trajetória atinge em cada estágio. Esses estados são os [**estados visitados**](/pt-br/reference/glossary/#algoritmo-pdde-sddp).
+
+**Simulação backward**: partindo do último estágio e retrocedendo até o segundo, resolve-se o subproblema de cada estágio em cada estado visitado sob cada uma das [**aberturas**](/pt-br/reference/glossary/#modelagem-estocastica) do estágio — suas realizações de ruído previamente geradas — e agrega-se a informação dual resultante em um novo corte por estado visitado para o estágio anterior: a formulação de [**corte único (single-cut)**](/pt-br/reference/glossary/#algoritmo-pdde-sddp). O corte expressa como o custo futuro varia quando o estado de entrada varia.
+
+```d2
+direction: down
+
+sample: "Sorteio das trajetórias de cenários\namostradas, ou todas se enumeradas"
+fwd: "Simulação forward\nestados visitados sob a política vigente"
+bwd: "Simulação backward\num novo corte por estado visitado"
+bounds: "Atualização dos limites\nlimite inferior e superior"
+stop: "Critérios de parada atendidos?" {shape: diamond}
+policy: "Política\nos cortes finais" {shape: oval}
+
+sample -> fwd
+fwd -> bwd
+bwd -> bounds
+bounds -> stop
+stop -> sample: "não"
+stop -> policy: "sim"
+```
+
+_Uma iteração da PDDE: sorteia-se um lote de trajetórias de cenários (amostradas, ou todas as trajetórias quando a simulação forward é enumerada); a simulação forward as simula sob a política vigente e registra os estados visitados; a simulação backward acrescenta um corte por estado visitado; a seleção periódica de cortes é executada quando configurada; os limites são atualizados; o ciclo se repete até que os critérios de parada sejam atendidos, e os cortes finais definem a política._
+
+À medida que as iterações se acumulam, a aproximação linear por partes cobre uma parte maior do espaço de estados e o limite inferior nunca diminui:
+
+<ValueFunctionPlot />
+
+_A função de custo futuro convexa $V(x)$ aproximada por baixo por cortes de Benders. Cada corte é uma tangente em um estado visitado — sua inclinação é a derivada analítica — e a envoltória superior dos cortes se aproxima da função verdadeira à medida que cortes são acrescentados._
+
+## 2. Limites e Convergência
+
+A PDDE mantém dois limites para o custo ótimo (ajustado ao risco):
+
+**Limite inferior** $\underline{z}$: o valor ajustado ao risco do primeiro estágio sobre suas aberturas, com os cortes vigentes ([definição](/pt-br/math/upper-bound-evaluation#limite-inferior)). Sob as hipóteses de [Gerenciamento de cortes — quando valem os limites e os certificados](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem), esse valor é um limite inferior válido para o custo ótimo (ajustado ao risco) e não diminui à medida que cortes são acrescentados.
+
+**Limite superior** $\bar{z}$: uma simulação forward enumerada, que visita cada trajetória de cenários uma única vez, fornece o custo exato ajustado ao risco da política — um limite superior para o valor ótimo — quando a medida de risco é uniforme entre os estágios; uma simulação forward amostrada fornece o custo médio das trajetórias amostradas, uma estimativa estatística com intervalo de confiança que nada certifica ([Avaliação do limite superior](/pt-br/math/upper-bound-evaluation), [Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)).
+
+O **gap de otimalidade** é o limite superior menos o limite inferior; sua forma percentual normaliza essa diferença pela magnitude do limite inferior, com piso de uma unidade monetária (veja [Gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade)).
+
+O treinamento (training) é encerrado quando seus critérios de parada são atendidos: um limite de iterações ou de tempo, um limite inferior estagnado ou, com um limite superior exato, um gap dentro da tolerância ([Critérios de parada](/pt-br/math/stopping-rules)).
+
+<ConvergencePlot />
+
+_Um limite inferior não decrescente e uma estimativa amostral do limite superior, com sua faixa de confiança de 95%, aproximam-se ao longo das iterações. A faixa descreve o custo amostrado e nada certifica; o critério de gap compara o limite inferior com um limite superior exato._
+
+Sob a medida de valor esperado em todos os estágios e as hipóteses da [Camada 2](/pt-br/math/cut-management#camada-2-convergencia), que também indica as configurações de seleção de cortes que as violam, o limite inferior converge para o valor ótimo com probabilidade 1 à medida que as iterações se acumulam; sob uma medida avessa ao risco, essa convergência não está estabelecida.
+
+## 3. Medidas de Risco
+
+O algoritmo básico da PDDE minimiza o custo esperado. O Novo Modelo admite formulações **avessas ao risco** por meio de medidas de risco aninhadas aplicadas em cada estágio, baseadas no valor em risco condicional (CVaR), que desloca peso para os cenários de custo elevado:
+
+$$
+\text{CVaR}_\alpha(Z) = \min_{\eta \in \mathbb{R}} \left\{ \eta + \frac{1}{\alpha} \mathbb{E}\left[(Z - \eta)^+\right] \right\}
+$$
+
+em que $\alpha \in (0, 1]$ é a fração da cauda — $\text{CVaR}_\alpha$ é o custo esperado na pior fração $\alpha$ dos cenários. O Novo Modelo usa uma combinação convexa do valor esperado e do CVaR,
+
+$$
+\rho^{\lambda, \alpha}[Z] = (1 - \lambda)\, \mathbb{E}[Z] + \lambda \cdot \text{CVaR}_\alpha[Z]
+$$
+
+com peso de aversão ao risco $\lambda \in [0, 1]$ ($\lambda = 0$ recupera a média neutra ao risco; $\lambda = 1$ é o CVaR puro). A medida é aplicada dentro da simulação backward: os coeficientes dos cortes são agregados por médias ponderadas pelo risco, em vez de valores esperados simples. Veja [Medidas de risco](/pt-br/math/risk-measures) para a formulação.
+
+<CvarPlot />
+
+_Distribuição de custos com a média, $\mathrm{VaR}_\alpha$ e $\mathrm{CVaR}_\alpha$ marcados e a pior cauda $\alpha$ sombreada; aumentar $\lambda$ desloca a política da média em direção à cauda._
+
+## 4. Próximos Passos
+
+Esta visão geral omite os detalhes de implementação: o leiaute do PL, o armazenamento dos cortes, a árvore de cenários e a estratégia de aproveitamento de base. Os grupos Modelagem do sistema, Modelagem estocástica e O algoritmo da PDDE tratam desses temas.
+
+Para o algoritmo completo, com a formulação do PL do estágio, a dedução dos coeficientes dos cortes e o monitoramento da convergência, veja [Algoritmo da PDDE](/pt-br/math/sddp-algorithm).
+
+Para a mecânica dos cortes — como os cortes são gerados, armazenados e eliminados —, veja [Gerenciamento de cortes](/pt-br/math/cut-management).
+
+## Referências Cruzadas
+
+- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — tratamento algorítmico completo: formulação do PL do estágio, geração de cortes, monitoramento da convergência
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — armazenamento de cortes, seleção Nível 1 (Level-1), o método dinâmico e o limite de cortes ativos
+- [Medidas de risco](/pt-br/math/risk-measures) — formulações do CVaR e de medidas de risco aninhadas para a PDDE avessa ao risco
+- [Critérios de parada](/pt-br/math/stopping-rules) — limites de iterações e de tempo, estagnação do limite (bound stalling), o critério de gap e como os critérios se combinam

@@ -1,0 +1,43 @@
+Este é um índice, restrito ao tema, dos arquivos envolvidos com termelétricas, contratos, usinas
+elevatórias e fontes não despacháveis — nomeia cada arquivo e sua função,
+sem repetir seus esquemas campo a campo. A referência exaustiva, campo a campo,
+do diretório do caso e das saídas pertence ao acervo de Referência
+(páginas [Formato do caso](/pt-br/reference/case-format/) e
+[Formato de saída](/pt-br/reference/output/)).
+
+### Entradas
+
+| Arquivo | Função |
+| ---- | ---- |
+| `system/thermals.json` | Cadastro das usinas termelétricas — campos principais, limites de geração e `anticipated_config` opcional (veja a aba Configurar). |
+| `system/energy_contracts.json` | Cadastro dos contratos — sentido, preço, limites de despacho e janela de vigência (entrada em operação/desativação). |
+| `system/pumping_stations.json` | Cadastro das usinas elevatórias — UHE de origem/destino, taxa de consumo e limites de vazão. |
+| `system/non_controllable_sources.json` | Cadastro das NCS — capacidade instalada, indicador de corte de geração (curtailment) e custo específico. |
+| `constraints/thermal_bounds.parquet` | Substituições esparsas, por (termelétrica, estágio), de `min_generation_mw`, `max_generation_mw` e `cost_per_mwh`, com eixo opcional por patamar apenas nos limites de geração (veja a aba Configurar). |
+| `constraints/pumping_bounds.parquet` | Substituições esparsas, por (usina elevatória, estágio), de `min_m3s`/`max_m3s`, com eixo opcional por patamar (veja a aba Configurar). |
+| `constraints/ncs_bounds.parquet` | Geração disponível, por `(ncs_id, stage_id)`, de uma fonte sem modelo estocástico de disponibilidade, no lugar de seu `max_generation_mw`; uma fonte com linhas em `scenarios/non_controllable_stats.parquet`, ou que amostra de `scenarios/external_ncs_scenarios.parquet` sob o esquema `external`, ignora suas linhas ([Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis)). |
+| `scenarios/non_controllable_factors.json` / `scenarios/non_controllable_stats.parquet` | Fatores determinísticos por patamar ou estatísticas estocásticas de disponibilidade das NCS. |
+| `constraints/contract_bounds.parquet` | Substituições esparsas, por (contrato, estágio), de `min_mw`, `max_mw` e `price_per_mwh`, com eixo opcional por patamar nos três (veja a aba Configurar). |
+| `initial_conditions.json` (`past_anticipated_commitments`) | Compromissos de despacho que cada termelétrica com antecipação decidiu antes do estudo, com entrega dentro ou além do horizonte (elementos do sistema §4). |
+| `constraints/generic_constraint_bounds.parquet` | O intervalo bilateral (`bound_lower`/`bound_upper`) que também serve como **grade de ativação** das restrições genéricas — uma linha por célula `(constraint_id, stage_id[, block_id])`, incluindo qualquer expressão `anticipated_decision(N)`. |
+
+Para o esquema completo, campo a campo, de cada arquivo acima, consulte a
+página de referência [Formato do caso](/pt-br/reference/case-format/) no
+acervo de Referência.
+
+### Saídas
+
+| Arquivo | Função |
+| ---- | ---- |
+| `simulation/thermals/` | Resultados de despacho por (estágio, patamar, termelétrica) — geração, custo e (para usinas com antecipação) `is_anticipated`, `anticipated_committed_mw`, `anticipated_decision_mw`. |
+| `simulation/contracts/` | Resultados de despacho por (estágio, patamar, contrato) — `power_mw`, `energy_mwh`, `price_per_mwh`, `total_cost`, `operative_state_code`. O custo dos contratos tem sua própria coluna `contract_cost` em `simulation/costs/`. |
+| `simulation/pumping_stations/` | Resultados de vazão bombeada por (estágio, patamar, usina elevatória) e uma coluna `pumping_cost` sempre igual a `0`: o bombeamento não tem custo na função objetivo, e sua potência entra no balanço do barramento (veja a aba Notas de implementação). |
+| `simulation/non_controllables/` | `generation_mw`, `available_mw`, `curtailment_mw`, `curtailment_cost` por (estágio, patamar, fonte). |
+| `simulation/costs/` | Decomposição do custo por estágio; o custo de combustível das termelétricas, o custo dos contratos e o custo do corte de geração contribuem cada um com sua própria coluna. |
+| `generic_constraints/resolved_echo.parquet` | A forma plana e expandida de cada restrição genérica que o solver efetivamente construiu — gravada sempre que o estudo tem restrições genéricas. Veja [Restrições genéricas](/pt-br/reference/generic-constraints/) para o formato do eco resolvido. |
+| `simulation/anticipated_lanes/` | Compromissos pós-horizonte que o estudo decide, uma linha por cenário e decisão no seu estágio de decisão; gravado apenas quando o estudo declara `post_study_stages` (esquema: [Saídas da simulação](/pt-br/reference/output/simulation/#simulationanticipated_lanes)). |
+| `anticipated/fixed_deliveries.parquet` | Eco, no nível da execução, de cada compromisso **decidido antes do estudo** e entregue além do horizonte (para o termo equivalente em outras ferramentas de planejamento, veja o [Glossário](/pt-br/reference/glossary)); sem coluna de custo, pois esse combustível é custo afundado e não entra em nenhuma função objetivo (esquema e condições de gravação: [Saídas da simulação](/pt-br/reference/output/simulation/#anticipatedfixed_deliveriesparquet)). |
+
+Para o esquema completo de saída (colunas, tipos, organização dos arquivos), consulte a
+página de referência [Formato de saída](/pt-br/reference/output/) no acervo de
+Referência.

@@ -1,0 +1,541 @@
+---
+title: "Exemplo didático de PDDE com quatro reservatórios"
+description: Iteração da PDDE (SDDP) com quatro reservatórios, rastreável à mão — cortes multidimensionais, despacho por barramento e valores marginais da água por reservatório em um sistema de quatro barramentos com afluências independentes de ordem 0.
+---
+
+import ToyFourSlopesPlot from "../../../../components/ToyFourSlopesPlot.astro";
+
+## Objetivo
+
+Este capítulo estende o exemplo resolvido de reservatório único de
+[Exemplo Didático com Reservatório Único](/pt-br/examples/toy-single-reservoir) a um
+sistema de quatro reservatórios e quatro barramentos, ainda com um modelo de
+afluências de ordem 0 (amostragem sazonal). O capítulo demonstra dois
+fenômenos que o caso de reservatório único não consegue exibir:
+
+- **Cortes multidimensionais.** O corte passa a ser um hiperplano com um
+  coeficiente de armazenamento por reservatório: o custo reduzido, ponderado
+  pelas probabilidades, da coluna fixada de armazenamento de entrada desse reservatório.
+- **Despacho por barramento com suprimento independente.** Cada barramento tem
+  sua própria demanda e é atendido por sua hidrelétrica local e por uma termelétrica local;
+  o PL resolve os despachos regionais simultaneamente dentro de um único
+  problema de estágio.
+
+O repositório do Novo Modelo inclui um caso de referência em `examples/4ree/` que modela
+o sistema interligado brasileiro em quatro regiões (SUDESTE, SUL, NORDESTE,
+NORTE) ao longo de 12 estágios mensais (janeiro a dezembro de 2015), com 126
+termelétricas, cinco barramentos e cinco linhas de transmissão. O quinto barramento,
+NOFICT1, é um nó fictício de passagem, sem carga e sem geração;
+as linhas são SUDESTE–SUL, SUDESTE–NORDESTE, SUDESTE–NOFICT1,
+NORDESTE–NOFICT1 e NORTE–NOFICT1. O caso distribuído não tem
+acoplamento em cascata entre reservatórios (o reservatório de cada região é
+independente), não tem correlação espacial das afluências e usa um modelo de
+produtibilidade constante. Este exemplo resolvido preserva essas
+propriedades, mas substitui os números em escala de produção por
+valores rastreáveis à mão: 4 estágios, 3 aberturas, uma termelétrica por barramento, sem
+transmissão. **Este exemplo resolvido é uma caricatura pedagógica, e não uma
+reprodução do caso distribuído.**
+
+O capítulo não trata de transmissão, acoplamento em cascata, modelo de produção
+FPHA, política cíclica de horizonte infinito, estudos multirresolução
+nem medidas de risco. Esses temas são abordados nos
+capítulos citados na seção 8.
+
+---
+
+## 1. O Caso em uma Figura
+
+O sistema tem quatro barramentos, cada um com uma hidrelétrica local (produtibilidade
+1,0), uma termelétrica local e um bloco de demanda local. Os quatro
+reservatórios são independentes — sem acoplamento em cascata. Não há
+transmissão entre barramentos neste exemplo; cada barramento
+equilibra o despacho com seus recursos locais.
+
+```d2
+direction: right
+
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+  thermal: {style: {stroke: "#f5a623"}}
+}
+
+a1: "Afluência a₁\n(ordem 0)" {shape: oval; class: hydro}
+a2: "Afluência a₂\n(ordem 0)" {shape: oval; class: hydro}
+a3: "Afluência a₃\n(ordem 0)" {shape: oval; class: hydro}
+a4: "Afluência a₄\n(ordem 0)" {shape: oval; class: hydro}
+h1: "H1\ncap. 100" {shape: cylinder; class: hydro}
+h2: "H2\ncap. 100" {shape: cylinder; class: hydro}
+h3: "H3\ncap. 80" {shape: cylinder; class: hydro}
+h4: "H4\ncap. 80" {shape: cylinder; class: hydro}
+b1: "Barramento 1\nD = 25"
+b2: "Barramento 2\nD = 20"
+b3: "Barramento 3\nD = 15"
+b4: "Barramento 4\nD = 12"
+t1: "Térmica₁\ncusto 50" {class: thermal}
+t2: "Térmica₂\ncusto 50" {class: thermal}
+t3: "Térmica₃\ncusto 50" {class: thermal}
+t4: "Térmica₄\ncusto 50" {class: thermal}
+
+a1 -> h1 -> b1
+a2 -> h2 -> b2
+a3 -> h3 -> b3
+a4 -> h4 -> b4
+t1 -> b1
+t2 -> b2
+t3 -> b3
+t4 -> b4
+```
+
+**Parâmetros por hidrelétrica:**
+
+| Hidrelétrica | Barramento | $\bar V_h$ | $\hat v_{h,0}$ | $\mu_h$ | $\sigma_h$ | Produtibilidade |
+| ----- | --- | ---------- | -------------- | ------- | ---------- | ------------ |
+| H1    | B1  | 100        | 30             | 15      | 5          | 1.0          |
+| H2    | B2  | 100        | 30             | 12      | 4          | 1.0          |
+| H3    | B3  | 80         | 20             | 10      | 3          | 1.0          |
+| H4    | B4  | 80         | 20             | 8       | 3          | 1.0          |
+
+**Demanda por barramento:**
+
+| Barramento | $D_b$ |
+| --- | ----- |
+| B1  | 25    |
+| B2  | 20    |
+| B3  | 15    |
+| B4  | 12    |
+
+**Parâmetros do sistema:**
+
+| Parâmetro             | Símbolo   | Valor       |
+| --------------------- | --------- | ----------- |
+| Estágios              | $T$       | 4           |
+| Aberturas por estágio | $N_t$     | 3           |
+| Custo marginal térmico | $c^{th}$ | 50 R\$/MWh   |
+| Custo de déficit      | $c^{def}$ | 1000 R\$/MWh |
+| Fator de desconto     | $d$       | 1.0         |
+
+A demanda de cada barramento excede a afluência média da hidrelétrica local ($D_1 - \mu_1 = 10$,
+$D_2 - \mu_2 = 8$, $D_3 - \mu_3 = 5$, $D_4 - \mu_4 = 4$), de modo que os reservatórios
+se esvaziam ao longo do horizonte de quatro estágios e a geração térmica aparece nos
+estágios finais.
+
+---
+
+## 2. PL do Estágio para Este Caso
+
+O PL do estágio $t$ é montado a partir da formulação geral de
+[Formulação do PL](/pt-br/math/lp-formulation), particularizada para quatro
+hidrelétricas, quatro barramentos com uma termelétrica local cada, quatro variáveis
+de estado de armazenamento e afluência de ordem 0 (sem estado de defasagem AR).
+
+**Função objetivo** (minimizar o custo do estágio corrente mais o custo futuro):
+
+$$
+\min \quad \sum_{b=1}^{4} \bigl( 50\, g^{th}_b + 1000\, \delta_b \bigr) + \theta
+$$
+
+**Balanço de carga por barramento** (cada barramento se equilibra sozinho, sem transmissão):
+
+$$
+g_b + g^{th}_b + \delta_b = D_b, \qquad b = 1, 2, 3, 4
+$$
+
+onde $g_b$ é a geração hidrelétrica local no barramento $b$.
+
+**Geração hidrelétrica** (produtibilidade constante nas quatro usinas):
+
+$$
+g_h \;=\; 1.0 \cdot q_h, \qquad h = 1, 2, 3, 4
+$$
+
+**Balanços hídricos** (cada reservatório é independente — sem cascata):
+
+$$
+v_h \;=\; v^{in}_h + a_h - q_h, \qquad h = 1, 2, 3, 4
+$$
+
+(Neste exemplo, $\zeta = 1$: 1 m³/s turbinado por estágio
+retira 1 hm³.)
+
+**Fixação do armazenamento de entrada** (o custo reduzido de cada coluna fixada
+torna-se o coeficiente do corte):
+
+$$
+v^{in}_h \;=\; \hat{v}_{h,t-1}, \qquad h = 1, 2, 3, 4
+$$
+
+**Limites**: $0 \leq v_h \leq \bar V_h$; $q_h, g_h, g^{th}_b, \delta_b \geq 0$;
+$\theta \geq 0$.
+
+**Variável de custo futuro $\theta$**: como no caso de reservatório único, o
+estágio terminal não tem cortes; cortes da forma
+$\theta \geq \beta_0 + \sum_h \beta^v_h\, v_h$ são acrescentados pela simulação
+backward aos PLs dos estágios anteriores. Com quatro reservatórios, o corte passa a ser um
+hiperplano de 4 coeficientes no espaço de estados de armazenamento, com cada
+$\beta^v_h \leq 0$ refletindo que o armazenamento na hidrelétrica $h$ reduz o custo
+futuro.
+
+Observe novamente a ausência de qualquer estado de defasagem AR: a afluência de ordem 0 não tem
+memória, de modo que o armazenamento é o vetor de estado inteiro.
+
+---
+
+## 3. O Modelo de Afluências de Ordem 0 com Quatro Hidrelétricas
+
+Cada hidrelétrica $h$ amostra sua própria afluência de forma independente a partir de uma
+distribuição normal com média e desvio-padrão sazonais específicos da usina:
+
+$$
+a_{h,t} \;=\; \mu_h + \sigma_h\, \varepsilon_{h,t}, \qquad
+\varepsilon_{h,t} \sim \mathcal{N}(0, 1)
+$$
+
+com $(\mu_h, \sigma_h)$ específicos de cada usina, conforme a tabela de parâmetros da
+seção 1. **Os ruídos (inovações) são independentes entre as hidrelétricas** — não
+há arquivo `correlation.json` no caso real `examples/4ree/`, e
+este exemplo preserva essa propriedade.
+
+Se um arquivo `correlation.json` fosse fornecido, a estrutura espacial
+$C$ entre os ruídos seria aplicada por meio da fatoração
+espectral $\varepsilon = C^{1/2} z$ com $C^{1/2} = U \Lambda^{1/2} U^{\top}$ — ver
+[Modelo de afluências PAR(p) §6](/pt-br/math/par-inflow-model#6-fatoracao-da-correlacao-espacial) para o
+caso multivariado. Neste exemplo, os quatro ruídos são
+sorteados de forma independente.
+
+As três aberturas usadas na simulação backward correspondem a um único
+$\varepsilon \in \{-1, 0, +1\}$ compartilhado, aplicado uniformemente às quatro
+hidrelétricas (uma escolha simplificadora: no novomodelo, cada abertura é um vetor de ruídos
+com um valor para cada entidade estocástica, incluindo cada hidrelétrica, de modo que as
+afluências das hidrelétricas não precisam variar em conjunto). Cada abertura tem
+probabilidade igual $p = 1/3$.
+
+---
+
+## 4. Iteração 1 — Simulação Forward
+
+A simulação forward amostra uma trajetória usando $\varepsilon_t = 0$ em
+todos os estágios, de modo que cada hidrelétrica recebe sua afluência média em todos os estágios.
+Com $\theta$ livre em zero (sem cortes na iteração 1), o PL minimiza
+os custos térmicos e de déficit por barramento em cada estágio.
+
+Como, no estado inicial, todo barramento dispõe de afluência mais armazenamento suficientes
+para atender a demanda apenas com hidrelétrica, os estágios 1–3 têm custo nulo. No estágio 4,
+falta água em dois dos quatro barramentos, e um terceiro (B3) tem exatamente
+o suficiente.
+
+**Estágio 1** — armazenamento de entrada $\hat x_0 = (30, 30, 20, 20)$, afluências
+$(15, 12, 10, 8)$. Em todo barramento, $q_h = D_b$ (demanda atendida pela hidrelétrica);
+armazenamento ao final do estágio:
+
+$$
+x_1 = (30 + 15 - 25,\; 30 + 12 - 20,\; 20 + 10 - 15,\; 20 + 8 - 12) = (20, 22, 15, 16).
+$$
+
+Custo do estágio: $0$ (sem térmica, sem déficit).
+
+**Estágio 2** — $\hat x_1 = (20, 22, 15, 16)$. Mesmo padrão: cada barramento
+atende a demanda com hidrelétrica; o armazenamento diminui em $D_b - \mu_h$:
+
+$$
+x_2 = (10, 14, 10, 12).
+$$
+
+Custo do estágio: $0$.
+
+**Estágio 3** — $\hat x_2 = (10, 14, 10, 12)$. O barramento 1 chega ao limite
+exato: água disponível $= \hat v_{1,2} + a_1 = 10 + 15 = 25 = D_1$; o
+PL turbina toda a água disponível e termina com $v_{1,3} = 0$. Os demais
+barramentos ainda têm sobra.
+
+$$
+x_3 = (0, 6, 5, 8).
+$$
+
+Custo do estágio: $0$.
+
+**Estágio 4** — $\hat x_3 = (0, 6, 5, 8)$, afluências $(15, 12, 10, 8)$.
+Agora falta água em dois barramentos, e a água disponível em B3 atende exatamente
+sua demanda:
+
+| Barramento | $\hat v_{h,3}$ | $a$ | Disp. | $D$ | $q$ | $g^{th}$ | $\delta$ |
+| --- | ---------- | --- | ------ | --- | --- | -------- | -------- |
+| B1  | 0          | 15  | 15     | 25  | 15  | 10       | 0        |
+| B2  | 6          | 12  | 18     | 20  | 18  | 2        | 0        |
+| B3  | 5          | 10  | 15     | 15  | 15  | 0        | 0        |
+| B4  | 8          | 8   | 16     | 12  | 12  | 0        | 0        |
+
+Custo do estágio 4: $50 \times 10 + 50 \times 2 = 500 + 100 = 600$.
+
+**Estimativa do limite superior pela trajetória**: $0 + 0 + 0 + 600 = 600$.
+
+---
+
+## 5. Iteração 1 — Simulação Backward
+
+A simulação backward percorre os estágios $4 \to 2$. Em cada estágio, ela fixa o
+armazenamento de entrada no estado visitado pela simulação forward, avalia
+as três aberturas, lê os quatro custos reduzidos das colunas fixadas e
+os agrega em um corte de 4 coeficientes. A mecânica segue as seções 2–3 de
+[Gerenciamento de cortes](/pt-br/math/cut-management), generalizada
+de um coeficiente de armazenamento (caso de reservatório único) para quatro (este
+caso).
+
+### Estágio 4 (terminal)
+
+**Estado visitado**: $\hat x_3 = (0, 6, 5, 8)$. Afluências sob as três
+aberturas compartilhadas (as quatro hidrelétricas variam juntas com $\varepsilon$):
+
+| Abertura   | $\varepsilon$ | $a_1$ | $a_2$ | $a_3$ | $a_4$ |
+| ---------- | ------------- | ----- | ----- | ----- | ----- |
+| $\omega_1$ | $-1$          | 10    | 8     | 7     | 5     |
+| $\omega_2$ | $0$           | 15    | 12    | 10    | 8     |
+| $\omega_3$ | $+1$          | 20    | 16    | 13    | 11    |
+
+Para cada abertura, cada barramento resolve seu despacho local de forma independente
+(sem transmissão, sem $\theta$ no estágio terminal):
+
+**$\omega_1$ (seca):**
+
+| Barramento | Disp. | $D$ | $q$ | $g^{th}$ | Custo do estágio | $\beta^v_h$ |
+| --- | ------ | --- | --- | -------- | ---------- | --------- |
+| B1  | 10     | 25  | 10  | 15       | 750        | $-50$     |
+| B2  | 14     | 20  | 14  | 6        | 300        | $-50$     |
+| B3  | 12     | 15  | 12  | 3        | 150        | $-50$     |
+| B4  | 13     | 12  | 12  | 0        | 0          | $0$       |
+
+$Q_4(\omega_1) = 750 + 300 + 150 + 0 = 1200$.
+
+O coeficiente de armazenamento do corte em cada barramento — o custo reduzido da coluna
+fixada de armazenamento de entrada — segue a lógica do reservatório único: barramentos
+limitados por água com térmica ativa têm $\beta^v_h = -50$; barramentos em que a demanda é atendida
+apenas pela hidrelétrica têm $\beta^v_h = 0$.
+
+**$\omega_2$ (média):**
+
+| Barramento | Disp. | $D$ | $q$ | $g^{th}$ | Custo do estágio | $\beta^v_h$ |
+| --- | ------ | --- | --- | -------- | ---------- | --------- |
+| B1  | 15     | 25  | 15  | 10       | 500        | $-50$     |
+| B2  | 18     | 20  | 18  | 2        | 100        | $-50$     |
+| B3  | 15     | 15  | 15  | 0        | 0          | $0$       |
+| B4  | 16     | 12  | 12  | 0        | 0          | $0$       |
+
+$Q_4(\omega_2) = 600$. B3 está em um ponto de quebra (a água disponível atende exatamente
+a demanda): uma unidade a mais de armazenamento termina no $x_4$ terminal, que tem
+valor nulo, enquanto uma unidade a menos exige uma unidade de térmica que custa $50$.
+Todo valor em $[-50, 0]$ é um subgradiente válido; como no
+exemplo de reservatório único, este exemplo adota a taxa para uma
+unidade a mais de armazenamento, $\beta^v_3(\omega_2) = 0$.
+
+**$\omega_3$ (úmida):**
+
+| Barramento | Disp. | $D$ | $q$ | $g^{th}$ | Custo do estágio | $\beta^v_h$ |
+| --- | ------ | --- | --- | -------- | ---------- | --------- |
+| B1  | 20     | 25  | 20  | 5        | 250        | $-50$     |
+| B2  | 22     | 20  | 20  | 0        | 0          | $0$       |
+| B3  | 18     | 15  | 15  | 0        | 0          | $0$       |
+| B4  | 19     | 12  | 12  | 0        | 0          | $0$       |
+
+$Q_4(\omega_3) = 250$.
+
+**Termos independentes por abertura**
+$\beta_{0,4}(\omega) = Q_4(\omega) - \sum_h \beta^v_h(\omega)\, \hat{v}_{h,3}$:
+
+| Abertura   | $Q_4$  | $-\sum_h \beta^v_h \hat v_{h,3}$       | $\beta_{0,4}$ |
+| ---------- | ------ | ------------------------------------ | -------------- |
+| $\omega_1$ | $1200$ | $50(0) + 50(6) + 50(5) + 0(8) = 550$ | $1750$         |
+| $\omega_2$ | $600$  | $50(0) + 50(6) + 0(5) + 0(8) = 300$  | $900$          |
+| $\omega_3$ | $250$  | $50(0) + 0(6) + 0(5) + 0(8) = 0$     | $250$          |
+
+(Os sinais se invertem porque $\beta^v < 0$ e a fórmula subtrai um
+produto de um negativo por um positivo.)
+
+**Agregação** ($p = 1/3$):
+
+$$
+\bar\beta_{0,4} = \tfrac{1}{3}(1750 + 900 + 250) = \tfrac{2900}{3} \approx 966.7
+$$
+
+| Hidrelétrica | $\bar\beta^v_h$                                   |
+| ----- | ----------------------------------------------- |
+| H1    | $\tfrac{1}{3}(-50 - 50 - 50) = -50$             |
+| H2    | $\tfrac{1}{3}(-50 - 50 + 0)  = -\tfrac{100}{3}$ |
+| H3    | $\tfrac{1}{3}(-50 + 0 + 0)   = -\tfrac{50}{3}$  |
+| H4    | $\tfrac{1}{3}(0 + 0 + 0)     = 0$               |
+
+**Corte acrescentado ao PL do estágio 3**:
+
+$$
+\theta \;\geq\; \tfrac{2900}{3} - 50\, v_1 - \tfrac{100}{3}\, v_2 - \tfrac{50}{3}\, v_3 + 0 \cdot v_4
+$$
+
+**Verificação de consistência.** Em $x = \hat x_3 = (0, 6, 5, 8)$, o corte vale
+
+$$
+\tfrac{2900}{3} - 0 - \tfrac{600}{3} - \tfrac{250}{3} + 0
+= \tfrac{2900 - 600 - 250}{3} = \tfrac{2050}{3} \approx 683.3.
+$$
+
+Isso é igual ao custo esperado do estágio 4, ponderado pelas probabilidades, no
+estado visitado, $\bar Q_4 = (1/3)(1200 + 600 + 250) = 2050/3 \approx 683.3$:
+o corte é exato nesse ponto por construção, e fica sobre ou abaixo do
+custo esperado do estágio 4 em qualquer outro vetor de armazenamento.
+
+Os quatro coeficientes de armazenamento $(-50, -100/3, -50/3, 0)$ ordenam os reservatórios pelo quanto
+cada um reduz o custo futuro esperado. H1 é o mais
+valioso: a térmica em B1 esteve ativa nas três aberturas, de modo que uma
+unidade extra em H1 economiza $50$ em todos os cenários e a média é $-50$. H4
+tem coeficiente nulo: B4 dispensou térmica em todas as aberturas, de modo que o armazenamento
+em H4 não tem valor marginal neste estado visitado.
+
+### Estágios 3 e 2
+
+O mesmo procedimento se repete nos estágios anteriores, com o corte do
+estágio seguinte ativo no PL. Em cada estágio:
+
+1. Fixe o vetor de armazenamento de entrada $\hat x_{t-1}$ (limites de coluna).
+2. Resolva os PLs das três aberturas com o corte do estágio seguinte ativo.
+3. Leia quatro custos reduzidos de colunas fixadas por abertura (um por reservatório).
+4. Calcule os termos independentes por abertura via
+   $\beta_0(\omega) = Q(\omega) - \sum_h \beta^v_h(\omega)\, \hat v_{h,t-1}$.
+5. Agregue por média ponderada pelas probabilidades em um único
+   corte de 5 coeficientes (termo independente mais quatro inclinações de armazenamento).
+6. Acrescente o corte ao PL do estágio anterior.
+
+Ao final da simulação backward, os estágios 1 a 3 têm, cada um, um
+corte; o estágio 4 não tem nenhum.
+
+---
+
+## 6. O Corte como Hiperplano 4-D
+
+A mudança fundamental em relação ao caso de reservatório único é a
+dimensionalidade do corte. Cada corte passa a ser um hiperplano no
+espaço de estados de armazenamento de 4 dimensões:
+
+$$
+\underline{V}_t^k(v) \;=\; \max_{i = 1, \ldots, k}
+\Bigl\{ \bar\beta_0^i + \bar\beta^{v,i}_1\, v_1 + \bar\beta^{v,i}_2\, v_2
++ \bar\beta^{v,i}_3\, v_3 + \bar\beta^{v,i}_4\, v_4 \Bigr\}.
+$$
+
+Daí decorrem várias consequências práticas:
+
+**Inclinações por reservatório.** No estágio terminal, os barramentos não compartilham
+nenhuma restrição, de modo que o problema do estágio se divide em quatro problemas
+independentes por barramento, e cada inclinação do corte do estágio 3 da iteração 1 provém
+apenas do seu próprio barramento: $\bar\beta^v_h$ é a média do custo reduzido da
+coluna fixada de armazenamento de entrada da hidrelétrica $h$ nas três aberturas, qualquer que seja
+o conteúdo dos demais reservatórios. As inclinações são $-50$, $-100/3$, $-50/3$ e $0$:
+uma unidade a mais em H1 economiza $50$ em todas as aberturas, e uma unidade a mais em H4
+não economiza nada neste estado visitado. O corte empilha quatro valores marginais
+da água independentes; a troca de água entre reservatórios exige um
+acoplamento que a caricatura deixa de fora, como transmissão ou
+cascata (seção 8).
+
+A figura mostra as quatro inclinações deste corte como barras e o custo reduzido
+de cada abertura como um ponto: H1 é limitada por água nas três
+aberturas ($-50$ em cada), H2 em $\omega_1$ e $\omega_2$, H3 apenas em
+$\omega_1$ (seu ponto de quebra em $\omega_2$ assume $0$) e H4 em nenhuma. Os
+valores plotados vêm de um módulo testado que reexecuta esta simulação
+backward do estágio 4.
+
+<ToyFourSlopesPlot />
+
+**A justeza do corte é local, não global.** Cada corte é igual ao custo esperado
+que a simulação backward calculou em seu estado visitado; longe do
+estado visitado, ele pode ser um limite inferior folgado da função de custo futuro. A simulação forward
+espalha os estados visitados pelo espaço de estados de armazenamento à medida que as iterações
+avançam, e cada novo estado visitado produz um corte que aperta a
+aproximação em sua vizinhança. Quando os cortes limitam por baixo a função de custo futuro
+e quando a aproximação converge é exposto em
+[Gerenciamento de cortes — quando valem os limites e os certificados](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem).
+
+**O regime térmico de cada barramento determina a estrutura das inclinações.** Um barramento cuja
+térmica fica sempre ociosa (B4 nesta iteração) recebe $\bar\beta^v_h = 0$;
+o armazenamento do reservatório correspondente não tem valor marginal no
+estado visitado. À medida que as iterações seguintes amostram estados visitados em que
+também falta água em B4, a inclinação desse reservatório se torna negativa nesses
+cortes, e o conjunto de cortes acumulado acaba cobrindo a região
+em que o armazenamento de cada reservatório tem valor marginal não nulo.
+
+---
+
+## 7. Convergência neste Caso
+
+A forma percentual do
+[gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) divide o gap
+pela magnitude do limite inferior, $\lvert\underline{z}^k\rvert$
+(com piso de uma unidade monetária). O número de iterações necessário para fechá-lo
+depende das razões entre demanda e afluência, das capacidades dos reservatórios e
+da variância das afluências, e o limite superior de uma simulação forward
+amostrada é uma estimativa estatística que não certifica nada
+([Gerenciamento de cortes — Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)).
+O `4ree` distribuído executa quatro simulações forward amostradas por iteração e
+para no seu limite de 256 iterações; o novomodelo rejeita um critério de parada `gap`
+na inicialização sob uma simulação forward amostrada. Ver
+[Critérios de parada](/pt-br/math/stopping-rules) para os critérios disponíveis.
+
+---
+
+## 8. O que Este Exemplo Não Mostra
+
+O exemplo didático acima se restringe a quatro reservatórios em quatro barramentos,
+sem transmissão. Ele não trata de:
+
+- **Redes de transmissão**: o caso distribuído `examples/4ree/` tem cinco
+  linhas de transmissão, três delas passando pelo barramento fictício
+  NOFICT1, que permitem que a geração barata de um barramento atenda outro. Com transmissão, o
+  balanço de carga passa a ser uma restrição de rede, e a parcela térmica de cada barramento
+  depende das capacidades das linhas e dos custos de intercâmbio. A estrutura
+  do corte não muda — continua havendo um coeficiente de armazenamento por
+  reservatório —, mas os PLs por abertura deixam de ser separáveis entre
+  barramentos.
+- **Acoplamento em cascata**: em cascatas ramificadas, os reservatórios de jusante
+  recebem as defluências de montante por meio de um termo do balanço hídrico
+  $v_h = v^{in}_h + a_h - q_h - s_h + \sum_{h' \in \mathcal{U}_h}(q_{h'} + s_{h'})$;
+  o coeficiente de armazenamento do corte nas usinas de montante passa então a refletir o
+  valor esperado, a jusante, da água liberada. Ver
+  [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) para a topologia da cascata
+  e [Gerenciamento de cortes](/pt-br/math/cut-management) para a forma como as
+  sensibilidades da cascata se propagam pelo custo reduzido da coluna fixada.
+- **Modelo de produção FPHA**: produtibilidade não linear dependente da queda,
+  aproximada por hiperplanos lineares por partes; um dos planos fica
+  ativo no ótimo e contribui para o coeficiente de armazenamento do
+  corte. Ver [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models).
+- **Correlação espacial das afluências**: quando um arquivo `correlation.json` é
+  fornecido, os ruídos por hidrelétrica são sorteados de uma normal multivariada
+  correlacionada via fatoração espectral. Ver
+  [Modelo de afluências PAR(p) §6](/pt-br/math/par-inflow-model#6-fatoracao-da-correlacao-espacial).
+- **Memória autorregressiva das afluências**: um modelo PAR(p) com $p \geq 1$
+  acrescenta uma variável de estado de defasagem por hidrelétrica por defasagem; se os cortes de um estágio
+  contêm um coeficiente para cada defasagem é definido pela projeção de estado do corte desse estágio
+  ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)).
+- **Medidas de risco**: ponderação por CVaR, que desloca as probabilidades de agregação dos cortes
+  da uniforme $p = 1/N_t$ em direção aos piores cenários,
+  elevando os termos independentes e as inclinações dos cortes no sentido seco. Ver
+  [Medidas de risco](/pt-br/math/risk-measures).
+- **Grafos da política (policy graph) cíclicos**: o horizonte de quatro estágios termina sem um corte
+  que o ligue de volta ao estágio 1. Um grafo da política cíclico (periódico), no qual
+  a função de custo futuro do primeiro estágio alimentaria o último estágio, é um projeto
+  reservado: `stages.json` aceita apenas `finite_horizon` como
+  `policy_graph.type` e rejeita `cyclic` na carga do caso. Ver
+  [Modos de horizonte](/pt-br/math/horizon-modes#1-modo-finito-aciclico).
+- **Estudos multirresolução**: estágios de durações diferentes em um mesmo
+  horizonte, por exemplo um início semanal seguido de uma cauda mensal,
+  compartilhando um único conjunto de cortes. Ver
+  [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies).
+
+---
+
+## Referências Cruzadas
+
+- [Exemplo Didático com Reservatório Único](/pt-br/examples/toy-single-reservoir) — Referência de reservatório único; ciclo básico da PDDE, afluência de ordem 0, simulações forward/backward e corte no cenário mais simples
+- [Formulação do PL](/pt-br/math/lp-formulation) — PL completo do estágio
+- [Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling) — Layout de colunas e linhas
+- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — Fixação do estado por limites de coluna, extração dos custos reduzidos
+- [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) — Elemento usina hidrelétrica, topologia da cascata (não exercitada aqui), convenção do balanço hídrico, visão geral da FPHA
+- [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models) — Produtibilidade constante (usada aqui) e ajuste de hiperplanos da FPHA; impacto nos coeficientes dos cortes de Benders
+- [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — Definição do modelo de afluências; o caso degenerado $p = 0$ (ruído branco) usado aqui; fatoração da correlação espacial para casos multivariados
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — Extração das variáveis duais, termos independentes por abertura, agregação em corte único (single-cut); convenção de sinal $\beta^v = \partial Q/\partial \hat v$
+- [Medidas de risco](/pt-br/math/risk-measures) — Definição do CVaR, combinação convexa EAVaR, pesos de agregação ajustados ao risco
+- [Modos de horizonte](/pt-br/math/horizon-modes) — Grafos da política finitos (suportados) vs. cíclicos reservados e o conjunto de cortes indexado por período sazonal

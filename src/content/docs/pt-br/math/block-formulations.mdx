@@ -1,0 +1,196 @@
+---
+title: "Variantes de formulação dos patamares"
+description: Formulações de patamares paralelos e cronológicos — como os períodos dentro do estágio são tratados no PL, com as restrições de balanço hídrico, o tamanho do PL e a dinâmica do armazenamento.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as BlocksNotes } from './_impl/_blocks.notes.mdx';
+
+## Objetivo
+
+Este capítulo define as duas formulações de patamares suportadas pelo Novo Modelo — paralela e cronológica —, que determinam como os períodos dentro do estágio (por exemplo, ponta, fora de ponta ou resolução horária) são tratados no PL. A escolha da formulação de patamares afeta as restrições de balanço hídrico, o tamanho do PL e a capacidade de modelar a dinâmica do armazenamento dentro do estágio.
+
+Para as definições de variáveis e conjuntos usadas aqui, veja [Convenções de notação](/pt-br/overview/notation-conventions). Para a integração dos patamares no PL completo, veja [Formulação do PL](/pt-br/math/lp-formulation). Para os elementos do sistema que participam das restrições por patamar, veja [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements).
+
+## 1. Patamares Paralelos (Padrão)
+
+No modo de patamares paralelos, todos os patamares de um estágio são **independentes** — não há dinâmica de armazenamento dentro do estágio.
+
+### 1.1 Balanço Hídrico (Paralelo)
+
+Uma única restrição de balanço hídrico abrange todos os patamares:
+
+$$
+v_h = v^{in}_h + \zeta \, (a_h - e_h - r_h) + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
+$$
+
+em que:
+
+- $v^{in}_h$ é o armazenamento de entrada, fixado em $\hat{v}_h$
+- $\zeta_k = 0.0036\,\tau_k = w_k\,\zeta$ é a conversão de vazão em volume do patamar $k$, com $\tau_k$ a duração do patamar $k$ em horas e $w_k = \tau_k / \sum_{k' \in \mathcal{K}} \tau_{k'}$ o peso do patamar, de modo que as conversões dos patamares somam a conversão do estágio, $\sum_{k \in \mathcal{K}} \zeta_k = \zeta$
+- $a_h$ é a vazão incremental realizada do estágio
+- $e_h$ é a evaporação líquida: um único valor no nível do estágio, calculado sobre $(v^{in}_h + v_h)/2$, qualquer que seja o número de patamares
+- $r_h$ é a meta de retirada no nível do estágio
+- $\text{net\_flows}_{h,k}$ é a vazão líquida do patamar $k$: a defluência turbinada e vertida creditada pelas usinas de montante e as vazões desviadas e bombeadas para a usina, menos as vazões turbinada, vertida e desviada da própria usina e a vazão bombeada para fora dela
+
+Essa formulação supõe que o reservatório pode redistribuir livremente a água entre os patamares do estágio. A linha canônica com todos os termos — as chegadas de água em trânsito, as parcelas de tempo de viagem e as folgas de retirada e de afluência — está em [Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas).
+
+### 1.2 Características
+
+| Aspecto                     | Descrição                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| Tamanho do PL               | Menor: uma linha de balanço hídrico por usina hidrelétrica e uma linha de evaporação por usina com evaporação |
+| Dinâmica do armazenamento   | Apenas no fim do estágio                                                     |
+| Aplicação                   | Planejamento estratégico de longo prazo                                      |
+| Configuração                | Selecionada por estágio nas definições de estágios do caso ([Arquivos de estágios](/pt-br/reference/case-format/stages/#stagesjson)) |
+
+## 2. Patamares Cronológicos
+
+No modo de patamares cronológicos, os patamares são **sequenciais** dentro de cada estágio, o que permite modelar a dinâmica do armazenamento dentro do estágio (por exemplo, padrões de ciclo diário dentro de um estágio mensal).
+
+### 2.1 Variáveis Adicionais
+
+| Variável  | Domínio                        | Unidade | Descrição                          |
+| --------- | ------------------------------ | ------- | ---------------------------------- |
+| $v_{h,k}$ | Os limites de $v_h$, $[\underline{V}_h, \bar{V}_h]$, com o piso e o teto da [Formulação do PL §8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo) | hm³     | Armazenamento ao fim do patamar $k$ |
+
+O armazenamento ao fim do estágio (variável de estado) é: $v_h = v_{h,|\mathcal{K}|}$
+
+### 2.2 Balanço Hídrico por Patamar
+
+Para todo patamar $k \in \mathcal{K}$, com $v_{h,0} = v^{in}_h$ (o armazenamento de entrada, fixado em $\hat{v}_h$):
+
+$$
+v_{h,k} = v_{h,k-1} + \zeta_k \, \big( a_h - e_{h,k} - r_h + \text{net\_flows}_{h,k} \big)
+$$
+
+$\text{net\_flows}_{h,k}$ credita integralmente a defluência de montante do patamar $k$; para uma usina de montante ligada a $h$ por um arco com tempo de viagem, a linha do patamar $k$ credita, em vez disso, as parcelas por patamar, no mesmo estágio, da defluência dessa usina nos patamares $k' \le k$ ([Formulação do PL — Linhas do Estágio Cronológico](/pt-br/math/lp-formulation#linhas-do-estagio-cronologico)).
+
+O patamar $k$ recebe $\zeta_k\,a_h = w_k\,\zeta\,a_h$ da afluência do estágio e a parcela $w_k \zeta \sigma_{m(t)} \varepsilon_t$ do seu ruído. Cada patamar encadeia seu armazenamento a partir do armazenamento final do patamar anterior, $v_{h,k-1}$, de modo que as fronteiras por patamar $v_{h,0} = \hat{v}_h, v_{h,1}, \ldots, v_{h,|\mathcal{K}|}$ formam uma trajetória de armazenamento dentro do estágio.
+
+### 2.3 Soma das Linhas dos Patamares
+
+Somando as linhas dos patamares sobre $k \in \mathcal{K}$, obtém-se:
+
+$$
+v_h = v^{in}_h + \zeta \, (a_h - r_h) - \sum_{k \in \mathcal{K}} \zeta_k \, e_{h,k} + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
+$$
+
+Essa é a linha da §1.1 com a evaporação por patamar $\sum_{k \in \mathcal{K}} \zeta_k\,e_{h,k}$ no lugar de $\zeta\,e_h$ e, em um arco com tempo de viagem, com as parcelas por patamar, no mesmo estágio, da defluência de montante (veja [Formulação do PL — Soma das Linhas dos Patamares](/pt-br/math/lp-formulation#soma-das-linhas-dos-patamares)).
+
+:::note[Usinas hidrelétricas antes da entrada em operação]
+Uma usina em pré-enchimento (PreFilling) — uma usina com enchimento de volume morto antes do seu estágio de início do enchimento, ou uma usina sem período de enchimento em qualquer estágio fora da sua janela de operação — congela, no modo cronológico, a identidade de armazenamento de cada patamar — $v_{h,k} - v_{h,k-1} = 0$ para todo patamar —, mantendo o armazenamento constante enquanto o aproveitamento ainda não existe. Veja [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) para o ciclo de vida completo de entrada em operação.
+:::
+
+### 2.4 Produção e Evaporação por Patamar
+
+A produção hidrelétrica (FPHA) e a evaporação de cada patamar são avaliadas sobre **o armazenamento médio do próprio patamar**, $(v_{h,k-1} + v_{h,k})/2$, e não sobre o armazenamento médio único do estágio que o modo paralelo compartilha entre todos os patamares. Cada coeficiente de armazenamento entra, portanto, na linha do patamar $k$ com menos a metade do seu valor em **ambas** as colunas de armazenamento que delimitam o patamar, $v_{h,k-1}$ e $v_{h,k}$, de modo que o patamar enxerga a média dos armazenamentos de entrada e de saída: o coeficiente de armazenamento do plano da FPHA $\gamma_v^m$, repartido para a célula $(h,b)$ por $\lambda_{h,b}$, como $-\lambda_{h,b}\,\gamma_v^m/2$ na linha dessa célula para o plano, e a inclinação de armazenamento da evaporação $\gamma^{ev}_{v,h}$ como $-\gamma^{ev}_{v,h}/2$ na linha de evaporação. Isso permite que um estágio cronológico capture a variação da queda e da área de evaporação que acompanha a trajetória de armazenamento dentro do estágio.
+
+Em um estágio paralelo, a usina mantém uma única evaporação no nível do estágio, calculada sobre $(v^{in}_h + v_h)/2$, qualquer que seja o número de patamares; a evaporação por patamar existe apenas em um estágio cronológico.
+
+### 2.5 Definição da Variável de Estado
+
+Apenas o **armazenamento ao fim do estágio** é variável de estado:
+
+$$
+v_h = v_{h,|\mathcal{K}|}
+$$
+
+Os armazenamentos entre patamares $v_{h,k}$, para $k < |\mathcal{K}|$, são variáveis internas do PL — não são variáveis de estado. Isso garante que:
+
+1. Os cortes sejam calculados apenas em relação ao armazenamento ao fim do estágio
+2. A dimensão do estado não aumente com o número de patamares
+
+### 2.6 Extração dos Coeficientes dos Cortes
+
+No modo cronológico, a variável do PL de armazenamento de entrada $v^{in}_h$ é fixada no seu valor visitado $\hat{v}_h$ por limites iguais na coluna (veja [Aumento do espaço de estados §2](/pt-br/math/state-augmentation#2-fixacao-por-limites-de-coluna)). O **custo reduzido** dessa coluna fixada fornece diretamente o coeficiente de armazenamento do corte:
+
+$$
+\beta^v_h = \bar{c}^{in}_h / d^{col}_h
+$$
+
+Pelo teorema do envelope do PL, esse custo reduzido captura automaticamente todos os efeitos a jusante por meio da cadeia de balanços hídricos entre patamares ($v^{in}_h \to v_{h,1} \to \ldots \to v_{h,|\mathcal{K}|}$), das restrições da FPHA e das restrições genéricas. Não é necessário nenhum tratamento especial nem combinação de duais. Veja [Gerenciamento de cortes](/pt-br/math/cut-management).
+
+### 2.7 Características
+
+| Aspecto                     | Descrição                                                                         |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| Tamanho do PL               | Maior: $N_{hydro} \times (\lvert\mathcal{K}\rvert - 1)$ colunas de armazenamento e linhas de balanço hídrico a mais, e $\lvert\mathcal{K}\rvert$ linhas de evaporação (cada uma com sua coluna de evaporação e duas colunas de folga) por usina com evaporação, em vez de uma |
+| Dinâmica do armazenamento   | Ciclo dentro do estágio modelado                                                  |
+| Aplicação                   | Planejamento de curto prazo com ciclo de armazenamento                            |
+| Configuração                | Selecionada por estágio nas definições de estágios do caso ([Arquivos de estágios](/pt-br/reference/case-format/stages/#stagesjson)) |
+
+## 3. Resumo Comparativo
+
+A figura contrapõe os dois modos para uma usina hidrelétrica $h$. No painel paralelo, um único balanço hídrico leva o armazenamento de entrada $v^{in}_h$ ao armazenamento ao fim do estágio $v_h$, e a FPHA e a evaporação são avaliadas sobre $(v^{in}_h + v_h)/2$ (§1.1, §2.4). No painel cronológico, as linhas dos patamares encadeiam $v^{in}_h = v_{h,0} \to v_{h,1} \to \cdots \to v_{h,|\mathcal{K}|} = v_h$, e o patamar $k$ avalia a FPHA e a evaporação sobre a própria média $(v_{h,k-1} + v_{h,k})/2$ (§2.2, §2.4). Dentre os armazenamentos de ambos os painéis, o corte construído no estágio lê apenas o armazenamento de entrada $v^{in}_h$ nos dois modos: seu coeficiente de armazenamento é o custo reduzido da coluna fixada $v^{in}_h$ (§2.6), e os armazenamentos interiores $v_{h,k}$, $k < |\mathcal{K}|$, não entram em corte algum (§4).
+
+```d2
+direction: down
+
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+}
+
+par: "Paralelo" {
+  vin: "armazenamento de entrada vⁱⁿ" {shape: cylinder; class: hydro}
+  bal: "um balanço para todos os patamares"
+  vout: "armazenamento ao fim do estágio v" {shape: cylinder; class: hydro}
+  vin -> bal
+  bal -> vout: "FPHA, evaporação sobre (vⁱⁿ + v)/2"
+}
+
+chrono: "Cronológico" {
+  cin: "vⁱⁿ = v₀" {shape: cylinder; class: hydro}
+  b1: "patamar 1 → v₁"
+  bdots: "…" {shape: text}
+  bK: "patamar |K| → v"
+  cin -> b1: "sobre (vₖ₋₁ + vₖ)/2"
+  b1 -> bdots: "sobre (vₖ₋₁ + vₖ)/2"
+  bdots -> bK: "sobre (vₖ₋₁ + vₖ)/2"
+}
+```
+
+| Aspecto                          | Patamares Paralelos         | Patamares Cronológicos                                  |
+| -------------------------------- | --------------------------- | ------------------------------------------------------- |
+| Balanço hídrico                  | 1 por usina por estágio     | $\lvert\mathcal{K}\rvert$ por usina por estágio         |
+| Armazenamento entre patamares    | Não modelado                | Continuidade explícita                                  |
+| Variáveis de estado              | Apenas no fim do estágio    | Apenas no fim do estágio                                |
+| Variáveis do PL                  | Menos                       | Mais                                                    |
+| Restrições do PL                 | Menos                       | Mais                                                    |
+| Dinâmica dentro do estágio       | Nenhuma                     | Completa                                                |
+
+## 4. Portabilidade dos Cortes entre Estruturas de Patamares
+
+A estrutura de patamares de um estágio (seu conjunto de patamares $\mathcal{K}$, as durações $\tau_k$ e a formulação paralela ou cronológica) molda o PL do estágio, mas não o estado que liga estágios consecutivos. Um corte treinado sob uma estrutura de patamares é, portanto, escrito em coordenadas que todas as demais estruturas de patamares compartilham (§4.1), mas mantém seu significado apenas para o modelo em que foi treinado (§4.2).
+
+### 4.1 Por que os cortes estão em coordenadas independentes da estrutura de patamares
+
+Apenas o armazenamento ao fim do estágio $v_h$ é propagado como estado de armazenamento (§2.5); os armazenamentos interiores dos patamares $v_{h,k}$, para $k < |\mathcal{K}|$, são variáveis internas do PL. Um corte é uma função afim do vetor de estado de entrada, cujas coordenadas (armazenamento ao fim do estágio mais eventuais defasagens de afluência e posições de estado aumentado) não dependem de quantos patamares um estágio possui nem de serem paralelos ou cronológicos. O coeficiente de armazenamento do corte $\beta^v_h$ é o custo reduzido da coluna fixada de armazenamento de entrada $v^{in}_h$ (§2.6), e essa coluna fixa a mesma coordenada, o armazenamento de entrada $\hat{v}_h$, sob qualquer estrutura de patamares. Um corte treinado sob uma partição é, portanto, uma função afim do mesmo vetor de estado sob outra, e é carregado no PL do estágio da outra partição sem transformação: cada coeficiente multiplica a coordenada para a qual foi calculado.
+
+### 4.2 O que um corte significa sob outra partição
+
+Um corte é uma aproximação inferior válida da função de custo futuro do modelo em que foi treinado ([Gerenciamento de cortes — quando valem os limites e os certificados](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem)). Uma partição de patamares diferente, durações de patamares diferentes ou a outra formulação definem um modelo de estágio diferente, com seus próprios custos de estágio e conjuntos viáveis e, portanto, sua própria função de custo futuro. Os cortes treinados não precisam ficar abaixo dessa função de custo futuro; conforme a diferença entre os dois modelos, podem subestimá-la ou superestimá-la.
+
+Uma política avaliada sob outra partição é, portanto, uma heurística sem garantia de limite. O limite inferior alcançado no treinamento (training) limita o valor ótimo do modelo treinado; ele não precisa limitar inferiormente o valor ótimo do outro modelo, e o [gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) entre ele e um custo simulado sob a outra partição nada certifica. O custo simulado estima quanto a política custa no outro modelo, e nada limita o quanto ele se afasta do ótimo do outro modelo. Treinar sob uma partição grosseira e simular sob uma mais fina é um uso desse tipo.
+
+Cortes injetados como fronteira terminal ([Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)) a partir de um estudo treinado sob outra partição têm o mesmo status: aproximam inferiormente a função de custo futuro do modelo de origem e não carregam garantia de limite para uma continuação modelada sob a partição atual.
+
+## 5. Observação sobre Resolução Temporal Fina
+
+O Novo Modelo modela um único nível de decomposição temporal dentro de um estágio: os patamares das §1 e §2, cada um com duração $\tau_k$. O treinamento e a simulação de um estudo resolvem os mesmos patamares; uma política avaliada sob outra partição de patamares é o caso tratado na §4. O Novo Modelo não possui decomposição em dias representativos, na qual um estágio é dividido em tipos de dia ponderados, cada um contendo patamares cronológicos subdiários.
+
+## Implementação no Novo Modelo
+
+A metodologia acima define as duas formulações de patamares e o significado de um corte entre elas; a aba abaixo descreve como as cargas de política do Novo Modelo tratam uma mudança na estrutura de patamares.
+
+<Tabs>
+  <TabItem label="Notas de implementação"><BlocksNotes /></TabItem>
+</Tabs>
+
+## Referências Cruzadas
+
+- [Convenções de notação](/pt-br/overview/notation-conventions) — definições de variáveis e conjuntos ($v_h$, $v^{in}_h$, $\hat{v}_h$, $\mathcal{K}$, $\tau_k$, $w_k$, $\zeta_k$)
+- [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) — descrição do elemento usina hidrelétrica e suas variáveis de decisão
+- [Formulação do PL](/pt-br/math/lp-formulation) — como as formulações de patamares se integram ao PL montado
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — extração dos coeficientes dos cortes a partir dos custos reduzidos das colunas fixadas
+- [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models) — restrições da função de produção que atuam em cada patamar

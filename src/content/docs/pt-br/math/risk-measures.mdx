@@ -1,0 +1,282 @@
+---
+title: "Medidas de risco"
+description: PDDE avessa ao risco via CVaR — definições, representações duais, o teorema do subgradiente, geração de cortes avessa ao risco e implicações para a validade dos limites.
+---
+
+import CvarPlot from "../../../../components/CvarPlot.astro";
+import CvarWeightsPlot from "../../../../components/CvarWeightsPlot.astro";
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as RiskConfigure } from './_impl/_risk.configure.mdx';
+import { Content as RiskNotes } from './_impl/_risk.notes.mdx';
+
+## Objetivo
+
+Este capítulo define a formulação da PDDE (SDDP) avessa ao risco usada no Novo Modelo, baseada no Valor em Risco Condicional (CVaR). Trata da definição do CVaR, da medida de risco por combinação convexa, das representações duais, do teorema do subgradiente avesso ao risco, da equação de Bellman modificada com fator de desconto, da geração de cortes avessa ao risco e das condições em que os limites são válidos sob uma medida de risco.
+
+Para as convenções de notação (conjuntos de índices, parâmetros, variáveis de decisão, variáveis duais), ver [Convenções de notação](/pt-br/overview/notation-conventions).
+
+:::note[Convenções de símbolos]
+
+- $\alpha$ denota a **fração de cauda do CVaR**.
+- $d$ denota o **fator de desconto**. Ver [Formulação da taxa de desconto](/pt-br/math/discount-rate).
+- $\mu$ denota a **medida de probabilidade ajustada ao risco**.
+- $\psi(p, \mu)$ denota a **função de penalidade dual** na representação dual geral.
+
+:::
+
+## 1 Motivação
+
+A PDDE neutra ao risco minimiza o custo esperado, o que pode levar a políticas com desempenho ruim em cenários adversos. A **PDDE avessa ao risco** incorpora uma medida de risco coerente (tipicamente o CVaR) para proteger contra riscos de cauda, preservando as propriedades de convexidade necessárias para a geração de cortes válidos.
+
+<CvarPlot />
+
+_Distribuição de custo $f(Z)$ para uma lei Gama assimétrica à direita, com $\mathbb{E}[Z]$, $\mathrm{VaR}_\alpha$ e $\mathrm{CVaR}_\alpha$ marcados e a cauda $\alpha$ dos piores resultados sombreada. A medida por combinação convexa $\rho^{\lambda,\alpha}[Z] = (1-\lambda)\,\mathbb{E}[Z] + \lambda\,\mathrm{CVaR}_\alpha[Z]$ interpola entre a média neutra ao risco e a cauda. Os três marcadores são obtidos numericamente a partir da função densidade de probabilidade._
+
+## 2 Valor em Risco Condicional (CVaR)
+
+Para uma variável aleatória $Z$ que representa custo e uma fração de cauda $\alpha \in (0, 1]$:
+
+$$
+\text{CVaR}_\alpha(Z) = \min_{\eta \in \mathbb{R}} \left\{ \eta + \frac{1}{\alpha} \mathbb{E}\left[(Z - \eta)^+\right] \right\}
+$$
+
+em que $(Z - \eta)^+ = \max(0, Z - \eta)$ representa o excesso de custo acima do limiar $\eta$.
+
+**Interpretação**: o CVaR$_\alpha$ é o custo esperado na fração $\alpha$ dos piores cenários.
+
+| $\alpha$ | Postura de risco | Significado |
+| -------- | ---------------------- | ------------------------------------------- |
+| 1.0      | Neutra ao risco        | CVaR$_1$ = $\mathbb{E}[Z]$ (valor esperado) |
+| 0.5      | Moderadamente avessa ao risco | Média dos 50% piores resultados |
+| 0.2      | Avessa ao risco        | Média dos 20% piores resultados |
+| 0.05     | Altamente avessa ao risco | Média dos 5% piores resultados |
+
+## 3 Medida de Risco por Combinação Convexa
+
+O Novo Modelo usa uma combinação convexa do valor esperado e do CVaR, com a estrutura da medida EAVaR do SDDP.jl ([Dowson & Kapelevich, 2021](/pt-br/reference/bibliography/#referencias-de-software)), em que $\lambda$ pondera o termo do CVaR:
+
+$$
+\rho^{\lambda, \alpha}[Z] = (1 - \lambda) \mathbb{E}[Z] + \lambda \cdot \text{CVaR}_\alpha[Z]
+$$
+
+em que:
+
+- $\lambda \in [0, 1]$: peso de aversão ao risco (0 = neutro ao risco, 1 = CVaR puro)
+- $\alpha \in (0, 1]$: fração de cauda do CVaR
+
+Essa medida é às vezes chamada de **EAVaR** (Expectation + Average Value-at-Risk — valor esperado mais valor em risco médio).
+
+## 4 Representação Dual das Medidas de Risco Convexas
+
+As medidas de risco convexas têm uma **representação dual** essencial para o cálculo dos cortes avessos ao risco:
+
+$$
+\mathbb{F}[Z] = \sup_{\mu \in \mathcal{M}(p)} \mathbb{E}_\mu[Z] - \psi(p, \mu)
+$$
+
+em que:
+
+- $\mathcal{M}(p) \subseteq \mathcal{P}$ é um subconjunto convexo do simplex de probabilidades
+- $\psi(p, \mu)$ é uma função de penalidade convexa (a penalidade mínima)
+- $\mathcal{P} = \{p \geq 0 : \sum_{\omega} p_\omega = 1\}$
+
+**Interpretação**: a representação dual calcula o valor esperado em relação ao **pior** vetor de probabilidades $\mu$ dentro do conjunto $\mathcal{M}$, descontado um termo de penalidade $\psi(p, \mu)$.
+
+### 4.1 Representação Dual do CVaR
+
+Para o CVaR$_\alpha$, a representação dual é:
+
+$$
+\text{CVaR}_\alpha[Z] = \sup_{\mu \in \mathcal{M}_\alpha(p)} \mathbb{E}_\mu[Z]
+$$
+
+em que o conjunto de risco $\mathcal{M}_\alpha(p)$ é:
+
+$$
+\mathcal{M}_\alpha(p) = \left\{\mu \geq 0 : \sum_\omega \mu_\omega = 1, \; \mu_\omega \leq \frac{p_\omega}{\alpha} \; \forall \omega \right\}
+$$
+
+A penalidade é $\psi(p, \mu) = 0$ para o CVaR (sem termo de penalidade).
+
+**Interpretação**: o CVaR atribui mais peso de probabilidade aos piores resultados, com cada cenário recebendo no máximo $p_\omega / \alpha$ de massa de probabilidade. Para $\alpha$ pequeno, apenas os piores cenários recebem peso significativo.
+
+### 4.2 Representação Dual do EAVaR
+
+Para a combinação convexa $\rho^{\lambda, \alpha}[Z] = (1-\lambda)\mathbb{E}[Z] + \lambda \cdot \text{CVaR}_\alpha[Z]$:
+
+$$
+\mathcal{M}^{EAVaR}(p) = \left\{\mu : \sum_\omega \mu_\omega = 1,\; (1-\lambda)\, p_\omega \leq \mu_\omega \leq (1-\lambda)\, p_\omega + \frac{\lambda\, p_\omega}{\alpha} \;\; \forall \omega \right\}
+$$
+
+De forma equivalente, $\mathcal{M}^{EAVaR}(p)$ é o conjunto dos $\mu = (1-\lambda)\, p + \lambda\, q$ com $q \in \mathcal{M}_\alpha(p)$: o valor esperado contribui com a parcela fixa $(1-\lambda)\, p$, e o termo do CVaR com a parcela $\lambda\, q$.
+
+## 5 Teorema do Subgradiente Avesso ao Risco
+
+O teorema-chave para o cálculo dos cortes avessos ao risco:
+
+:::note[Teorema (Subgradiente Avesso ao Risco)]
+
+Seja $V(x, \omega)$ convexa em relação a $x$ para todo $\omega \in \Omega$ fixo, e seja $\beta(\tilde{x}, \omega)$ um subgradiente de $V(x, \omega)$ em $x = \tilde{x}$.
+
+Se $\mu^* = \text{argmax}_{\mu \in \mathcal{M}(p)} \mathbb{E}_\mu[V(\tilde{x}, \omega)] - \psi(p, \mu)$, então:
+
+$$
+\sum_{\omega \in \Omega} \mu^*_\omega \cdot \beta(\tilde{x}, \omega)
+$$
+
+é um subgradiente de $\mathbb{F}[V(x, \omega)]$ em $\tilde{x}$.
+
+:::
+
+**Aplicação à geração de cortes**: na PDDE, os subgradientes $\beta(\tilde{x}, \omega)$ são os coeficientes de corte $\beta_t(\omega)$ obtidos das variáveis duais do PL (ver [Gerenciamento de cortes §2](/pt-br/math/cut-management)). Os coeficientes dos cortes avessos ao risco são calculados substituindo as probabilidades nominais $p(\omega)$ pelas probabilidades ajustadas ao risco $\mu^*$:
+
+$$
+\bar{\beta}_{t-1,h} = \sum_{\omega \in \Omega_t} \mu^*_\omega \cdot \beta_{t,h}(\omega)
+$$
+
+em que $\mu^*$ é o vetor de probabilidades dual ótimo, calculado a partir dos custos dos cenários $\{Q_t(\hat{x}, \omega)\}_{\omega \in \Omega_t}$.
+
+## 6 Equação de Bellman Avessa ao Risco
+
+A função de valor avessa ao risco com fator de desconto $d$ satisfaz, para $t = 2, \ldots, T$:
+
+$$
+V_t(x_{t-1}) = \rho^{\lambda_{t-1}, \alpha_{t-1}}\left[\min_{x_t, u_t} \left\{ c_t(x_t, u_t) + d_{t \to t+1} \cdot V_{t+1}(x_t) : (x_t, u_t) \in \mathcal{X}_t(x_{t-1}, \omega) \right\}\right]
+$$
+
+A medida $\rho_{t-1} = \rho^{\lambda_{t-1}, \alpha_{t-1}}$ do estágio $t-1$ agrega as aberturas $\omega \in \Omega_t$ do estágio $t$. Os cortes que aproximam $V_t$ são armazenados no estágio $t-1$, e a medida do estágio que detém um corte agrega nele as aberturas do estágio seguinte ([Gerenciamento de cortes §3](/pt-br/math/cut-management#3-agregacao-em-corte-unico)). Essa indexação tem duas extremidades. A medida do último estágio $\rho_T$ não tem aberturas posteriores a agregar e, portanto, não entra em nenhuma função de valor. A medida do primeiro estágio $\rho_1$ também agrega as aberturas do próprio primeiro estágio $\omega \in \Omega_1$: a equação vale em $t = 1$ com $\rho^{\lambda_1, \alpha_1}$ como medida de agregação, e $V_1(x_0)$ é o valor aninhado que o limite inferior da §9 limita por baixo.
+
+Isso modifica a [recursão de Bellman](/pt-br/math/sddp-algorithm) padrão de duas formas:
+
+1. **A medida de risco substitui o valor esperado**: $\rho^{\lambda_{t-1}, \alpha_{t-1}}[\cdot]$ substitui $\mathbb{E}[\cdot]$
+2. **Fator de desconto sobre o custo futuro**: $d_{t \to t+1} \cdot V_{t+1}(x_t)$ desconta a função de custo futuro (ver [Formulação da taxa de desconto §2](/pt-br/math/discount-rate))
+
+:::note[Consistência temporal]
+A medida de risco é aplicada estágio a estágio (formulação aninhada), e não ao custo total. Isso garante a consistência temporal, essencial para a decomposição por programação dinâmica. Formalmente, com $\rho_t$ atuando sobre o custo do estágio $t+1$, os custos dos estágios $2, \ldots, T$ se aninham como $\rho_1[\rho_2[\cdots \rho_{T-1}[\cdot]]]$, e não como $\rho[\text{total cost}]$, e $\rho_1$ também agrega as aberturas do próprio primeiro estágio, fora desse aninhamento.
+:::
+
+No subproblema de PL do estágio $t$, a variável de custo futuro $\theta$ aparece na função objetivo como $d_{t \to t+1} \cdot \theta$ (ver [Formulação da taxa de desconto §4](/pt-br/math/discount-rate#4-fator-de-desconto-no-subproblema-do-estagio)). Os cortes limitam $\theta$ (e não $d \cdot \theta$), de modo que o fator de desconto multiplica $\theta$ apenas na função objetivo — exatamente como no caso neutro ao risco.
+
+## 7 Geração de Cortes com Medidas de Risco
+
+Para cada estado visitado $\hat{x}_{t-1}$, calcula-se o corte avesso ao risco da seguinte forma:
+
+**Passo 1: Resolver os subproblemas** para todas as realizações $\omega \in \Omega_t$:
+
+$$
+Q_t(\hat{x}_{t-1}, \omega) = \min_{x_t, u_t} \left\{ c_t(x_t, u_t) + d_{t \to t+1} \cdot \theta_t : \text{constraints} \right\}
+$$
+
+Extrair as soluções duais $\beta_t(\omega)$ e calcular os coeficientes de corte por cenário:
+
+- Intercepto: $\beta_{0,t}(\omega) = Q_t(\hat{x}_{t-1}, \omega) - \beta_t(\omega)^\top \hat{x}_{t-1}$
+- Coeficientes: $\beta_t(\omega)$ — derivados das variáveis duais do PL (ver [Gerenciamento de cortes §2](/pt-br/math/cut-management))
+
+**Passo 2: Calcular os pesos dos cenários ajustados ao risco** $\mu^*_\omega$ com a medida do estágio $t-1$, o estágio que detém o corte (§6), $(\lambda, \alpha) = (\lambda_{t-1}, \alpha_{t-1})$.
+
+Cada cenário $\omega$ tem um limite superior de probabilidade:
+
+$$
+\bar{\mu}_\omega = (1 - \lambda) \, p_\omega + \frac{\lambda \, p_\omega}{\alpha}
+$$
+
+Como $\bar{\mu}_\omega > p_\omega$ quando $\lambda > 0$ e $\alpha < 1$, a capacidade total $\sum_\omega \bar{\mu}_\omega > 1$, de modo que nem toda abertura atinge o seu teto. Os pesos são construídos a partir dos pesos de cauda $q^*$, os pesos do $\text{CVaR}_\alpha$: o vetor de probabilidades em $\mathcal{M}_\alpha(p)$ (§4.1) que maximiza o custo esperado das aberturas, obtido por um procedimento guloso:
+
+1. Ordenar as aberturas pelo custo $Q_t(\hat{x}_{t-1}, \omega)$ em ordem **decrescente**
+2. Percorrer a lista ordenada, atribuindo a cada abertura $q^*_\omega = p_\omega / \alpha$
+3. Quando a massa acumulada atinge 1, a abertura corrente recebe o restante, e toda abertura mais barata recebe $q^*_\omega = 0$
+
+Os pesos ajustados ao risco combinam os pesos de cauda com as probabilidades nominais:
+
+$$
+\mu^* = (1-\lambda)\, p + \lambda\, q^*
+$$
+
+$\bar{\mu}_\omega$ é o teto de $\mu^*$: $\mu^*$ o atinge, $\mu^*_\omega = \bar{\mu}_\omega$, em toda abertura que $q^*$ preenche totalmente.
+
+:::note[Casos particulares]
+
+- **Neutro ao risco** ($\lambda = 0$): $\bar{\mu}_\omega = p_\omega$ para todo $\omega$, de modo que $\mu^* = p$ e o procedimento se reduz à agregação padrão de [Gerenciamento de cortes §3](/pt-br/math/cut-management).
+- **CVaR puro** ($\lambda = 1$): $\bar{\mu}_\omega = p_\omega / \alpha$, o piso é zero e $\mu^* = q^*$. Apenas a fração $\alpha$ dos piores cenários recebe peso; todos os demais recebem $\mu^*_\omega = 0$.
+- **Combinação convexa** ($0 < \lambda < 1$): toda abertura mantém o piso $(1-\lambda)\, p_\omega$, e as aberturas mais caras, aquelas que $q^*$ preenche totalmente, atingem o teto $\bar{\mu}_\omega$.
+
+:::
+
+:::note[Observação de equivalência]
+$\mu^*$ resolve o problema de programação linear $\max_{\mu \in \mathcal{M}^{EAVaR}(p)} \sum_\omega \mu_\omega\, Q_t(\hat{x}_{t-1}, \omega)$ da §4.2, que tem um piso e um teto por abertura e uma igualdade. Pela forma equivalente da §4.2, o problema é $(1-\lambda)\, \mathbb{E}[Q_t(\hat{x}_{t-1}, \omega)]$ mais $\lambda$ vezes o problema do $\text{CVaR}_\alpha$ sobre $\mathcal{M}_\alpha(p)$, cujo ótimo é o $q^*$ guloso; assim, seu valor ótimo é o $\rho^{\lambda, \alpha}$ dos custos das aberturas. Por exemplo, quatro aberturas equiprováveis com custos 10, 20, 30 e 40, com $\alpha = \lambda = 0.5$, resultam em $q^* = (0, 0, 0.5, 0.5)$, $\mu^* = (0.125, 0.125, 0.375, 0.375)$ e no valor $30$, a média $25$ combinada com o $\text{CVaR}_\alpha$ de $35$.
+:::
+
+<CvarWeightsPlot />
+
+_Quatro aberturas equiprováveis com custos 10, 20, 30 e 40, com $\alpha = \lambda = 0.5$: toda abertura mantém o piso $(1-\lambda)\, p_\omega = 0.125$ no seu peso ajustado ao risco $\mu^*_\omega$, as duas aberturas mais caras atingem o teto $\bar{\mu}_\omega = 0.375$, e os pesos valoram as aberturas em $30$._
+
+**Passo 3: Calcular os coeficientes dos cortes avessos ao risco** usando $\mu^*$ (justificado pelo teorema da §5):
+
+$$
+\bar{\beta}_{0,t-1} = \sum_{\omega \in \Omega_t} \mu^*_\omega \cdot \beta_{0,t}(\omega)
+$$
+
+$$
+\bar{\beta}_{t-1} = \sum_{\omega \in \Omega_t} \mu^*_\omega \cdot \beta_t(\omega)
+$$
+
+**Passo 4: Acrescentar o corte ao estágio $t-1$**:
+
+$$
+\theta_{t-1} \geq \bar{\beta}_{0,t-1} + \bar{\beta}_{t-1}^\top x_{t-1}
+$$
+
+:::note[Comparação com a agregação neutra ao risco]
+A única diferença em relação a [Gerenciamento de cortes §3](/pt-br/math/cut-management) é que as probabilidades dos cenários $p(\omega)$ são substituídas pelos pesos ajustados ao risco $\mu^*_\omega$.
+:::
+
+## 8 Limite Superior com Medidas de Risco
+
+A simulação de Monte Carlo não consegue estimar diretamente o limite superior em problemas com CVaR porque:
+
+1. O CVaR é calculado sobre a distribuição inteira, e não sobre médias amostrais
+2. O $\eta$ ótimo (limiar do VaR) muda com a política
+
+O limite superior determinístico exato e o critério de parada `gap`, que o compara ao limite inferior ([Critérios de parada §5](/pt-br/math/stopping-rules)), exigem uma simulação forward **enumerada** juntamente com uma medida de risco **uniforme em todos os estágios** — o valor esperado em todos os estágios ou uma mesma medida CVaR (o mesmo peso de aversão ao risco $\lambda$ e a mesma fração de cauda $\alpha$) em todos os estágios. Sob um CVaR uniforme, o limite exato não é uma média dos custos dos caminhos ponderada pelas probabilidades, mas uma recursão de risco aninhada e temporalmente consistente sobre a árvore enumerada, agregada com a própria ponderação CVaR do estudo, de modo que delimita por cima o limite inferior avesso ao risco (ver [Avaliação do limite superior §2](/pt-br/math/upper-bound-evaluation)). [Critérios de parada §5](/pt-br/math/stopping-rules#5-parada-por-gap-recomendada) define uma medida variável por estágio e estabelece a rejeição, na preparação do estudo, de um critério `gap` sob tal medida.
+
+Sob uma simulação forward amostrada, o Novo Modelo não calcula limite superior exato. Sob uma simulação forward enumerada com medida variável por estágio, reporta o custo exato dos caminhos ponderado pelas probabilidades, que não é um limite superior do objetivo avesso ao risco. A aproximação interna do apêndice de [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) é um projeto reservado.
+
+## 9 Validade do Limite Inferior com Medidas de Risco
+
+Sob uma medida de estágio coerente, que é monótona e convexa, como a $\rho^{\lambda, \alpha}$ da §3, todo corte agregado fica abaixo da função de custo futuro aninhada ajustada ao risco $V_t(x_{t-1})$ da §6. Pelo teorema da §5, o corte da §7 é um hiperplano suporte, no seu estado visitado, da medida do estágio $t-1$ aplicada aos custos das aberturas do estágio $t$, que é convexa no estado inicial. Esses custos das aberturas incorporam os cortes atuais no lugar da função de custo futuro do estágio seguinte, e esses cortes ficam abaixo dela por indução a partir do último estágio, de modo que a monotonicidade da medida mantém o novo corte abaixo de $V_t(x_{t-1})$ em todo estado inicial. O limite inferior do treinamento (training) $\underline{z}^k$, a medida do primeiro estágio aplicada aos objetivos das suas aberturas com esses cortes, é, portanto, um limite inferior válido do valor ótimo aninhado ajustado ao risco do modelo tal como treinado, quer a medida varie ou não entre estágios, e não decresce em $k$, já que o problema sobre o qual é avaliado mantém todo corte uma vez acrescentado.
+
+A validade se apoia nas [hipóteses da Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido) ([Philpott, de Matos & Finardi, 2013](/pt-br/reference/bibliography/#medidas-de-risco)), entre elas uma função de custo futuro convexa no estado inicial, que os métodos de truncamento de [Métodos de tratamento de afluências negativas §7](/pt-br/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior) violam nas componentes de defasagem de afluência sob um modelo PAR com termos de defasagem; cortes que abrangem todas as componentes de estado das quais a função de custo futuro depende; uma função de custo futuro não negativa, já que a variável de custo futuro é limitada inferiormente por zero; e uma função terminal fixa. A [Camada 2](/pt-br/math/cut-management#camada-2-convergencia) estabelece a convergência de $\underline{z}^k$ para esse valor ótimo no caso de medida de valor esperado em todos os estágios.
+
+O que falta a uma execução avessa ao risco sob uma simulação forward amostrada é uma estimativa válida do limite superior. A média dos custos dos caminhos amostrados estima o custo esperado da política, e não o seu valor aninhado ajustado ao risco; sob $\rho^{\lambda, \alpha}$, esse valor é pelo menos igual ao custo esperado, de modo que a média amostral pode ficar abaixo de $\underline{z}^k$ e não certifica nada. O certificado é o limite aninhado exato de uma árvore enumerada sob uma medida uniforme entre estágios ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap); ver [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation)).
+
+### Recomendações
+
+| Finalidade | Método |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Monitoramento da convergência** | Estagnação do limite (bound stalling) sobre $\underline{z}^k$, um limite inferior válido sob as hipóteses da Camada 1 — ver [Critérios de parada](/pt-br/math/stopping-rules) |
+| **Otimalidade certificada** | O critério de gap em relação ao limite aninhado exato de uma simulação forward enumerada sob uma medida uniforme — ver [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) |
+| **Avaliação da política** | A simulação reporta a distribuição de custos da política; ela não limita nenhum valor ajustado ao risco |
+
+## 10 Referências
+
+- [Philpott, de Matos & Finardi (2013)](/pt-br/reference/bibliography/#medidas-de-risco)
+- [Shapiro (2011)](/pt-br/reference/bibliography/#fundamentos-da-pdde-sddp)
+
+## Implementação no Novo Modelo
+
+A metodologia acima define a medida de risco, seus pesos e os limites que ela mantém válidos; as abas abaixo tratam de como o Novo Modelo configura a medida por estágio e quais pesos aplica.
+
+<Tabs>
+  <TabItem label="Configurar"><RiskConfigure /></TabItem>
+  <TabItem label="Notas de implementação"><RiskNotes /></TabItem>
+</Tabs>
+
+## Referências Cruzadas
+
+- [Convenções de notação](/pt-br/overview/notation-conventions) — definições de símbolos, notação das variáveis duais e convenções de sinal
+- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — recursão de Bellman e estrutura das simulações forward/backward modificadas pelas medidas de risco
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — extração das variáveis duais e cálculo dos coeficientes dos cortes; a agregação avessa ao risco substitui $p(\omega)$ por $\mu^*_\omega$ (§7)
+- [Critérios de parada](/pt-br/math/stopping-rules) — a estagnação do limite é adequada, em geral, ao monitoramento da convergência avessa ao risco; o critério de gap está disponível sob uma medida avessa ao risco somente quando esse CVaR é uniforme entre estágios e a simulação forward é enumerada
+- [Formulação da taxa de desconto](/pt-br/math/discount-rate) — convenção do fator de desconto $d$ e equação de Bellman descontada
+- [Modos de horizonte](/pt-br/math/horizon-modes) — interação das medidas de risco com o projeto reservado de grafo da política (policy graph) cíclico
+- [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) — o limite exato aninhado enumerado para um CVaR uniforme e a aproximação interna reservada no seu apêndice

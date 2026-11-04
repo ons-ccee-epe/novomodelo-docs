@@ -1,0 +1,58 @@
+Este é um índice, restrito ao tema, dos arquivos envolvidos na produção hidrelétrica e dos campos que a metodologia lê deles — ele nomeia cada arquivo e seu papel e associa os campos às grandezas que alimentam; não repete seus esquemas campo a campo. A
+referência exaustiva, campo a campo, do diretório do caso e das saídas pertence
+ao corpus de Referência (páginas [Formato do caso](/pt-br/reference/case-format/)
+e [Formato de saída](/pt-br/reference/output/)).
+
+### Entradas
+
+| Arquivo | Papel |
+| ---- | ---- |
+| `system/hydros.json` | Cadastro das usinas hidrelétricas — campos básicos, reservatório, defluência, modelo de geração, a partição obrigatória `unit_groups` por barramento e os blocos avançados (veja a aba Configurar da [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements#implementacao-no-novo-modelo)). |
+| `system/hydro_production_models.json` | Seleção opcional, por usina, do modelo de produção (`stage_ranges` / `seasonal`), configuração do ajuste da FPHA e redução de planos. |
+| `system/hydro_geometry.parquet` | Curvas Volume-Cota-Área (VHA) — obrigatórias para toda usina com FPHA calculada e para a conversão área-volume da evaporação; quando o arquivo contém alguma linha, toda usina com FPHA precisa de pelo menos 1 linha própria; também lido, para toda usina com produtibilidade específica, pelo avaliador da média na faixa útil ([Modelos de função de produção hidrelétrica §4.3](/pt-br/math/hydro-production-models#43-produtibilidade-media-na-faixa-util)). |
+| `system/hydro_energy_productivity.parquet` | Sobrescritas por `(hydro, stage)`: produtibilidade equivalente (o valor no ponto de referência), produtibilidade equivalente média na faixa útil (o valor médio, definido diretamente), produtibilidade específica (o termo de queda dos dois avaliadores e a marcação `specific_productivity`), vazão turbinada de referência (apenas a marcação `reference_turbine`) — a fonte tabular de autoria da ordem de resolução da aba Configurar, e a sobrescrita da FPHA. |
+| `system/tailrace_curves.parquet` | Curvas opcionais de nível de jusante polinomiais de quarta ordem por partes — `tailrace_level(outflow)` por `(hydro_id, family_id, segment_id)` — que alimentam o ajuste da FPHA calculada. Uma usina sem curva usa o modelo `tailrace` definido na própria entidade. |
+| `system/fpha_hyperplanes.parquet` | Coeficientes dos hiperplanos da FPHA pré-ajustados, lidos para uma usina cujas entradas `"fpha"` sejam `"precomputed"` ou não tenham `fpha_config`; uma usina com qualquer entrada `"computed"` é ajustada a partir da geometria e suas linhas neste arquivo não são lidas. |
+| `constraints/hydro_unit_group_bounds.parquet` | Sobrescritas opcionais, variáveis por estágio e opcionalmente por patamar, dos quatro limites declarados de um grupo de unidades geradoras (veja a aba Configurar da [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements#implementacao-no-novo-modelo)). As linhas são indexadas por `(hydro_id, hydro_unit_group_id, stage_id, block_id?)`, em que `hydro_unit_group_id` corresponde ao `id` do próprio grupo em `hydros.json`; um grupo sem linha de sobrescrita usa o valor declarado. |
+| `constraints/hydro_bounds.parquet` | Sobrescritas opcionais, variáveis por estágio (e opcionalmente por patamar), dos limites da própria **usina** (vazão turbinada máxima, armazenamento, defluência, geração máxima, desvio, vertimento, taxa de enchimento, retirada). Seus campos `min_turbined_m3s` e `min_generation_mw` restringem a vazão turbinada total e a geração total da usina quando excedem a soma dos mínimos resolvidos de seus grupos de unidades, e seus campos `max_turbined_m3s` e `max_generation_mw` limitam esse total quando são inferiores à soma das capacidades de seus barramentos ([Formulação do PL — Mínimo e máximo da usina](/pt-br/math/lp-formulation#minimo-e-maximo-da-usina)). Indexado por `(hydro_id, stage_id)` com `block_id` opcional; uma célula ausente/nula recai no valor-base declarado. **Distinto** do arquivo por grupo de unidades `hydro_unit_group_bounds.parquet` acima — é um arquivo separado, em nível de usina (veja a aba Configurar da [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements#implementacao-no-novo-modelo)). |
+| `initial_conditions.json` (linhas de usinas hidrelétricas) | Estado inicial por usina: `storage` para uma usina sem configuração `filling`, `filling_storage` para uma com essa configuração (uma entrada no outro vetor é recusada), um valor de `storage` dentro do intervalo `[min_storage_hm3, max_storage_hm3]` da própria usina e, opcionalmente, `past_defluences`, que inicializa as defluências anteriores ao estudo em trânsito em um arco com tempo de viagem declarado. A tendência hidrológica do modelo de afluências PAR deriva de `scenarios/inflow_history.parquet` e de `recent_observations` — veja a aba Entradas e saídas do [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model#implementacao-no-novo-modelo). |
+
+Para o esquema completo, campo a campo, de cada arquivo acima, consulte a
+página de referência [Formato do caso](/pt-br/reference/case-format/) no
+corpus de Referência.
+
+### Dados necessários por grandeza
+
+Cada linha indica uma fonte de dados, os campos que a metodologia acima lê dela e a grandeza que esses campos alimentam:
+
+| Fonte de dados | Campos | Uso |
+| ---- | ---- | ---- |
+| Entidade usina hidrelétrica | `tailrace` (polinomial ou por partes) | Cálculo de $h_{tail}(q_{out})$ |
+| Entidade usina hidrelétrica | `hydraulic_losses` (fator ou constante) | Cálculo de $h_{loss}$ |
+| Entidade usina hidrelétrica | `efficiency` (constante) | Rendimento da turbina $\eta$ |
+| Entidade usina hidrelétrica | `specific_productivity_mw_per_m3s_per_m` (FPHA, e o avaliador da média na faixa útil para qualquer modelo) | $\rho_{esp}$ para a obtenção de $\rho_{eq}$ (§4.1) e $\bar\rho_{eq}$ (§4.3) |
+| Entidade usina hidrelétrica | Topologia da cascata (referência à usina de jusante) | Soma topológica $\rho_{acum}$ (§4.2) |
+| Entrada de modelos de produção hidrelétrica | Produtibilidade por faixa em cada entrada `stage_range` / `seasonal` (não FPHA, opcional) | $\rho_{h,t}$ para o §1 (§4.1) |
+| Entrada de modelos de produção hidrelétrica | `reference_volume` em cada entrada `stage_range` / `seasonal` (absoluto ou percentual) | $V^{ref}$ para a redução de conversão de energia (§4.1) e o nível de referência de remanso do canal de fuga (§2.3.1) |
+| Entrada de modelos de produção hidrelétrica | `fitting_window` da FPHA em cada entrada `stage_range` / `seasonal` (limites absolutos ou percentuais, opcional) | Grade de volumes da FPHA calculada $[v_{min}, v_{max}]$ (§2.6.1) |
+| Entrada de modelos de produção hidrelétrica | Configuração do ajuste da FPHA (incluindo `turbined_fit_max_m3s` e `spillage_fit_max_m3s`) e bloco opcional `fpha_plane_reduction` | Tamanhos da grade, extremos superiores das faixas de ajuste $q^{fit}_{max}$ (§2.6.1) e $\bar{S}^{fit}$ (§2.7), método de redução de planos (§2.6–§2.8) |
+| Entrada de produtibilidade energética hidrelétrica | `equivalent_productivity_mw_per_m3s`, `integrated_equivalent_productivity_mw_per_m3s` e produtibilidade específica por (usina, estágio) | $\rho_{eq,h,t}$: a fonte de autoria de uma usina não FPHA e a sobrescrita de uma usina FPHA (§4.1); $\bar\rho_{eq,h,t}$ definido diretamente pela coluna integrada (§4.3); $\rho_{esp,h,t}$ para o valor derivado da queda nos dois avaliadores (§4.1, §4.3) |
+| Geometria hidrelétrica | `volume_hm3`, `height_m` | Interpolação de $h_{fore}(v)$ (§2.3); nível de montante médio $\bar h_{fore,h}$ (§4.3) |
+| Planos da FPHA pré-ajustados | `gamma_0`, `gamma_v`, `gamma_q`, `gamma_s` (mais o fator opcional de intercepto `kappa`, padrão 1.0) | Alternativa opcional ao ajuste durante a execução |
+
+### Saídas
+
+| Arquivo | Papel |
+| ---- | ---- |
+| `hydro_models/fpha_hyperplanes.parquet` | Coeficientes dos hiperplanos ajustados quando `fpha_config.source` é `"computed"`, gravado somente quando pelo menos uma usina tem planos ajustados (por exemplo, uma usina com FPHA calculada e sem capacidade de turbinamento não tem nenhum) — com o mesmo esquema da entrada `system/fpha_hyperplanes.parquet`, de modo que o arquivo pode ser reaproveitado: copie-o para `system/` e mude `source` para `"precomputed"` para reutilizar um ajuste anterior sem reajustar. Veja, na aba Notas de implementação, "Exportação parquet de ida e volta", para o fluxo de trabalho. |
+| `hydro_models/evaporation_models.parquet` | Coeficientes ajustados do modelo de evaporação por usina — gravado sempre que **algum** modelo de evaporação é construído (não depende de flag de exportação; ausente quando nenhuma usina declara evaporação). |
+| `hydro_models/fpha_deviation_points.parquet` | Pontos amostrais de desvio do ajuste da FPHA por plano — um diagnóstico do ajuste. Gravado **somente** quando a flag `exports.fpha_deviation_points` está habilitada (**desabilitada por padrão**) **e** existe pelo menos um ponto de desvio; ausente caso contrário. |
+| Colunas de saída de geração e armazenamento hidrelétricos | Resultados do despacho por (estágio, patamar, usina) (vazão turbinada, vertimento, geração, armazenamento), gravados junto às linhas de saída de todas as outras entidades — o total da usina, inalterado pela partição por barramento. |
+| Colunas de conversão de energia de `simulation/hydros/` | As produtibilidades no ponto de referência (`equivalent_productivity_mw_per_m3s`, `accumulated_productivity_mw_per_m3s`) e médias na faixa útil (`integrated_*`), `incremental_inflow_energy_mw` e a energia armazenada em MWh e MW (`stored_energy_{initial,final}_{mwh,mw}`) — veja o §4 acima e a referência de Formato de saída. |
+| `simulation/hydro_bus_generation/` | Resultados do despacho por célula (estágio, patamar, usina, barramento) — `turbined_m3s`, `generation_mw`, `generation_mwh`; `bus_id` é sempre não nulo. Veja nas Notas de implementação a ressalva sobre a soma exata na coluna `generation_mw`. |
+| `simulation/in_transit/` | Volumes de água em trânsito por (estágio, usina de jusante, defasagem de maturação) em arcos com tempo de viagem declarado, incluindo a chegada defasada que entra no balanço hídrico da usina receptora; gravado somente quando há arco com tempo de viagem declarado (esquema: [Saídas da simulação](/pt-br/reference/output/simulation/#simulationin_transit)). |
+| `simulation/transit_seed/` | Semente, em nível de cenário, da janela móvel de defluências para um arco com tempo de viagem declarado — cinco colunas (`scenario_id`, `hydro_id`, `start_date`, `end_date`, `value_m3s`), sem prefixo de estágio/nó. Gravado somente quando há arco com tempo de viagem declarado; ausente caso contrário. Alimenta o `initial_conditions.past_defluences` de uma execução de continuação (encadeamento de estudos). |
+
+Para o esquema de saída completo (colunas, tipos, organização dos arquivos), consulte a
+página de referência [Formato de saída](/pt-br/reference/output/) no corpus de
+Referência.

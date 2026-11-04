@@ -1,0 +1,70 @@
+---
+title: Usinas termelétricas
+description: Como o Novo Modelo trata as usinas termelétricas — custo variável, geração mínima e antecipação de despacho.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import ThermalPlant from '../../../../../components/entity/illustrations/ThermalPlant.astro';
+
+<EntityHero family="equipment" icon="thermal" lead="Uma usina termelétrica representa geração despachável a partir de combustível (gás natural, carvão, óleo, biomassa, nuclear). Cada usina tem um único custo marginal por MWh gerado, o custo variável unitário (CVU)." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Principal custo controlável', text: 'Os custos térmicos são despesas operacionais efetivas, que variam conforme o tipo de combustível, e constituem o principal custo controlável da função objetivo.' },
+  { title: 'Despacho diretamente controlável', text: 'Ao contrário das hidrelétricas, que dependem de afluências exógenas, o despacho térmico é controlável, e as termelétricas são independentes entre si, sem acoplamento em cascata.' },
+  { title: 'Combustível encomendado com antecedência', text: 'Terminais de GNL e contratos de carvão de longa distância exigem comprometer a quantidade despachada antes da entrega. O modelo representa isso na antecipação de despacho.' },
+]} />
+
+## Faixa de geração e antecipação de despacho
+
+<ThermalPlant lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="equipment" items={[
+  { label: 'Geração', unit: 'MW' },
+  { label: 'Compromisso de despacho (só com antecipação)', unit: 'MW' },
+]} note="A geração de cada patamar fica entre a geração mínima e a capacidade da usina, e esses limites são rígidos, sem folga. O modelo não usa variáveis binárias de compromisso: a geração mínima vale como limite inferior em todo patamar em que a usina está em operação, de modo que uma usina com geração mínima maior que zero nunca é desligada." />
+
+## O que você informa
+
+- O barramento em que a geração é injetada.
+- A geração mínima (inflexibilidade) e a máxima, em MW. Esses limites podem variar por estágio e por patamar.
+- O CVU, em R$/MWh (combustível + O&M), que varia apenas por estágio.
+- Estágios de entrada e de saída de operação, quando a usina não existe durante todo o estudo.
+- Para antecipação de despacho, a antecedência, dada em número de estágios ou em horas (apenas um dos dois).
+- Para antecipação de despacho, os compromissos que a usina já decidiu antes do estudo, nas condições iniciais, com a potência comprometida em MW em cada janela de datas, inclusive potência nula.
+
+## Antecipação de despacho (GNL)
+
+Uma usina pode ser marcada como de despacho antecipado. Ela decide o compromisso de cada entrega em um estágio anterior ao estágio de entrega, e a geração da usina nesse estágio deve corresponder ao compromisso. Usinas sem a marcação usam o modelo térmico padrão.
+
+- **Estágio de decisão.** A antecedência fixa o estágio em que cada entrega é decidida. Uma entrega decidida dentro do próprio estágio, porque a antecedência física é menor que a duração do estágio de entrega, não é antecipada: nesse estágio a usina é despachada como termelétrica comum.
+- **Commitment ring.** Todo compromisso decidido e ainda não entregue é estado do modelo: a usina o mantém em seu commitment ring, em um ring slot, desde o estágio de decisão até o de entrega. As termelétricas com antecipação são os únicos elementos não hidrelétricos com variáveis de estado.
+- **Entrega.** O compromisso é transportado inalterado nos estágios intermediários e entregue no estágio de entrega. Seus limites são os de geração da usina nesse estágio, e ele é nulo quando a usina está fora de operação ali.
+- **Custo.** O compromisso é cobrado no estágio de decisão e descontado a partir do estágio de entrega. A geração por patamar não tem custo no estágio em que entrega um compromisso, de modo que a mesma energia é precificada uma única vez.
+- **Antes do estudo.** Entregas decididas antes do estudo e dentro dele inicializam seus ring slots no primeiro estágio. As que estão além do horizonte são compromissos fixos, precificados apenas pela fronteira terminal.
+- **Além do horizonte.** Uma entrega além do horizonte só pode ser decidida no estudo quando o caso declara um calendário pós-estudo que a alcance.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Visão geral da modelagem dos elementos — usinas termelétricas', href: '/pt-br/math/system-elements/#4-usinas-termeletricas' },
+  { kind: 'Metodologia', title: 'Usinas termelétricas com antecipação de despacho', href: '/pt-br/math/system-elements/#usinas-termeletricas-com-antecipacao-de-despacho' },
+  { kind: 'Metodologia', title: 'Formulações por equipamento §1.1 — termelétricas convencionais', href: '/pt-br/math/equipment-formulations/#11-termeletricas-convencionais' },
+  { kind: 'Metodologia', title: 'Aumento do espaço de estados §5 — compromissos de despacho', href: '/pt-br/math/state-augmentation/#5-compromissos-de-despacho-das-termeletricas-com-antecipacao' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'system/thermals.json', href: '/pt-br/reference/case-format/system/#systemthermalsjson' },
+  { dir: 'in', path: 'initial_conditions.json', href: '/pt-br/reference/case-format/initial-conditions/#initial_conditionsjson' },
+  { dir: 'out', path: 'simulation/thermals/', href: '/pt-br/reference/output/simulation/#simulationthermals' },
+  { dir: 'out', path: 'simulation/anticipated_lanes/', href: '/pt-br/reference/output/simulation/#simulationanticipated_lanes' },
+]} />

@@ -1,0 +1,64 @@
+---
+title: Load
+description: How Novomodelo treats load — the demand at each bus, its uncertainty by stage and its shape across load blocks.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import Load from '../../../../components/entity/illustrations/Load.astro';
+
+<EntityHero family="network" icon="load" lead="Load is the electrical power consumed at a bus. It is the demand that the load balance of that bus must meet in every block, and it can vary from block to block through a load-factor table." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'What the system must serve', text: 'In each block, the generation, imports and power arriving over lines at a bus, plus the deficit, less exports, pumping consumption, power leaving over lines and excess, must equal its load.' },
+  { title: 'Varies by block', text: 'A stage load is turned into the load of each block by a per-block factor. Brazilian practice names the three load blocks leve, média and pesada (light, medium, heavy).' },
+  { title: 'Uncertain by stage', text: 'Load is described by a mean and a standard deviation for each bus and stage, and each scenario draws its own realization.' },
+]} />
+
+## Demand per block
+
+<Load lang="en" />
+
+## What the model decides
+
+Nothing about the load itself: it is data, not a decision. What the model decides is how to meet it, with the generation, imports and line flows available, and with deficit as the last resort (see the [Deficit](/entities/network/deficit/) page).
+
+## What you provide
+
+- For each bus and stage, the mean load and its standard deviation, in MW. A standard deviation of zero makes the load deterministic.
+- Optionally, load factors for each bus, stage and block, which must be positive. A block with no factor carries the stage load unchanged, and without the factor file every factor is 1.
+- Optionally, pre-computed load scenarios, when the load comes from an external source.
+- Optionally, correlation between the loads of different buses, through correlation groups.
+
+## How the load is formed
+
+- **Without load statistics**, every bus carries zero load, unless the load scheme is external in training.
+- **With load statistics**, each scenario draws a realization for each bus and stage from the mean plus the standard deviation times a random noise, and the result is never negative: it is truncated at zero. Load has no autoregressive structure.
+- **By block**, the load realization of the stage is multiplied by the block factor of the bus.
+
+## In the results
+
+The simulation output reports, for each bus and block, the load in MW and the load energy over the block in MWh, next to the deficit, the excess and the spot price.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'LP formulation §3 — the load balance constraint', href: '/math/lp-formulation/#3-load-balance-constraint' },
+  { kind: 'Methodology', title: 'Scenario generation §5.1 — load uncertainty model', href: '/math/scenario-generation/#51-load-uncertainty-model' },
+  { kind: 'Methodology', title: 'Scenario generation §5.2 — block load factors', href: '/math/scenario-generation/#52-block-load-factors' },
+  { kind: 'Methodology', title: 'Scenario generation §5.3 — load correlation', href: '/math/scenario-generation/#53-load-correlation' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'scenarios/load_seasonal_stats.parquet', href: '/reference/case-format/scenarios/#scenariosload_seasonal_statsparquet' },
+  { dir: 'in', path: 'scenarios/load_factors.json', href: '/reference/case-format/scenarios/#scenariosload_factorsjson' },
+  { dir: 'in', path: 'scenarios/external_load_scenarios.parquet', href: '/reference/case-format/scenarios/#scenariosexternal_load_scenariosparquet' },
+  { dir: 'out', path: 'simulation/buses/', href: '/reference/output/simulation/#simulationbuses' },
+]} />

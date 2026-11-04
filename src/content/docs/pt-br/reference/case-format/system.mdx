@@ -1,0 +1,251 @@
+---
+title: "Arquivos das entidades do sistema"
+description: Os cadastros de barramentos, linhas, termelétricas, fontes não despacháveis, usinas elevatórias e contratos de energia de um diretório do caso, campo a campo.
+---
+
+O diretório `system/` contém um arquivo de cadastro para cada tipo de entidade. Esta página documenta os seis cadastros além do das usinas hidrelétricas: barramentos, linhas, usinas termelétricas, fontes não despacháveis, usinas elevatórias e contratos de energia. `system/buses.json`, `system/lines.json` e `system/thermals.json` são obrigatórios; os outros três arquivos são opcionais. O cadastro das usinas hidrelétricas está em [Arquivos de usinas hidrelétricas](/pt-br/reference/case-format/hydros/). Toda entidade tem um `operational_start_date` obrigatório, descrito uma única vez em [Campos comuns às entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades).
+
+---
+
+## `system/buses.json`
+
+**Metodologia:** [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements/)
+
+Cadastro dos barramentos elétricos. Os barramentos são os nós da rede de transmissão.
+
+| Nome                                  | Tipo           | Obrigatório | Padrão | Unidade   | Descrição                                                                                                                                                                                                 |
+| ------------------------------------- | -------------- | -------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `buses[].id`                          | integer        | Sim      | —       | —       | Identificador do barramento (inteiro, único)                                                                                                                                                                            |
+| `buses[].name`                        | string         | Sim      | —       | —       | Nome legível do barramento (string)                                                                                                                                                                            |
+| `buses[].operational_start_date`      | string         | Sim      | —       | —       | Obrigatório em toda entidade; veja [Campos comuns às entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades).                                                                                                         |
+| `buses[].deficit_segments`            | array \| null  | Não       | —       | —       | Patamares de custo de déficit no nível da entidade; quando presentes, substituem `bus.deficit_segments` de `penalties.json` para este barramento e seguem as mesmas regras (não vazio, custos estritamente crescentes, último `depth_mw` igual a `null`) |
+| `buses[].deficit_segments[].depth_mw` | number \| null | Não       | —       | MW      | Profundidade do segmento (MW); o `depth_mw` do último segmento deve ser `null` (ilimitado)                                                                                                                                |
+| `buses[].deficit_segments[].cost`     | number         | Sim      | —       | R\$/MWh | Custo por MWh de déficit neste patamar de custo (R\$/MWh); `> 0`                                                                                                                                                       |
+
+---
+
+## `system/lines.json`
+
+**Metodologia:** [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements/) · [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Cadastro das linhas de transmissão. As linhas conectam barramentos e transportam fluxos de potência.
+
+| Nome                             | Tipo            | Obrigatório | Padrão | Unidade   | Descrição                                                                                         |
+| -------------------------------- | --------------- | -------- | ------- | ------- | --------------------------------------------------------------------------------------------------- |
+| `lines[].id`                     | integer         | Sim      | —       | —       | Identificador da linha (inteiro, único)                                                                   |
+| `lines[].name`                   | string          | Sim      | —       | —       | Nome legível da linha (string)                                                                   |
+| `lines[].source_bus_id`          | integer         | Sim      | —       | —       | ID do barramento de origem                                                                                  |
+| `lines[].target_bus_id`          | integer         | Sim      | —       | —       | ID do barramento de destino                                                                                |
+| `lines[].operational_start_date` | string          | Sim      | —       | —       | Obrigatório em toda entidade; veja [Campos comuns às entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades). |
+| `lines[].entry_stage_id`         | integer \| null | Não       | `null`  | —       | Estágio em que a linha entra em operação; `null` = sempre existe                                              |
+| `lines[].exit_stage_id`          | integer \| null | Não       | `null`  | —       | Estágio em que a linha é desativada; `null` = nunca                                                   |
+| `lines[].capacity.direct_mw`     | number          | Sim      | —       | MW      | Fluxo de potência máximo no sentido direto (MW)                                                     |
+| `lines[].capacity.reverse_mw`    | number          | Sim      | —       | MW      | Fluxo de potência máximo no sentido reverso (MW)                                                    |
+| `lines[].exchange_cost`          | number \| null  | Não       | `null`  | R\$/MWh | Substituição, no nível da entidade, do custo de intercâmbio (R\$/MWh); ausente = `line.exchange_cost` de `penalties.json`    |
+| `lines[].losses_percent`         | number          | Não       | `0.0`   | %       | Perdas de transmissão em percentual (padrão: 0.0)                                                    |
+
+**Validação:**
+
+- `entry_stage_id` deve ser menor que `exit_stage_id` quando ambos estão definidos.
+- `capacity.direct_mw`, `capacity.reverse_mw` e `losses_percent` devem ser `>= 0`.
+
+---
+
+## `system/thermals.json`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/) · [Aumento do espaço de estados](/pt-br/math/state-augmentation/)
+
+Cadastro das usinas termelétricas. Cada entrada define uma unidade de geração despachável.
+
+| Nome                                            | Tipo            | Obrigatório    | Padrão | Unidade   | Descrição                                                                                                                                                                                                                                                                |
+| ----------------------------------------------- | --------------- | ----------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thermals[].id`                                 | integer         | Sim         | —       | —       | Identificador da usina (inteiro, único)                                                                                                                                                                                                                                         |
+| `thermals[].name`                               | string          | Sim         | —       | —       | Nome legível da usina                                                                                                                                                                                                                                                  |
+| `thermals[].bus_id`                             | integer         | Sim         | —       | —       | Barramento em que a geração é injetada                                                                                                                                                                                                                                           |
+| `thermals[].generation`                         | object          | Sim         | —       | —       | Objeto de limites de despacho com `min_mw` e `max_mw`                                                                                                                                                                                                                          |
+| `thermals[].generation.min_mw`                  | number          | Sim         | —       | MW      | Nível mínimo de despacho (MW)                                                                                                                                                                                                                                                |
+| `thermals[].generation.max_mw`                  | number          | Sim         | —       | MW      | Nível máximo de despacho (MW)                                                                                                                                                                                                                                                |
+| `thermals[].cost_per_mwh`                       | number          | Sim         | —       | R\$/MWh | Custo linear de geração (R\$/MWh)                                                                                                                                                                                                                                           |
+| `thermals[].operational_start_date`             | string          | Sim         | —       | —       | Obrigatório em toda entidade; veja [Campos comuns às entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades).                                                                                                                                                                        |
+| `thermals[].entry_stage_id`                     | integer \| null | Não          | `null`  | —       | Estágio em que a unidade entra em operação (`null` = presente desde o estágio 0)                                                                                                                                                                                                         |
+| `thermals[].exit_stage_id`                      | integer \| null | Não          | `null`  | —       | Estágio em que a unidade é desativada (`null` = nunca)                                                                                                                                                                                                                     |
+| `thermals[].anticipated_config`                 | object \| null  | Não          | —       | —       | Antecedência da antecipação de despacho: um objeto com exatamente um de `lead_stages` (inteiro `>= 1`) ou `lead_time_hours` (finito e `> 0`); ambos ou nenhum são rejeitados na carga. Veja a aba Configurar de [Formulações específicas por equipamento](/pt-br/math/equipment-formulations#implementacao-no-novo-modelo) |
+| `thermals[].anticipated_config.lead_stages`     | integer         | Condicional | —       | —       | Antecedência da antecipação de despacho em estágios (inteiro `>= 1`). Exatamente um de `lead_stages` ou `lead_time_hours` é definido; ambos ou nenhum são rejeitados na carga.                                                                                                                       |
+| `thermals[].anticipated_config.lead_time_hours` | number          | Condicional | —       | h       | Antecedência da antecipação de despacho em horas (finita e `> 0`). Exatamente um de `lead_stages` ou `lead_time_hours` é definido; ambos ou nenhum são rejeitados na carga.                                                                                                                      |
+
+**Validação:**
+
+- `entry_stage_id` deve ser menor que `exit_stage_id` quando ambos estão definidos.
+- `generation.min_mw` e `generation.max_mw` devem ser `>= 0`, com `max_mw >= min_mw`; `cost_per_mwh` deve ser `>= 0`.
+
+---
+
+## `system/non_controllable_sources.json`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Cadastro das fontes não despacháveis (NCS). Cada entrada define um gerador intermitente ou
+agregado — eólica, solar, pequenas centrais hidrelétricas, biomassa, geração distribuída —
+cuja produção disponível é uma entrada do cenário, e não uma decisão livre do PL. O
+arquivo é opcional; quando ausente, nenhuma fonte não despachável é modelada.
+A disponibilidade por cenário é fornecida pelas entradas
+`scenarios/non_controllable_factors.json` e
+`scenarios/non_controllable_stats.parquet`.
+
+| Nome                                                | Tipo            | Obrigatório | Padrão | Unidade   | Descrição                                                                                                                                                                                                                 |
+| --------------------------------------------------- | --------------- | -------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `non_controllable_sources[].id`                     | integer         | Sim      | —       | —       | Identificador da fonte (inteiro, único dentro do arquivo)                                                                                                                                                                         |
+| `non_controllable_sources[].name`                   | string          | Sim      | —       | —       | Nome legível da fonte (string)                                                                                                                                                                                         |
+| `non_controllable_sources[].bus_id`                 | integer         | Sim      | —       | —       | Barramento no qual a geração da fonte é injetada                                                                                                                                                                          |
+| `non_controllable_sources[].operational_start_date` | string          | Sim      | —       | —       | Obrigatório em toda entidade; veja [Campos comuns às entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades).                                                                                                                         |
+| `non_controllable_sources[].max_generation_mw`      | number          | Sim      | —       | MW      | Capacidade instalada [MW]; escala a disponibilidade estocástica e não limita a geração disponível                                                                                                                    |
+| `non_controllable_sources[].allow_curtailment`      | boolean         | Não       | `true`  | —       | Se o PL pode aplicar corte de geração (curtailment) a esta fonte. `true` (padrão) — despacho dentro de `[0, max_generation_mw × availability]` ao custo de corte de geração; `false` — geração compulsória (must-run), despacho fixado na disponibilidade realizada em todos os cenários |
+| `non_controllable_sources[].curtailment_cost`       | number \| null  | Não       | `null`  | R\$/MWh | Substituição, no nível da entidade, do custo de corte de geração [R\$/MWh]; quando ausente, usa `non_controllable_source.curtailment_cost` de `penalties.json`                                                                                  |
+| `non_controllable_sources[].entry_stage_id`         | integer \| null | Não       | `null`  | —       | Estágio em que a fonte entra em operação; `null` ou ausente = presente desde o estágio 0                                                                                                                                               |
+| `non_controllable_sources[].exit_stage_id`          | integer \| null | Não       | `null`  | —       | Estágio em que a fonte é desativada; `null` ou ausente = nunca                                                                                                                                                           |
+
+**Exemplo mínimo válido:**
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/non_controllable_sources.schema.json",
+  "non_controllable_sources": [
+    {
+      "id": 0,
+      "name": "Complexo Eólico Nordeste",
+      "bus_id": 4,
+      "operational_start_date": "2015-06-01",
+      "max_generation_mw": 1200.0
+    }
+  ]
+}
+```
+
+**Validação:**
+
+- `entry_stage_id` deve ser menor que `exit_stage_id` quando ambos estão definidos.
+- `max_generation_mw` deve ser `>= 0`.
+
+---
+
+## `system/pumping_stations.json`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Cadastro das usinas elevatórias. Cada entrada define uma instalação de armazenamento por
+bombeamento ou de transferência de água que retira água do reservatório de uma hidrelétrica de origem, injeta-a no
+reservatório de uma hidrelétrica de destino e consome potência elétrica de um barramento. O arquivo é
+opcional; quando ausente, nenhuma usina elevatória é modelada.
+
+| Nome                                        | Tipo            | Obrigatório | Padrão | Unidade     | Descrição                                                                                         |
+| ------------------------------------------- | --------------- | -------- | ------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `pumping_stations[].id`                     | integer         | Sim      | —       | —         | Identificador da usina elevatória (inteiro, único)                                                                |
+| `pumping_stations[].name`                   | string          | Sim      | —       | —         | Nome legível da usina elevatória (string)                                                                |
+| `pumping_stations[].bus_id`                 | integer         | Sim      | —       | —         | Barramento do qual a potência elétrica é consumida                                                         |
+| `pumping_stations[].source_hydro_id`        | integer         | Sim      | —       | —         | Usina hidrelétrica de cujo reservatório a água é retirada                                                 |
+| `pumping_stations[].destination_hydro_id`   | integer         | Sim      | —       | —         | Usina hidrelétrica em cujo reservatório a água é injetada                                                  |
+| `pumping_stations[].consumption_mw_per_m3s` | number          | Sim      | —       | MW/(m³/s) | Potência consumida por unidade de vazão bombeada [MW/(m³/s)]; deve ser >= 0                                       |
+| `pumping_stations[].operational_start_date` | string          | Sim      | —       | —         | Obrigatório em toda entidade; veja [Campos comuns às entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades). |
+| `pumping_stations[].entry_stage_id`         | integer \| null | Não       | `null`  | —         | Estágio em que a usina elevatória entra em operação; `null` ou ausente = presente desde o estágio 0                      |
+| `pumping_stations[].exit_stage_id`          | integer \| null | Não       | `null`  | —         | Estágio em que a usina elevatória é desativada; `null` ou ausente = nunca                                  |
+| `pumping_stations[].flow`                   | object          | Sim      | —       | —         | Objeto aninhado com `min_m3s` e `max_m3s` (veja abaixo)                                              |
+| `pumping_stations[].flow.min_m3s`           | number          | Sim      | —       | m³/s      | Vazão bombeada mínima [m³/s]; deve ser >= 0                                                            |
+| `pumping_stations[].flow.max_m3s`           | number          | Sim      | —       | m³/s      | Vazão bombeada máxima (capacidade instalada de bombeamento) [m³/s]; deve ser >= `flow.min_m3s`                     |
+
+A variável de vazão bombeada é limitada por `[flow.min_m3s, flow.max_m3s]` no PL.
+Em cada estágio dentro de `[entry_stage_id, exit_stage_id)`, a vazão aparece com
+sinal negativo na restrição de balanço hídrico do reservatório de origem e com sinal positivo
+na restrição de balanço hídrico do reservatório de destino. A potência consumida é igual a
+`consumption_mw_per_m3s × flow_m3s` e é contabilizada como carga no barramento da usina elevatória.
+Limites de vazão variáveis por estágio podem ser substituídos por meio de `constraints/pumping_bounds.parquet`.
+
+**Exemplo mínimo válido:**
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/pumping_stations.schema.json",
+  "pumping_stations": [
+    {
+      "id": 0,
+      "name": "Bombeamento Serra da Mesa",
+      "bus_id": 10,
+      "operational_start_date": "2010-09-15",
+      "source_hydro_id": 3,
+      "destination_hydro_id": 5,
+      "consumption_mw_per_m3s": 0.5,
+      "flow": { "min_m3s": 0.0, "max_m3s": 150.0 }
+    }
+  ]
+}
+```
+
+**Validação:**
+
+- `entry_stage_id` deve ser menor que `exit_stage_id` quando ambos estão definidos.
+- `source_hydro_id` deve ser diferente de `destination_hydro_id`.
+- A usina elevatória só está em operação nos estágios em que tanto a hidrelétrica de origem quanto a de destino estão em operação (Operating), ou seja, nem em pré-enchimento (PreFilling) nem em enchimento de volume morto (Filling); veja [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/#implementacao-no-novo-modelo) para a regra.
+
+---
+
+## `system/energy_contracts.json`
+
+**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Cadastro dos contratos de energia. Cada entrada define uma obrigação bilateral de compra ou venda
+de energia com uma contraparte externa ao sistema modelado. O arquivo é opcional;
+quando ausente, nenhum contrato é modelado.
+
+| Nome                                 | Tipo            | Obrigatório | Padrão | Unidade   | Descrição                                                                                         |
+| ------------------------------------ | --------------- | -------- | ------- | ------- | --------------------------------------------------------------------------------------------------- |
+| `contracts[].id`                     | integer         | Sim      | —       | —       | Identificador do contrato (inteiro, único)                                                               |
+| `contracts[].name`                   | string          | Sim      | —       | —       | Nome legível do contrato (string)                                                               |
+| `contracts[].bus_id`                 | integer         | Sim      | —       | —       | Barramento em que a potência é injetada (importação) ou retirada (exportação)                                          |
+| `contracts[].type`                   | string          | Sim      | —       | —       | Um de `"import"`, `"export"`. Sentido do fluxo de energia.                                               |
+| `contracts[].price_per_mwh`          | number          | Sim      | —       | R\$/MWh | Preço do contrato [R\$/MWh]. Positivo = custo (importação); negativo = receita (exportação)                     |
+| `contracts[].limits.min_mw`          | number          | Sim      | —       | MW      | Nível mínimo de despacho [MW]; use `0.0`, a menos que se aplique um piso do tipo take-or-pay                           |
+| `contracts[].limits.max_mw`          | number          | Sim      | —       | MW      | Nível máximo de despacho [MW]; deve ser >= `limits.min_mw`                                             |
+| `contracts[].operational_start_date` | string          | Sim      | —       | —       | Obrigatório em toda entidade; veja [Campos comuns às entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades). |
+| `contracts[].entry_stage_id`         | integer \| null | Não       | `null`  | —       | Estágio em que o contrato entra em vigor; `null` ou ausente = presente desde o estágio 0                     |
+| `contracts[].exit_stage_id`          | integer \| null | Não       | `null`  | —       | Estágio em que o contrato é encerrado; `null` ou ausente = nunca                                 |
+
+Em cada estágio ativo dentro de `[entry_stage_id, exit_stage_id)`, o PL acrescenta uma
+coluna por patamar e por sentido, limitada por `[limits.min_mw, limits.max_mw]`. Uma
+coluna de importação injeta `+1.0` MW na restrição de balanço de potência do barramento; uma coluna de exportação
+retira `−1.0` MW. Nos estágios inativos, os limites da coluna são fixados em `[0, 0]`,
+e a linha de saída é emitida com `power_mw = 0`. Limites e preços variáveis por estágio
+podem ser substituídos por meio de `constraints/contract_bounds.parquet`.
+
+**Exemplo mínimo válido:**
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/energy_contracts.schema.json",
+  "contracts": [
+    {
+      "id": 0,
+      "name": "Import base load",
+      "bus_id": 0,
+      "operational_start_date": "2018-01-01",
+      "type": "import",
+      "price_per_mwh": 200.0,
+      "limits": { "min_mw": 0.0, "max_mw": 50.0 }
+    },
+    {
+      "id": 1,
+      "name": "Export revenue (stage 1 only)",
+      "bus_id": 0,
+      "operational_start_date": "2019-06-01",
+      "type": "export",
+      "entry_stage_id": 1,
+      "exit_stage_id": 2,
+      "price_per_mwh": -150.0,
+      "limits": { "min_mw": 0.0, "max_mw": 30.0 }
+    }
+  ]
+}
+```
+
+**Validação:**
+
+- `entry_stage_id` deve ser menor que `exit_stage_id` quando ambos estão definidos.
+- `limits.min_mw` e `limits.max_mw` devem ser `>= 0`.

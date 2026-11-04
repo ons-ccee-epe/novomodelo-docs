@@ -1,0 +1,80 @@
+---
+title: Generic constraints
+description: Linear rules you define over model quantities — floor, cap, equality or band — with an optional penalized slack that relaxes them instead of making the problem infeasible.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import GenericConstraint from '../../../../components/entity/illustrations/GenericConstraint.astro';
+
+<EntityHero family="rules" icon="constraints" lead="A generic constraint is a linear rule that you define yourself: a weighted sum of model quantities, such as storages, flows, generation and deficits, that must respect a floor, a cap, an equality or a band. Optionally, it has a penalized slack that relaxes it instead of making the problem infeasible." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'A language for your own rules', text: 'The constraint is written as an expression over a catalogue of 26 model variables (storages, flows, generation, line flows, deficits and others), with coefficients that can be numbers or named parameters.' },
+  { title: 'The shape follows from the limits', text: 'A lower limit alone is a floor; an upper limit alone, a cap; two identical limits, an equality; two different limits, a band. There is no separate field to choose the shape.' },
+  { title: 'Relaxing the rule has a price', text: 'With the slack enabled, the constraint is relaxed at a cost per unit of violation instead of making the stage problem infeasible. Without a slack, the constraint cannot be relaxed.' },
+]} />
+
+## One rule, its limits and the slack
+
+<GenericConstraint lang="en" />
+
+## What the model decides
+
+<DecisionChips family="rules" items={[
+  { label: 'Value of the expression, in each active stage and block', unit: 'unit of the quantities (MW, m³/s, MWh, hm³)' },
+  { label: 'Constraint slack, when enabled', unit: 'same unit as the row' },
+]} note="The model chooses the values of the quantities in the expression so that it respects the limits. The slack is used only when the limit cannot be met otherwise, and each unit of violation is charged at the declared cost." />
+
+## What you provide
+
+- The constraints, in `generic_constraints.json`: each has an identifier, a name, the linear expression and the slack configuration, which is required on every constraint.
+- Where each constraint is active and its limits, in `generic_constraint_bounds.parquet`: one row per constraint, stage and, optionally, block.
+- Optionally, named scalar parameters, in `generic_parameters.json`, which expressions and limits reference as `@name`.
+- For each enabled slack, the penalty (greater than zero) and the penalty basis.
+
+## Where the constraint is active
+
+The bounds file is the activation grid: there is no other activation flag. A constraint is active at a stage and block if, and only if, a row exists for it there. A null block in the row applies to all blocks of the stage. The limits can come from the row itself, from the expression (for example a constant on the right-hand side), or from both, which add up at the same endpoint. A constraint whose limits come only from the expression, with no row in the grid, is rejected at validation.
+
+## Slack and penalty basis
+
+The slack is declared once per constraint and applies to every row the grid produces. A one-sided limit has one slack column; a two-sided limit (band or equality) has two, one for each direction, at the same cost per unit. In the results, the violation of a two-sided row is reported as the signed net of the two.
+
+The penalty basis says what one unit of violation is and, therefore, how the penalty becomes a cost:
+
+- **Per hour.** For a row whose quantity is a rate (MW, m³/s): the penalty is a price per unit and per hour, multiplied by the hours the row covers.
+- **Per unit.** For a row whose quantity is an amount (MWh, hm³): the penalty is a price per unit, whatever the duration of the stage.
+
+The basis is declared, never inferred from the expression: choose it by the unit of the row, not by the variables it contains.
+
+## In the results
+
+The model writes the resolved echo: the fully resolved form of every constraint built, one row per constraint, stage, block and term. The simulation writes, in `simulation/violations/generic/`, the slack cost of each row at the same cost per unit used in the problem. The cost of generic-constraint violations also appears as a column of the per-stage cost breakdown.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Reference', title: 'Generic constraints — file set', href: '/reference/generic-constraints/#file-set' },
+  { kind: 'Reference', title: 'Generic constraints — interval and shape derivation', href: '/reference/generic-constraints/#interval-and-shape-derivation' },
+  { kind: 'Reference', title: 'Generic constraints — the activation grid', href: '/reference/generic-constraints/#the-activation-grid' },
+  { kind: 'Reference', title: 'Generic constraints — variable catalog', href: '/reference/generic-constraints/#variable-catalog' },
+  { kind: 'Reference', title: 'Generic constraints — penalty basis', href: '/reference/generic-constraints/#penalty-basis' },
+  { kind: 'Reference', title: 'Generic constraints — worked example: a security curve', href: '/reference/generic-constraints/#worked-example-a-security-curve' },
+  { kind: 'Methodology', title: 'LP Formulation §10 — generic constraints', href: '/math/lp-formulation/#10-generic-constraints' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'constraints/generic_constraints.json', href: '/reference/case-format/constraints/#constraintsgeneric_constraintsjson' },
+  { dir: 'in', path: 'constraints/generic_constraint_bounds.parquet', href: '/reference/case-format/constraints/#constraintsgeneric_constraint_boundsparquet' },
+  { dir: 'in', path: 'constraints/generic_parameters.json', href: '/reference/case-format/constraints/#constraintsgeneric_parametersjson' },
+  { dir: 'out', path: 'generic_constraints/resolved_echo.parquet', href: '/reference/output/simulation/#generic_constraintsresolved_echoparquet' },
+  { dir: 'out', path: 'simulation/violations/generic/', href: '/reference/output/simulation/#simulationviolationsgeneric' },
+]} />

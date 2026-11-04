@@ -1,0 +1,68 @@
+O Novo Modelo lê as taxas de desconto de `stages.json`: a taxa global no objeto
+`policy_graph` e, opcionalmente, uma taxa por estágio. Os fatores produzidos
+pelas taxas estão definidos em
+[§3 Fator de Desconto do Estágio](/pt-br/math/discount-rate#3-fator-de-desconto-do-estagio) e
+[§5 Desconto Acumulado](/pt-br/math/discount-rate#5-desconto-acumulado),
+acima. A referência completa do arquivo é
+[`stages.json`](/pt-br/reference/case-format/stages/#stagesjson).
+
+### Campos de Taxa de Desconto
+
+| Campo                                                      | Tipo           | Obrigatório | Descrição                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------------- | -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `policy_graph.annual_discount_rate`                        | número         | Sim         | Taxa anual global, `>= 0.0`; um valor negativo é rejeitado na carga. É a taxa de todo estágio sem taxa própria e de todo estágio pós-estudo.                                                                                                                     |
+| `stages[].annual_discount_rate_override`                   | número ou null | Não         | Taxa anual própria do estágio; um valor ausente ou null usa a taxa global.                                                                                                                                                                                       |
+| `policy_graph.transitions[].annual_discount_rate_override` | número ou null | Não         | Somente no dialeto de cadeia de estágios (sem `policy_graph.nodes[]`): a taxa é atribuída ao estágio de origem da aresta, e o campo do estágio prevalece quando ambos estão definidos. Com `policy_graph.nodes[]`, é rejeitada com um erro `InvalidValue` que indica o campo do estágio. |
+
+A taxa global é uma chave obrigatória do objeto `policy_graph` (trecho de
+`stages.json`):
+
+```json
+{
+  "policy_graph": {
+    "type": "finite_horizon",
+    "annual_discount_rate": 0.06,
+    "transitions": [
+      { "source_id": 0, "target_id": 1, "probability": 1.0 },
+      { "source_id": 1, "target_id": 2, "probability": 1.0 }
+    ]
+  }
+}
+```
+
+A forma canônica de especificar uma taxa por estágio é a chave do próprio estágio.
+Neste trecho de `stages`, o estágio 1 adota a taxa anual `0.1` no lugar da taxa
+global:
+
+```json
+{
+  "stages": [
+    {
+      "id": 1,
+      "start_date": "2024-02-01",
+      "end_date": "2024-03-01",
+      "blocks": [{ "id": 0, "name": "SINGLE", "hours": 696 }],
+      "num_openings": 10,
+      "annual_discount_rate_override": 0.1
+    }
+  ]
+}
+```
+
+Como alternativa à chave do estágio, uma entrada de `policy_graph.transitions`
+no dialeto de cadeia de estágios pode conter a mesma taxa para o estágio de que
+parte; esta entrada atribui ao estágio 1 a taxa `0.1`:
+
+```json
+{
+  "source_id": 1,
+  "target_id": 2,
+  "probability": 1.0,
+  "annual_discount_rate_override": 0.1
+}
+```
+
+Uma taxa de `0.0` significa ausência de desconto nos estágios a que se aplica;
+os estágios pós-estudo de
+[`post_study_stages.json`](/pt-br/reference/case-format/stages/#post_study_stagesjson)
+não declaram taxa e usam a taxa global.

@@ -1,0 +1,327 @@
+O arquivo `system/hydro_production_models.json` do Novo Modelo define a seleção do modelo de produção
+descrita na metodologia acima, e o bloco `generation` de
+`system/hydros.json` fornece o modelo padrão de cada usina e seus limites de vazão turbinada e
+de geração. As equações alimentadas por esses campos estão nas seções acima ([Modelos de função de produção hidrelétrica §1](/pt-br/math/hydro-production-models#1-modelo-de-produtibilidade-constante)–[§4](/pt-br/math/hydro-production-models#4-grandezas-de-conversao-de-energia)).
+O restante do cadastro de usinas está em
+[Visão geral da modelagem dos elementos do sistema — Configurar](/pt-br/math/system-elements#implementacao-no-novo-modelo).
+
+### `system/hydros.json` — bloco `generation`
+
+O bloco `generation` configura o modelo da turbina para fins de despacho e
+fornece a função de produção padrão usada quando nenhuma entrada de
+`hydro_production_models.json` lista a usina. Todas as variantes compartilham
+os limites de vazão turbinada (`min_turbined_m3s`, `max_turbined_m3s`) e os limites de geração
+(`min_generation_mw`, `max_generation_mw`); a chave `model` seleciona a
+função de produção.
+
+```json
+"generation": {
+  "model": "constant_productivity",
+  "min_turbined_m3s": 0.0,
+  "max_turbined_m3s": 50.0,
+  "min_generation_mw": 0.0,
+  "max_generation_mw": 50.0
+}
+```
+
+| Campo               | Tipo   | Descrição |
+| ------------------- | ------ | ----------- |
+| `model`             | string | Variante da função de produção. Veja a tabela de modelos abaixo. |
+| `min_turbined_m3s`  | number | Vazão turbinada mínima [m³/s]. Valores não nulos modelam uma operação mínima estável da turbina. |
+| `max_turbined_m3s`  | number | Vazão turbinada máxima (capacidade instalada de turbinamento) [m³/s]. |
+| `min_generation_mw` | number | Geração elétrica mínima [MW]. |
+| `max_generation_mw` | number | Geração elétrica máxima (capacidade instalada) [MW]. |
+
+**Modelos de função de produção disponíveis**:
+
+| Modelo                     | Valor de `model`          | Descrição |
+| -------------------------- | ------------------------- | ----------- |
+| Produtibilidade constante  | `"constant_productivity"` | `power = productivity * turbined_flow`. Independe da queda do reservatório. A produtibilidade é fornecida por intervalo de estágios ou por período sazonal em `system/hydro_production_models.json`. |
+| FPHA                       | `"fpha"`                  | Envoltória linear por partes da função de produção não linear. Depende da queda. Configurada via `hydro_production_models.json` — veja abaixo. |
+
+Todo modelo se aplica no treinamento (training) e na simulação. Qualquer outro valor de `model` é rejeitado na carga.
+
+Para a maioria dos estudos iniciais, `constant_productivity` é a escolha natural. O
+coeficiente de produtibilidade incorpora o rendimento médio e a queda líquida da usina:
+para uma usina com queda líquida de 80 m e rendimento de 90%, a produtibilidade
+teórica é de aproximadamente `9.81 × 80 × 0.90 / 1000 ≈ 0.706` MW/(m³/s).
+
+### `system/hydro_production_models.json` — Seleção do modelo de produção
+
+Este arquivo opcional associa cada usina hidrelétrica a uma estratégia de seleção do
+modelo de produção, substituindo o `generation.model` de `hydros.json` nos estágios ou
+períodos sazonais que lista. Há duas estratégias de seleção.
+
+**`stage_ranges`** — atribui um modelo a cada intervalo contíguo de estágios:
+
+```json
+{
+  "production_models": [
+    {
+      "hydro_id": 1,
+      "selection_mode": "stage_ranges",
+      "stage_ranges": [
+        {
+          "start_stage_id": 0,
+          "end_stage_id": null,
+          "model": "fpha",
+          "fpha_config": { "source": "precomputed" }
+        }
+      ]
+    }
+  ]
+}
+```
+
+**`seasonal`** — atribui um modelo por índice de período sazonal, com um modelo de reserva para os períodos sazonais
+não listadas:
+
+```json
+{
+  "production_models": [
+    {
+      "hydro_id": 1,
+      "selection_mode": "seasonal",
+      "default_model": "constant_productivity",
+      "seasons": [
+        {
+          "season_id": 0,
+          "model": "fpha",
+          "fpha_config": {
+            "source": "computed",
+            "volume_discretization_points": 7,
+            "turbine_discretization_points": 7
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Os índices de período sazonal começam em 0 e correspondem ao mapa de períodos sazonais de `stages.json`.
+
+#### `reference_volume`
+
+Cada entrada de intervalo de estágios ou de período sazonal pode conter um `reference_volume` opcional,
+irmão de `fpha_config` (não aninhado nele), que declara o volume de
+referência de operação consumido pela derivação da produtibilidade equivalente e pela interpolação do
+remanso no canal de fuga da FPHA calculada. Defina exatamente um entre:
+
+- `volume_hm3` — valor absoluto em hm³ (finito, `> 0.0`).
+- `percentile` — fração em `[0.0, 1.0]` da faixa de operação da usina.
+
+Quando `reference_volume` é totalmente omitido, o volume de referência assume por padrão
+`0.65` da faixa de operação (equivalente a `{ "percentile": 0.65 }`).
+
+```json
+"reference_volume": { "percentile": 0.65 }
+```
+
+#### Origens dos hiperplanos
+
+Quando uma usina é configurada com `model: "fpha"`, `fpha_config.source` seleciona
+de onde vêm os coeficientes dos hiperplanos.
+
+**`source: "precomputed"`** — os hiperplanos são carregados diretamente de
+`system/fpha_hyperplanes.parquet`:
+
+```json
+"fpha_config": { "source": "precomputed" }
+```
+
+Nenhum campo adicional de `fpha_config` é necessário; as opções de discretização e de ajuste
+são ignoradas. O esquema do parquet:
+
+| Coluna            | Tipo    | Obrigatório | Descrição |
+| ----------------- | ------- | ----------- | ----------- |
+| `hydro_id`        | Int32   | Sim         | Identificador da usina hidrelétrica |
+| `stage_id`        | Int32   | Não         | Estágio ao qual o plano se aplica (`null` = todos os estágios; coluna ausente significa o mesmo) |
+| `plane_id`        | Int32   | Sim         | Índice do plano dentro da UHE |
+| `gamma_0`         | Float64 | Sim         | Termo independente (MW) |
+| `gamma_v`         | Float64 | Sim         | Coeficiente do volume (MW/hm³). Deve ser não negativo (`>= 0`); usinas a fio d'água têm `gamma_v = 0`. |
+| `gamma_q`         | Float64 | Sim         | Coeficiente da vazão turbinada (MW por m³/s). Deve ser não negativo (`>= 0`); cada estágio em que a usina opera com planos pré-calculados precisa de pelo menos um plano com `gamma_q > 0`, verificado na preparação do estudo. |
+| `gamma_s`         | Float64 | Sim         | Coeficiente do vertimento (MW por m³/s). Deve ser `<= 0`. |
+| `kappa`           | Float64 | Não         | Fator de correção aplicado apenas ao termo independente, com padrão `1.0`; validado em `(0, 1]`. Aplica-se apenas a planos pré-calculados — o caminho calculado não usa `kappa` (veja Notas de implementação). |
+| `valid_v_min_hm3` | Float64 | Não         | Volume mínimo em que o plano é válido (hm³) |
+| `valid_v_max_hm3` | Float64 | Não         | Volume máximo em que o plano é válido (hm³) |
+| `valid_q_max_m3s` | Float64 | Não         | Vazão turbinada máxima em que o plano é válido (m³/s) |
+
+**`source: "computed"`** — os hiperplanos são ajustados em tempo de execução a partir da
+geometria física da usina. O Novo Modelo avalia a função de produção exata em uma
+grade (volume, vazão turbinada) com vertimento `= 0` — o eixo de vazão começa em
+`q = 0`, cuja coluna de vazão nula ancora o fechamento inferior, de modo que não há
+ponto de fechamento sintético nem eixo de vertimento na nuvem —, toma a envoltória convexa
+3-D da nuvem resultante com o qhull incorporado, aplica uma
+correção $k_{FPHA}$ por mínimos quadrados que escala **todo o plano afim**
+(termo independente e inclinações em conjunto, não apenas o termo independente) e ajusta, para cada plano, uma
+secante de vazão lateral. Os planos são ajustados apenas nos estágios cuja entrada seleciona
+`"fpha"`, de forma independente por intervalo de estágios ou período sazonal, de modo que os demais estágios da usina
+podem usar produtibilidade constante; cada estágio com FPHA precisa de uma entrada que contenha um
+`fpha_config` (veja
+[Arquivos de modelos de produção](/pt-br/reference/case-format/production-models/#systemhydro_production_modelsjson)).
+Usinas a fio d'água (um único volume de ajuste) são suportadas: o
+ajustador sintetiza duas amostras de volume próximas para manter a envoltória não degenerada
+e então fixa o `gamma_v` resultante em exatamente `0`. Veja Notas de implementação
+para o resumo completo do processo de ajuste e a metodologia §2.6–§2.7 para a
+dedução.
+
+Esta origem exige os modelos `tailrace`, `hydraulic_losses` e `efficiency`
+em `hydros.json`, além de linhas de geometria em `system/hydro_geometry.parquet` para a
+usina. Uma usina configurada com FPHA precisa de pelo menos 1 linha — uma única linha é válida para
+usinas a fio d'água (nível de montante constante, logo `gamma_v = 0`).
+
+```json
+"fpha_config": {
+  "source": "computed",
+  "volume_discretization_points": 5,
+  "turbine_discretization_points": 5,
+  "spillage_discretization_points": 5,
+  "max_planes_per_hydro": 10,
+  "fitting_window": null,
+  "turbined_fit_max_m3s": null,
+  "spillage_fit_max_m3s": null
+}
+```
+
+Todos os campos, exceto `source`, são opcionais:
+
+| Campo                            | Padrão  | Descrição |
+| -------------------------------- | ------- | ----------- |
+| `volume_discretization_points`   | 5       | Número de pontos da grade de volume para o ajuste. `1` seleciona o ajuste com volume único de uma usina a fio d'água; caso contrário, deve ser `>= 2`. Com um único volume de ajuste, o ajustador sintetiza duas amostras de volume próximas e fixa `gamma_v` em exatamente `0` (veja Notas de implementação). |
+| `turbine_discretization_points`  | 5       | Número de pontos da grade de vazão turbinada. Deve ser `>= 2`. |
+| `spillage_discretization_points` | 5       | Validado (deve ser `>= 2`), mas **não** acrescenta um eixo de vertimento à grade de ajuste — a nuvem e a regressão $k_{FPHA}$ fixam o vertimento em `0`, e a secante de vazão lateral percorre sua própria faixa de amostras de forma independente (§2.7). O campo é mantido para a ida e volta das entradas. |
+| `max_planes_per_hydro`           | 10      | Aceito e validado (`>= 1`), mas não reduz o conjunto de planos — o ajustador da envoltória emite exatamente as facetas da envoltória superior. |
+| `fitting_window`                 | null    | Faixa de volume opcional para o ajuste; se ausente, usa toda a faixa de nível de montante da curva cota–volume da usina em `system/hydro_geometry.parquet`. |
+| `turbined_fit_max_m3s`           | null    | Extremo superior (m³/s) do eixo de vazão turbinada da grade de ajuste, $q^{fit}_{max}$ em §2.6.1; o eixo começa em `0`. Finito e `> 0`; caso contrário, rejeitado na carga. Se ausente, usa o `max_turbined_m3s` da usina. Pode ficar abaixo ou acima de `max_turbined_m3s`; os limites de vazão turbinada do PL continuam sendo os da própria usina. |
+| `spillage_fit_max_m3s`           | null    | Extremo superior (m³/s) da amostra de vazão lateral da secante, $\bar{S}^{fit}$ em §2.7. Finito e `> 0`; caso contrário, rejeitado na carga. Se ausente, usa o dobro da média dos valores da usina em `scenarios/inflow_history.parquet`, ou o dobro de seu `max_turbined_m3s` quando essa média não é positiva. |
+
+`fitting_window` restringe a porção da faixa de operação que constrói a
+grade — útil quando a usina raramente opera perto de um dos extremos:
+
+```json
+"fitting_window": { "volume_min_hm3": 1000.0, "volume_max_hm3": 40000.0 }
+```
+
+```json
+"fitting_window": { "volume_min_percentile": 0.05, "volume_max_percentile": 0.95 }
+```
+
+Os limites absolutos (`_hm3`) e percentuais (`_percentile`) são mutuamente
+exclusivos para cada limite (mínimo e máximo podem usar modos diferentes). Para o aviso de qualidade
+de ajuste de 5% emitido após o ajuste e para a exportação parquet de ida e volta
+dos planos calculados, veja Notas de implementação.
+
+#### Redução de planos (`fpha_plane_reduction`)
+
+O bloco opcional `fpha_plane_reduction`, no nível do arquivo, funde planos da FPHA quase paralelos ou
+quase coincidentes após o ajuste. Desligado por padrão (ausente = sem
+redução); aplicado uniformemente a todas as usinas do arquivo.
+
+**Método do ângulo** — funde planos cujos vetores normais estão a menos de
+`tolerance_deg` graus entre si:
+
+```json
+"fpha_plane_reduction": { "method": "angle", "tolerance_deg": 2.0 }
+```
+
+| Campo           | Obrigatório | Descrição |
+| --------------- | ----------- | ----------- |
+| `method`        | Sim         | Deve ser `"angle"`. |
+| `tolerance_deg` | Sim         | Ângulo máximo entre as normais dos planos para fundi-los. Finito, em `[0.0, 90.0]`. |
+
+**Método da distância** — funde planos cuja distância quadrática média amostrada permanece
+dentro de `tolerance_pct`, usando `n_samples` pontos de amostra:
+
+```json
+"fpha_plane_reduction": { "method": "distance", "tolerance_pct": 0.01, "n_samples": 200 }
+```
+
+| Campo           | Obrigatório | Descrição |
+| --------------- | ----------- | ----------- |
+| `method`        | Sim         | Deve ser `"distance"`. |
+| `tolerance_pct` | Sim         | Tolerância, em porcentagem, sobre a diferença quadrática média normalizada de geração: dois planos são fundidos quando essa diferença, como fração, é inferior a `tolerance_pct / 100`. Finita, `>= 0.0`. |
+| `n_samples`     | Sim         | Número de pontos de amostra usados para estimar a distância. Deve ser `>= 1`. |
+
+Fornecer um campo pertencente ao outro método é um erro de carga. O
+plano da origem (geração nula com turbinamento nulo) nunca é fundido. As amostras do
+método da distância usam semente determinística — resultado idêntico bit a bit
+independentemente da ordem das entradas e do número de processos (ranks MPI).
+
+#### Produtibilidade por intervalo e por período sazonal
+
+Para UHEs com `constant_productivity`, a produtibilidade
+equivalente de cada par `(hydro, stage)` é fornecida por exatamente uma de duas
+origens:
+
+- **`system/hydro_production_models.json`** — um campo inline
+  `productivity_mw_per_m3s` na entrada `stage_range` ou `seasonal`
+  correspondente. Natural para "esta produtibilidade é constante pelos próximos cinco
+  estágios".
+- **`system/hydro_energy_productivity.parquet`** — uma linha na coluna
+  `equivalent_productivity_mw_per_m3s`; uma linha com `stage_id` refina um
+  único estágio, uma linha com `stage_id = null` é um padrão por UHE. Natural
+  para refinamento numérico por estágio.
+
+Assim como nas [entradas de restrições genéricas](/pt-br/reference/generic-constraints/), o
+arquivo JSON responde pela seleção do modelo e pelos valores por intervalo, e o arquivo parquet
+responde pelo refinamento numérico por estágio.
+
+Ordem de resolução na carga:
+
+1. Linha do parquet específica do estágio (correspondência exata de `stage_id`).
+2. Linha padrão por UHE do parquet (`stage_id = null`).
+3. `productivity_mw_per_m3s` do JSON no intervalo de estágios ou período sazonal correspondente.
+
+Fornecer um valor nas duas origens para o mesmo `(hydro, stage)` é um
+erro de carga; não fornecer nenhum também é erro de carga. O erro de
+conflito identifica os dois arquivos e o `(hydro_id, stage_id)` problemático e pede
+o valor de exatamente uma origem; o erro de cobertura identifica o par e os dois
+arquivos.
+
+Uma UHE cujo `generation.model` é `fpha` fica fora das duas verificações: sua
+produtibilidade equivalente é derivada da geometria VHA e da produtibilidade
+específica (metodologia §4.1). Uma linha `equivalent_productivity_mw_per_m3s`
+para essa UHE (específica do estágio ou, na falta dela, o padrão por UHE) é uma substituição que
+troca apenas o valor no ponto de referência derivado (§4.1). O valor médio
+sobre a faixa útil (§4.3) é definido diretamente, para qualquer UHE e modelo de geração, por um
+valor `integrated_equivalent_productivity_mw_per_m3s` na mesma linha; sem
+ele, segue a ordem de resolução de §4.3, de modo que uma usina com geometria VHA e
+produtibilidade específica integra sua média mesmo quando tem uma
+substituição `equivalent_productivity_mw_per_m3s`. Uma queda média não positiva é
+rejeitada na preparação com uma mensagem que indica
+`integrated_equivalent_productivity_mw_per_m3s` como forma de fornecer o
+valor.
+
+Em `system/hydro_energy_productivity.parquet`,
+`equivalent_productivity_mw_per_m3s`,
+`specific_productivity_mw_per_m3s_per_m` e
+`integrated_equivalent_productivity_mw_per_m3s` devem ser, cada um, finitos e
+não negativos quando definidos; NULL significa sem substituição: `0` é aceito e um valor negativo é rejeitado na carga. Uma
+produtibilidade equivalente `0` em um estágio que não usa o modelo `"fpha"` marca um
+estágio de manutenção programada, assim como
+`0.0` no campo JSON abaixo. Uma produtibilidade específica `0` zera a produtibilidade equivalente derivada da queda e não impede a geração.
+
+```json
+{
+  "start_stage_id": 12,
+  "end_stage_id": 24,
+  "model": "constant_productivity",
+  "productivity_mw_per_m3s": 0.72
+}
+```
+
+| Campo                     | Tipo   | Obrigatório             | Descrição |
+| ------------------------- | ------ | ----------------------- | ----------- |
+| `productivity_mw_per_m3s` | number | Opcional (exceto FPHA)  | Finito e não negativo (`>= 0.0`) quando presente; `0.0` marca um estágio de manutenção programada. Rejeitado com FPHA — a FPHA deriva a produtibilidade da geometria VHA, não de um coeficiente escalar. |
+
+### Regras de validação na carga
+
+| Regra                                  | Classe de erro         | Descrição |
+| -------------------------------------- | ---------------------- | ----------- |
+| Cobertura de geometria da FPHA         | Erro dimensional       | Quando `system/hydro_geometry.parquet` contém alguma linha, toda usina `fpha` deve ter pelo menos 1 linha própria (uma única linha é válida para usinas a fio d'água); sem nenhuma linha no arquivo, esta regra não é aplicada. |
+| Cobertura de hiperplanos da FPHA       | Erro dimensional       | Quando `system/fpha_hyperplanes.parquet` contém alguma linha, toda usina `fpha` com capacidade de turbinamento deve ter linhas próprias, qualquer que seja seu `source`; sem nenhuma linha no arquivo, esta regra não é aplicada. |
+| Faixas de ajuste da FPHA               | Erro de esquema        | `turbined_fit_max_m3s` e `spillage_fit_max_m3s`, quando definidos, devem ser finitos e `> 0`. |
+| Cobertura de estágios da FPHA (calculada) | Erro de preparação  | Em uma usina com alguma entrada `source: "computed"`, todo estágio cuja entrada seleciona `"fpha"` deve resolver para uma entrada com `fpha_config`; um estágio não coberto ou um `default_model` igual a `"fpha"` é rejeitado na preparação do estudo. |
+| Sinais dos coeficientes da FPHA        | Erro semântico         | `gamma_v` deve ser não negativo (`>= 0`; usinas a fio d'água têm `gamma_v = 0`); `gamma_s` deve ser não positivo. |
+| Monotonicidade da geometria            | Erro semântico         | `volume_hm3` deve ser estritamente crescente; `height_m` e `area_km2` devem ser não decrescentes. |

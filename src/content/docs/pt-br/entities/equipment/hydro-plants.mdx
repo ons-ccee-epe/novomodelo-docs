@@ -1,0 +1,84 @@
+---
+title: Usinas hidrelétricas
+description: Como o Novo Modelo trata as usinas hidrelétricas — reservatório, turbinas, vertedouros e cascatas.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import HydroPlant from '../../../../../components/entity/illustrations/HydroPlant.astro';
+
+<EntityHero family="equipment" icon="hydro" lead="As usinas hidrelétricas convertem a energia potencial da água armazenada em eletricidade. Cada usina tem um reservatório, turbinas e vertedouros, e costumam formar cascatas, nas quais a defluência de montante vira afluência de jusante." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Água guardada hoje, usada amanhã', text: 'O armazenamento nos reservatórios cria acoplamento temporal: a água poupada hoje está disponível amanhã.' },
+  { title: 'Chuva futura incerta', text: 'As afluências são estocásticas: a chuva ou o degelo futuros são incertos.' },
+  { title: 'Valor da água', text: 'O custo de oportunidade de usar a água agora em vez de guardá-la emerge da otimização.' },
+]} />
+
+## Os caminhos da água
+
+<HydroPlant lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="hydrology" items={[
+  { label: 'Armazenamento final', unit: 'hm³' },
+  { label: 'Vazão turbinada', unit: 'm³/s' },
+  { label: 'Vertimento', unit: 'm³/s' },
+  { label: 'Desvio', unit: 'm³/s' },
+  { label: 'Geração', unit: 'MW' },
+]} note="O armazenamento ao final do estágio é uma variável de estado: o valor escolhido pelo otimizador liga o estágio ao seguinte. A defluência total é a soma da vazão turbinada com o vertimento." />
+
+## O que você informa
+
+- Usina de jusante (topologia da cascata) e, opcionalmente, o tempo de viagem da água até ela, em horas.
+- Limites de armazenamento do reservatório (o mínimo é o volume morto), em hm³, e limites de vazão defluente total, em m³/s.
+- Um ou mais grupos de unidades geradoras, cada um com seu barramento, seus limites de vazão turbinada e seus limites de geração.
+- Modelo de geração: produtibilidade constante ou FPHA (função de produção hidrelétrica aproximada), cujos dados vêm dos arquivos de modelos de produção.
+- Opcionalmente: evaporação (12 valores mensais), canal de desvio (usina de destino e capacidade), enchimento de volume morto e penalidades específicas da usina.
+- Estágios de entrada e de saída de operação, quando a usina não existe durante todo o estudo.
+- O armazenamento inicial de cada reservatório, nas condições iniciais.
+
+## Ciclo de vida da usina
+
+Em cada estágio, uma usina hidrelétrica está em pré-enchimento, em enchimento de volume morto ou em operação:
+
+<WhyCards items={[
+  { title: '1. Pré-enchimento (PreFilling)', text: 'A usina ainda não existe no despacho. Vazão turbinada, vertimento e desvio ficam em zero, o armazenamento é mantido constante e a vazão natural afluente é repassada à primeira usina a jusante que não esteja em pré-enchimento.' },
+  { title: '2. Enchimento de volume morto (Filling)', text: 'Vai do estágio de início do enchimento até o estágio de entrada. A usina não gera e o reservatório acumula água até o volume morto, seguindo um piso de enchimento por estágio. O vertimento é uma decisão livre.' },
+  { title: '3. Em operação (Operating)', text: 'A usina pode gerar e está sujeita às restrições de geração. Em uma usina que passou pelo enchimento, o volume morto volta a valer como piso flexível de armazenamento.' },
+]} />
+
+Uma usina sem enchimento e sem janela de operação está em operação em todos os estágios. Com janela, está em operação dentro de sua janela de operação e em pré-enchimento antes do estágio de entrada e a partir do estágio de saída. Uma usina com enchimento não tem estágio de saída e, portanto, nunca volta ao pré-enchimento.
+
+## Tempo de viagem na cascata
+
+Por padrão, a água liberada por uma usina chega à usina de jusante dentro do mesmo estágio. Quando o trecho entre as duas é longo o bastante, a usina pode declarar um tempo de viagem da água em seu trecho principal da cascata: parte da defluência chega a jusante no próprio estágio e o restante chega em estágios posteriores.
+
+A água ainda em trânsito passa a fazer parte do estado do modelo (in-transit buckets), junto com o armazenamento e as defasagens de afluência. O tempo de viagem vale somente para o trecho principal da cascata; desvio e bombeamento são instantâneos, e um tempo ausente ou nulo significa transferência instantânea. Quando o estudo começa com água já em trânsito, as defluências anteriores ao estudo são informadas nas condições iniciais.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Visão geral da modelagem dos elementos — usinas hidrelétricas', href: '/pt-br/math/system-elements/#5-usinas-hidreletricas' },
+  { kind: 'Metodologia', title: 'Formulação do PL §4 — balanço hídrico', href: '/pt-br/math/lp-formulation/#4-balanco-hidrico-das-usinas-hidreletricas' },
+  { kind: 'Metodologia', title: 'Formulação do PL — fases do ciclo de vida', href: '/pt-br/math/lp-formulation/#fases-do-ciclo-de-vida' },
+  { kind: 'Metodologia', title: 'Modelos de função de produção hidrelétrica', href: '/pt-br/math/hydro-production-models/' },
+  { kind: 'Metodologia', title: 'Aumento do espaço de estados §6 — tempo de viagem da água', href: '/pt-br/math/state-augmentation/#6-tempo-de-viagem-da-agua' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'system/hydros.json', href: '/pt-br/reference/case-format/hydros/#systemhydrosjson' },
+  { dir: 'in', path: 'system/hydro_production_models.json', href: '/pt-br/reference/case-format/production-models/#systemhydro_production_modelsjson' },
+  { dir: 'in', path: 'system/hydro_geometry.parquet', href: '/pt-br/reference/case-format/production-models/#systemhydro_geometryparquet' },
+  { dir: 'in', path: 'initial_conditions.json', href: '/pt-br/reference/case-format/initial-conditions/#initial_conditionsjson' },
+  { dir: 'out', path: 'simulation/hydros/', href: '/pt-br/reference/output/simulation/#simulationhydros' },
+  { dir: 'out', path: 'simulation/hydro_bus_generation/', href: '/pt-br/reference/output/simulation/#simulationhydro_bus_generation' },
+]} />

@@ -1,0 +1,55 @@
+---
+title: Como o modelo decide
+description: Em linguagem simples, como o Novo Modelo decide a operação do sistema com a PDDE (SDDP) — imaginar o futuro, despachar estágio a estágio e pesar hoje contra amanhã — e como acompanhar a convergência.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import ConvergencePlot from '../../../../components/ConvergencePlot.astro';
+
+<EntityHero family="rules" icon="water" lead="O Novo Modelo decide a operação em três passos: imagina muitos futuros possíveis, despacha estágio a estágio e pesa o custo de hoje contra o de amanhã. Quem coordena os três passos é a PDDE (SDDP), que constrói a política de operação iterativamente." />
+
+## Os três passos
+
+<WhyCards items={[
+  { title: '1. Imagina o futuro', text: 'A afluência é a principal fonte de incerteza do estudo. O Novo Modelo a descreve com um modelo autorregressivo periódico, o PAR(p), ajustado ao histórico de vazões ou informado diretamente, e gera muitos cenários de afluências a partir dele. Para treinar a política, fixa em cada estágio um conjunto finito de vetores de ruído, as aberturas.' },
+  { title: '2. Despacha estágio a estágio', text: 'Em cada estágio, o modelo resolve um problema de programação linear que escolhe quanto gerar em cada usina para atender à carga ao menor custo. Os estágios se ligam por variáveis de estado: os níveis dos reservatórios e as defasagens das afluências.' },
+  { title: '3. Pesa hoje contra amanhã', text: 'A função de custo futuro é o custo esperado do estágio corrente até o fim do horizonte. Ela diz quanto vale guardar água: o valor da água é o custo de oportunidade de usar a água agora em vez de guardá-la, e não é um dado de entrada, pois emerge da otimização.' },
+]} />
+
+## Como o treinamento aprende
+
+A PDDE nunca constrói a função de custo futuro inteira. Ela a aproxima por baixo com uma coleção crescente de cortes de Benders, cada um uma subestimativa válida. Partindo de nenhum corte, cada iteração do treinamento (training) alterna duas etapas:
+
+- **Simulação forward:** simula um lote de trajetórias de cenários sob a política vigente, a regra que define as decisões de cada estágio com os cortes vigentes, e registra os estados visitados.
+- **Simulação backward:** do último estágio até o segundo, resolve o subproblema de cada estágio nos estados visitados, sob cada abertura do estágio, e agrega o resultado em um novo corte por estado visitado para o estágio anterior.
+
+O ciclo se repete até que os critérios de parada sejam atendidos. Os cortes finais definem a política, que é então simulada quando o estudo habilita a fase de simulação.
+
+<figure class="entity-illustration entity-rules">
+  <ConvergencePlot />
+  <figcaption>Figura: um limite inferior não decrescente e uma estimativa amostral do limite superior, com sua faixa de confiança de 95%, aproximam-se ao longo das iterações. A faixa descreve o custo amostrado e nada certifica.</figcaption>
+</figure>
+
+## Limites e convergência
+
+A cada iteração, o Novo Modelo acompanha dois limites para o custo ótimo (ajustado ao risco):
+
+- **Limite inferior:** o valor ajustado ao risco do primeiro estágio, com os cortes vigentes. Ele não diminui à medida que cortes são acrescentados e, sob as hipóteses da [Camada 1](/pt-br/math/cut-management/#camada-1-limite-inferior-valido), é um limite inferior válido para o custo ótimo.
+- **Limite superior:** uma simulação forward enumerada, que visita cada trajetória de cenários uma única vez, fornece o custo exato da política quando a medida de risco é uniforme entre os estágios. Uma simulação forward amostrada fornece apenas uma estimativa estatística, com intervalo de confiança, que nada certifica.
+
+O gap de otimalidade é o limite superior menos o limite inferior. O treinamento termina quando seus critérios de parada são atendidos: um limite de iterações ou de tempo, um limite inferior estagnado ou, com um limite superior exato, um gap dentro da tolerância. Sob a medida de valor esperado em todos os estágios e as hipóteses da [Camada 2](/pt-br/math/cut-management/#camada-2-convergencia), o limite inferior converge para o valor ótimo com probabilidade 1; sob uma medida avessa ao risco, essa convergência não está estabelecida.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Visão geral', title: 'A PDDE em uma página', href: '/pt-br/overview/sddp-framework-overview/' },
+  { kind: 'Metodologia', title: 'Algoritmo da PDDE', href: '/pt-br/math/sddp-algorithm/' },
+  { kind: 'Metodologia', title: 'Geração de cenários', href: '/pt-br/math/scenario-generation/' },
+  { kind: 'Metodologia', title: 'Gerenciamento de cortes', href: '/pt-br/math/cut-management/' },
+  { kind: 'Metodologia', title: 'Critérios de parada', href: '/pt-br/math/stopping-rules/' },
+  { kind: 'Entidade', title: 'Afluências e modelo PAR(p)', href: '/pt-br/entities/hydrology/inflows/' },
+  { kind: 'Entidade', title: 'Cenários e aberturas', href: '/pt-br/entities/hydrology/scenarios/' },
+  { kind: 'Entidade', title: 'Valor da água e custo futuro', href: '/pt-br/entities/rules/water-value/' },
+]} />

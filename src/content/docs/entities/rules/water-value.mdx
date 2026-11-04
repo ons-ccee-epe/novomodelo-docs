@@ -1,0 +1,88 @@
+---
+title: Water value and future cost
+description: How Novomodelo summarises the future in a future cost function, built from Benders cuts, and how the water value emerges from it — the opportunity cost of using water now instead of storing it.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import ValueFunctionPlot from '../../../../components/ValueFunctionPlot.astro';
+
+<EntityHero family="rules" icon="water" lead="The water value is the opportunity cost of using water now instead of storing it. It is not an input: it emerges from the optimization. Novomodelo summarises the future in a future cost function, which SDDP builds step by step from Benders cuts." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'The future fits in one function', text: 'The future cost function is the expected cost from the current stage to the end of the horizon, as a function of the initial state: reservoir levels and inflow lags. When the subproblems are LPs, it is convex and piecewise linear.' },
+  { title: 'Built from below, cut by cut', text: 'SDDP never builds the whole function. It approximates it from below with a growing collection of Benders cuts, each a valid underestimate. During training, no active cut leaves the lower-bound problem, so that bound does not decrease.' },
+  { title: 'The slope of the function says what storing water is worth', text: 'Each cut has, for each reservoir, a storage coefficient, the marginal value of water. Its sign is generally negative or zero: more storage usually means lower future cost.' },
+]} />
+
+## Cuts draw the future cost function
+
+<figure class="entity-illustration entity-rules">
+  <ValueFunctionPlot />
+  <figcaption>Figure: future cost as a function of storage. Each cut is a tangent at a visited state, and the envelope of the cuts approaches the true function, which is convex, from below as cuts are added.</figcaption>
+</figure>
+
+## What the model decides
+
+<DecisionChips family="rules" items={[
+  { label: 'Approximate future cost of each stage', unit: '$' },
+  { label: 'Water value of each plant, per stage and block', unit: '$/hm³' },
+]} note="The model is not given the water value: it results from the optimization. In each stage, the future cost variable is bounded by all current cuts, and each plant's water balance supplies the stage's water value." />
+
+## What you provide
+
+There is no water value to provide. What you control is how training builds the function and where it starts from.
+
+- The training stopping criteria: an iteration or time limit, a stalled lower bound or, with an exact upper bound, a gap within tolerance.
+- The policy mode: start from scratch, with an empty future cost function, or start from a previous checkpoint.
+- The condition at the end of the horizon: by default, the future cost after the last stage is zero, but a study can import it from a terminal boundary (boundary cuts).
+- Optionally, cut selection and a limit on active cuts, to control the growth of the cut pool.
+
+## How the function is built
+
+Each SDDP iteration has two steps.
+
+1. **Forward simulation.** A batch of scenario trajectories is simulated under the current policy, and the state each trajectory reaches at each stage is recorded: the visited states.
+2. **Backward simulation.** From the last stage to the second, each stage's subproblem is solved at each visited state, for all of the stage's openings. The cut coefficients come from the reduced costs of the pinned incoming-state columns, and one new cut per visited state is aggregated for the previous stage.
+
+After these steps, the lower bound is evaluated by solving the first stage over its openings with the current cuts. The cycle repeats until the stopping criteria are met, and the final cuts define the policy.
+
+## Two similar numbers that are not the same
+
+In the methodology, the cut's storage coefficient is called the marginal value of water. The water value reported in the results is a different quantity: the dual variable of the plant's water-balance constraint, in \$/hm³. They differ because the cut coefficient is the reduced cost of the pinned initial-storage column, which combines the water-balance dual with the duals of the other constraints that read the initial storage, such as those of the production function and of evaporation.
+
+## How to read the water value in the results
+
+- The `water_value_per_hm3` column of `simulation/hydros/` holds each plant's water value. In a chronological stage, each block carries its own block's value; in a parallel stage, every block carries the stage row's value.
+- To aggregate a chronological stage, weight the blocks by their hours.
+- The value is zero or negative whenever one extra hm³ reduces the cost, because the water displaces thermal generation or deficit, now or later. A larger magnitude means scarcer water, which the solver preserves for later stages; a value near zero means an abundant reservoir.
+- A positive value appears when the extra water can only leave the reservoir at a cost, for example through a spillage penalty.
+
+The per-stage cost breakdown reports the immediate cost and the future cost separately.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Overview', title: 'SDDP on one page §1 — the core idea', href: '/overview/sddp-framework-overview/#1-the-core-idea' },
+  { kind: 'Methodology', title: 'SDDP Algorithm §2 — multistage formulation and value functions', href: '/math/sddp-algorithm/#2-multistage-stochastic-programming-formulation' },
+  { kind: 'Methodology', title: 'SDDP Algorithm §3.1 — forward pass', href: '/math/sddp-algorithm/#31-forward-pass' },
+  { kind: 'Methodology', title: 'SDDP Algorithm §3.2 — backward pass', href: '/math/sddp-algorithm/#32-backward-pass' },
+  { kind: 'Methodology', title: 'Cut Management §1 — cut definition', href: '/math/cut-management/#1-cut-definition' },
+  { kind: 'Methodology', title: 'Cut Management §4 — cut validity', href: '/math/cut-management/#4-cut-validity' },
+  { kind: 'Methodology', title: 'System Elements §5 — hydro plants', href: '/math/system-elements/#5-hydro-plants' },
+  { kind: 'Results', title: 'Water value (shadow price) from the hydro output', href: '/running/interpreting-results/#d-water-value-shadow-price-from-hydro-output' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'config.json (policy)', href: '/running/policy-management/#policy-modes' },
+  { dir: 'out', path: 'simulation/hydros/ (water_value_per_hm3)', href: '/reference/output/simulation/#simulationhydros' },
+  { dir: 'out', path: 'simulation/costs/ (future_cost)', href: '/reference/output/simulation/#simulationcosts' },
+  { dir: 'out', path: 'policy/cuts/NNN.bin', href: '/reference/output/policy/#policycutsnnnbin' },
+]} />

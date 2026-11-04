@@ -1,0 +1,69 @@
+---
+title: Déficit
+description: Como o Novo Modelo trata o déficit — carga não atendida como folga de custo alto no balanço do barramento, valorada por segmentos de profundidade.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import Deficit from '../../../../../components/entity/illustrations/Deficit.astro';
+
+<EntityHero family="network" icon="deficit" lead="Déficit é a demanda não atendida: carga que a geração disponível não consegue suprir. O modelo o representa como uma variável de folga no balanço do barramento, com um custo de penalidade muito alto, que representa o valor da carga perdida." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'O modelo sempre tem solução', text: 'O déficit é uma folga de recurso. Sem ele, o problema seria inviável sempre que a geração não atendesse à demanda. O último segmento de déficit é ilimitado, de modo que o PL é sempre viável, qualquer que seja a falta.' },
+  { title: 'Um preço para a carga perdida', text: 'O custo de déficit representa o valor da carga perdida. É muito alto, acima dos custos térmicos, dos contratos e de regularização, e por isso o déficit só entra depois dos recursos de menor custo.' },
+  { title: 'Valorado por degraus', text: 'O déficit é valorado de forma linear por partes: cada segmento cobre uma profundidade de carga não atendida a um custo próprio, e os custos crescem de um segmento para o seguinte.' },
+]} />
+
+## Uma folga de custo alto fecha a diferença
+
+<Deficit lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="network" items={[
+  { label: 'Déficit de carga, por segmento', unit: 'MW' },
+]} note="O déficit é uma variável de cada barramento, patamar e segmento. Entra no balanço de carga como uma injeção que fecha a diferença e é cobrado ao custo do seu segmento, ponderado pela duração do patamar. Em um despacho viável, é zero." />
+
+## O que você informa
+
+- Os segmentos de déficit, em ordem: para cada um, uma profundidade em MW e um custo por MWh. Os custos devem ser positivos e estritamente crescentes.
+- O último segmento não tem profundidade, o que o torna ilimitado.
+- Um padrão no nível do caso para todos os barramentos, opcionalmente substituído para um barramento específico.
+- Os segmentos de déficit não podem variar por estágio.
+
+## Como o custo de déficit é resolvido
+
+Os segmentos de déficit vêm de exatamente duas fontes: os segmentos declarados no cadastro do barramento e, quando o barramento não declara nenhum, o padrão do arquivo de penalidades do caso. Os primeiros MW de demanda não atendida custam o custo do primeiro segmento, os seguintes custam o do segundo segmento, e assim por diante.
+
+## O espelho: o excesso
+
+O excesso de geração é a folga oposta do mesmo balanço: um pequeno custo de regularização elimina a geração excedente espúria. Diferentemente do déficit, seu custo não tem campo por barramento, apenas o padrão do caso, que pode ser refinado por estágio.
+
+## Nos resultados
+
+Cada barramento e patamar informa o déficit em MW e a energia de déficit em MWh. O detalhamento de custos por estágio tem uma coluna com o custo da carga não atendida.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Sistema de penalidades — folgas de recurso', href: '/pt-br/math/penalty-system/#categoria-1-folgas-de-recurso-viabilidade-do-pl' },
+  { kind: 'Metodologia', title: 'Sistema de penalidades — déficit linear por partes', href: '/pt-br/math/penalty-system/#deficit-linear-por-partes' },
+  { kind: 'Metodologia', title: 'Sistema de penalidades — deficit_segments, resolução em dois níveis', href: '/pt-br/math/penalty-system/#deficit_segments-do-barramento--resolucao-em-dois-niveis' },
+  { kind: 'Metodologia', title: 'Sistema de penalidades — ordem de prioridade', href: '/pt-br/math/penalty-system/#ordem-de-prioridade-das-penalidades' },
+  { kind: 'Entidade', title: 'Penalidades', href: '/pt-br/entities/rules/penalties/' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'penalties.json', href: '/pt-br/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'system/buses.json', href: '/pt-br/reference/case-format/system/#systembusesjson' },
+  { dir: 'out', path: 'simulation/buses/', href: '/pt-br/reference/output/simulation/#simulationbuses' },
+  { dir: 'out', path: 'simulation/costs/', href: '/pt-br/reference/output/simulation/#simulationcosts' },
+]} />

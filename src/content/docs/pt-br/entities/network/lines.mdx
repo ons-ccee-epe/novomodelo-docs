@@ -1,0 +1,64 @@
+---
+title: Linhas e intercâmbios
+description: Como o Novo Modelo trata linhas de transmissão e intercâmbios — fluxo em cada sentido, capacidade por sentido, ausência de perdas no despacho e um pequeno custo de intercâmbio.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import Line from '../../../../../components/entity/illustrations/Line.astro';
+
+<EntityHero family="network" icon="line" lead="Uma linha de transmissão conecta exatamente dois barramentos e permite o fluxo de potência entre eles, até um limite de capacidade em cada sentido. A potência transferida por uma linha é o intercâmbio." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Um limite para cada sentido', text: 'Uma linha tem uma capacidade no sentido direto (origem para destino) e outra no sentido reverso. Ambas são limites rígidos.' },
+  { title: 'Onde os preços se separam', text: 'Quando a capacidade de uma linha se esgota, cada barramento resolve o seu próprio preço marginal, e o despacho em um barramento não substitui livremente a falta em outro.' },
+  { title: 'Sem perdas no despacho', text: 'O despacho não reduz a potência entregue. As perdas de transmissão são calculadas após a resolução e informadas como grandeza de saída.' },
+]} />
+
+## Fluxo nos dois sentidos
+
+<Line lang="pt-BR" />
+
+## O que o modelo decide
+
+<DecisionChips family="network" items={[
+  { label: 'Fluxo direto (origem para destino)', unit: 'MW' },
+  { label: 'Fluxo reverso (destino para origem)', unit: 'MW' },
+]} note="Em cada patamar, cada fluxo fica entre zero e a capacidade do seu sentido, e esses limites são rígidos, sem folga. O fluxo direto sai do barramento de origem e entra no de destino; o fluxo reverso faz o oposto. Usam-se dois fluxos não negativos em vez de um único fluxo com sinal, o que simplifica os limites e, por meio do custo de intercâmbio, evita naturalmente o fluxo simultâneo nos dois sentidos." />
+
+## O que você informa
+
+- O barramento de origem e o barramento de destino. O sentido origem para destino define o fluxo direto.
+- A capacidade no sentido direto e no sentido reverso, em MW.
+- Opcionalmente, um percentual de perdas. Ele serve só para informar resultados e não entra no despacho.
+- Opcionalmente, um custo de intercâmbio para esta linha, que substitui o padrão do caso.
+- Estágios de entrada e de saída de operação, quando a linha não existe durante todo o estudo.
+- Opcionalmente, capacidades que variam por estágio e, se desejado, por patamar, em MW absolutos. Elas substituem as capacidades-base. Um valor zero fecha a linha naquele sentido.
+
+## O custo de intercâmbio
+
+O custo de intercâmbio é um pequeno custo por MWh de fluxo. É um termo de regularização, e não um custo real de transmissão: evita soluções degeneradas com circulação desnecessária de potência e favorece transferências mínimas quando há indiferença. Seu valor é definido bem abaixo de todos os custos de geração e de déficit, de modo que apenas desempate. Se ele alterar perceptivelmente as decisões de despacho, está alto demais.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Visão geral da modelagem dos elementos — linhas de transmissão', href: '/pt-br/math/system-elements/#3-linhas-de-transmissao' },
+  { kind: 'Metodologia', title: 'Formulações por equipamento §2 — linhas de transmissão', href: '/pt-br/math/equipment-formulations/#2-linhas-de-transmissao' },
+  { kind: 'Metodologia', title: 'Sistema de penalidades — linhas', href: '/pt-br/math/penalty-system/#linhas' },
+  { kind: 'Metodologia', title: 'Barramento único vs. múltiplos barramentos', href: '/pt-br/math/system-elements/#barramento-unico-vs-multiplos-barramentos' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'system/lines.json', href: '/pt-br/reference/case-format/system/#systemlinesjson' },
+  { dir: 'in', path: 'constraints/line_bounds.parquet', href: '/pt-br/reference/case-format/constraints/#constraintsline_boundsparquet' },
+  { dir: 'in', path: 'penalties.json', href: '/pt-br/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'constraints/penalty_overrides_line.parquet', href: '/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_lineparquet' },
+  { dir: 'out', path: 'simulation/exchanges/', href: '/pt-br/reference/output/simulation/#simulationexchanges' },
+]} />

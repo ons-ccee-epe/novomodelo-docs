@@ -1,0 +1,68 @@
+---
+title: Energy contracts
+description: How Novomodelo treats energy contracts — one-directional imports and exports at a bus, with contracted bounds, a price per MWh and take-or-pay floors.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import EnergyContract from '../../../../components/entity/illustrations/EnergyContract.astro';
+
+<EntityHero family="network" icon="contract" lead="An energy contract is a one-directional agreement to import power into the modelled system, or export it out of it, at a bus. It has bounds on the contracted power and a price per MWh." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'Import injects, export withdraws', text: 'An import contract injects power at its bus and an export contract withdraws it. Each contract is either an import or an export, never both.' },
+  { title: 'The sign of the price', text: 'Import prices are positive, a cost. Export prices are negative, a revenue. A single sum in the objective adds the import costs and subtracts the export revenue.' },
+  { title: 'Take-or-pay', text: 'A positive lower bound is a hard take-or-pay obligation: the model must dispatch at least that power at the contract price, even when cheaper supply exists.' },
+]} />
+
+## Import in, export out
+
+<EnergyContract lang="en" />
+
+## What the model decides
+
+<DecisionChips family="network" items={[
+  { label: 'Contracted power', unit: 'MW' },
+]} note="In each block, the contracted power lies between the contract minimum and maximum, and these bounds are hard. In the results the power is always non-negative, for imports and exports alike: the direction comes from the contract type and the sign of the price. Outside its commissioning window, the contract is pinned to zero." />
+
+## What you provide
+
+- The bus where the power is injected (import) or withdrawn (export).
+- The contract type: import or export.
+- The price per MWh: positive for an import, negative for an export.
+- The minimum and maximum power, in MW. Use zero as the minimum unless a take-or-pay floor applies.
+- Entry and exit stages, when the contract does not exist throughout the study.
+- Optionally, bounds and prices that vary by stage and, if you wish, by block, which replace those of the registry.
+
+The contracts file is optional: when it is absent, no contracts are modelled.
+
+## Stateless
+
+A contract carries no state variable and contributes nothing to the Benders cuts.
+
+## In the results
+
+Each contract and block reports its power in MW, its energy in MWh, its price and its total cost, positive for imports and negative for exports. The stage cost breakdown has a column with the contract cost, with the same signs.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'System elements overview — import/export contracts', href: '/math/system-elements/#8-importexport-contracts' },
+  { kind: 'Methodology', title: 'Equipment formulations §3 — import/export contracts', href: '/math/equipment-formulations/#3-importexport-contracts' },
+  { kind: 'Methodology', title: 'Contracts are stateless', href: '/math/equipment-formulations/#contracts-are-stateless' },
+  { kind: 'Reference', title: 'Glossary — power system terms', href: '/reference/glossary/#power-system' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'system/energy_contracts.json', href: '/reference/case-format/system/#systemenergy_contractsjson' },
+  { dir: 'in', path: 'constraints/contract_bounds.parquet', href: '/reference/case-format/constraints/#constraintscontract_boundsparquet' },
+  { dir: 'out', path: 'simulation/contracts/', href: '/reference/output/simulation/#simulationcontracts' },
+  { dir: 'out', path: 'simulation/costs/', href: '/reference/output/simulation/#simulationcosts' },
+]} />

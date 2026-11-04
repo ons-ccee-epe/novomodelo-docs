@@ -1,0 +1,277 @@
+---
+title: Instalação
+description: Instale o programa de linha de comando do Novo Modelo (binários pré-compilados, crates.io ou código-fonte) ou o pacote novomodelo-python, e escolha o solver de PL.
+---
+
+O Novo Modelo é distribuído como o programa de linha de comando `novomodelo`, com binários
+pré-compilados para as plataformas listadas abaixo, e como o pacote `novomodelo-python` para
+Python. Escolha o método mais adequado ao seu ambiente; para instalar o pacote Python, vá para
+[Pacote Python](#pacote-python).
+
+:::tip[Vai executar em um cluster HPC?]
+Os métodos desta página instalam a versão de processo único (`comm: local`). Para
+execuções em múltiplos nós — binários com suporte a MPI, compilação do MPICH a partir do código-fonte,
+disparo via SLURM e AWS ParallelCluster — veja
+[Implantação em HPC e clusters](/pt-br/running/hpc-deployment/).
+:::
+
+---
+
+## Binários Pré-compilados (Recomendado)
+
+Não é necessário ter o conjunto de ferramentas Rust nem um compilador C.
+
+### Linux e macOS
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ons-ccee-epe/novomodelo/releases/latest/download/novomodelo-cli-installer.sh | sh
+```
+
+O instalador coloca o binário `novomodelo` em `$CARGO_HOME/bin` (normalmente
+`~/.cargo/bin`). Acrescente esse diretório ao seu `PATH`, caso ainda não esteja presente.
+
+### Windows (PowerShell)
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/ons-ccee-epe/novomodelo/releases/latest/download/novomodelo-cli-installer.ps1 | iex"
+```
+
+### Plataformas Suportadas
+
+| Plataforma             | Target triple                 |
+| ---------------------- | ----------------------------- |
+| macOS (Apple Silicon)  | `aarch64-apple-darwin`        |
+| macOS (Intel)          | `x86_64-apple-darwin`         |
+| Linux (x86-64)         | `x86_64-unknown-linux-gnu`    |
+| Linux (ARM64)          | `aarch64-unknown-linux-gnu`   |
+| Windows (x86-64)       | `x86_64-pc-windows-msvc`      |
+
+Os pacotes para Linux, que o instalador também baixa, são compilados no Ubuntu
+24.04 e exigem glibc 2.38 ou mais recente; `ldd --version` mostra a sua versão da glibc.
+Eles não funcionam em sistemas mais antigos, como Ubuntu 22.04, Debian 12 ou RHEL 9;
+nesses casos, instale [a partir do crates.io](#a-partir-do-cratesio), que compila usando
+a própria glibc do sistema.
+
+Também é possível baixar os pacotes individualmente na
+[página de Releases do GitHub](https://github.com/ons-ccee-epe/novomodelo/releases/latest).
+
+### Verifique a Instalação
+
+```bash
+novomodelo version
+```
+
+Saída esperada (as versões exatas e a arquitetura podem variar):
+
+{/* capture: novomodelo version | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: none */}
+
+```
+novomodelo   v0.20.0
+solver: HiGHS 1.13.1
+comm:   local
+zstd:   enabled
+arch:   x86_64-linux
+build:  release (lto=thin)
+```
+
+---
+
+## Pacote Python
+
+O pacote `novomodelo-python` instala o módulo Python `novomodelo`, que executa
+estudos e carrega seus resultados a partir do Python. Os wheels incluem o solver HiGHS
+e não dependem de nenhum outro pacote Python.
+
+```bash
+pip install novomodelo-python
+```
+
+O pacote exige CPython 3.12 ou mais recente; no Python 3.11 ou anterior, o `pip`
+informa `No matching distribution found for novomodelo-python`. Cada wheel é compilado
+para a ABI estável do CPython (`abi3`), de modo que um único wheel por plataforma atende a
+todas as versões de Python suportadas, e o processo de release testa cada wheel na sua
+própria plataforma no Python 3.12, 3.13 e 3.14. O PyPI publica wheels para estas
+plataformas:
+
+| Plataforma            | Tag de plataforma do wheel |
+| --------------------- | ------------------------ |
+| Linux (x86-64, glibc) | `manylinux_2_34_x86_64`  |
+| Linux (ARM64, glibc)  | `manylinux_2_28_aarch64` |
+| Linux (x86-64, musl)  | `musllinux_1_2_x86_64`   |
+| macOS (Apple Silicon) | `macosx_11_0_arm64`      |
+| macOS (Intel)         | `macosx_10_12_x86_64`    |
+| Windows (x86-64)      | `win_amd64`              |
+
+O `pip` seleciona o wheel compatível com o seu sistema, de modo que você não precisa escolher
+a tag. No Linux com glibc (a biblioteca C usada pela maioria das distribuições), o wheel x86-64
+exige glibc 2.34 ou mais recente (RHEL e Rocky Linux 9 ou mais recentes, Ubuntu 22.04
+ou mais recente, Debian 12 ou mais recente) e o wheel ARM64, glibc 2.28 ou mais recente;
+`ldd --version` mostra a sua versão da glibc. O Alpine Linux e outros sistemas com musl
+usam o wheel `musllinux`.
+
+Quando nenhum wheel se aplica, como no Linux x86-64 com glibc anterior à 2.34
+(RHEL 8, Ubuntu 20.04), o `pip` compila o pacote a partir da distribuição de código-fonte
+(sdist) que o PyPI publica ao lado dos wheels. A compilação exige um toolchain Rust
+(1.88 ou mais recente), o CMake e um compilador C++.
+
+### Verifique o Pacote Python
+
+```bash
+python -c "import novomodelo; print(novomodelo.__version__); print(novomodelo.version_info())"
+```
+
+{/* capture: python -c "import novomodelo; print(novomodelo.__version__); print(novomodelo.version_info())" | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none */}
+
+```text
+0.20.0
+{'version': '0.20.0', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
+```
+
+Se a primeira linha mostrar a versão instalada e a segunda um dicionário, o
+pacote está funcionando. `version_info()` informa os campos que `novomodelo version` imprime;
+`comm` é sempre
+`local`, pois o pacote executa um estudo em um único processo. Em seguida, execute um estudo
+a partir do Python com o [Guia rápido em Python](/pt-br/getting-started/python-quickstart/).
+
+---
+
+## A partir do crates.io
+
+```bash
+cargo install novomodelo-cli
+```
+
+Exige Rust 1.88+ e os pré-requisitos de compilação (veja Compilação a partir do Código-Fonte, abaixo).
+Instala em `$CARGO_HOME/bin`.
+
+---
+
+## Compilação a partir do Código-Fonte
+
+Para colaboradores ou plataformas não suportadas.
+
+### Pré-requisitos
+
+| Dependência                  | Versão Mínima             | Observações                                |
+| ---------------------------- | ------------------------- | ------------------------------------------ |
+| Conjunto de ferramentas Rust | 1.88 (stable)             | Instale via [rustup](https://rustup.rs)    |
+| Compilador C                 | qualquer GCC ou Clang recente | Necessário para o solver de PL HiGHS   |
+| CMake                        | 3.15                      | Necessário para o sistema de build do HiGHS |
+| Git                          | qualquer                  | Necessário para inicializar os submódulos  |
+
+### Passos
+
+```bash
+# Clone o repositório
+git clone https://github.com/ons-ccee-epe/novomodelo.git
+cd novomodelo
+
+# Inicialize o submódulo do HiGHS (necessário para o solver)
+git submodule update --init --recursive
+
+# Compile o binário de release
+cargo build --release -p novomodelo-cli
+```
+
+O binário é gravado em `target/release/novomodelo`. Opcionalmente, instale-o em `$CARGO_HOME/bin`:
+
+```bash
+cargo install --path crates/novomodelo-cli
+```
+
+Verifique:
+
+```bash
+./target/release/novomodelo version
+```
+
+A compilação não define target features nem target CPU; assim, em x86-64, um binário compilado
+a partir do código-fonte, inclusive via `cargo install`, usa o mesmo núcleo de ponto flutuante que os
+pacotes pré-compilados da mesma versão e seleciona os mesmos cortes. Os códigos-fonte C e C++
+incluídos do HiGHS, do CLP e do qhull são compilados sem multiplicação-adição fundida (FMA) em
+todas as plataformas-alvo; portanto, um compilador C cuja plataforma-alvo padrão tenha FMA não altera
+as soluções dos PLs nem os planos de produção ajustados. Definir `-C target-feature` ou
+`-C target-cpu` por meio de `RUSTFLAGS` pode alterar o núcleo, e a execução pode então
+selecionar cortes diferentes, igualmente válidos.
+
+:::note[Colaboradores]
+Para executar a suíte de testes, use `cargo test --workspace` (solver HiGHS padrão);
+o [CONTRIBUTING.md](https://github.com/ons-ccee-epe/novomodelo/blob/main/CONTRIBUTING.md)
+lista os comandos de teste por crate e por solver.
+:::
+
+---
+
+## Escolha do Solver de PL
+
+O Novo Modelo suporta dois solvers de PL, selecionados em tempo de compilação por meio de features do Cargo.
+Exatamente um solver é compilado em cada binário.
+
+| Solver  | Feature flag | Licença | Observações                                                 |
+| ------- | ------------ | ------- | ----------------------------------------------------------- |
+| HiGHS   | `highs`      | MIT     | Padrão. Nenhum passo adicional necessário.                  |
+| CLP     | `clp`        | EPL-2.0 | COIN-OR. Opcional; exige os submódulos CLP/CoinUtils.       |
+
+### Compilação padrão (HiGHS)
+
+```bash
+cargo build --release -p novomodelo-cli
+```
+
+Nenhuma flag é necessária. O HiGHS é o solver padrão e o que acompanha os
+binários pré-compilados.
+
+### Compilação com CLP
+
+```bash
+# Inicialize primeiro os submódulos do CLP e do CoinUtils
+git submodule update --init --recursive
+
+# Compile com o CLP, desativando o HiGHS padrão
+cargo build --release -p novomodelo-cli --no-default-features --features clp
+```
+
+Em uma compilação com CLP, todo campo de substituição `training.solver`/`simulation.solver` é
+rejeitado na preparação do estudo — veja
+[validação do perfil do solver](/pt-br/reference/error-codes/#validacao-do-perfil-do-solver)
+para a regra completa de rejeição e as mensagens de erro.
+
+### Exclusividade mútua
+
+As features `highs` e `clp` são mutuamente exclusivas — exatamente um solver de PL
+é compilado em um binário, e habilitar ambos ao mesmo tempo gera erro de compilação. Como
+`highs` é a feature padrão, selecionar o CLP exige `--no-default-features`
+para suprimir o padrão antes que `--features clp` seja aplicado; um simples
+`--features clp` mantém o padrão `highs` habilitado e a compilação falha. Não habilitar
+nenhum solver também gera erro de compilação, de modo que o solver é sempre escolhido
+explicitamente. A compilação padrão (sem flags adicionais) usa o HiGHS.
+
+### Identificação do solver ativo
+
+O cabeçalho exibido por `novomodelo version` mostra qual solver está compilado:
+
+{/* capture: novomodelo version | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: excerpt; CLP line verified at crates/novomodelo-solver/vendor/coin-build/include/ClpConfig.h:21 at novomodelo v0.20.0, solver line not capturable from the HiGHS release asset */}
+
+```
+novomodelo   v0.20.0
+solver: CLP 1.17.11
+comm:   local
+...
+```
+
+Os campos `solver` e `solver_version` nos metadados de saída de cada execução registram
+o identificador do solver ativo (`"highs"` ou `"clp"`) e a string de versão de sua
+biblioteca. Esses campos são gravados tanto pela CLI quanto pela interface Python.
+
+Os resultados são reprodutíveis por binário: uma compilação com o outro solver é um
+binário diferente, e não há garantia de que seus resultados sejam iguais. Veja
+[Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees/).
+
+---
+
+## Próximos Passos
+
+- [Guia rápido](/pt-br/getting-started/quickstart) — execute um estudo completo, do início ao fim, usando o modelo embutido `1dtoy`
+- [Guia rápido em Python](/pt-br/getting-started/python-quickstart/) — execute um estudo e leia seus resultados a partir do Python
+- [Executando estudos](/pt-br/running/running-studies/) — valide, execute e inspecione os resultados de qualquer diretório de caso
+- [Referência da CLI](/pt-br/reference/cli-reference/) — referência completa de flags e subcomandos

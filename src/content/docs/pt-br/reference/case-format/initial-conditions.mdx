@@ -1,0 +1,187 @@
+---
+title: Arquivos de condições iniciais
+description: O arquivo initial_conditions.json, campo a campo — o armazenamento inicial dos reservatórios, as defluências anteriores ao estudo em trânsito, as observações recentes de vazão e as janelas comprometidas das termelétricas com antecipação de despacho.
+---
+
+Esta página documenta `initial_conditions.json`, que contém o armazenamento dos reservatórios e os registros anteriores ao estudo no início de
+um estudo. O [Resumo dos arquivos](/pt-br/reference/case-format/#resumo-dos-arquivos) associa cada arquivo do caso à sua página, e
+[Convenções](/pt-br/reference/case-format/#convencoes) estabelece as regras comuns a todos eles.
+
+---
+
+## `initial_conditions.json`
+
+**Metodologia:** [Aumento do espaço de estados](/pt-br/math/state-augmentation/) · [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements/)
+
+Armazenamento inicial dos reservatórios, defluências anteriores ao estudo já em trânsito nos arcos
+com tempo de viagem declarado e observações recentes no início do estudo.
+
+| Nome                           | Tipo  | Obrigatório | Padrão | Unidades | Descrição |
+| ------------------------------ | ----- | ----------- | ------ | -------- | --------- |
+| `storage`                      | array | Sim         | —      | —        | Array de entradas `{ "hydro_id": integer, "value_hm3": number }` para UHEs sem configuração `filling` |
+| `filling_storage`              | array | Sim         | —      | —        | Array de entradas `{ "hydro_id": integer, "value_hm3": number }` para UHEs com configuração `filling` |
+| `past_defluences`              | array | Não         | —      | —        | Array de registros de defluência anteriores ao estudo, em janelas, que inicializam os in-transit buckets de um arco com tempo de viagem declarado (veja abaixo) |
+| `recent_observations`          | array | Não         | —      | —        | Array de entradas de vazão afluente observada para estudos que começam no meio de um período sazonal (veja abaixo) |
+| `past_anticipated_commitments` | array | Não         | —      | —        | Array de registros, em janelas, de MW comprometidos das termelétricas com antecipação — as decisões da usina anteriores ao estudo, com entrega dentro do estudo ou além do horizonte (veja abaixo) |
+
+**Campos das entradas de `storage[]` e `filling_storage[]`:**
+
+| Nome                          | Tipo    | Obrigatório | Padrão | Unidades | Descrição |
+| ----------------------------- | ------- | ----------- | ------ | -------- | --------- |
+| `storage[].hydro_id`          | integer | Sim         | —      | —        | Identificador de uma UHE sem configuração `filling`; único em `storage` e ausente de `filling_storage` |
+| `storage[].value_hm3`         | number  | Sim         | —      | hm³      | Volume inicial do reservatório; `>= 0` e dentro de `[min_storage_hm3, max_storage_hm3]` da UHE |
+| `filling_storage[].hydro_id`  | integer | Sim         | —      | —        | Identificador de uma UHE com configuração `filling`; único em `filling_storage` e ausente de `storage` |
+| `filling_storage[].value_hm3` | number  | Sim         | —      | hm³      | Volume inicial do reservatório; em `[0, min_storage_hm3)`, e `0` quando `filling.start_stage_id` é maior que `0` |
+
+**Validação do armazenamento.** O array ao qual pertence a entrada de uma UHE decorre de seu
+registro em `system/hydros.json`: uma UHE com configuração `filling` listada
+em `storage`, ou uma sem essa configuração listada em `filling_storage`, é recusada na
+carga. Um valor de `storage` fora da faixa de armazenamento da própria UHE
+`[min_storage_hm3, max_storage_hm3]` também é recusado na carga, com tolerância
+relativa de `1e-9`, inclusive para uma UHE que entra em operação mais tarde no
+estudo. O valor é o armazenamento no início do primeiro estágio e é usado conforme
+declarado: os `min_storage_hm3` e `max_storage_hm3` por estágio de
+[`constraints/hydro_bounds.parquet`](/pt-br/reference/case-format/constraints/#constraintshydro_boundsparquet)
+limitam o armazenamento ao final de seu estágio, não o armazenamento inicial. Quando o
+valor está fora desses limites de final de estágio no primeiro estágio de operação da UHE,
+a validação emite um aviso identificando o estágio, pois esse estágio precisa atingir o
+limite com sua própria afluência ou defluir o excesso. Uma UHE inativa no início
+do estudo mantém esse armazenamento em todos os estágios anteriores à sua entrada em operação ou
+ao início do enchimento ([Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements#hidreletricas-ainda-nao-em-operacao-pre-enchimento)).
+Uma UHE que não consta de nenhum dos arrays começa em seu `min_storage_hm3`, ou em `0` quando
+tem configuração `filling` ou está fora de operação no primeiro estágio do estudo,
+e uma entrada cujo `hydro_id` não corresponde a nenhuma UHE é ignorada; nenhum dos dois casos gera
+diagnóstico. As regras de `filling_storage` estão listadas em **Validação** na página
+[Arquivos de usinas hidrelétricas](/pt-br/reference/case-format/hydros/).
+
+A cadeia de defasagens do modelo PAR e o acumulador de meio de período são inicializados a partir do
+registro em janelas de `scenarios/inflow_history.parquet`, sobreposto dia a dia por
+`recent_observations` onde os dois coincidem.
+
+**`past_defluences`** fornece as defluências anteriores ao estudo já em trânsito em um
+arco com tempo de viagem declarado (`hydros[].travel_time_hours`), de modo que os
+buckets de chegada defasada dos primeiros estágios sejam inicializados em vez de vazios. Cada entrada informa uma
+janela de defluência e sua vazão média para uma usina de montante cuja vazão defluente alimenta um
+arco a jusante:
+
+| Nome                           | Tipo    | Obrigatório | Padrão | Unidades | Descrição |
+| ------------------------------ | ------- | ----------- | ------ | -------- | --------- |
+| `past_defluences[].hydro_id`   | integer | Sim         | —      | —        | Usina de montante cuja defluência alimenta o arco |
+| `past_defluences[].start_date` | string  | Sim         | —      | —        | Início da janela de defluência (inclusivo), ISO 8601 AAAA-MM-DD |
+| `past_defluences[].end_date`   | string  | Sim         | —      | —        | Fim da janela de defluência (exclusivo), ISO 8601 AAAA-MM-DD; deve ser posterior a `start_date` |
+| `past_defluences[].value_m3s`  | number  | Sim         | —      | m³/s     | Vazão defluente média na janela, em m³/s; finita e não negativa |
+
+As janelas devem cobrir o intervalo de água em trânsito do arco no início do estudo —
+`[start_0 − travel_time, start_0)` — sem lacunas e sem nenhuma datada após o
+início do estudo; caso contrário, o estudo é rejeitado. Não há alternativa para
+cobertura incompleta. Opcional; o padrão é um array vazio quando nenhum arco precisa
+de inicialização.
+
+**`recent_observations`** fornece dados de vazão afluente observada em períodos parciais
+anteriores ao início do estudo. É usado para inicializar o acumulador de defasagens quando um estudo começa
+no meio de um período sazonal (por exemplo, um estudo acoplado que começa em 5 de janeiro precisa da afluência observada
+de 1 a 4 de janeiro). Cada entrada tem:
+
+| Nome                               | Tipo    | Obrigatório | Padrão | Unidades | Descrição |
+| ---------------------------------- | ------- | ----------- | ------ | -------- | --------- |
+| `recent_observations[].hydro_id`   | integer | Sim         | —      | —        | Identificador da usina hidrelétrica |
+| `recent_observations[].start_date` | string  | Sim         | —      | —        | Início do período de observação (inclusivo), ISO 8601 AAAA-MM-DD |
+| `recent_observations[].end_date`   | string  | Sim         | —      | —        | Fim do período de observação (exclusivo), ISO 8601 AAAA-MM-DD |
+| `recent_observations[].value_m3s`  | number  | Sim         | —      | m³/s     | Vazão afluente média observada no período, em m³/s |
+
+Os intervalos de datas de uma mesma UHE não podem se sobrepor; intervalos adjacentes
+(`start_date == previous end_date`) são aceitos. Os valores devem ser finitos; um
+valor negativo é aceito — a grandeza é a vazão incremental (a vazão natural
+da usina menos a das usinas de montante), de modo que uma janela negativa é hidrologia
+real, e o método configurado de
+[não negatividade da afluência](/pt-br/math/inflow-nonnegativity) decide como o balanço
+hídrico a trata.
+A validação semântica emite um aviso por arquivo, informando a quantidade de valores negativos
+e a UHE do valor mais negativo, de modo que uma série com sinal realmente invertido ainda
+se destaque. Opcional; o padrão é um array vazio quando ausente.
+
+**`past_anticipated_commitments`** fornece a potência comprometida em MW, decidida externamente,
+de uma termelétrica com antecipação de despacho — toda entrega que a usina **decidiu
+antes do início do estudo**, seja ela concretizada dentro do horizonte
+(inicializando seu ring slot no primeiro estágio) ou além dele (um compromisso decidido
+antes do estudo e entregue além do horizonte; para o termo equivalente em
+outras ferramentas de planejamento, veja o [Glossário](/pt-br/reference/glossary)). Cada entrada é uma
+janela datada com potência constante:
+
+| Nome                                        | Tipo    | Obrigatório | Padrão | Unidades | Descrição |
+| ------------------------------------------- | ------- | ----------- | ------ | -------- | --------- |
+| `past_anticipated_commitments[].thermal_id` | integer | Sim         | —      | —        | Identificador da termelétrica com antecipação; deve referenciar uma termelétrica que declara `anticipated_config` |
+| `past_anticipated_commitments[].start_date` | string  | Sim         | —      | —        | Início da janela de compromisso (inclusivo), ISO 8601 AAAA-MM-DD |
+| `past_anticipated_commitments[].end_date`   | string  | Sim         | —      | —        | Fim da janela de compromisso (exclusivo), ISO 8601 AAAA-MM-DD; deve ser posterior a `start_date` |
+| `past_anticipated_commitments[].value_mw`   | number  | Sim         | —      | MW       | Potência comprometida em MW, constante na janela; finita |
+
+As janelas de uma usina devem **cobrir exatamente cada estágio de entrega que a usina decidiu antes
+do estudo** — cobertura `1.0`, sem lacunas nem sobreposições. Esses estágios podem
+estar de **qualquer lado** do horizonte: os estágios de entrega iniciais dentro do estudo,
+e quaisquer estágios pós-horizonte de uma entrega decidida antes do estudo. Uma janela
+**nunca** pode cobrir um estágio que o próprio estudo decide, e uma
+única janela não pode atravessar o fim do horizonte — divida-a em uma janela dentro do estudo
+terminando no horizonte e uma janela pós-estudo começando ali. Um trecho
+sem compromisso programado ainda precisa de uma janela explícita com potência `0.0`, em vez de
+uma lacuna deixada para ser inferida. O `value_mw` de uma janela dentro do estudo é verificado
+contra os limites de geração resolvidos de cada estágio coberto em que a
+usina está em operação, e o de uma janela puramente pós-horizonte contra os limites
+estáticos `[min_generation_mw, max_generation_mw]` da usina; uma janela não nula não pode
+cobrir um estágio fora da janela de operação da usina, quando ela declara uma.
+Os valores são **custo afundado**: seu combustível nunca entra na função objetivo do estudo. Com
+uma fronteira carregada, a contribuição de estado de uma janela pós-horizonte é incorporada uma única vez,
+na carga, ao termo independente de cada corte de fronteira, e a janela é ecoada na sua
+data real de entrega em `anticipated/fixed_deliveries.parquet`.
+Opcional; o padrão é um array
+vazio quando não há termelétricas com antecipação.
+
+Veja
+[Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho) para
+a mecânica dos estágios de entrega que as janelas devem cobrir.
+
+```json
+{
+  "past_anticipated_commitments": [
+    {
+      "thermal_id": 2,
+      "start_date": "2026-01-01",
+      "end_date": "2026-02-01",
+      "value_mw": 0.0
+    }
+  ]
+}
+```
+
+:::note[Entregas pós-horizonte têm dois pontos de declaração]
+Um compromisso **decidido dentro do estudo** cuja entrega se concretiza após o horizonte é
+limitado e custeado **exclusivamente** por uma célula `thermal_bounds[]` em
+[`post_study_stages.json`](/pt-br/reference/case-format/stages/#post_study_stagesjson) — o próprio estudo
+decide os MW, de modo que só seu preço e sua capacidade precisam ser declarados. Um compromisso
+**decidido antes do estudo** e entregue além do horizonte é, por sua vez, uma
+janela de `past_anticipated_commitments` que se estende além do fim do horizonte (acima).
+Veja [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) para a formulação
+de fronteira que ambos alimentam.
+:::
+
+Exemplo:
+
+```json
+{
+  "storage": [{ "hydro_id": 0, "value_hm3": 15000.0 }],
+  "filling_storage": [],
+  "recent_observations": [
+    {
+      "hydro_id": 0,
+      "start_date": "2026-04-01",
+      "end_date": "2026-04-04",
+      "value_m3s": 500.0
+    },
+    {
+      "hydro_id": 0,
+      "start_date": "2026-04-04",
+      "end_date": "2026-04-11",
+      "value_m3s": 480.0
+    }
+  ]
+}
+```

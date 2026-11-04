@@ -1,0 +1,415 @@
+---
+title: "Arquivos de metadados"
+description: Os metadados de execução que o novomodelo run grava para o treinamento e a simulação, e o registro de procedência do modelo estocástico, campo a campo.
+---
+
+Tanto `training/metadata.json` quanto `simulation/metadata.json` usam um protocolo
+de gravação atômica:
+
+1. Serializa o JSON em um arquivo temporário irmão `.json.tmp`.
+2. Renomeia atomicamente o arquivo `.tmp` para o caminho de destino.
+
+Isso garante que os consumidores nunca vejam um arquivo parcial. Se um arquivo de metadados existe,
+ele contém um documento JSON completo e válido. Se uma execução for interrompida antes da
+gravação final, o arquivo irmão `.tmp` pode permanecer, mas o arquivo de destino reflete a
+última gravação concluída com sucesso.
+
+`status` é `"complete"` ou `"partial"`. Em `training/metadata.json`, é
+`"partial"` quando uma solicitação de encerramento terminou o treinamento (training) e nem os
+critérios de parada nem o limite de iterações o terminaram naquela iteração: um sinal enviado a
+`novomodelo run`, ou uma parada solicitada por um callback Python `on_iteration`. Em
+`simulation/metadata.json`, é `"partial"` para uma simulação final pulada após uma
+parada por sinal. Qualquer outro término registra `"complete"`, inclusive um treinamento com falha;
+por isso, consulte `convergence.termination_reason` (`"error"` em caso de falha) e o código de
+saída. `convergence.achieved` é `true` quando os critérios de parada terminaram o treinamento
+com uma regra `gap` ou `bound_stalling` acionada naquela iteração. Para a
+simulação, consulte `scenarios.failed`.
+
+Ambos os arquivos são JSON simples, de modo que o `jq` os lê diretamente. Para um script ou verificação
+de CI, veja [Formato de saída](/pt-br/reference/cli-reference/#formato-da-saida) na Referência
+da CLI.
+
+A partir do Python, `novomodelo.results.load_results(output_dir)` retorna ambos os documentos
+de metadados em um único dict, juntamente com um indicador `complete` por fase — veja o
+[Guia rápido em Python](/pt-br/getting-started/python-quickstart/).
+
+---
+
+## `training/metadata.json`
+
+O arquivo de metadados do treinamento é gravado atomicamente ao final da execução do treinamento.
+Ele reúne em um único arquivo o contexto da execução, a configuração, o resultado da convergência,
+as estatísticas do conjunto de linhas (cortes), os limites da função objetivo, as estatísticas do solver de PL e as
+informações de distribuição. O bloco `convergence` registra como a execução terminou.
+
+**Metodologia:** [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) · [Critérios de parada](/pt-br/math/stopping-rules)
+
+**Exemplo (um `novomodelo run` do modelo 1dtoy; hostname e marcas de tempo substituídos):**
+
+{/* capture: novomodelo run toy --quiet, then toy/output/training/metadata.json | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, unchanged) */}
+
+```json
+{
+  "software": "novomodelo",
+  "software_version": "0.20.0",
+  "hostname": "<hostname>",
+  "solver": "highs",
+  "solver_version": "1.13.1",
+  "started_at": "<timestamp>",
+  "completed_at": "<timestamp>",
+  "duration_seconds": 0.437,
+  "status": "complete",
+  "configuration": {
+    "seed": null,
+    "max_iterations": 128,
+    "forward_passes": 1,
+    "stopping_mode": "any",
+    "policy_mode": "fresh"
+  },
+  "problem_dimensions": {
+    "num_stages": 4,
+    "num_hydros": 1,
+    "num_thermals": 2,
+    "num_buses": 1,
+    "num_lines": 0
+  },
+  "iterations": {
+    "completed": 128,
+    "converged_at": null
+  },
+  "convergence": {
+    "achieved": false,
+    "final_gap_percent": -97.18864856046982,
+    "termination_reason": "iteration_limit"
+  },
+  "row_pool": {
+    "total_generated": 384,
+    "total_active": 384,
+    "peak_active": 384,
+    "cuts_active": 384,
+    "rows_in_lp_total": 0,
+    "rows_in_lp_solve_count": 0,
+    "rows_in_lp_max": 0,
+    "total_loaded": 0
+  },
+  "bounds": {
+    "final_lower_bound": 20616141.77697058,
+    "final_upper_bound": 579592.1986224449,
+    "final_upper_bound_std": 0.0,
+    "final_upper_bound_kind": "statistical"
+  },
+  "solve_stats": {
+    "total_lp_solves": 5632,
+    "first_try": 5632,
+    "retried": 0,
+    "failed": 0,
+    "forward_solve_seconds": 0.04809124599999996,
+    "backward_solve_seconds": 0.22707765300000007,
+    "parallelism": 1
+  },
+  "setup": {
+    "load_seconds": 0.004459241,
+    "stochastic_fit_seconds": 0.00019873,
+    "production_fit_seconds": 0.000031599,
+    "evaporation_fit_seconds": 1.004e-6,
+    "broadcast_seconds": 0.000458009
+  },
+  "distribution": {
+    "backend": "local",
+    "world_size": 1,
+    "ranks_participated": 1,
+    "num_hosts": 1,
+    "threads_per_rank": 1,
+    "hosts": [
+      {
+        "hostname": "<hostname>",
+        "ranks": [0]
+      }
+    ]
+  }
+}
+```
+
+**Campos de nível superior:**
+
+| Nome                       | Tipo   | Anulável | Unidades | Descrição                                                                                                                                                        |
+| -------------------------- | ------ | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `software`                 | string | Não      | —     | Nome do software que produziu esta saída: `"novomodelo"`.                                                                                                         |
+| `software_version`         | string | Não      | —     | Versão desse software, por exemplo `"0.20.0"`.                                                                                                                    |
+| `hostname`                 | string | Não      | —     | Hostname da máquina que executou o treinamento.                                                                                                                    |
+| `solver`                   | string | Não      | —     | Solver de PL: `"highs"` ou `"clp"`.                                                                                                                                 |
+| `solver_version`           | string | Sim      | —     | String de versão da biblioteca do solver de PL vinculada. Omitido quando não disponível.                                                                           |
+| `started_at`               | string | Não      | —     | Marca de tempo ISO 8601 do início do treinamento.                                                                                                                  |
+| `completed_at`             | string | Não      | —     | Marca de tempo ISO 8601 da conclusão do treinamento.                                                                                                               |
+| `duration_seconds`         | number | Não      | s     | Duração total do treinamento em tempo de relógio (wall-clock), em segundos.                                                                                       |
+| `status`                   | string | Não      | —     | `"partial"` quando apenas uma solicitação de encerramento terminou o treinamento (então `convergence.termination_reason` é `"graceful_shutdown"`); `"complete"` nos demais casos, inclusive um treinamento com falha; `convergence.termination_reason` registra como a execução terminou (`"error"` quando o treinamento parou por falha). |
+| `production_fit_deviation` | object | Sim      | —     | Consolidação, para a execução, do desvio de ajuste do modelo de produção por entidade (informativo, nunca incluído em hash). Omitido quando a execução não ajustou nenhum modelo cujo desvio seja medido. |
+
+**Campos de `configuration`:**
+
+| Nome                           | Tipo    | Anulável | Unidades | Descrição                                                                                                                   |
+| ------------------------------ | ------- | -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `configuration.seed`           | integer | Sim      | —     | O `training.tree_seed` configurado; `null` quando ausente (a execução então usa `42`).                                        |
+| `configuration.max_iterations` | integer | Sim      | —     | Número máximo de iterações: o `limit` da primeira entrada `iteration_limit` de `training.stopping_rules`; sempre definido em um arquivo gravado por `novomodelo run`, pois a configuração deve conter uma regra `iteration_limit`. |
+| `configuration.forward_passes` | integer | Sim      | —     | Número de trajetórias de cenários da simulação forward por iteração. `null` sob a seleção `enumerated`.                       |
+| `configuration.stopping_mode`  | string  | Não      | —     | Como múltiplos critérios de parada se combinam: `"any"` ou `"all"`.                                                            |
+| `configuration.policy_mode`    | string  | Não      | —     | Modo de partida a quente (warm-start) da política: `"fresh"`, `"warm_start"` ou `"resume"`.                                     |
+
+**Campos de `problem_dimensions`:**
+
+| Nome                              | Tipo    | Anulável | Unidades | Descrição                                                   |
+| --------------------------------- | ------- | -------- | ----- | ------------------------------------------------------------- |
+| `problem_dimensions.num_stages`   | integer | Não      | —     | Número de estágios: os estágios do estudo mais os eventuais estágios pré-estudo. |
+| `problem_dimensions.num_hydros`   | integer | Não      | —     | Número total de usinas hidrelétricas.                         |
+| `problem_dimensions.num_thermals` | integer | Não      | —     | Número total de usinas termelétricas.                         |
+| `problem_dimensions.num_buses`    | integer | Não      | —     | Número total de barramentos.                                  |
+| `problem_dimensions.num_lines`    | integer | Não      | —     | Número total de linhas de transmissão.                        |
+
+**Campos de `iterations`:**
+
+| Nome                      | Tipo    | Anulável | Unidades | Descrição                                                       |
+| ------------------------- | ------- | -------- | ----- | ----------------------------------------------------------------- |
+| `iterations.completed`    | integer | Não      | —     | Número de iterações de treinamento concluídas.                    |
+| `iterations.converged_at` | integer | Sim      | —     | Igual a `completed` quando `achieved` é `true`; `null` caso contrário. |
+
+**Campos de `convergence`:**
+
+| Nome                             | Tipo    | Anulável | Unidades | Descrição                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `convergence.achieved`           | boolean | Não      | —     | `true` quando os critérios de parada configurados terminaram o treinamento e uma regra `gap` ou `bound_stalling` foi acionada naquela iteração, mesmo que `termination_reason` indique outra regra acionada na mesma iteração; `false` quando apenas `iteration_limit` ou `time_limit` foram acionados, quando apenas uma solicitação de encerramento terminou o treinamento e após uma falha.                                                                                                                                            |
+| `convergence.final_gap_percent`  | number  | Sim      | %     | [Gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) entre os limites inferior e superior no término, em porcentagem. `null` quando o limite inferior final não é positivo.                                                                                                                                                                                                                                                                                                                    |
+| `convergence.termination_reason` | string  | Não      | —     | Nome do critério de parada que terminou a execução: `"iteration_limit"`, `"time_limit"`, `"bound_stalling"` ou `"gap"` (sob `"all"`, a primeira regra diferente de `iteration_limit`, ou `"iteration_limit"` quando o maior limite encerrou a execução); `"error"` quando o treinamento parou por falha, caso em que `novomodelo run` termina com código diferente de zero; `"graceful_shutdown"` quando uma solicitação de encerramento terminou o treinamento e nem os critérios de parada nem o limite de iterações o terminaram naquela iteração (um SIGTERM ou SIGINT enviado a `novomodelo run`, ou um callback `on_iteration` de [`novomodelo.Study.train`](/pt-br/reference/python-api/#novomodelostudytrain) ou [`novomodelo.run.run`](/pt-br/reference/python-api/#novomodelorunrun) que retorna um valor verdadeiro ou lança uma exceção). |
+
+**Campos de `row_pool`:**
+
+| Nome                              | Tipo    | Anulável | Unidades | Descrição                                                                                                                                  |
+| --------------------------------- | ------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `row_pool.total_generated`        | integer | Não      | —     | Total de linhas de corte geradas ao longo de toda a execução.                                                                                |
+| `row_pool.total_active`           | integer | Não      | —     | Linhas de corte ainda ativas no conjunto de cortes ao término.                                                                               |
+| `row_pool.peak_active`            | integer | Não      | —     | Maior número de linhas de corte ativas, somado sobre os conjuntos, na troca de cortes de uma iteração ou após sua etapa de seleção e limite. É no mínimo o maior `cuts_active` em [`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet), que conta apenas após a gestão de linhas. |
+| `row_pool.cuts_active`            | integer | Não      | —     | Linhas de corte ativas ao término; o mesmo valor de `total_active`.                                                                          |
+| `row_pool.rows_in_lp_total`       | integer | Não      | —     | Soma das linhas residentes no PL sobre todas as resoluções com seleção preguiçosa (lazy) da execução. Zero quando não houve seleção preguiçosa. |
+| `row_pool.rows_in_lp_solve_count` | integer | Não      | —     | Número de resoluções com seleção preguiçosa na execução. Zero quando não houve seleção preguiçosa.                                           |
+| `row_pool.rows_in_lp_max`         | integer | Não      | —     | Maior número de linhas residentes no PL em uma única resolução com seleção preguiçosa. Zero quando não houve seleção preguiçosa.             |
+| `row_pool.total_loaded`           | integer | Não      | —     | Linhas de corte carregadas no início da execução, em vez de geradas pelo treinamento (a soma do `warm_start_count` de todos os conjuntos): os cortes que uma execução com partida a quente carrega de `policy.path`, mais eventuais cortes de `policy.boundary`. Uma execução retomada mantém a contagem da execução registrada, pois os cortes gerados por aquela execução continuam contados como gerados. Subconjunto de `total_generated`. `0` em uma execução nova sem `policy.boundary`. |
+
+**Campos de `bounds`:**
+
+| Nome                            | Tipo   | Anulável | Unidades | Descrição                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------- | ------ | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bounds.final_lower_bound`      | number | Não      | —     | Limite inferior final da função objetivo no término.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `bounds.final_upper_bound`      | number | Sim      | —     | Valor final do limite superior; sempre um número em um arquivo gravado por `novomodelo run`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `bounds.final_upper_bound_std`  | number | Sim      | —     | Desvio-padrão amostral dos custos dos cenários da simulação forward da última iteração concluída. `null` quando `final_upper_bound_kind` é `"exact"`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `bounds.final_upper_bound_kind` | string | Não      | —     | Regime do limite superior da execução: `"exact"` sob a seleção `enumerated`, `"statistical"` sob a seleção `sampled`; o mesmo valor de `upper_bound_kind` em todas as linhas de [`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet). Sob `"exact"`, o gap entre os limites é um certificado de otimalidade válido apenas quando a medida de risco é a mesma em todos os estágios; sob uma medida que varia por estágio, `final_upper_bound` é o custo esperado da política, que pode ficar abaixo de `final_lower_bound` (veja [Gerenciamento de cortes — quando os limites e certificados são válidos](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem)). |
+
+**Campos de `solve_stats`:**
+
+| Nome                                 | Tipo    | Anulável | Unidades | Descrição                                                   |
+| ------------------------------------ | ------- | -------- | ----- | ------------------------------------------------------------- |
+| `solve_stats.total_lp_solves`        | integer | Sim      | —     | Número total de resoluções de PL realizadas durante o treinamento. |
+| `solve_stats.first_try`              | integer | Sim      | —     | Número de resoluções de PL bem-sucedidas na primeira tentativa. |
+| `solve_stats.retried`                | integer | Sim      | —     | Número de resoluções de PL bem-sucedidas após uma ou mais novas tentativas. |
+| `solve_stats.failed`                 | integer | Sim      | —     | Número de resoluções de PL que falharam definitivamente.      |
+| `solve_stats.forward_solve_seconds`  | number  | Sim      | s     | Segundos acumulados (wall-clock) nas resoluções de PL da fase forward. |
+| `solve_stats.backward_solve_seconds` | number  | Sim      | s     | Segundos acumulados (wall-clock) nas resoluções de PL da fase backward. |
+| `solve_stats.parallelism`            | integer | Sim      | —     | Número de workers usados durante o treinamento: as threads de trabalho por processo (rank MPI) vezes o número de processos MPI. |
+
+Cada resolução de PL da execução é contada uma única vez, qualquer que seja o processo e o worker que a executou;
+assim, um estudo informa os mesmos `total_lp_solves`, `first_try`, `retried` e `failed` para
+qualquer número de processos MPI, e `first_try + retried + failed` é igual a
+`total_lp_solves`. A linha `LP solves` do resumo do treinamento imprime as mesmas contagens.
+Sob MPI, `forward_solve_seconds` e `backward_solve_seconds` também são
+totais sobre todos os processos e workers, com cada resolução contada uma vez. As
+resoluções do limite inferior entram nas contagens de resultado, mas em nenhum dos campos de tempo.
+
+**Campos de `distribution`:**
+
+| Nome                              | Tipo    | Anulável | Unidades | Descrição                                                                                                                      |
+| --------------------------------- | ------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `distribution.backend`            | string  | Não      | —     | Backend de comunicação: `"mpi"` ou `"local"`.                                                                                    |
+| `distribution.world_size`         | integer | Não      | —     | Número total de processos no comunicador. `1` em execuções de processo único.                                                   |
+| `distribution.ranks_participated` | integer | Não      | —     | Número de processos que participaram do cálculo.                                                                                 |
+| `distribution.num_hosts`          | integer | Não      | —     | Número de hosts físicos distintos.                                                                                               |
+| `distribution.threads_per_rank`   | integer | Não      | —     | Threads de trabalho por processo.                                                                                                |
+| `distribution.mpi_library`        | string  | Sim      | —     | Versão da implementação MPI (ex.: `"Open MPI v4.1.6"`). Omitido no backend local.                                                |
+| `distribution.mpi_standard`       | string  | Sim      | —     | Versão do padrão MPI (ex.: `"MPI 4.0"`). Omitido no backend local.                                                               |
+| `distribution.thread_level`       | string  | Sim      | —     | Nível de segurança de threads MPI negociado. Omitido no backend local.                                                           |
+| `distribution.slurm_job_id`       | string  | Sim      | —     | ID do job SLURM quando executado sob SLURM. Omitido nos demais casos.                                                            |
+| `distribution.hosts`              | array   | Não      | —     | Atribuição de processos por host. Uma entrada por host físico. Em execuções locais de processo único, contém uma única entrada com `ranks: [0]`. |
+| `distribution.hosts[].hostname`   | string  | Não      | —     | Hostname desta entrada.                                                                                                          |
+| `distribution.hosts[].ranks`      | array   | Não      | —     | Array de inteiros: ranks globais, em ordem crescente, atribuídos a este host.                                                    |
+
+**Campos de `setup`** (informativos):
+
+| Nome                            | Tipo   | Anulável | Unidades | Descrição                                                               |
+| ------------------------------- | ------ | -------- | ----- | ------------------------------------------------------------------------- |
+| `setup.load_seconds`            | number | Não      | s     | Segundos (wall-clock) gastos na carga do caso de entrada.                 |
+| `setup.stochastic_fit_seconds`  | number | Não      | s     | Segundos (wall-clock) gastos no ajuste do processo estocástico.           |
+| `setup.production_fit_seconds`  | number | Não      | s     | Segundos (wall-clock) gastos no ajuste do modelo de produção (hiperplanos da FPHA). |
+| `setup.evaporation_fit_seconds` | number | Não      | s     | Segundos (wall-clock) gastos no ajuste do modelo de evaporação.           |
+| `setup.broadcast_seconds`       | number | Não      | s     | Segundos (wall-clock) gastos na difusão (broadcast) dos dados de preparação entre os processos MPI. |
+
+Esses valores não são determinísticos: variam de uma execução para outra conforme a
+carga da máquina e são excluídos de qualquer verificação de paridade.
+
+**Campos de `production_fit_deviation`** (ausentes quando a execução não ajustou nenhum modelo cujo desvio seja medido):
+
+| Nome                                      | Tipo    | Anulável | Unidades | Descrição                                                                 |
+| ----------------------------------------- | ------- | -------- | ----- | --------------------------------------------------------------------------- |
+| `production_fit_deviation.n_entries`      | integer | Não      | —     | Número de entradas por entidade resumidas na consolidação.                  |
+| `production_fit_deviation.mean_abs`       | number  | Não      | —     | Média aritmética das magnitudes do desvio absoluto médio de cada entrada.   |
+| `production_fit_deviation.max_abs`        | number  | Não      | —     | Máximo das magnitudes do desvio absoluto máximo de cada entrada.            |
+| `production_fit_deviation.worst_relative` | number  | Não      | —     | Maior desvio relativo (adimensional) por entrada entre todas as entradas.   |
+| `production_fit_deviation.worst_entry`    | object  | Sim      | —     | A entrada com o maior desvio relativo. `null` quando não há entradas.       |
+
+**Campos de `production_fit_deviation.worst_entry`:**
+
+| Nome                                             | Tipo    | Anulável | Unidades | Descrição                                                                       |
+| ------------------------------------------------ | ------- | -------- | ----- | --------------------------------------------------------------------------------- |
+| `production_fit_deviation.worst_entry.entity_id` | integer | Não      | —     | Identificador da entidade à qual pertence a pior entrada.                         |
+| `production_fit_deviation.worst_entry.stage_id`  | integer | Não      | —     | Id declarado (em `stages.json`) do primeiro estágio coberto pela pior entrada.    |
+| `production_fit_deviation.worst_entry.relative`  | number  | Não      | —     | Desvio relativo (adimensional) da pior entrada.                                   |
+| `production_fit_deviation.worst_entry.mean_abs`  | number  | Não      | —     | Magnitude do desvio absoluto médio da pior entrada.                               |
+| `production_fit_deviation.worst_entry.max_abs`   | number  | Não      | —     | Magnitude do desvio absoluto máximo da pior entrada.                              |
+
+---
+
+## `simulation/metadata.json`
+
+O arquivo de metadados da simulação é gravado atomicamente quando a simulação final é concluída,
+e também quando uma parada por sinal termina o treinamento antes de uma simulação configurada: a
+simulação é então pulada, e o arquivo registra `status` `"partial"`,
+`scenarios.completed` `0` e `cost` `null`, seguido de `simulation/_SUCCESS`.
+Ele contém o contexto da execução, as contagens de cenários concluídos, estatísticas agregadas de custo,
+estatísticas do solver de PL e informações de distribuição.
+
+**Metodologia:** [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees)
+
+**Exemplo (o mesmo `novomodelo run` do modelo 1dtoy; hostname e marcas de tempo substituídos):**
+
+{/* capture: novomodelo run toy --quiet, then toy/output/simulation/metadata.json | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy, unchanged) */}
+
+```json
+{
+  "software": "novomodelo",
+  "software_version": "0.20.0",
+  "hostname": "<hostname>",
+  "solver": "highs",
+  "solver_version": "1.13.1",
+  "started_at": "<timestamp>",
+  "completed_at": "<timestamp>",
+  "duration_seconds": 0.565,
+  "status": "complete",
+  "scenarios": {
+    "total": 100,
+    "completed": 100,
+    "failed": 0
+  },
+  "cost": {
+    "mean_cost": 12865159.706109203,
+    "std_cost": 29290918.99870284
+  },
+  "solve_stats": {
+    "total_lp_solves": 400,
+    "first_try": 400,
+    "retried": 0,
+    "failed": 0,
+    "solve_seconds": 0.3042452130000002,
+    "parallelism": 1
+  },
+  "distribution": {
+    "backend": "local",
+    "world_size": 1,
+    "ranks_participated": 1,
+    "num_hosts": 1,
+    "threads_per_rank": 1,
+    "hosts": [
+      {
+        "hostname": "<hostname>",
+        "ranks": [0]
+      }
+    ]
+  }
+}
+```
+
+**Campos de nível superior:**
+
+| Nome               | Tipo   | Anulável | Unidades | Descrição                                                                 |
+| ------------------ | ------ | -------- | ----- | --------------------------------------------------------------------------- |
+| `software`         | string | Não      | —     | Nome do software que produziu esta saída: `"novomodelo"`.                  |
+| `software_version` | string | Não      | —     | Versão desse software, por exemplo `"0.20.0"`.                              |
+| `hostname`         | string | Não      | —     | Hostname da máquina que executou a simulação.                               |
+| `solver`           | string | Não      | —     | Solver de PL: `"highs"` ou `"clp"`.                                         |
+| `solver_version`   | string | Sim      | —     | String de versão da biblioteca do solver de PL. Omitido quando não disponível. |
+| `started_at`       | string | Não      | —     | Marca de tempo ISO 8601 do início da simulação.                             |
+| `completed_at`     | string | Não      | —     | Marca de tempo ISO 8601 da conclusão da simulação.                          |
+| `duration_seconds` | number | Não      | s     | Duração total da simulação em tempo de relógio (wall-clock), em segundos.   |
+| `status`           | string | Não      | —     | `"complete"` quando a simulação foi executada; `"partial"` quando uma parada por sinal a pulou (nenhum cenário foi executado). |
+
+**Campos de `scenarios`:**
+
+| Nome                  | Tipo    | Anulável | Unidades | Descrição                                                                                                              |
+| --------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------ |
+| `scenarios.total`     | integer | Não      | —     | Número de cenários cujas partições de saída foram gravadas; em uma simulação pulada (`status` `"partial"`), o número de cenários que a execução estava configurada para simular, com `completed` `0`. |
+| `scenarios.completed` | integer | Não      | —     | Número de cenários cujas partições de saída foram gravadas.                                                              |
+| `scenarios.failed`    | integer | Não      | —     | Número de cenários cujas partições de saída não puderam ser gravadas; uma falha na resolução de um PL, por sua vez, interrompe a execução com erro. |
+
+**Campos de `cost`** (`null` em uma simulação pulada):
+
+| Nome             | Tipo   | Anulável | Unidades | Descrição                                                      |
+| ---------------- | ------ | -------- | ----- | ---------------------------------------------------------------- |
+| `cost.mean_cost` | number | Não      | R\$   | Custo total médio sobre os cenários simulados.                   |
+| `cost.std_cost`  | number | Não      | R\$   | Desvio-padrão do custo total sobre os cenários simulados.        |
+
+**Campos de `solve_stats`:**
+
+| Nome                          | Tipo    | Anulável | Unidades | Descrição                                                   |
+| ----------------------------- | ------- | -------- | ----- | ------------------------------------------------------------- |
+| `solve_stats.total_lp_solves` | integer | Sim      | —     | Número total de resoluções de PL realizadas durante a simulação. |
+| `solve_stats.first_try`       | integer | Sim      | —     | Número de resoluções de PL bem-sucedidas na primeira tentativa. |
+| `solve_stats.retried`         | integer | Sim      | —     | Número de resoluções de PL bem-sucedidas após uma ou mais novas tentativas. |
+| `solve_stats.failed`          | integer | Sim      | —     | Número de resoluções de PL que falharam definitivamente.      |
+| `solve_stats.solve_seconds`   | number  | Sim      | s     | Segundos acumulados (wall-clock) gastos nas resoluções de PL da simulação. |
+| `solve_stats.parallelism`     | integer | Sim      | —     | Número de workers usados durante a simulação: as threads de trabalho por processo (rank MPI) vezes o número de processos MPI. |
+
+Sob MPI, as contagens e `solve_seconds` são somas sobre todos os processos.
+
+O objeto `distribution` tem a mesma estrutura de campos de `training/metadata.json`.
+Veja a tabela **Campos de `distribution`** acima.
+
+---
+
+## `training/model_provenance.json`
+
+Registra quais fontes de dados alimentaram os modelos de afluência e de produção hidrelétrica. Gravado
+em todo `novomodelo run`, antes do início do treinamento; tem finalidade de diagnóstico. Objeto de nível superior com
+dois subobjetos, `inflow` e `hydro_production`.
+
+**Metodologia:** [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) · [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model)
+
+**Campos de `inflow`:**
+
+| Nome                                    | Tipo    | Anulável | Unidades | Descrição                                                                                        |
+| --------------------------------------- | ------- | -------- | ----- | -------------------------------------------------------------------------------------------------- |
+| `inflow.estimation_path`                | string  | Não      | —     | Rótulo estável do caminho de estimação adotado.                                                    |
+| `inflow.seasonal_stats_source`          | string  | Não      | —     | Origem dos dados sazonais de média/desvio-padrão: `"estimated"`, `"user_file"` ou `"n/a"`.          |
+| `inflow.ar_coefficients_source`         | string  | Não      | —     | Origem dos coeficientes das defasagens do modelo AR (mesmo conjunto de valores).                  |
+| `inflow.correlation_source`             | string  | Não      | —     | Origem da correlação espacial: `"user_file"` quando o caso fornece `scenarios/correlation.json`, `"estimated"` quando ela é estimada a partir do histórico de afluências, `"n/a"` nos demais casos. |
+| `inflow.correlation_target`             | string  | Sim      | —     | Série a partir da qual a correlação estimada foi calculada, `"inflows"` ou `"residuals"` (`estimation.correlation_target`). `null`, a menos que `correlation_source` seja `"estimated"`. |
+| `inflow.opening_tree_source`            | string  | Não      | —     | Origem da árvore de aberturas de ruídos (mesmo conjunto de valores).                               |
+| `inflow.opening_tree_moment_matching`   | string  | Sim      | —     | Casamento de momentos (moment matching) de uma árvore de aberturas gerada, `"per_coordinate"` ou `"none"` (`training.scenario_source.openings.moment_matching`), registrado quer algum estágio tenha sido ajustado, quer não. `null` quando a árvore não foi gerada. |
+| `inflow.n_hydros`                       | integer | Não      | —     | Número de usinas hidrelétricas do sistema.                                                         |
+| `inflow.ar_method`                      | string  | Sim      | —     | Método de seleção de ordem usado quando os coeficientes AR foram estimados. `null` quando o AR não foi estimado. |
+| `inflow.ar_max_order`                   | integer | Sim      | —     | Ordem máxima do modelo AR entre todas as usinas hidrelétricas. `null` quando o AR não foi estimado. |
+| `inflow.white_noise_fallbacks`          | array   | Não      | —     | Array de inteiros: IDs das usinas hidrelétricas que recorreram a ruído branco. Vazio quando nenhuma recorreu. |
+| `inflow.historical_library_seed_digest` | integer | Sim      | —     | Impressão digital (fingerprint) da tendência hidrológica para a biblioteca histórica. Omitido quando nenhuma biblioteca foi construída. |
+
+**Campos de `hydro_production`:**
+
+| Nome                                                  | Tipo    | Anulável | Unidades | Descrição                                                                                                                               |
+| ----------------------------------------------------- | ------- | -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `hydro_production.n_fpha_computed_from_geometry`      | integer | Não      | —     | Usinas hidrelétricas cujos hiperplanos da FPHA foram calculados a partir da geometria do reservatório; uma usina com FPHA calculada e sem capacidade de turbinamento não é contada. |
+| `hydro_production.n_fpha_precomputed_hyperplanes`     | integer | Não      | —     | Usinas hidrelétricas cujos hiperplanos da FPHA foram fornecidos pré-calculados; uma usina com FPHA pré-calculada, sem capacidade de turbinamento e sem linhas de hiperplano não é contada. |
+| `hydro_production.n_evaporation_ref_user_supplied`    | integer | Não      | —     | Usinas hidrelétricas cujo nível de referência para evaporação foi fornecido pelo usuário.                                                 |
+| `hydro_production.n_evaporation_ref_default_midpoint` | integer | Não      | —     | Usinas hidrelétricas cujo nível de referência para evaporação assumiu o padrão, o ponto médio da curva.                                    |

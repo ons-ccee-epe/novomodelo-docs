@@ -1,0 +1,489 @@
+---
+title: "Arquivos de cenários"
+description: Os arquivos de entrada em scenarios/ — o histórico de vazões e as entradas do modelo PAR(p), as bibliotecas de cenários externos, as estatísticas e os fatores de carga e de fontes não despacháveis, a correlação dos ruídos e a árvore de aberturas fornecida pelo usuário.
+---
+
+O diretório `scenarios/` contém as entradas estocásticas de um caso: o histórico de vazões e as entradas do modelo de afluências PAR(p), as bibliotecas de cenários externos, as estatísticas e os fatores de carga e de fontes não despacháveis, a correlação dos ruídos e as aberturas de ruído fornecidas pelo usuário. Os tipos de coluna Parquet, a regra de compressão e a chave `$schema` estão descritos em [Convenções](/pt-br/reference/case-format/#convencoes).
+
+---
+
+## `scenarios/inflow_history.parquet`
+
+**Metodologia:** [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model/)
+
+Janelas de observação histórica de vazões por usina hidrelétrica. Cada linha é uma
+janela, e não uma leitura pontual: `[start_date, end_date)` delimita o período e
+`value_m3s` é a vazão média observada nele.
+
+| Nome         | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                     |
+| ------------ | ------- | ----------- | ------ | ------- | --------------------------------------------- |
+| `hydro_id`   | Int32   | Sim         | —      | —       | ID da usina hidrelétrica                      |
+| `start_date` | Date32  | Sim         | —      | —       | Início da janela, inclusivo                   |
+| `end_date`   | Date32  | Sim         | —      | —       | Fim da janela, exclusivo; posterior a `start_date` |
+| `value_m3s`  | Float64 | Sim         | —      | m³/s    | Vazão média na janela (m³/s)                  |
+
+As linhas podem aparecer em qualquer ordem. Para um dado `hydro_id`, as janelas não
+podem se sobrepor; janelas adjacentes (`start_date == previous end_date`)
+são aceitas. Um `hydro_id` que não identifica nenhuma usina hidrelétrica declarada é
+um erro `InvalidReference`. `value_m3s` deve ser finito; um valor negativo é aceito
+— a grandeza é a vazão incremental (a vazão natural de uma usina menos a das usinas
+a montante), de modo que uma janela negativa é hidrologia real, e o método de
+[não negatividade das afluências](/pt-br/math/inflow-nonnegativity) configurado decide
+como o balanço hídrico a trata. A validação semântica emite um aviso por arquivo,
+indicando a quantidade de valores negativos e a usina do valor mais negativo.
+
+O histórico cumpre quatro papéis:
+
+- **Estimação.** As observações brutas a partir das quais o Novo Modelo estima
+  aquele, dentre `inflow_seasonal_stats` e `inflow_ar_coefficients`, que estiver ausente.
+- **Tendência hidrológica derivada.** O registro de inicialização padrão a partir do qual o Novo Modelo deriva a
+  cadeia de defasagens do PAR e o acumulador de meio de período, sobreposto pelo condicionamento
+  `recent_observations` de `initial_conditions.json` onde ambos cobrem a mesma data
+  (veja [`initial_conditions.json`](/pt-br/reference/case-format/initial-conditions/#initial_conditionsjson)).
+- **Janelas de reprodução.** As janelas do esquema `historical` (veja
+  [Conjunto de Janelas Históricas](/pt-br/math/scenario-generation/#conjunto-de-janelas-historicas)).
+- **Aberturas por resíduos históricos.** As janelas do método `historical_residuals` (veja
+  [Aberturas por Resíduos Históricos](/pt-br/math/scenario-generation/#25-aberturas-por-residuos-historicos)).
+
+---
+
+## `scenarios/inflow_seasonal_stats.parquet`
+
+**Metodologia:** [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model/)
+
+Estatísticas sazonais do modelo PAR(p) para cada par (usina hidrelétrica, estágio).
+Quando o arquivo tem alguma linha, ele precisa de uma linha para cada usina
+hidrelétrica em operação em cada estágio do estudo. No esquema de afluências
+`external`, uma usina hidrelétrica com ordem autorregressiva 0 (sem componente
+anual) recebe a média e o desvio-padrão do arquivo de cenários externos, de modo que
+suas linhas aqui não são usadas na amostragem; uma usina com ordem autorregressiva
+acima de 0 ou com componente anual mantém as estatísticas declaradas neste arquivo
+(ou as estimadas a partir de `inflow_history.parquet` quando o arquivo está ausente).
+`load_seasonal_stats.parquet` e `non_controllable_stats.parquet` são opcionais para uma
+classe amostrada no esquema `external`; um `load_seasonal_stats.parquet` presente mantém
+sua própria regra de uma linha para cada barramento em cada estágio do estudo.
+
+| Nome       | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                          |
+| ---------- | ------- | ----------- | ------ | ------- | ------------------------------------------------------------------ |
+| `hydro_id` | Int32   | Sim         | —      | —       | ID da usina hidrelétrica                                           |
+| `stage_id` | Int32   | Sim         | —      | —       | ID do estágio                                                      |
+| `mean_m3s` | Float64 | Sim         | —      | m³/s    | Vazão média sazonal (m³/s); deve ser finita                        |
+| `std_m3s`  | Float64 | Sim         | —      | m³/s    | Desvio-padrão sazonal (m³/s); deve ser >= 0 e finito               |
+
+---
+
+## `scenarios/inflow_ar_coefficients.parquet`
+
+**Metodologia:** [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model/)
+
+Coeficientes autorregressivos do modelo de afluências PAR(p). A escala do ruído
+(inovação) do modelo não é uma entrada: o Novo Modelo a deriva na carga a partir dos
+coeficientes abaixo, pelo fechamento da ACF periódica — veja
+[Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model).
+
+| Nome          | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                          |
+| ------------- | ------- | ----------- | ------ | ------- | -------------------------------------------------- |
+| `hydro_id`    | Int32   | Sim         | —      | —       | ID da usina hidrelétrica                           |
+| `stage_id`    | Int32   | Sim         | —      | —       | ID do estágio                                      |
+| `lag`         | Int32   | Sim         | —      | —       | Índice da defasagem (a partir de 1)                |
+| `coefficient` | Float64 | Sim         | —      | —       | Coeficiente AR para este (usina, estágio, defasagem) |
+
+Colunas além deste esquema são ignoradas — um arquivo com uma coluna adicional (por
+exemplo, uma razão de escala do ruído armazenada, produzida por outra ferramenta) é
+carregado com essa coluna simplesmente ignorada; o valor derivado sempre prevalece.
+
+---
+
+## `scenarios/inflow_annual_component.parquet`
+
+**Metodologia:** [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model/)
+
+Componente anual PAR(p)-A de cada par (usina hidrelétrica, estágio): o coeficiente anual, e a média e o desvio-padrão
+da média móvel de 12 meses da afluência.
+[Modelo de afluências PAR(p) — Implementação no Novo Modelo](/pt-br/math/par-inflow-model#implementacao-no-novo-modelo) indica quando o arquivo
+é respeitado e quando a estimação o sobrescreve.
+
+| Nome                 | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                                                  |
+| -------------------- | ------- | ----------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------- |
+| `hydro_id`           | Int32   | Sim         | —      | —       | Id da usina hidrelétrica; identifica uma usina declarada.                                                  |
+| `stage_id`           | Int32   | Sim         | —      | —       | Id do estágio da linha correspondente de `inflow_seasonal_stats.parquet`.                                  |
+| `annual_coefficient` | Float64 | Sim         | —      | —       | Coeficiente da componente anual, adimensional; finito. Valores negativos, nulos e positivos são válidos.  |
+| `annual_mean_m3s`    | Float64 | Sim         | —      | m³/s    | Média da média móvel de 12 meses da afluência no estágio; finita.                                          |
+| `annual_std_m3s`     | Float64 | Sim         | —      | m³/s    | Desvio-padrão da média móvel de 12 meses da afluência no estágio; finito e `> 0`.                          |
+
+**Regras de validação.** Cada regra indica o tipo de erro que `novomodelo validate` informa.
+
+- **Verificações por linha.** Toda coluna está presente com seu tipo, nenhum valor é nulo, `annual_coefficient` e
+  `annual_mean_m3s` são finitos e `annual_std_m3s` é finito e `> 0`. Tipo: `SchemaViolation`.
+- **Usina declarada.** Um `hydro_id` que não identifica nenhuma usina hidrelétrica declarada é um erro `InvalidReference`.
+- **Pareamento com as estatísticas.** Quando o caso fornece `scenarios/inflow_seasonal_stats.parquet`, cada
+  par (`hydro_id`, `stage_id`) aparece uma única vez aqui e tem uma linha lá; um par repetido, ou um par sem linha de
+  estatísticas, é um `SchemaError`. Sem arquivo de estatísticas, nenhuma das duas verificações é executada.
+- **Período sazonal.** Com um arquivo de estatísticas fornecido, todo estágio que tem linha neste arquivo precisa de um período sazonal, dado por um `season_id` no
+  estágio ou por `season_definitions` em [`stages.json`](/pt-br/reference/case-format/stages/#stagesjson); caso contrário, o caso é recusado com um
+  `ConstraintError`.
+- **Ciclo mensal.** O PAR(p)-A é exclusivamente mensal: quando `stages.json` declara `season_definitions`, um `cycle_type`
+  `weekly` ou `custom` junto com qualquer linha aqui é um `BusinessRuleViolation`.
+
+---
+
+## `scenarios/external_inflow_scenarios.parquet`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/)
+
+Realizações de afluência pré-calculadas, lidas quando o `scheme` de afluências é `"external"` em [`training.scenario_source`](/pt-br/running/configuration/#trainingscenario_source) ou
+[`simulation.scenario_source`](/pt-br/running/configuration/#simulationscenario_source). As realizações são numeradas por estágio por
+`scenario_id`; o modo como as simulações as sorteiam está descrito em
+[Geração de cenários §4](/pt-br/math/scenario-generation/#4-integracao-de-cenarios-externos), e quais classes recebem
+a média e o desvio-padrão do arquivo está indicado em
+[`scenarios/inflow_seasonal_stats.parquet`](#scenariosinflow_seasonal_statsparquet).
+
+| Nome          | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                            |
+| ------------- | ------- | ----------- | ------ | ------- | ------------------------------------------------------------------------------------ |
+| `stage_id`    | Int32   | Sim         | —      | —       | Id declarado do estágio do estudo em `stages.json` (não uma posição a partir de 0); `>= 0`. |
+| `scenario_id` | Int32   | Sim         | —      | —       | Índice da realização no estágio, a partir de 0; `>= 0`.                              |
+| `hydro_id`    | Int32   | Sim         | —      | —       | Id da usina hidrelétrica; identifica uma usina declarada.                            |
+| `value_m3s`   | Float64 | Sim         | —      | m³/s    | Valor de afluência da realização no estágio; finito.                                 |
+
+**Regras de validação.** Cada regra indica o tipo de erro que `novomodelo validate` e `novomodelo run` imprimem.
+
+- **Verificações por linha.** Cada arquivo é lido sempre que está presente, qualquer que seja o esquema da classe. `stage_id >= 0`,
+  `scenario_id >= 0`, valor finito e nenhuma linha (`stage_id`, `scenario_id`, entidade) repetida; uma coluna ausente ou uma
+  coluna de tipo errado falha da mesma forma. Tipo: `SchemaViolation`.
+- **Referências a entidades.** Um id de entidade que não identifica nenhuma usina hidrelétrica, barramento ou NCS declarado (a coluna de entidade de cada um dos três
+  arquivos) é um erro `InvalidReference`.
+- **Esquema sem dados.** Uma classe cujo esquema resulta em `external` (no treinamento, ou na simulação quando
+  `simulation.scenario_source` é declarado) enquanto seu arquivo está ausente ou não tem linhas é um `BusinessRuleViolation`
+  em `config.json`.
+- **Coerência da biblioteca.** As regras a seguir se aplicam às classes que `training.scenario_source` amostra no esquema
+  `external`; uma classe que é `external` apenas em `simulation.scenario_source` não é verificada por elas.
+  - **Estágio não resolvido.** Todo `stage_id` deve ser um id declarado de estágio do estudo; caso contrário, `InvalidValue`.
+  - **Ids de cenário.** Em cada estágio, toda entidade que possui linhas tem exatamente os ids `0` a `n − 1`, uma vez cada, em que
+    `n` é o número de valores distintos de `scenario_id` naquele estágio; uma numeração a partir de 1 ou uma lacuna é um
+    `BusinessRuleViolation`.
+  - **Um único eixo de realizações.** Todas essas classes declaram o mesmo `n` em cada estágio; caso contrário,
+    `BusinessRuleViolation`.
+  - **Coluna de afluência constante (somente afluências).** Uma usina hidrelétrica cujos valores em um estágio são todos iguais (σ = 0) é um
+    `BusinessRuleViolation` quando a usina tem linha em `scenarios/inflow_ar_coefficients.parquet` ou
+    `scenarios/inflow_annual_component.parquet`; veja
+    [Coluna de afluência externa determinística sob um modelo autorregressivo](/pt-br/reference/error-codes/#coluna-deterministica-de-afluencia-externa-sob-modelo-autorregressivo).
+  - **Coerência de prefixo.** Sob um grafo declarado com `policy_graph.nodes[]` (veja [`stages.json`](/pt-br/reference/case-format/stages/#stagesjson)), as duas
+    colunas para as quais apontam os nós de uma transição devem coincidir em todo estágio até o estágio do nó de origem; caso contrário, um
+    aviso `ModelQuality`.
+- **Cobertura das entidades.** Uma classe cujo esquema resulta em `external` (no treinamento, ou na simulação quando
+  `simulation.scenario_source` é declarado) precisa de pelo menos uma linha para cada entidade que o seu vetor de ruído posiciona (veja a
+  ordenação das entidades em [`scenarios/noise_openings.parquet`](#scenariosnoise_openingsparquet)): toda usina hidrelétrica declarada, todo
+  barramento com linha em `scenarios/load_seasonal_stats.parquet` e toda NCS com linha em
+  `scenarios/non_controllable_stats.parquet`. `novomodelo run` recusa uma classe com entidade faltante ao configurar o
+  estudo, com um erro `insufficient data` que identifica a classe e a entidade, e encerra com código `1`. Uma classe que é `external`
+  apenas em `simulation.scenario_source` é recusada com um erro `library width mismatch` (código de saída `1`) quando seu arquivo acrescenta
+  uma entidade que o vetor de ruído do treinamento não posiciona: um barramento cujo `std_mw` é `0`, ou uma NCS sem linha em
+  `non_controllable_stats.parquet`. `novomodelo validate` informa qualquer das duas recusas em todo caso: como fase
+  `StudySetupError`, com o rótulo `scenarios/` para `insufficient data` e `config.json` para a incompatibilidade de largura, ou como
+  `BoundaryReconciliationError` com a mensagem prefixada por `policy.boundary: ` quando `policy.boundary` está configurado.
+
+---
+
+## `scenarios/external_load_scenarios.parquet`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/)
+
+Realizações de carga pré-calculadas, lidas quando o `scheme` de carga é `"external"` em [`training.scenario_source`](/pt-br/running/configuration/#trainingscenario_source) ou
+[`simulation.scenario_source`](/pt-br/running/configuration/#simulationscenario_source). As realizações são numeradas por estágio por
+`scenario_id`; o modo como as simulações as sorteiam está descrito em
+[Geração de cenários §4](/pt-br/math/scenario-generation/#4-integracao-de-cenarios-externos), e quais classes recebem
+a média e o desvio-padrão do arquivo está indicado em
+[`scenarios/inflow_seasonal_stats.parquet`](#scenariosinflow_seasonal_statsparquet).
+
+| Nome          | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                            |
+| ------------- | ------- | ----------- | ------ | ------- | ------------------------------------------------------------------------------------ |
+| `stage_id`    | Int32   | Sim         | —      | —       | Id declarado do estágio do estudo em `stages.json` (não uma posição a partir de 0); `>= 0`. |
+| `scenario_id` | Int32   | Sim         | —      | —       | Índice da realização no estágio, a partir de 0; `>= 0`.                              |
+| `bus_id`      | Int32   | Sim         | —      | —       | Id do barramento; identifica um barramento declarado.                                |
+| `value_mw`    | Float64 | Sim         | —      | MW      | Valor de carga da realização no estágio; finito.                                     |
+
+Estas regras se aplicam conforme listadas em
+[`scenarios/external_inflow_scenarios.parquet`](#scenariosexternal_inflow_scenariosparquet); a regra da coluna constante
+é exclusiva das afluências.
+
+---
+
+## `scenarios/external_ncs_scenarios.parquet`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/)
+
+Realizações pré-calculadas de disponibilidade de fontes não despacháveis, lidas quando o `scheme` de NCS é `"external"` em
+[`training.scenario_source`](/pt-br/running/configuration/#trainingscenario_source) ou [`simulation.scenario_source`](/pt-br/running/configuration/#simulationscenario_source). As realizações são
+numeradas por estágio por `scenario_id`; o modo como as simulações as sorteiam está descrito em
+[Geração de cenários §4](/pt-br/math/scenario-generation/#4-integracao-de-cenarios-externos), e quais classes recebem
+a média e o desvio-padrão do arquivo está indicado em
+[`scenarios/inflow_seasonal_stats.parquet`](#scenariosinflow_seasonal_statsparquet).
+
+| Nome                  | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                            |
+| --------------------- | ------- | ----------- | ------ | ------- | ------------------------------------------------------------------------------------ |
+| `stage_id`            | Int32   | Sim         | —      | —       | Id declarado do estágio do estudo em `stages.json` (não uma posição a partir de 0); `>= 0`. |
+| `scenario_id`         | Int32   | Sim         | —      | —       | Índice da realização no estágio, a partir de 0; `>= 0`.                              |
+| `ncs_id`              | Int32   | Sim         | —      | —       | Id da fonte não despachável; identifica uma NCS declarada.                           |
+| `availability_factor` | Float64 | Sim         | —      | —       | Fator de disponibilidade da realização no estágio, adimensional; finito.             |
+
+Estas regras se aplicam conforme listadas em
+[`scenarios/external_inflow_scenarios.parquet`](#scenariosexternal_inflow_scenariosparquet); a regra da coluna constante
+é exclusiva das afluências.
+
+---
+
+## `scenarios/load_seasonal_stats.parquet`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/)
+
+Estatísticas sazonais de carga de cada par (barramento, estágio). `mean_mw` é a carga média do barramento no estágio; a carga de cada
+patamar é o valor do estágio multiplicado pelo fator do patamar em [`scenarios/load_factors.json`](#scenariosload_factorsjson). Quando
+o arquivo tem alguma linha, ele precisa de uma linha para cada barramento em cada estágio do estudo. Sem o arquivo, todo barramento tem carga nula,
+a menos que o esquema de carga seja `external` no treinamento. Um barramento cujo `std_mw` é maior que `0` possui ruído de carga
+([Geração de cenários §5.1](/pt-br/math/scenario-generation/#51-modelo-de-incerteza-da-carga)). No esquema de carga `external`, o
+arquivo é opcional e a média e o desvio-padrão vêm do arquivo externo (veja
+[`scenarios/inflow_seasonal_stats.parquet`](#scenariosinflow_seasonal_statsparquet)).
+
+| Nome       | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                                         |
+| ---------- | ------- | ----------- | ------ | ------- | ------------------------------------------------------------------------------------------------- |
+| `bus_id`   | Int32   | Sim         | —      | —       | Id do barramento; identifica um barramento declarado.                                             |
+| `stage_id` | Int32   | Sim         | —      | —       | Id declarado do estágio do estudo em `stages.json` (não uma posição a partir de 0).               |
+| `mean_mw`  | Float64 | Sim         | —      | MW      | Carga média do barramento no estágio; finita.                                                     |
+| `std_mw`   | Float64 | Sim         | —      | MW      | Desvio-padrão da carga no estágio; finito e `>= 0`. `0` corresponde a uma carga determinística.   |
+
+**Regras de validação.** Cada regra indica o tipo de erro que `novomodelo validate` informa.
+
+- **Verificações por linha.** Toda coluna está presente com seu tipo, `mean_mw` é finito e `std_mw` é finito e `>= 0`.
+  Tipo: `SchemaViolation`.
+- **Cobertura.** Quando o arquivo tem alguma linha, todo barramento tem uma linha em cada estágio do estudo; cada par faltante é um
+  erro `DimensionMismatch`, `Bus <id> missing load seasonal stats for stage <id>`.
+- **Barramento declarado.** Um `bus_id` que não identifica nenhum barramento declarado é um erro `InvalidReference`.
+
+---
+
+## `scenarios/load_factors.json`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/)
+
+Fatores de escala da carga por barramento, por estágio e por patamar. Quando
+presente, cada fator multiplica a realização estocástica da demanda de carga no
+barramento especificado para o patamar especificado. Isso permite modelar padrões
+horários ou sazonais na forma da carga sem alterar o modelo estatístico subjacente.
+
+Quando este arquivo está ausente, todos os fatores de carga assumem o valor padrão
+1,0. Quando um par `(bus_id, stage_id)` está ausente do arquivo, seus fatores também
+assumem o valor padrão 1,0 em todos os patamares.
+
+**Estrutura JSON:**
+
+```json
+{
+  "load_factors": [
+    {
+      "bus_id": 0,
+      "stage_id": 0,
+      "block_factors": [
+        { "block_id": 0, "factor": 0.8 },
+        { "block_id": 1, "factor": 1.2 }
+      ]
+    }
+  ]
+}
+```
+
+**Campos por entrada:**
+
+| Nome                           | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                          |
+| ------------------------------ | ------- | ----------- | ------ | ------- | ---------------------------------------------------------------------------------- |
+| `load_factors[].bus_id`        | inteiro | Sim         | —      | —       | ID da entidade barramento. Deve referir-se a um barramento definido em `system/buses.json`. |
+| `load_factors[].stage_id`      | inteiro | Sim         | —      | —       | `id` declarado do estágio do estudo em `stages.json`.                              |
+| `load_factors[].block_factors` | array   | Sim         | —      | —       | Array de pares `{ block_id, factor }` para cada patamar de carga.                  |
+
+**Campos de cada entrada de `block_factors`:**
+
+| Nome                                      | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                                                          |
+| ----------------------------------------- | ------- | ----------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `load_factors[].block_factors[].block_id` | inteiro | Sim         | —      | —       | Deve ser um patamar válido do estágio. Índice do patamar dentro do estágio, a partir de 0.                         |
+| `load_factors[].block_factors[].factor`   | número  | Sim         | —      | —       | Deve ser > 0 e finito. Multiplicador aplicado à realização estocástica da carga (MW) neste barramento e patamar.   |
+
+**Efeito:** `load_rhs = mean_mw * stochastic_noise_factor * block_factor`.
+Um fator igual a 1,0 mantém a carga inalterada. Valores menores que 1,0 reduzem a
+carga; valores maiores que 1,0 a aumentam.
+
+---
+
+## `scenarios/non_controllable_factors.json`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/) · [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Fatores de escala por NCS, por estágio e por patamar para a geração disponível das
+fontes não despacháveis (NCS). Quando presente, cada fator multiplica a geração
+disponível da fonte no patamar especificado: o limite de `constraints/ncs_bounds.parquet` (`max_generation_mw`
+onde nenhuma linha se aplica) para uma fonte sem modelo estocástico de disponibilidade, e `max_generation_mw` multiplicado pela
+razão de disponibilidade para uma fonte com linhas em
+[`scenarios/non_controllable_stats.parquet`](#scenariosnon_controllable_statsparquet).
+Isso permite modelar padrões de disponibilidade dentro do estágio, como perfis
+diários de irradiância solar ou variações da velocidade do vento entre os patamares
+de carga.
+
+Quando este arquivo está ausente, todos os fatores por patamar das NCS assumem o
+valor padrão 1,0. Quando um par `(ncs_id, stage_id)` está ausente do arquivo, seus
+fatores assumem o valor padrão 1,0 em todos os patamares.
+
+**Estrutura JSON:**
+
+```json
+{
+  "non_controllable_factors": [
+    {
+      "ncs_id": 0,
+      "stage_id": 0,
+      "block_factors": [
+        { "block_id": 0, "factor": 0.3 },
+        { "block_id": 1, "factor": 0.8 }
+      ]
+    }
+  ]
+}
+```
+
+**Campos por entrada:**
+
+| Nome                                       | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                                 |
+| ------------------------------------------ | ------- | ----------- | ------ | ------- | ----------------------------------------------------------------------------------------- |
+| `non_controllable_factors[].ncs_id`        | inteiro | Sim         | —      | —       | ID da entidade NCS. Deve referir-se a uma fonte em `system/non_controllable_sources.json`. |
+| `non_controllable_factors[].stage_id`      | inteiro | Sim         | —      | —       | `id` declarado do estágio do estudo em `stages.json`.                                     |
+| `non_controllable_factors[].block_factors` | array   | Sim         | —      | —       | Array de pares `{ block_id, factor }` para cada patamar de carga.                         |
+
+**Campos de cada entrada de `block_factors`:**
+
+| Nome                                                  | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                                                 |
+| ----------------------------------------------------- | ------- | ----------- | ------ | ------- | --------------------------------------------------------------------------------------------------------- |
+| `non_controllable_factors[].block_factors[].block_id` | inteiro | Sim         | —      | —       | Deve ser um patamar válido do estágio. Índice do patamar dentro do estágio, a partir de 0.                |
+| `non_controllable_factors[].block_factors[].factor`   | número  | Sim         | —      | —       | Deve ser > 0 e finito. Multiplicador aplicado ao limite de geração disponível do estágio para este patamar. |
+
+**Efeito:** para uma fonte sem modelo estocástico de disponibilidade,
+`available_mw_block = available_generation_mw * block_factor`; para uma fonte com linhas em
+`non_controllable_stats.parquet`, `available_mw_block = max_generation_mw * ratio * block_factor`, em que `ratio` é a
+razão de disponibilidade realizada no cenário, sorteada do modelo desse arquivo ou, no esquema `external`, de
+`external_ncs_scenarios.parquet`. Uma fonte sem linha nesse arquivo que obtém sua disponibilidade de
+`external_ncs_scenarios.parquet` no esquema `external` não é escalada pelos fatores.
+Um fator igual a 1,0 mantém o limite inalterado; fatores abaixo de 1,0 reduzem a
+geração disponível e fatores acima de 1,0 a elevam. O fator deve ser estritamente
+positivo — `0.0` é rejeitado na carga.
+
+---
+
+## `scenarios/non_controllable_stats.parquet`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/) · [Formulações específicas por equipamento](/pt-br/math/equipment-formulations/)
+
+Modelo estocástico de disponibilidade por NCS e por estágio. Cada linha fornece a
+média e o desvio-padrão do fator de disponibilidade de uma entidade NCS em um
+estágio. A razão de disponibilidade de um estágio e cenário é
+`clamp(mean + std × η, 0, 1)`; a geração disponível de cada patamar é o
+`max_generation_mw` da fonte × essa razão × o fator do patamar em
+`scenarios/non_controllable_factors.json` (o fator é 1 quando nenhum é
+informado); uma linha de `constraints/ncs_bounds.parquet` não altera essa geração disponível (veja
+[Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis)).
+
+| Nome       | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                   |
+| ---------- | ------- | ----------- | ------ | ------- | ----------------------------------------------------------- |
+| `ncs_id`   | Int32   | Sim         | —      | —       | ID da fonte não despachável                                 |
+| `stage_id` | Int32   | Sim         | —      | —       | ID do estágio                                               |
+| `mean`     | Float64 | Sim         | —      | —       | Fator de disponibilidade médio em [0, 1]                    |
+| `std`      | Float64 | Sim         | —      | —       | Desvio-padrão do fator de disponibilidade (>= 0)            |
+
+Quando ausente, a disponibilidade das NCS é determinística, dada por
+`constraints/ncs_bounds.parquet` ou pelo `max_generation_mw` da entidade.
+
+---
+
+## `scenarios/correlation.json`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/)
+
+Correlação espacial dos ruídos: perfis nomeados de grupos de correlação e um calendário opcional de associação entre estágios e perfis. Um
+grupo contém entidades de uma única classe (`inflow`, `load` ou `ncs`), e cada classe é correlacionada separadamente. A
+decomposição das matrizes e o tratamento de autovalores negativos estão em
+[Geração de cenários §2.1](/pt-br/math/scenario-generation/#21-geracao-de-ruidos-correlacionados); a aba Configurar de
+[Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model#implementacao-no-novo-modelo) traz um exemplo resolvido e o
+uso do arquivo em cada caminho de execução.
+
+| Nome                                                   | Tipo          | Obrigatório | Padrão | Unidade | Descrição                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------ | ------------- | ----------- | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `method`                                               | string        | Sim         | —      | —       | Um entre `"spectral"`. Método de decomposição das matrizes de correlação.                                                                                                                                                                                                                                  |
+| `profiles`                                             | objeto        | Sim         | —      | —       | Perfis de correlação nomeados, indexados pelo nome do perfil; contém pelo menos um.                                                                                                                                                                                                                        |
+| `profiles.<name>.correlation_groups`                   | array         | Sim         | —      | —       | Grupos de entidades correlacionadas do perfil `<name>`; pode ser vazio.                                                                                                                                                                                                                                    |
+| `profiles.<name>.correlation_groups[].name`            | string        | Sim         | —      | —       | Rótulo do grupo.                                                                                                                                                                                                                                                                                           |
+| `profiles.<name>.correlation_groups[].entities`        | array         | Sim         | —      | —       | Referências às entidades do grupo, na ordem da matriz; pelo menos uma, todas de um mesmo `type`.                                                                                                                                                                                                           |
+| `profiles.<name>.correlation_groups[].entities[].type` | string        | Sim         | —      | —       | Classe da entidade: `"inflow"` (a afluência de uma usina hidrelétrica), `"load"` (a carga de um barramento) ou `"ncs"` (a disponibilidade de uma fonte não despachável).                                                                                                                                   |
+| `profiles.<name>.correlation_groups[].entities[].id`   | inteiro       | Sim         | —      | —       | Id da usina hidrelétrica (`inflow`), do barramento (`load`) ou da NCS (`ncs`); identifica uma entidade declarada.                                                                                                                                                                                          |
+| `profiles.<name>.correlation_groups[].matrix`          | array         | Sim         | —      | —       | Matriz de correlação em ordem por linhas (row-major), com uma linha e uma coluna por entidade; simétrica, diagonal `1.0`, elementos em `[-1.0, 1.0]`.                                                                                                                                                      |
+| `schedule`                                             | array \| null | Não         | —      | —       | Entradas de associação entre estágio e perfil. Ausente ou `null` equivale ao calendário vazio.                                                                                                                                                                                                             |
+| `schedule[].stage_id`                                  | inteiro       | Sim         | —      | —       | Estágio ao qual se aplica o perfil da entrada. A árvore de aberturas o associa a um id declarado de estágio do estudo em `stages.json`; a amostragem fora da amostra (out-of-sample) da simulação forward e da simulação final o associa à posição do estágio, a partir de 0, entre os estágios do estudo. As duas coincidem quando os ids são `0, 1, 2, …`. |
+| `schedule[].profile_name`                              | string        | Sim         | —      | —       | Nome de um perfil em `profiles`.                                                                                                                                                                                                                                                                           |
+
+**Regras de validação.** Cada regra indica o tipo de erro que `novomodelo validate` informa.
+
+- **Estrutura.** Uma chave obrigatória ausente, um valor de tipo errado, um `method` diferente de `"spectral"` ou uma chave desconhecida
+  em qualquer objeto é um `ParseError`.
+- **Perfis.** `profiles` contém pelo menos um perfil. Tipo: `SchemaViolation`.
+- **Matriz.** A `matrix` de cada grupo tem uma linha por entidade e é quadrada; seus elementos estão em `[-1.0, 1.0]`; sua diagonal
+  é `1.0`; e ela é simétrica, com cada par de elementos espelhados diferindo no máximo `1e-10`. Tipo: `SchemaViolation`.
+- **Calendário.** Todo `schedule[].profile_name` identifica um perfil de `profiles`. Tipo: `SchemaViolation`. Um
+  `stage_id` não é verificado em relação a `stages.json`.
+- **Referências a entidades.** Um `entities[].id` que não identifica nenhuma usina hidrelétrica (`inflow`), barramento (`load`) ou NCS
+  (`ncs`) declarado, e um `type` diferente desses três, são cada um um erro `InvalidReference`.
+- **Uma classe por grupo.** As entidades de um grupo compartilham um único `type`; um grupo misto é um `BusinessRuleViolation`.
+- **Perfil padrão.** O perfil `"default"`, ou o único perfil, aplica-se em todo estágio que `schedule` não
+  menciona. Com mais de um perfil e nenhum chamado `"default"`, o caso é recusado com um `StochasticPreparationError`.
+- **Grupos.** Um grupo lista pelo menos uma entidade. Dentro de um perfil, um valor de `id` aparece em no máximo um grupo, e uma única vez
+  nele, qualquer que seja o seu `type`: um grupo `inflow` e um grupo `load` que listem ambos o id `0` são rejeitados (a mensagem termina com
+  `groups must be disjoint`). Tipo: `StochasticPreparationError`.
+
+---
+
+## `scenarios/noise_openings.parquet`
+
+**Metodologia:** [Geração de cenários](/pt-br/math/scenario-generation/)
+
+Árvore de aberturas da simulação backward fornecida pelo usuário, lida **somente** quando `config.json`
+declara `training.scenario_source.openings = {"source": "file"}` (um arquivo não
+declarado é ignorado; um arquivo declarado mas ausente é um erro). Não é admitida com
+um grafo da política (policy graph) com `nodes[]` nem com seleção forward enumerada (veja
+[`training.scenario_source`](/pt-br/running/configuration/#trainingscenario_source)). Isso permite comparação entre ferramentas, análise de
+sensibilidade e reprodução de ida e volta de uma árvore de aberturas exportada anteriormente.
+
+| Nome            | Tipo    | Obrigatório | Padrão | Unidade | Descrição                                                                                 |
+| --------------- | ------- | ----------- | ------ | ------- | ----------------------------------------------------------------------------------------- |
+| `stage_id`      | Int32   | Sim         | —      | —       | Id declarado do estágio do estudo em `stages.json` (não uma posição a partir de 0)        |
+| `opening_index` | UInt32  | Sim         | —      | —       | Índice da abertura dentro do estágio, a partir de 0 (de 0 a `num_openings − 1` do estágio) |
+| `entity_index`  | UInt32  | Sim         | —      | —       | Posição no vetor de ruído, a partir de 0 (veja a ordenação das entidades abaixo)          |
+| `value`         | Float64 | Sim         | —      | —       | Realização do ruído para esta tripla (estágio, abertura, entidade)                        |
+
+**Ordenação das entidades.** O vetor de ruído é formado pelas usinas hidrelétricas na ordem canônica
+(`operational_start_date`, depois id), seguidas dos barramentos de carga que possuem ruído de carga
+(`std_mw > 0`, ou todos os barramentos de carga no esquema de carga `external`) e, por fim, de toda
+NCS com estatísticas de disponibilidade (incluindo `std = 0`, mais as NCS com cenários externos
+no esquema `external`); os blocos de barramentos de carga e de NCS são ordenados por id. Uma
+NCS com desvio-padrão nulo ainda ocupa uma posição. Violar essa ordem provoca atribuição
+silenciosa de valores às entidades erradas, pois o arquivo armazena apenas índices, e não identificadores de entidades.
+
+**Regras de validação.** O carregador gera um erro fatal em caso de falha:
+
+- **Estágio não resolvido** — todo `stage_id` deve ser um id declarado de estágio do estudo.
+- **Incompatibilidade de dimensão** — o número de valores distintos de `entity_index` deve
+  ser igual ao comprimento do vetor de ruído definido acima.
+- **Incompatibilidade do número de estágios** — os valores distintos de `stage_id` devem ser os
+  estágios declarados do estudo.
+- **Índices de abertura faltantes** — para cada estágio, todo índice de abertura de 0 a
+  `num_openings − 1` do estágio deve estar presente para todas as entidades. Lacunas não
+  são permitidas; a substituição parcial de um estágio não é suportada.
+
+O número total de linhas deve ser igual à soma, sobre os estágios do estudo, de
+`num_openings × dimension`.
+
+Veja [Geração de cenários](/pt-br/math/scenario-generation) para a árvore de aberturas e
+[Configuração](/pt-br/running/configuration/#trainingscenario_source) para o campo
+`openings`.

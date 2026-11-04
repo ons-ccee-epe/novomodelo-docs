@@ -1,0 +1,239 @@
+---
+title: Formulações específicas por equipamento
+description: Restrições detalhadas do PL para cada tipo de equipamento — termelétricas, transmissão, contratos, bombeamento, NCS — com suas contribuições à função objetivo e ao balanço de carga.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as EquipmentConfigure } from './_impl/_equipment.configure.mdx';
+import { Content as EquipmentIO } from './_impl/_equipment.io.mdx';
+import { Content as EquipmentNotes } from './_impl/_equipment.notes.mdx';
+
+## Objetivo
+
+Este capítulo detalha as restrições do PL para cada tipo de equipamento no Novo Modelo. Enquanto a [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) descreve _o que_ é cada elemento e suas variáveis de decisão, este capítulo contém as _restrições matemáticas detalhadas_ que regem o comportamento de cada tipo de equipamento dentro do PL. A ordem de leitura é: [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) → **este capítulo** → [Formulação do PL](/pt-br/math/lp-formulation).
+
+Para as definições de variáveis e conjuntos de índices, consulte [Convenções de notação](/pt-br/overview/notation-conventions). Para as restrições de produção hidrelétrica especificamente, consulte [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models).
+
+## 1. Usinas termelétricas
+
+### 1.1 Termelétricas convencionais
+
+Cada usina termelétrica tem um custo marginal por MWh gerado, $c^{th}_j$, e uma coluna de geração por patamar, $g_{j,k}$.
+
+**Variáveis de decisão:**
+
+- $g_{j,k}$ = geração da termelétrica $j$ no patamar $k$ (MW)
+
+**Restrições:**
+
+Limites de geração:
+
+$$
+\underline{G}_j \leq g_{j,k} \leq \bar{G}_j
+$$
+
+Ambos os limites são restrições **rígidas**, sem variáveis de folga — o despacho térmico é diretamente controlável (ao contrário do hidrelétrico, que depende de afluências exógenas). Os limites podem variar por estágio e por patamar; $c^{th}_j$ varia apenas por estágio.
+
+**Contribuição para a função objetivo:**
+
+$$
+\sum_{k} \tau_k \, c^{th}_j \, g_{j,k}
+$$
+
+:::note[Relaxação contínua]
+O Novo Modelo não inclui variáveis binárias de compromisso de despacho no PL do treinamento (training). A geração mínima $\underline{G}_j$ é imposta como um simples limite inferior em todo patamar em que a usina está em operação: uma usina com $\underline{G}_j > 0$ nunca é desligada, e uma usina com $\underline{G}_j = 0$ pode ser despachada em um nível intermediário entre zero e a carga mínima estável da unidade física — uma região fisicamente inviável para a maioria das unidades térmicas. Trata-se de uma escolha deliberada de modelagem: a relaxação contínua é aceitável para o horizonte de planejamento de longo prazo a que se destina a PDDE (SDDP).
+:::
+
+## 2. Linhas de transmissão
+
+**Variáveis de decisão:**
+
+- $f^+_{n,k}$ = fluxo direto (origem → destino)
+- $f^-_{n,k}$ = fluxo reverso (destino → origem)
+
+**Limites:**
+
+$$
+0 \leq f^+_{n,k} \leq \bar{F}^+_n, \quad 0 \leq f^-_{n,k} \leq \bar{F}^-_n
+$$
+
+:::note[Capacidade variável por estágio e por patamar]
+Os limites de capacidade $\bar{F}^+_n$ e $\bar{F}^-_n$ podem variar por estágio e, opcionalmente, por patamar, por meio de uma sobrescrita de capacidade variável por estágio, em MW absolutos (aba Configurar da [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements#implementacao-no-novo-modelo)). Uma linha sem sobrescrita mantém sua capacidade-base inalterada.
+:::
+
+**Contribuição para o balanço de carga:**
+
+No barramento de origem:
+
+$$
+-f^+_{n,k} + f^-_{n,k}
+$$
+
+No barramento de destino:
+
+$$
+f^+_{n,k} - f^-_{n,k}
+$$
+
+O PL de despacho não tem perdas: os dois sentidos de fluxo entram nos balanços dos barramentos com coeficiente ±1. As perdas de transmissão são uma grandeza informada, calculada após a resolução, $\text{loss}_{n,k} = (1 - \eta_n)\,(f^+_{n,k} + f^-_{n,k})$, em que $\eta_n$ é a eficiência informada da linha ([Convenções de notação](/pt-br/overview/notation-conventions)). Consulte a [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) para o modelo de rede.
+
+**Contribuição para a função objetivo:**
+
+$$
+\sum_{k} \tau_k \cdot c^{exch}_n (f^+_{n,k} + f^-_{n,k})
+$$
+
+:::note[Observação sobre o custo de intercâmbio]
+O custo $c^{exch}_n$ é um **termo de regularização**, e não um custo real de transmissão. Sua finalidade é:
+
+1. **Evitar soluções degeneradas**: sem esse termo, existem múltiplas soluções equivalentes com padrões de fluxo diferentes
+2. **Orientar o solver**: um custo positivo pequeno favorece transferências mínimas de potência quando há indiferença
+3. **Melhorar a estabilidade numérica**: reduz a ciclagem nas iterações do método simplex
+
+Seu valor é definido bem abaixo de todos os custos de geração e de déficit, de modo que apenas desempate; se ele alterar perceptivelmente as decisões de despacho, está alto demais.
+
+Consulte [Sistema de penalidades — Categoria 3](/pt-br/math/penalty-system#categoria-3-custos-de-regularizacao-orientacao-da-solucao) para os custos de regularização.
+:::
+
+## 3. Contratos de importação/exportação
+
+Cada contrato é **unidirecional** — ou é um contrato de importação, ou de exportação.
+
+**Variáveis de decisão:**
+
+- $\chi_{c,k}$ = potência despachada do contrato $c$ no patamar $k$
+
+**Limites:**
+
+$$
+\underline{C}_c \leq \chi_{c,k} \leq \bar{C}_c
+$$
+
+**Contribuição para o balanço de carga:**
+
+No barramento conectado:
+
+- Contratos de importação ($c \in \mathcal{C}^{imp}$): $+\chi_{c,k}$ (potência que entra no sistema)
+- Contratos de exportação ($c \in \mathcal{C}^{exp}$): $-\chi_{c,k}$ (potência que sai do sistema)
+
+**Contribuição para a função objetivo:**
+
+$$
+\sum_{k} \tau_k \sum_{c \in \mathcal{C}} c^{ctr}_c \cdot \chi_{c,k}
+$$
+
+Como os preços de importação ($c^{ctr}_c$) são positivos e os de exportação são negativos, esse único somatório soma naturalmente os custos de importação e subtrai a receita de exportação. O sinal do preço é independente do sinal no balanço de carga: uma coluna de importação injeta $+\chi_{c,k}$ _e_ tem preço positivo (custo); uma coluna de exportação retira $-\chi_{c,k}$ _e_ tem preço negativo (receita).
+
+**Piso take-or-pay e ciclo de vida.** Um limite inferior não nulo $\underline{C}_c$ é uma obrigação rígida do tipo **take-or-pay**: o PL deve despachar pelo menos $\underline{C}_c$ ao preço do contrato, mesmo quando houver oferta mais barata. Os limites $[\underline{C}_c, \bar{C}_c]$ e o preço $c^{ctr}_c$ podem variar, cada um, por estágio e, opcionalmente, por patamar. Fora de sua janela de operação ([Visão geral da modelagem dos elementos do sistema §1](/pt-br/math/system-elements#janelas-de-operacao-das-entidades)), a coluna do contrato é fixada em zero. Um contrato **não tem estado**: não possui variável de estado e não contribui para os cortes de Benders.
+
+## 4. Usinas elevatórias
+
+As usinas elevatórias transferem água de um reservatório de origem para um reservatório de destino, consumindo potência elétrica no processo. O sentido origem-destino é uma escolha de modelagem (tipicamente para cima / contra a cascata); a formulação não exige nenhuma relação particular de cotas.
+
+**Variáveis de decisão:**
+
+- $p_{y,k}$ = vazão bombeada na usina elevatória $y$ no patamar $k$ (m³/s)
+
+**Limites:**
+
+$$
+\underline{P}_y \leq p_{y,k} \leq \bar{P}_y
+$$
+
+Ambos os limites são restrições rígidas e podem variar por estágio e, opcionalmente, por patamar. Fora de sua janela de operação ([Visão geral da modelagem dos elementos do sistema §1](/pt-br/math/system-elements#janelas-de-operacao-das-entidades)), a coluna de vazão da usina elevatória é fixada em zero, de modo que ela não transfere água nem consome potência.
+
+**Consumo de potência:**
+
+$$
+P^{pump}_{y,k} = \rho^{pump}_y \cdot p_{y,k}
+$$
+
+em que $\rho^{pump}_y$ é a taxa de consumo de potência (MW por m³/s).
+
+**Impacto no balanço hídrico:**
+
+A vazão bombeada sai do reservatório da usina de origem e entra no da usina de destino, convertida em volume pelo fator de conversão do patamar $\zeta_k = 0.0036\,\tau_k$, sendo $\tau_k$ a duração do patamar $k$ em horas:
+
+- Em um estágio cronológico, patamar $k$: $-\zeta_k \, p_{y,k}$ no balanço hídrico do patamar $k$ da usina de origem e $+\zeta_k \, p_{y,k}$ no da usina de destino.
+- Em um estágio paralelo, cada usina tem uma única linha por estágio: $-\sum_{k \in \mathcal{K}} \zeta_k \, p_{y,k}$ na da origem e $+\sum_{k \in \mathcal{K}} \zeta_k \, p_{y,k}$ na do destino.
+
+Esses são os sinais da variação de armazenamento; na linha com todos os termos de [Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas), os mesmos termos aparecem no lado esquerdo com os sinais opostos.
+
+**Impacto no balanço de carga:**
+
+No barramento conectado: $-P^{pump}_{y,k} = -\rho^{pump}_y \cdot p_{y,k}$ (potência consumida)
+
+**Contribuição para a função objetivo:** nenhuma
+
+:::note[Observação sobre a modelagem econômica]
+As usinas elevatórias não têm termo de custo direto na função objetivo. O custo do bombeamento é capturado implicitamente pelo consumo de energia — o custo marginal da energia no barramento conectado determina o custo efetivo do bombeamento. Essa abordagem modela corretamente o incentivo econômico: bombear é atrativo quando os preços de energia são baixos (p. ex., excedente de geração hidrelétrica/renovável) e pouco atrativo quando os preços são altos (p. ex., despacho térmico na margem).
+:::
+
+## 5. Usinas hidrelétricas
+
+As restrições hidrelétricas são as mais complexas do sistema. Em vez de duplicá-las aqui, a formulação hidrelétrica está dividida em dois capítulos:
+
+- **Balanço hídrico, defluência, limites de armazenamento e restrições flexíveis**: consulte [Formulação do PL](/pt-br/math/lp-formulation) §4 (balanço hídrico), §6 (restrições de geração), §7 (restrições de defluência), §8 (limites das variáveis), §9 (penalidades por violação de restrições).
+- **Modelos de função de produção** (produtibilidade constante, FPHA): consulte [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models).
+
+Uma usina declara um ou mais **grupos de unidades geradoras**, cada um em seu próprio barramento; grupos que compartilham um barramento formam uma **célula (usina, barramento)**, e a vazão turbinada e a geração são acompanhadas por célula, e não por usina — armazenamento, vertimento e desvio permanecem por usina. Os limites de vazão turbinada e de geração (§8 e §6 da [Formulação do PL](/pt-br/math/lp-formulation)) são compostos por célula a partir dos grupos de unidades que a integram; uma usina com um único barramento tem exatamente uma célula, e toda fórmula se reduz à forma em nível de usina.
+
+Para as variáveis de decisão hidrelétricas e seu significado físico, consulte a [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) §5.
+
+## 6. Fontes de geração não despacháveis
+
+As fontes não despacháveis (parques eólicos, usinas solares, pequenas centrais hidrelétricas a fio d'água) têm uma geração disponível que o solver toma como dada: sorteada por cenário a partir do modelo de disponibilidade da fonte, quando houver ([Geração de cenários §5.4](/pt-br/math/scenario-generation#54-disponibilidade-das-fontes-nao-despachaveis)), e, caso contrário, a geração disponível do estágio. O solver só pode reduzir a geração abaixo do montante disponível — não pode despachar acima do que a natureza oferece.
+
+**Variáveis de decisão:**
+
+- $g^{nc}_{r,k}$ = geração da fonte não despachável $r$ no patamar $k$
+
+**Limites (rígidos):**
+
+$$
+0 \leq g^{nc}_{r,k} \leq A_{r,k}, \qquad A_{r,k} = \bar{G}_r \, \xi_r \, f_{r,k}
+$$
+
+em que $\bar{G}_r$ é a capacidade instalada, $\xi_r$ a razão de disponibilidade do estágio e do cenário ([Visão geral da modelagem dos elementos do sistema §6](/pt-br/math/system-elements#sujeita-a-corte-vs-geracao-compulsoria)) e $f_{r,k}$ o fator de patamar do patamar $k$ ($1$ quando não informado); uma fonte de geração compulsória (must-run) tem $g^{nc}_{r,k} = A_{r,k}$; uma fonte sem disponibilidade estocástica usa a geração disponível de seu estágio — a capacidade instalada, salvo se o estágio a definir — no lugar de $\bar{G}_r \xi_r$.
+
+**Contribuição para o balanço de carga:**
+
+No barramento conectado: $+g^{nc}_{r,k}$ (geração injetada)
+
+**Contribuição para a função objetivo:**
+
+$$
+- \sum_{k} \tau_k \sum_{r \in \mathcal{R}} c^{curt}_r \, g^{nc}_{r,k}
+$$
+
+O PL precifica o corte de geração (curtailment) como uma recompensa sobre a geração despachada. O termo é igual à penalidade de corte de geração $\sum_k \tau_k \sum_r c^{curt}_r \kappa_{r,k}$ menos a constante $\sum_k \tau_k \sum_r c^{curt}_r A_{r,k}$: leva às mesmas decisões e, por isso, o objetivo do estágio pode ser negativo. Uma fonte de geração compulsória contribui com a constante $-\tau_k c^{curt}_r A_{r,k}$.
+
+O custo de corte de geração $c^{curt}_r$ é uma penalidade de **regularização** (Categoria 3 no [Sistema de penalidades](/pt-br/math/penalty-system)), análoga ao custo de vertimento de uma usina hidrelétrica — o corte de geração descarta energia disponível "gratuita".
+
+:::note[Observação: o corte de geração não é uma variável separada]
+O corte de geração **não** é uma variável de decisão separada no PL — ele é obtido como $\kappa_{r,k} = A_{r,k} - g^{nc}_{r,k}$. Ambos os limites são restrições rígidas, sem variáveis de folga, pois a geração disponível nunca é negativa: uma fonte que admite corte pode ser reduzida a zero, e os dois limites de uma fonte de geração compulsória são iguais a $A_{r,k}$.
+:::
+
+:::note[Fatores de patamar]
+A razão de disponibilidade é um único valor por estágio e cenário, e os fatores de patamar $f_{r,k}$ a modulam ao longo dos patamares do estágio, assim como os fatores de carga por patamar modulam a carga ([Geração de cenários](/pt-br/math/scenario-generation)).
+:::
+
+## Implementação no Novo Modelo
+
+A metodologia acima define as restrições do PL de cada tipo de equipamento; as abas abaixo mostram como a interface do software Novo Modelo configura, alimenta e informa os resultados dos quatro tipos de elemento que têm arquivos de configuração próprios — termelétricas, contratos, usinas elevatórias e fontes não despacháveis.
+
+<Tabs>
+  <TabItem label="Configurar"><EquipmentConfigure /></TabItem>
+  <TabItem label="Entradas e saídas"><EquipmentIO /></TabItem>
+  <TabItem label="Notas de implementação"><EquipmentNotes /></TabItem>
+</Tabs>
+
+## Referências cruzadas
+
+- [Convenções de notação](/pt-br/overview/notation-conventions) — definições de variáveis e conjuntos ($g_j$, $f_n$, $\chi_c$, $p_y$, $\tau_k$, $\zeta_k$)
+- [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) — descrição dos elementos, variáveis de decisão e conexões
+- [Formulação do PL](/pt-br/math/lp-formulation) — como as restrições dos equipamentos se integram ao PL montado; balanço hídrico (§4), restrições de geração (§6), limites das variáveis (§8)
+- [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models) — restrições da função de produção específicas das hidrelétricas (constante, FPHA)
+- [Sistema de penalidades](/pt-br/math/penalty-system) — taxonomia das penalidades, custos de regularização vs. de violação
+- [Variantes de formulação dos patamares](/pt-br/math/block-formulations) — estrutura de patamares dentro da qual operam as restrições dos equipamentos
+- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — algoritmo iterativo que resolve os subproblemas de estágio que contêm essas restrições dos equipamentos

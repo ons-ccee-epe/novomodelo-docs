@@ -1,0 +1,64 @@
+---
+title: Carga
+description: Como o Novo Modelo trata a carga — a demanda em cada barramento, sua incerteza por estágio e seu formato entre os patamares de carga.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import Load from '../../../../../components/entity/illustrations/Load.astro';
+
+<EntityHero family="network" icon="load" lead="Carga é a potência elétrica consumida em um barramento. É a demanda que o balanço de carga desse barramento deve atender em todos os patamares, e pode variar de um patamar para outro por meio de uma tabela de fatores de carga." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'O que o sistema precisa atender', text: 'Em cada patamar, a geração, as importações e a potência que chega pelas linhas a um barramento, somadas ao déficit e descontadas as exportações, o consumo de bombeamento, a potência que sai pelas linhas e o excesso, devem igualar a carga.' },
+  { title: 'Varia por patamar', text: 'A carga do estágio vira a carga de cada patamar por meio de um fator por patamar. Na prática brasileira, os três patamares de carga são denominados leve, média e pesada.' },
+  { title: 'Incerta por estágio', text: 'A carga é descrita por uma média e um desvio-padrão para cada barramento e estágio, e cada cenário sorteia a sua própria realização.' },
+]} />
+
+## Demanda por patamar
+
+<Load lang="pt-BR" />
+
+## O que o modelo decide
+
+Nada sobre a carga em si: ela é um dado, não uma decisão. O que o modelo decide é como atendê-la, com a geração, as importações e os fluxos nas linhas disponíveis, e com o déficit como último recurso (veja a página [Déficit](/pt-br/entities/network/deficit/)).
+
+## O que você informa
+
+- Para cada barramento e estágio, a carga média e o seu desvio-padrão, em MW. Um desvio-padrão nulo torna a carga determinística.
+- Opcionalmente, fatores de carga para cada barramento, estágio e patamar, que devem ser positivos. Um patamar sem fator informado mantém a carga do estágio inalterada e, sem o arquivo de fatores, todos os fatores valem 1.
+- Opcionalmente, cenários de carga pré-calculados, quando a carga vem de uma fonte externa.
+- Opcionalmente, correlação entre as cargas de barramentos diferentes, por meio de grupos de correlação.
+
+## Como a carga se forma
+
+- **Sem estatísticas de carga**, todo barramento tem carga zero, a menos que o esquema de carga seja externo no treinamento (training).
+- **Com estatísticas de carga**, cada cenário sorteia uma realização para cada barramento e estágio a partir da média mais o desvio-padrão multiplicado por um ruído aleatório, e o resultado nunca é negativo: é truncado em zero. A carga não tem estrutura autorregressiva.
+- **Por patamar**, a realização da carga do estágio é multiplicada pelo fator de patamar do barramento.
+
+## Nos resultados
+
+A saída da simulação informa, para cada barramento e patamar, a carga em MW e a energia da carga no patamar em MWh, junto com o déficit, o excesso e o preço spot.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Formulação do PL §3 — a restrição de atendimento à carga', href: '/pt-br/math/lp-formulation/#3-restricao-de-atendimento-a-carga' },
+  { kind: 'Metodologia', title: 'Geração de cenários §5.1 — modelo de incerteza da carga', href: '/pt-br/math/scenario-generation/#51-modelo-de-incerteza-da-carga' },
+  { kind: 'Metodologia', title: 'Geração de cenários §5.2 — fatores de carga por patamar', href: '/pt-br/math/scenario-generation/#52-fatores-de-carga-por-patamar' },
+  { kind: 'Metodologia', title: 'Geração de cenários §5.3 — correlação da carga', href: '/pt-br/math/scenario-generation/#53-correlacao-da-carga' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'scenarios/load_seasonal_stats.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosload_seasonal_statsparquet' },
+  { dir: 'in', path: 'scenarios/load_factors.json', href: '/pt-br/reference/case-format/scenarios/#scenariosload_factorsjson' },
+  { dir: 'in', path: 'scenarios/external_load_scenarios.parquet', href: '/pt-br/reference/case-format/scenarios/#scenariosexternal_load_scenariosparquet' },
+  { dir: 'out', path: 'simulation/buses/', href: '/pt-br/reference/output/simulation/#simulationbuses' },
+]} />

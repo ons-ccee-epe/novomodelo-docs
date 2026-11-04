@@ -1,0 +1,35 @@
+Este é um índice, restrito ao tema, dos arquivos envolvidos no sistema de penalidades ([Sistema de penalidades §1](/pt-br/math/penalty-system#1-resolucao-em-cascata)–[§3](/pt-br/math/penalty-system#3-valores-padrao-e-sobreposicoes-das-penalidades)) — ele
+nomeia cada arquivo e seu papel, sem repetir seus esquemas
+campo a campo. A referência exaustiva, campo a campo, do diretório do caso e das saídas
+pertence ao corpus de Referência (páginas [Formato do caso](/pt-br/reference/case-format/)
+e [Formato de saída](/pt-br/reference/output/)).
+
+### Entradas
+
+| Arquivo                                      | Papel                                                                                                                                                                   |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `penalties.json`                             | Penalidades padrão de todo o caso — obrigatório em todo caso; as quatro seções (`bus`, `line`, `hydro`, `non_controllable_source`) estão listadas em [`penalties.json`](/pt-br/reference/case-format/penalties/#penaltiesjson) no Formato do caso; a aba Configurar traz o exemplo, a cascata de resolução e as verificações feitas na carga. |
+| `constraints/penalty_overrides_bus.parquet`  | Sobrescrita esparsa de `excess_cost` por `(bus_id, stage_id)`. Os segmentos de déficit não variam por estágio, portanto não têm linha aqui.                                          |
+| `constraints/penalty_overrides_line.parquet` | Sobrescrita esparsa de `exchange_cost` por `(line_id, stage_id)`.                                                                                                          |
+| `constraints/penalty_overrides_hydro.parquet` | Sobrescrita esparsa, por `(hydro_id, stage_id)`, dos campos de penalidade das usinas hidrelétricas — um **superconjunto** do bloco `penalties` da entidade: os mesmos doze custos simétricos (incluindo `inflow_nonnegativity_cost`) **mais** as quatro variantes direcionais (retirada de água acima/abaixo, evaporação acima/abaixo) que o bloco `penalties` da entidade não aceita. Todas as colunas são opcionais e esparsas. |
+| `constraints/penalty_overrides_ncs.parquet`  | Sobrescrita esparsa de `curtailment_cost` por `(ncs_id, stage_id)`.                                                                                                        |
+| `system/buses.json` (`deficit_segments`)    | Cadastro de barramentos; apenas o campo `deficit_segments` é configuração de penalidade (tratado na aba Configurar) — o restante do esquema de barramentos pertence ao capítulo de topologia da rede. |
+| `system/lines.json` (`exchange_cost`)       | Cadastro de linhas de transmissão; apenas o campo `exchange_cost` é configuração de penalidade (tratado na aba Configurar) — o restante do esquema de linhas pertence ao capítulo de topologia da rede. |
+| `system/hydros.json` (bloco `penalties`)    | Cadastro de usinas hidrelétricas; o bloco `penalties` da entidade está documentado na aba Configurar da [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements#implementacao-no-novo-modelo) e não é repetido aqui. |
+
+Todos os arquivos parquet de sobrescrita de penalidades usam **armazenamento esparso**: só são necessárias linhas para
+os pares `(entity_id, stage_id)` em que um custo difere do padrão da entidade ou
+do padrão global, e todo valor presente deve ser estritamente
+positivo e finito.
+
+### Saídas
+
+| Arquivo / grupo de colunas              | Papel                                                                                                                                         |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `simulation/costs/`                     | Decomposição do custo monetário por estágio, incluindo uma coluna por categoria de penalidade — `deficit_cost`, `excess_cost`, `storage_violation_cost`, `filling_target_cost`, `hydro_violation_cost`, os custos de violação de defluência/turbinamento/geração/evaporação/retirada, `inflow_penalty_cost` e `generic_violation_cost` — ao lado das colunas de custo térmico, de térmica com antecipação de despacho e de contratos. `storage_violation_cost` e `filling_target_cost` são sempre `0`: os custos das folgas de piso de armazenamento e de meta de enchimento estão incluídos em `immediate_cost`. |
+| `simulation/violations/generic/`        | Uma linha por linha ativa de restrição genérica em cada estágio, com ou sem acionamento da folga (`0` quando não acionada). O `slack_value` informado é o **líquido com sinal** `s⁺−s⁻` das duas colunas de folga; seu custo monetário cobra **ambas** (`s⁺+s⁻`). |
+| Colunas de violação por usina hidrelétrica | Magnitudes das folgas (p. ex. `storage_violation_below_hm3`, `filling_target_violation_hm3`, as folgas direcionais de evaporação e de retirada de água), informadas ao lado de todas as demais colunas de despacho hidrelétrico — veja a aba Entradas e saídas de [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo) para o arquivo de saída hidrelétrica a que pertencem. |
+
+Para o esquema de saída completo (colunas, tipos, organização dos arquivos), consulte a
+página de referência [Formato de saída](/pt-br/reference/output/) no corpus de
+Referência.

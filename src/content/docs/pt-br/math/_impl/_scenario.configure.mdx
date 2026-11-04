@@ -1,0 +1,53 @@
+O esquema de amostragem, o método de geração da árvore de aberturas e as sementes são definidos em `config.json` e `stages.json`, e os arquivos de entrada indicados abaixo devem ser fornecidos. Esta aba relaciona os conceitos da metodologia acima a essas chaves e arquivos; as tabelas de campos estão em [Configuração](/pt-br/running/configuration/#trainingscenario_source) e [Formato do caso](/pt-br/reference/case-format/).
+
+### Esquemas de amostragem
+
+A [§3.2](/pt-br/math/scenario-generation#32-esquemas-de-amostragem-forward) define os quatro esquemas de amostragem da simulação forward. Cada classe estocástica (`inflow`, `load`, `ncs`) recebe seu próprio valor de `scheme` em `training.scenario_source`, e uma classe sem esse valor é `in_sample`.
+
+| Esquema     | Valor de `scheme` por classe | Entradas exigidas                                                                                                                                                            |
+| ----------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| InSample    | `in_sample`                | Modelos de incerteza ou histórico de vazões                                                                                                                                  |
+| OutOfSample | `out_of_sample`            | As mesmas entradas de `in_sample`                                                                                                                                            |
+| External    | `external`                 | O arquivo de cenários externos da classe: `scenarios/external_inflow_scenarios.parquet`, `scenarios/external_load_scenarios.parquet` ou `scenarios/external_ncs_scenarios.parquet` |
+| Historical  | `historical` (somente vazão) | `scenarios/inflow_history.parquet` e `season_definitions` em `stages.json`                                                                                                 |
+
+Em `out_of_sample`, o sorteio da simulação forward é um ruído novo, gerado a partir de uma semente independente da semente da árvore, com o `sampling_method` do estágio (Monte Carlo simples nos estágios `selective` e `historical_residuals`), aplicando-se a correlação a todos os sorteios.
+
+`historical` é válido somente para a classe `inflow`. A chave `training.scenario_source.historical_years` restringe o conjunto de janelas históricas; veja [scenario_source](/pt-br/running/configuration/#trainingscenario_source). `simulation.scenario_source` define da mesma forma os esquemas da simulação e, quando ausente, a simulação usa `training.scenario_source`. `out_of_sample` e `external` exigem o `scenario_source.seed` da respectiva seção, e `historical` não exige nenhum; `simulation.scenario_source.seed` é a semente dos sorteios fora da amostra (out-of-sample) da simulação (veja [Sementes](#sementes)).
+
+### Métodos de geração da árvore de aberturas
+
+A [§2.3a](/pt-br/math/scenario-generation#23a-metodo-de-amostragem-e-geracao-da-arvore-de-aberturas) define os métodos. Cada estágio do estudo seleciona um deles com `sampling_method` em `stages.json`.
+
+| Método               | `stages[].sampling_method` | Requer                                                                                                                                   |
+| -------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Monte Carlo simples  | `saa` (o padrão)           | Nada além                                                                                                                                |
+| Hipercubo latino     | `lhs`                      | Nada além                                                                                                                                |
+| Sobol embaralhado    | `qmc_sobol`                | Uma dimensão de ruído dentro do limite de Sobol (veja a aba Notas de implementação)                                                      |
+| Halton embaralhado   | `qmc_halton`               | Nada além                                                                                                                                |
+| Seletivo             | `selective`                | Uma árvore de aberturas fornecida: `training.scenario_source.openings` definido como `{"source": "file"}`, que lê `scenarios/noise_openings.parquet` |
+| Resíduos históricos  | `historical_residuals`     | `scenarios/inflow_history.parquet` e um período sazonal em todos os estágios do estudo, quando a árvore de aberturas é gerada                   |
+
+### Casamento de momentos
+
+O passo 4 da [§2.3](/pt-br/math/scenario-generation#23-arvore-de-aberturas) define o casamento de momentos (moment matching) de uma árvore de aberturas gerada. `training.scenario_source.openings.moment_matching` o seleciona: `"per_coordinate"`, o padrão e o modo usado quando `openings` está ausente, ajusta as aberturas de afluência de todo estágio gerado, e `"none"` as mantém como sorteadas. Uma árvore lida de `scenarios/noise_openings.parquet` é usada como fornecida e não aceita `moment_matching`. A árvore que `exports.stochastic` grava em `stochastic/noise_openings.parquet` contém as aberturas ajustadas. [`training.scenario_source.openings`](/pt-br/running/configuration/#trainingscenario_sourceopenings) contém a tabela de campos.
+
+### Sementes
+
+| Chave                           | Semente de                                             | Padrão                                                           |
+| ------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
+| `training.tree_seed`            | A árvore de aberturas e os sorteios de aberturas dentro da amostra (in-sample) | `42` quando ausente; um valor negativo é usado pelo seu valor absoluto |
+| `training.scenario_source.seed` | Os sorteios fora da amostra do treinamento (training) e da simulação, quando `simulation.scenario_source` está ausente | Nenhum; obrigatório quando uma classe é `out_of_sample` ou `external` |
+| `simulation.scenario_source.seed` | Os sorteios fora da amostra da simulação             | Nenhum; obrigatório quando uma classe dessa seção é `out_of_sample` ou `external` |
+
+A seleção de janelas históricas e de cenários externos não usa semente. As regras estão em [Resolução de sementes](/pt-br/running/configuration/#resolucao-das-sementes).
+
+### Entradas
+
+- `scenarios/correlation.json` contém os perfis de correlação e um `schedule` opcional que associa valores de `stage_id` a nomes de perfis; seu `method` aceita somente `"spectral"`. Um estágio não listado no `schedule` usa o perfil chamado `default`, ou o único perfil, quando o arquivo contém apenas um. O esquema completo e um exemplo estão na aba Configurar de [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model/#implementacao-no-novo-modelo).
+- `scenarios/inflow_seasonal_stats.parquet` e `scenarios/inflow_ar_coefficients.parquet` contêm os parâmetros do modelo PAR, descritos em [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model).
+- `scenarios/load_seasonal_stats.parquet` contém a média e o desvio-padrão da carga da [§5.1](/pt-br/math/scenario-generation#51-modelo-de-incerteza-da-carga), e `scenarios/load_factors.json` os fatores de patamar da [§5.2](/pt-br/math/scenario-generation#52-fatores-de-carga-por-patamar); quando um fator de patamar está ausente, ele vale um.
+- `scenarios/non_controllable_stats.parquet` contém os momentos de disponibilidade da [§5.4](/pt-br/math/scenario-generation#54-disponibilidade-das-fontes-nao-despachaveis).
+- `scenarios/external_inflow_scenarios.parquet`, `scenarios/external_load_scenarios.parquet` e `scenarios/external_ncs_scenarios.parquet` contêm os cenários externos da [§4.1](/pt-br/math/scenario-generation#41-fontes-de-cenarios-externos), um arquivo por classe, com colunas de identificador de entidade e de valor específicas de cada classe.
+- `scenarios/inflow_history.parquet` contém o histórico de vazões, e `season_definitions` em `stages.json` associa os identificadores de período sazonal a períodos do calendário. `recent_observations` em `initial_conditions.json` prevalece sobre o histórico, dia a dia, quando ambos cobrem uma data; o resultado é a tendência hidrológica derivada da [§4.5](/pt-br/math/scenario-generation#45-consistencia-de-x-na-reproducao-historica).
+- `scenarios/noise_openings.parquet` contém uma árvore de aberturas fornecida, lida quando `training.scenario_source.openings` é `{"source": "file"}`.

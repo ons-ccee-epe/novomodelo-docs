@@ -1,0 +1,460 @@
+---
+title: "Executando estudos"
+description: Fluxo completo para executar um estudo de PDDE (SDDP) com `novomodelo run` — preparação do caso, saída no terminal, verificação dos resultados, reaproveitamento de uma política salva e fluxos de trabalho comuns.
+---
+
+Leve um estudo do caso aos resultados: gere ou prepare o caso, valide-o,
+execute-o com `novomodelo run` e leia o que a execução gravou.
+
+---
+
+## Preparando um Diretório do Caso
+
+Para partir de um exemplo funcional, gere o modelo (template) `1dtoy`:
+
+```bash
+novomodelo init --template 1dtoy my_study
+```
+
+Ele grava onze arquivos: os oito arquivos obrigatórios da estrutura mostrada abaixo,
+`system/hydro_production_models.json` e os dois arquivos
+`scenarios/*_seasonal_stats.parquet`. Um diretório de destino não vazio é
+recusado, a menos que se informe `--force`.
+
+Um diretório do caso é uma pasta que contém todos os arquivos de dados de entrada exigidos pelo Novo Modelo.
+A estrutura mínima obrigatória é:
+
+```
+my_study/
+  config.json
+  penalties.json
+  stages.json
+  initial_conditions.json
+  system/
+    buses.json
+    hydros.json
+    thermals.json
+    lines.json
+```
+
+Os oito arquivos são obrigatórios. Antes de executar, valide a entrada:
+
+```bash
+novomodelo validate /path/to/my_study
+```
+
+Uma validação bem-sucedida imprime as contagens de entidades e sai com código 0:
+
+{/* capture: novomodelo validate my_study | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path; exit 0, stderr empty */}
+
+```text
+Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
+```
+
+Quando a validação detecta erros — como um campo obrigatório ausente ou um valor
+fora da faixa —, ela imprime a quantidade de erros, depois uma linha `error:` por erro
+(tipo, arquivo e campo), e sai com código 1. No caso abaixo, a primeira
+hidrelétrica não tem o campo `reservoir` e tem `max_turbined_m3s` igual a `-5.0`. O relatório
+mostra apenas o campo ausente, porque a leitura de `system/hydros.json` para
+ali, antes que qualquer valor seja verificado. O valor negativo é reportado depois que o
+campo é restaurado:
+
+{/* capture: novomodelo validate my_study 2>&1 | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json edited with jq: .hydros[0] |= del(.reservoir), then .hydros[0].generation.max_turbined_m3s = -5.0); run from an empty working directory with a relative case path; exit 1, stderr empty */}
+
+```text
+Validation: 1 errors, 0 warnings in my_study
+error: [SchemaViolation] system/hydros.json: field reservoir: missing field `reservoir` at line 31 column 5
+```
+
+Corrija os erros reportados antes de prosseguir. Veja
+[Formato do caso](/pt-br/reference/case-format/) para o esquema completo.
+
+---
+
+## Executando `novomodelo run`
+
+```bash
+novomodelo run /path/to/my_study
+```
+
+Por padrão, os resultados são gravados em `<CASE_DIR>/output/`. Para especificar outro
+local:
+
+```bash
+novomodelo run /path/to/my_study --output /path/to/results
+```
+
+Antes de gravar as saídas de uma fase, o `novomodelo run`
+remove as saídas dessa fase deixadas pela execução anterior, conforme listado em
+[Formato de saída — Marcadores de sucesso](/pt-br/reference/output/#marcadores-de-sucesso); todos os
+demais arquivos permanecem até que uma execução os regrave, de modo que a exportação `stochastic/` de uma
+execução anterior que definiu `exports.stochastic` permanece. Use um diretório `--output` novo, ou apague o antigo,
+antes de comparar execuções. As execuções com partida a quente (warm-start), retomada e somente simulação leem o
+checkpoint da política em `policy.path` dentro do diretório de saída; portanto, preserve esse
+checkpoint quando planejar uma dessas execuções ([Gerenciamento da política](/pt-br/running/policy-management/)).
+
+### Etapas do Ciclo de Vida
+
+A figura acompanha um estudo desde o diretório do caso até as saídas; as três setas que saem do checkpoint da política são as formas de reaproveitá-lo.
+
+```d2
+direction: down
+
+case: "Diretório do caso" {shape: parallelogram}
+validate: "novomodelo validate\nverificação opcional, sem resolver"
+load: "novomodelo run: carga\nverifica e prepara o caso"
+train: "Treinamento\nconstrói a política"
+simulate: "Simulação\nquando habilitada"
+ckpt: "Checkpoint da política\npolicy.path" {shape: cylinder}
+out: "Saídas\ntabelas e metadados" {shape: parallelogram}
+train2: "Execução posterior\ntreina a partir dele"
+simulate2: "Execução posterior\nsimula com ele"
+other: "Outro estudo\nfronteira terminal"
+
+case -> validate
+case -> load
+load -> train
+train -> simulate
+train -> ckpt: "gravado ao final do treinamento"
+train -> out
+simulate -> out
+ckpt -> train2: "policy.mode\nwarm_start / resume"
+ckpt -> simulate2: "training.enabled = false"
+ckpt -> other: "policy.boundary.path"
+```
+
+O `novomodelo run` carrega o caso, executa o treinamento (training), a menos que `training.enabled` seja `false`, grava o checkpoint
+da política em `policy.path` ao final do treinamento, executa a simulação quando ela está habilitada
+e grava suas saídas. O `novomodelo validate` verifica o caso previamente, sem resolver.
+Uma execução posterior do mesmo estudo pode partir a quente do checkpoint ou retomá-lo, ou simulá-lo
+sem treinamento ([Reaproveitando uma Política Salva](#reaproveitando-uma-politica-salva)), e outro
+estudo pode importá-lo como sua fronteira terminal
+([Gerenciamento da política — Cortes de Fronteira](/pt-br/running/policy-management/#cortes-de-fronteira)).
+
+---
+
+## Saída no Terminal
+
+### Cabeçalho
+
+A menos que se informe `--quiet`, um cabeçalho (banner) mostra a versão, seguido de um bloco `Execution`
+com o solver, o backend de comunicação e o número de threads.
+O `novomodelo run` grava o cabeçalho, os blocos de preparação, as linhas de progresso e os
+resumos na saída padrão (stdout), e os avisos e erros na saída de erro (stderr), de modo que redirecionar apenas a stderr
+captura somente os avisos e erros.
+Use `--quiet` para suprimir o cabeçalho, as barras de progresso e os resumos.
+O cabeçalho, o bloco `Execution` e os resumos vão para a stdout; os avisos vão para a
+stderr, e os erros são sempre gravados na stderr, independentemente de `--quiet`.
+
+### Barras de Progresso
+
+Quando a stderr é um terminal, o treinamento mostra uma barra de progresso ao vivo na stderr com a
+iteração corrente, os limites, o gap (em percentual, com cinco casas decimais) e os
+tempos das simulações forward e backward. Quando a stderr é redirecionada ou encaminhada por pipe, o novomodelo imprime uma
+linha por iteração na stdout, e a simulação informa sua contagem de cenários da
+mesma forma. No modo `--quiet`, nenhum progresso é impresso.
+
+### Resumo
+
+Um trecho da saída de `novomodelo run my_study` sobre o caso gerado, com stdout
+e stderr enviadas ao mesmo arquivo. Ele omite o
+cabeçalho, a linha `Host` e as linhas de progresso entre a primeira e a última de cada fase:
+
+{/* capture: novomodelo run my_study 2>&1 | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path and stderr redirected to a file; excerpt: the banner, the Host line and the progress lines between the first and the last of each phase are not quoted */}
+
+```text
+Execution
+  Solver:    HiGHS 1.13.1
+  Backend:   local
+  Threads:   1 rayon thread
+Loading case: my_study
+Setup
+  Load:            3ms
+  Stochastic fit:  0ms
+  Production fit:  0ms
+  Evaporation fit: 0ms
+  Broadcast:       0ms
+Hydro models
+  Production:    1 constant
+  Evaporation:   0 linearized, 1 without
+Model provenance
+  Estimation path: user_stats_white_noise
+  Seasonal stats:  user_file
+  AR coefficients: n/a
+  Correlation:     n/a
+  Opening tree:    estimated (moment matching: per_coordinate)
+Training   starting... (max 128 iterations)
+Training   1/128 iter  LB: 1.22821e7  UB: 2.12369e7  gap: 72.91002%  fwd: 2ms / bwd: 2ms  [00:00:00 < 00:00:00]
+Training   128/128 iter  LB: 2.06161e7  UB: 5.79592e5  gap: -97.18865%  fwd: 0ms / bwd: 2ms  [00:00:00]
+Training complete in 0.4s (128 iterations, iteration_limit)
+  Lower bound:  2.06161e7 $/stage
+  Upper bound:  5.79592e5 +/- 0.00000e0 $/stage
+  Gap:          -97.18865% (started at 72.91002%)
+  Policy rows:  384 active / 384 generated
+  LP solves:    5632 (5632 first-try, 0 retried, 0 failed)
+  Avg iter:     3ms
+  Time split:   Forward  2ms (<1%)   solve 2ms · wait 0ms (0% of phase)
+                Backward 194ms (43%)   solve 194ms · wait 0ms (0% of phase)
+                Serial   250ms (56%)   bound 50ms · selection 0ms · other 200ms
+Writing training outputs...
+Output written to my_study/output/ (0.0s)
+Simulation starting... (100 scenarios across 1 ranks × 1 threads)
+Simulation 1/100 scenarios  LP: 1.3ms avg  [00:00:00 < 00:00:00]
+Simulation 100/100 scenarios  LP: 0.9ms avg  [00:00:00]
+Simulation complete in 0.5s (100 scenarios)
+  Completed: 100  Failed: 0
+  Expected cost: 1.28652e7 +/- 5.74102e6 (std: 2.92909e7)
+  LP solves:    400 (400 first-try, 0 retried, 0 failed)
+  Avg/scenario: 0.006s
+  Time split:   Solver 346ms (61%)
+                Other  220ms (39%)
+Writing simulation outputs...
+Output written to my_study/output/ (0.0s)
+```
+
+Cada fase imprime um resumo na stdout com:
+
+- **Treinamento**: número de iterações e como o treinamento terminou, limites, gap, linhas da política, resoluções, tempo
+- **Simulação** (quando habilitada): cenários solicitados, concluídos e com falha
+- **Diretório de saída**: uma linha `Output written to <dir>/` após cada fase que grava saídas, contendo o caminho exatamente como passado em `--output` (ou o padrão `<CASE_DIR>/output/`) — um caminho `--output` relativo é impresso como relativo, sem ser convertido em caminho absoluto
+
+O caso gerado executa uma simulação forward por iteração, de modo que cada limite superior é o custo de
+uma única trajetória amostrada, e o gap pode ficar abaixo de zero.
+[Convergência e diagnóstico](/pt-br/running/interpreting-results/) explica como ler os limites.
+
+---
+
+## Verificando os Resultados
+
+Junto com as tabelas de resultados, o `novomodelo run` grava um registro legível por máquina de
+cada fase executada: `training/metadata.json` quando o treinamento foi executado e
+`simulation/metadata.json` quando a simulação foi executada. Consulte-os diretamente com `jq`:
+
+```bash
+jq '{status, bounds}' /path/to/my_study/output/training/metadata.json
+```
+
+`status` vale `"partial"` quando uma solicitação de encerramento terminou a fase antecipadamente e
+`"complete"` nos demais casos, inclusive após um
+treinamento que falhou; por isso, um script deve verificar o código de saída do `novomodelo run` para saber
+se a execução foi bem-sucedida ([Verificando os Códigos de Saída](#verificando-os-codigos-de-saida)). `bounds` contém os limites inferior e superior finais. O
+gap de convergência fica em `convergence`:
+
+```bash
+jq '.convergence.final_gap_percent' /path/to/my_study/output/training/metadata.json
+```
+
+`convergence.achieved` é `true` quando os critérios de parada encerraram a execução e um critério `gap`
+ou `bound_stalling` foi satisfeito naquela iteração, de modo que uma execução interrompida apenas por
+`iteration_limit` ou `time_limit` registra `false`.
+`convergence.termination_reason` indica o critério de parada que encerrou o treinamento
+(`iteration_limit`, `time_limit`, `bound_stalling` ou `gap`),
+vale `graceful_shutdown` quando apenas uma solicitação de encerramento o terminou, ou `error`
+após um treinamento que falhou:
+
+```bash
+jq -r '.convergence.termination_reason' /path/to/my_study/output/training/metadata.json
+```
+
+No Python, `novomodelo.results.load_results("/path/to/my_study/output")` retorna
+os dois arquivos de metadados como dicionários, e `novomodelo.results.load_convergence` /
+`novomodelo.results.load_simulation` carregam as tabelas Parquet. Veja
+[Convergência e diagnóstico](/pt-br/running/interpreting-results/) para a leitura da
+trajetória de convergência e das saídas da simulação, e [Formato de saída](/pt-br/reference/output/) para todos os campos
+de [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson) e
+[`simulation/metadata.json`](/pt-br/reference/output/metadata/#simulationmetadatajson).
+
+---
+
+## Reaproveitando uma Política Salva
+
+Uma execução grava o checkpoint de sua política em `policy.path`; uma execução posterior pode simulá-la,
+iniciar o treinamento a partir dela ou retomá-la, e outro estudo pode usá-la como sua fronteira
+terminal ([Gerenciamento da política](/pt-br/running/policy-management/)).
+
+### Simulação com uma Política Salva
+
+Defina `training.enabled` como `false` para simular uma política salva sem
+treinar novamente. `training.selection` e `training.stopping_rules` continuam
+obrigatórios. A configuração completa e as verificações de carga da política estão em
+[Gerenciamento da política — Modo Somente Simulação](/pt-br/running/policy-management/#modo-somente-de-simulacao).
+
+### Partida a Quente a partir de uma Política Salva
+
+Defina `policy.mode` como `"warm_start"` para iniciar o treinamento a partir de uma política salva; o treinamento
+acrescenta novos cortes aos já salvos. Veja
+[Gerenciamento da política — Partida a quente](/pt-br/running/policy-management/#partida-a-quente).
+
+### Retomando um Treinamento Interrompido
+
+Defina `policy.mode` como `"resume"` para continuar um treinamento interrompido a partir do seu checkpoint.
+O maior `iteration_limit` é um total que inclui as iterações já concluídas; portanto,
+defina-o acima desse número. Veja
+[Gerenciamento da política — Retomada](/pt-br/running/policy-management/#retomada).
+
+### Treinamento em Etapas
+
+Quando o limite de tempo de relógio de um escalonador de tarefas é menor do que o treinamento exige, treine em
+etapas: cada etapa posterior define `policy.mode` como `"resume"` e aumenta o
+total de `iteration_limit`.
+Veja [Gerenciamento da política — Treinar em Etapas](/pt-br/running/policy-management/#treinar-em-fatias).
+
+---
+
+## Fluxos de Trabalho Comuns
+
+### Somente Treinamento
+
+Para executar o treinamento sem simulação, defina `simulation.enabled` como `false` no
+`config.json`:
+
+```json
+{ "simulation": { "enabled": false } }
+```
+
+### Multithreading
+
+Use `--threads` para acelerar o treinamento e a simulação com paralelismo dentro
+de cada processo:
+
+```bash
+novomodelo run /path/to/my_study --threads 4
+```
+
+O trecho abaixo compara uma thread com quatro no caso gerado, com
+`training.selection.forward_passes` definido como `8` e `simulation.selection.num_scenarios`
+definido como `1000`. Cada bloco começa com o comando que o produziu, e o trecho mantém
+apenas a linha `Threads` e a linha de conclusão de cada fase. Os tempos são de uma única máquina:
+
+{/* capture: novomodelo run my_study --threads 1 2>&1; novomodelo run my_study --threads 4 2>&1 | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; config.json edited with jq: training.selection.forward_passes 8 and simulation.selection.num_scenarios 1000); run from an empty working directory with a relative case path, the output directory emptied between the runs, both runs exit 0; excerpt: per run, the Threads line and the two phase completion lines are quoted, the rest of the run including the Host line is not */}
+
+```text
+$ novomodelo run my_study --threads 1
+  Threads:   1 rayon thread
+Training complete in 7.1s (128 iterations, iteration_limit)
+Simulation complete in 12.8s (1000 scenarios)
+
+$ novomodelo run my_study --threads 4
+  Threads:   4 rayon threads
+Training complete in 3.2s (128 iterations, iteration_limit)
+Simulation complete in 5.0s (1000 scenarios)
+```
+
+`--threads` define as threads de trabalho de cada processo (cada rank MPI). Recebe um
+inteiro maior ou igual a `1`, com padrão `1`. O conjunto de threads resolve em paralelo os PLs da simulação forward,
+da simulação backward e da simulação final, de modo que o ganho de velocidade é limitado pelo
+trabalho paralelo disponível: as simulações forward por iteração, os estados visitados da
+simulação backward e os cenários de simulação. No trecho, o treinamento roda cerca de duas vezes mais rápido com quatro threads e a simulação, cerca de duas vezes e meia: neste caso, as resoluções dos PLs ocupam a maior parte do tempo de relógio de cada fase, e elas são executadas em paralelo. Veja
+[Aceleradores de desempenho](/pt-br/running/performance/) para o modelo de execução.
+
+### Backend de Comunicação
+
+Um único `novomodelo run` usa o backend local (processo único); a execução sob um
+lançador MPI (`mpiexec`, `mpirun` ou `srun`) distribui o trabalho entre os processos quando o binário é compilado com suporte a MPI (o binário `novomodelo-mpi` de [Implantação em HPC e clusters](/pt-br/running/hpc-deployment/)); o binário padrão `novomodelo` oferece apenas o backend local, de modo que, sob um lançador, `auto` executa cada processo como um estudo independente de processo único.
+Por padrão (`--comm-backend auto`), o novomodelo detecta o lançador e seleciona o
+backend de acordo, de modo que nenhuma flag é necessária em nenhum dos casos. Passe
+`--comm-backend mpi` para forçar o backend MPI — ele falha com uma mensagem clara em um
+binário compilado sem suporte a MPI — ou `--comm-backend local` para forçar um único
+processo mesmo sob um lançador.
+
+### Modo Silencioso para Scripts
+
+```bash
+novomodelo run /path/to/my_study --quiet
+exit_code=$?
+if [ $exit_code -ne 0 ]; then
+  echo "Study failed with exit code $exit_code" >&2
+fi
+```
+
+Suprime o cabeçalho e a saída de progresso, adequado para scripts em lote.
+
+### Verificando os Códigos de Saída
+
+O `novomodelo run` sai com `0` em caso de sucesso e com valor diferente de zero nos demais casos. O significado de cada código
+está em [Referência da CLI — Códigos de Saída](/pt-br/reference/cli-reference/#codigos-de-saida).
+[Solução de problemas](/pt-br/running/troubleshooting/) lista as mensagens de erro com sua causa
+e correção.
+
+---
+
+## Exportando os Artefatos Estocásticos
+
+Defina `exports.stochastic` como `true` no `config.json` para gravar os artefatos do
+pré-processamento estocástico em `output/stochastic/` antes do início do treinamento:
+
+```json
+{
+  "exports": {
+    "stochastic": true
+  }
+}
+```
+
+A exportação contém o modelo estocástico usado pela execução.
+[Artefatos estocásticos](/pt-br/reference/output/stochastic/)
+lista cada arquivo, a condição em que é gravado e seu esquema.
+
+### Fluxo de ida e volta
+
+Um modelo exportado pode ser lido de volta como entrada. Execute uma vez com a exportação habilitada,
+copie os arquivos de entrada exportados para `scenarios/`, declare a árvore de
+aberturas e execute novamente:
+
+```bash
+# Passo 1: execução inicial com a exportação estocástica habilitada no config.json
+novomodelo run my_case
+
+# Passo 2: copiar os arquivos de entrada exportados para scenarios/
+S=my_case/output/stochastic
+cp "$S/noise_openings.parquet" "$S/inflow_seasonal_stats.parquet" \
+   "$S/inflow_ar_coefficients.parquet" "$S/inflow_annual_component.parquet" \
+   my_case/scenarios/
+```
+
+O `noise_openings.parquet` exportado numera seus estágios pela posição com base 0,
+de modo que a árvore copiada só é carregada quando os ids de estágio declarados no caso são 0, 1, 2,
+…; com outros ids de estágio, a carga a recusa.
+
+Mantenha `inflow_annual_component.parquet` na cópia mesmo quando ele não tiver linhas:
+sem ele, um modelo com componente anual é lido de volta como um modelo PAR(p)
+clássico com os mesmos coeficientes AR, o que é um modelo diferente e
+pode fazer a carga falhar. Copie também `correlation.json` quando seu objeto `profiles`
+não estiver vazio. Com os dois arquivos de afluência copiados, a nova execução não estima nada; assim,
+sem `correlation.json`, ela não tem perfis de correlação, e o ruído que
+sorteia é não correlacionado entre as hidrelétricas. Deixe o arquivo de fora quando `profiles` estiver
+vazio, porque o carregador recusa um `correlation.json` sem perfil. Copie
+`load_seasonal_stats.parquet` quando a exportação o tiver gravado.
+
+O passo 3 declara a árvore de aberturas no `config.json`, acrescentando uma chave ao
+objeto `training.scenario_source` existente. O `novomodelo run` lê
+`scenarios/noise_openings.parquet` apenas quando `training.scenario_source.openings`
+é `{"source": "file"}`; um arquivo copiado sem a declaração é ignorado, e
+a árvore é gerada novamente:
+
+```json
+{
+  "training": {
+    "scenario_source": {
+      "openings": { "source": "file" }
+    }
+  }
+}
+```
+
+O passo 4 executa o estudo novamente com `novomodelo run my_case`. A nova execução lê o
+modelo de afluências dos arquivos de afluência copiados, em vez de estimar qualquer parte dele
+a partir de `inflow_history.parquet`, e lê a árvore de aberturas de
+`scenarios/noise_openings.parquet`, em vez de gerá-la. O arquivo da árvore deve
+conter `num_openings` aberturas para todos os estágios, caso contrário a carga falha; uma árvore que
+a primeira execução limitou a menos aberturas, com um aviso, não passa nessa verificação. As
+demais condições sobre o arquivo estão em
+[Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosnoise_openingsparquet).
+
+---
+
+## Veja Também
+
+- **Teoria:** [Algoritmo da PDDE](/pt-br/math/sddp-algorithm/) — o algoritmo de simulações forward/backward que este fluxo de trabalho treina e executa.
+- **Solução de problemas:** [Solução de problemas](/pt-br/running/troubleshooting/) — mensagens de erro, sua causa e a correção
+- **Agentes de IA:** [Agentes de IA (novomodelo-mcp)](/pt-br/running/mcp-server/) — execute este fluxo de trabalho por meio de um cliente MCP

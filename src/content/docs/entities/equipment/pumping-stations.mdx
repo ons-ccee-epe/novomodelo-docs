@@ -1,0 +1,62 @@
+---
+title: Pumping stations
+description: How Novomodelo treats pumping stations — water moved between reservoirs, power drawn from a bus and no cost of their own.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import PumpingStation from '../../../../components/entity/illustrations/PumpingStation.astro';
+
+<EntityHero family="equipment" icon="pump" lead="A pumping station pumps water from the reservoir of a source hydro plant into that of a destination hydro plant, drawing electrical power at its bus in proportion to the pumped flow." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'Moves water between reservoirs', text: 'The pumped flow leaves the source plant reservoir and enters the destination one. The source-to-destination direction is a modelling choice, typically against the cascade.' },
+  { title: 'Storage arbitrage', text: 'Pumping enables elevation transfer, basin transfer and storage arbitrage: pumping during low-demand periods and generating during high-demand ones.' },
+  { title: 'Priced by the bus', text: 'A pumping station has no cost of its own. The power it draws enters the load balance of its bus, so pumping is priced by the marginal cost of energy there.' },
+]} />
+
+## Water out, power in
+
+<PumpingStation lang="en" />
+
+## What the model decides
+
+<DecisionChips family="equipment" items={[
+  { label: 'Pumped flow', unit: 'm³/s' },
+]} note="The flow in each block lies between the station's minimum and maximum flow, and these limits are hard. The power drawn follows from the flow: it is the power consumption rate times the pumped flow, and it is charged as load on the station's bus. Outside the station's commissioning window the flow is zero, so it moves no water and draws no power." />
+
+## What you provide
+
+- The bus from which the station draws power.
+- The source hydro plant, whose reservoir loses the water, and the destination hydro plant, whose reservoir receives it.
+- The power drawn per unit of pumped flow, in MW/(m³/s).
+- The minimum and maximum pumped flow, in m³/s. The maximum is the installed pump capacity.
+- Entry and exit stages, when the station does not exist throughout the study.
+- Optionally, flow limits that vary by stage, which replace those of the registry.
+
+## Pumping and the economics
+
+- **No objective cost.** A pumping station has no cost term in the objective function. The cost of pumping is captured implicitly through the energy it consumes: the marginal cost of energy at the connected bus sets the effective cost.
+- **Economic incentive.** Pumping is attractive when energy prices are low, for example with excess hydro or renewable generation, and unattractive when prices are high, for example with thermal dispatch at the margin.
+- **In the results.** The station's cost column in the simulation output is always zero: its power enters the bus balance.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'System elements overview — pumping stations', href: '/math/system-elements/#7-pumping-stations' },
+  { kind: 'Methodology', title: 'Equipment formulations §4 — pumping stations', href: '/math/equipment-formulations/#4-pumping-stations' },
+  { kind: 'Methodology', title: 'Pumping stations carry no explicit objective cost', href: '/math/equipment-formulations/#pumping-stations-carry-no-explicit-objective-cost' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'system/pumping_stations.json', href: '/reference/case-format/system/#systempumping_stationsjson' },
+  { dir: 'in', path: 'constraints/pumping_bounds.parquet', href: '/reference/case-format/constraints/#constraintspumping_boundsparquet' },
+  { dir: 'out', path: 'simulation/pumping_stations/', href: '/reference/output/simulation/#simulationpumping_stations' },
+]} />

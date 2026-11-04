@@ -1,0 +1,359 @@
+Os arquivos `system/thermals.json`, `system/energy_contracts.json`,
+`system/pumping_stations.json` e `system/non_controllable_sources.json` do Novo Modelo
+definem os quatro tipos de equipamento que têm configuração de elemento
+dedicada neste capítulo. As equações alimentadas por esses campos estão nas
+seções acima.
+
+### Data de Início de Operação Comum
+
+Usinas termelétricas, fontes não despacháveis, usinas elevatórias e contratos de energia
+têm todos um campo obrigatório `operational_start_date`:
+
+| Campo                     | Tipo                    | Descrição |
+| -------------------------- | ------------------------ | ----------- |
+| `operational_start_date` | string (data ISO-8601) | Data de calendário (`YYYY-MM-DD`) em que a entidade passa a constar do histórico operacional do cadastro. Serve à rastreabilidade e à chave de ordenação canônica `(operational_start_date, id)` (ver [Convenções de notação](/pt-br/overview/notation-conventions)) — é **independente** da janela de operação abaixo: não condiciona a entrada em operação, e a janela não é derivada dela. |
+
+### Janela de Operação Comum
+
+Usinas termelétricas, linhas, contratos, usinas elevatórias e fontes não despacháveis
+têm todos o mesmo par opcional de campos:
+
+| Campo            | Tipo            | Descrição |
+| ----------------- | --------------- | ----------- |
+| `entry_stage_id` | integer ou null | Índice do estágio em que a entidade entra em operação (**inclusive**). `null` significa que a entidade está disponível desde o estágio 0. |
+| `exit_stage_id`  | integer ou null | Índice do estágio em que a entidade é desativada. A janela de operação é **semiaberta** `[entry_stage_id, exit_stage_id)`: a entidade está ativa até `exit_stage_id - 1` e, a partir de `exit_stage_id`, suas colunas são fixadas em `[0, 0]`. `null` significa que a entidade nunca é desativada. |
+
+Fora de sua janela, as colunas de decisão de uma entidade permanecem no PL, mas
+são fixadas em zero: ela não injeta potência, não retira potência, não movimenta água
+e não consome potência do barramento. Um `entry_stage_id` posterior ao último estágio do estudo é aceito: a entidade
+fica então fora de operação durante todo o estudo. Ver [Visão geral da modelagem dos elementos do sistema §1](/pt-br/math/system-elements#janelas-de-operacao-das-entidades)
+para o enunciado metodológico comum — as §3–4 da metodologia acima tratam de como a
+janela interage com os limites take-or-pay dos contratos e com a vazão bombeada.
+
+### `system/thermals.json` — Cadastro de Usinas Termelétricas
+
+As unidades termelétricas são definidas em `system/thermals.json`. O objeto de nível superior tem
+uma única chave `"thermals"`, que contém um array de objetos de unidade:
+
+```json
+{
+  "thermals": [
+    {
+      "id": 0,
+      "name": "UTE1",
+      "bus_id": 0,
+      "operational_start_date": "1998-03-01",
+      "cost_per_mwh": 5.0,
+      "generation": { "min_mw": 0.0, "max_mw": 15.0 }
+    },
+    {
+      "id": 1,
+      "name": "Angra 1",
+      "bus_id": 0,
+      "operational_start_date": "1985-01-01",
+      "entry_stage_id": null,
+      "exit_stage_id": null,
+      "cost_per_mwh": 50.0,
+      "generation": { "min_mw": 0.0, "max_mw": 657.0 },
+      "anticipated_config": { "lead_stages": 2 }
+    }
+  ]
+}
+```
+
+Somente `id`, `name`, `bus_id`, `operational_start_date`, `cost_per_mwh` e
+`generation` são obrigatórios; `entry_stage_id`, `exit_stage_id` e
+`anticipated_config` são opcionais.
+
+#### Campos Principais
+
+| Campo          | Tipo   | Obrigatório | Descrição |
+| -------------- | ------ | -------- | ----------- |
+| `id`           | integer | Sim     | Identificador único não negativo. |
+| `name`         | string  | Sim     | Nome legível da usina. Usado nos arquivos de saída, nas mensagens de validação e no log. |
+| `bus_id`       | integer | Sim     | Identificador do barramento elétrico no qual a geração desta unidade é injetada. Deve corresponder a um `id` em `buses.json`. |
+| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a unidade passa a constar do histórico operacional do cadastro — ver [Data de Início de Operação Comum](#data-de-inicio-de-operacao-comum) acima. |
+| `cost_per_mwh` | number  | Sim     | Custo variável unitário (CVU) de geração, em reais por MWh. Deve ser não negativo. |
+
+#### Limites de Geração
+
+O bloco `generation` define os limites de geração, armazenados internamente como
+`min_generation_mw` / `max_generation_mw` na entidade e impostos como os
+limites rígidos de geração da §1.1 da metodologia em todo PL de estágio.
+
+```json
+"generation": { "min_mw": 0.0, "max_mw": 657.0 }
+```
+
+| Campo    | Tipo   | Descrição |
+| -------- | ------ | ----------- |
+| `min_mw` | number | Geração elétrica mínima, em MW. Um valor não nulo constitui geração mínima (inflexibilidade): o solver deve despachar pelo menos esse montante sempre que a unidade estiver em operação (sujeito à ressalva sobre a relaxação contínua da §1.1 da metodologia). |
+| `max_mw` | number | Geração elétrica máxima (capacidade instalada), em MW. |
+
+Limites variáveis por estágio são fornecidos via `constraints/thermal_bounds.parquet`,
+que aceita linhas esparsas `(thermal_id, stage_id)` contendo `min_generation_mw`
+e/ou `max_generation_mw`, opcionalmente restritas a um patamar por meio de uma coluna opcional
+`block_id`; na ausência de linhas, valem os valores-base da entidade.
+`cost_per_mwh` não tem variante por patamar — uma linha que combine `cost_per_mwh`
+não nulo com `block_id` não nulo é rejeitada na validação, e uma
+linha com `block_id` em uma termelétrica que declare `anticipated_config` é rejeitada
+de imediato, já que o compromisso entregue é limitado em um único estágio.
+
+#### Configuração de Antecipação de Despacho (`anticipated_config`)
+
+O bloco opcional `anticipated_config` marca uma termelétrica como de despacho antecipado,
+associando a antecedência por usina descrita em [Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#4-usinas-termeletricas). A antecedência é dada em **exatamente uma** de duas formas mutuamente exclusivas — um número de estágios ou uma duração física:
+
+```json
+"anticipated_config": { "lead_stages": 2 }
+```
+
+```json
+"anticipated_config": { "lead_time_hours": 720.0 }
+```
+
+| Campo             | Tipo    | Descrição |
+| ----------------- | ------- | ----------- |
+| `lead_stages`     | integer | Número de estágios de antecipação de despacho, independente do calendário. Um valor `2` significa que o compromisso para o estágio `t` deve ser decidido no estágio `t - 2`. Deve ser `>= 1`. |
+| `lead_time_hours` | number  | Antecedência física de despacho, em horas; deve ser finita e `> 0`. O compromisso de cada estágio de entrega é decidido no estágio que contém o instante situado uma antecedência antes do fim do estágio de entrega (um instante sobre a fronteira entre estágios pertence ao estágio anterior); uma entrega cujo instante é igual ou anterior ao início do estudo é decidida antes do estudo. Quando o instante cai dentro do próprio estágio de entrega, a entrega não é antecipada: a usina é despachada como termelétrica comum nesse estágio, e a preparação do estudo registra um aviso indicando a usina e o estágio. |
+
+Fornecer ambas as chaves, ou nenhuma delas, é um erro de carga. Uma antecedência que ultrapassa o horizonte do estudo — `lead_stages` maior que o número de estágios, ou `lead_time_hours` maior que a soma do horizonte — é rejeitada na carga, **a menos que** a antecedência da usina alcance um **estágio pós-estudo declarado** (ambos os modos de antecedência são condicionados da mesma forma): tal compromisso é entregue além do horizonte, seja ele decidido no estudo ou antes dele. Sem um estágio pós-estudo a alcançar, a usina nunca poderia entregar dentro do horizonte do estudo, e a antecedência além do horizonte é rejeitada. Uma antecedência `lead_time_hours` grosseira o bastante para que um estágio de decisão decida mais de um estágio de entrega é rejeitada na preparação do estudo; uma antecedência `lead_stages` nunca produz essa situação. Ver [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) e [`post_study_stages.json`](/pt-br/reference/case-format/stages/#post_study_stagesjson) para a fronteira contra a qual uma entrega pós-horizonte é precificada.
+
+Uma usina com antecipação também declara, em `past_anticipated_commitments` de
+`initial_conditions.json`, todo compromisso que decidiu antes do estudo
+([Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho),
+"Compromissos decididos antes do estudo"). Cada entrada é uma **janela datada,
+ancorada na entrega** — uma potência comprometida em MW mantida constante em
+`[start_date, end_date)`:
+
+```json
+{
+  "past_anticipated_commitments": [
+    { "thermal_id": 2, "start_date": "2025-11-01", "end_date": "2025-12-01", "value_mw": 0.0 }
+  ]
+}
+```
+
+| Campo        | Tipo                    | Descrição |
+| ------------ | ----------------------- | ----------- |
+| `thermal_id` | integer                 | Identificador de uma termelétrica com antecipação (deve conter `anticipated_config`). |
+| `start_date` | string (data ISO-8601)  | Início da janela de compromisso (inclusive). |
+| `end_date`   | string (data ISO-8601)  | Fim da janela de compromisso (**exclusive**); deve ser posterior a `start_date`. |
+| `value_mw`   | number                  | Potência comprometida em MW, mantida constante ao longo da janela. |
+
+As janelas de uma usina devem **cobrir exatamente todo estágio de entrega que a usina decidiu antes
+do estudo** — cobertura `1.0`, sem lacunas nem sobreposições. Esses estágios podem estar
+de **qualquer lado** do horizonte: os estágios de entrega iniciais dentro do estudo, e
+quaisquer estágios pós-horizonte em que seja entregue um compromisso decidido antes do estudo
+(para o termo equivalente em outras ferramentas de planejamento, ver o
+[Glossário](/pt-br/reference/glossary)). Uma janela nunca pode cobrir um estágio que o próprio estudo
+decide, e nenhuma janela pode atravessar
+o fim do horizonte — divida-a nesse ponto em uma janela dentro do estudo e outra pós-estudo. Um
+trecho sem compromisso programado também exige uma janela explícita com potência `0.0`,
+em vez de uma lacuna a ser inferida. A forma como cada `value_mw` é verificado quanto aos limites
+depende de onde caem os estágios de entrega de sua janela. Em uma janela que cobre um ou
+mais estágios de entrega **dentro do estudo**, o `value_mw` de cada estágio coberto e em operação
+é verificado contra **a faixa de geração resolvida desse estágio** —
+o `[min_mw, max_mw]` de base, restringido por qualquer sobrescrita de estágio/patamar de `constraints/thermal_bounds.parquet`
+— dentro da tolerância de viabilidade do solver. Uma janela **puramente
+pós-horizonte** (que não cobre nenhum estágio do estudo) verifica, em vez disso, cada
+`value_mw` contra os limites estáticos `[min_mw, max_mw]` da usina, com a mesma
+tolerância. Um `value_mw` fora da faixa de seu estágio é um erro de carga, pois,
+caso contrário, a igualdade de entrega do PL nesse estágio não poderia ser satisfeita. Os
+valores comprometidos são custos irrecuperáveis: uma janela dentro do estudo inicializa o ring slot de seu
+estágio de entrega no primeiro estágio, e a
+[linha de retirada](/pt-br/math/state-augmentation#linhas-do-ring) desse estágio fixa nele a geração da usina;
+uma janela pós-horizonte não ocupa slot e, quando uma fronteira é carregada, sua contribuição
+de estado é incorporada uma única vez, na carga, ao termo independente de todo corte de
+fronteira. Nenhuma das duas entra na função objetivo do estudo, e uma janela pós-horizonte é reproduzida em
+sua data real de entrega em `anticipated/fixed_deliveries.parquet`.
+
+#### Entregas pós-horizonte
+
+Uma termelétrica com antecipação cuja antecedência entrega **após o horizonte do estudo** tem duas
+formas de declaração, conforme quem decide o compromisso:
+
+- **Decidido no estudo, entregue após o horizonte** — limitado e custeado **exclusivamente**
+  por uma célula `thermal_bounds[]` em
+  [`post_study_stages.json`](/pt-br/reference/case-format/stages/#post_study_stagesjson)
+  (`{thermal_id, post_study_stage_index, cost_per_mwh, min_mw, max_mw}`), uma
+  por estágio pós-estudo alcançado. O estudo decide os MW; a célula fornece seu
+  preço e sua capacidade.
+- **Decidido antes do estudo, entregue após o horizonte** — uma janela
+  `past_anticipated_commitments` (acima) que se estende além do fim do horizonte.
+
+Uma decisão dentro do estudo é cobrada em sua coluna de decisão ao `cost_per_mwh`
+de sua célula `thermal_bounds[]`, descontado a partir do estágio de entrega, e a
+fronteira carregada precifica o compromisso transportado para o estado terminal; sem
+`policy.boundary` declarado em `config.json`,
+a preparação do estudo avisa que a entrega é precificada com valor terminal nulo. Um
+compromisso decidido antes do estudo é custo irrecuperável: seu combustível não entra em nenhuma função objetivo e,
+com uma fronteira carregada, sua contribuição de estado entra nos termos independentes dos
+cortes de fronteira. Sem fronteira, uma janela pós-horizonte com potência não nula
+gera o mesmo aviso na preparação; uma janela totalmente nula não gera nenhum. Ver
+[Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) para a
+formulação e [Formato do caso](/pt-br/reference/case-format/) para
+o formato dos arquivos.
+
+#### Restrição de Compromissos via Restrições Genéricas
+
+A variável de decisão do compromisso antecipado pode ser referenciada em uma restrição
+genérica por meio da expressão `anticipated_decision(N)`, onde `N` é o
+`id` da termelétrica — por exemplo, para limitar o nível em MW comprometido em cada estágio
+de decisão:
+
+```json
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "cap_ant_t1",
+      "expression": "anticipated_decision(2) <= 400.0",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
+
+Ver [Restrições genéricas](/pt-br/reference/generic-constraints/) para a
+linguagem completa de definição — expressões nomeadas, a grade de ativação e
+folga bilateral.
+
+`anticipated_decision(N)` deve referenciar uma termelétrica que contenha um bloco
+`anticipated_config` — referenciar uma termelétrica sem antecipação é um erro
+fatal de carga. `thermal_generation(N)` em uma termelétrica com antecipação é aceito,
+mas sinalizado com um aviso de ambiguidade semântica, pois essa expressão lê a
+geração entregue por patamar, e não o compromisso antecipado.
+
+#### Regras de Validação na Carga
+
+| Regra                        | Classe de Erro       | Descrição |
+| ---------------------------- | --------------------- | ----------- |
+| Integridade da referência ao barramento | Erro de referência | Todo `bus_id` deve corresponder a um `id` em `buses.json`. |
+| Custo não negativo           | Erro de esquema       | `cost_per_mwh` deve ser não negativo. |
+| Ordenação dos limites de geração | Viabilidade física | `min_mw` deve ser `<= max_mw`. |
+| Validade da antecedência     | Viabilidade física    | Quando `anticipated_config` está presente, `lead_stages` deve ser `>= 1`; um `lead_stages` acima do número de estágios do estudo, ou um `lead_time_hours` acima da soma das horas do horizonte, é rejeitado, a menos que a antecedência alcance um estágio pós-estudo declarado. |
+| Cobertura das janelas de compromisso | Erro de referência | As janelas `past_anticipated_commitments` de toda termelétrica com antecipação devem cobrir exatamente todo estágio de entrega que a usina decidiu antes do estudo (cobertura `1.0`, sem lacunas nem sobreposições) — tanto os estágios iniciais dentro do estudo quanto os estágios pós-horizonte decididos antes do estudo —, nunca um estágio que o próprio estudo decide, e nenhuma janela pode atravessar o fim do horizonte. |
+| Referência à termelétrica do compromisso | Erro de referência | O `thermal_id` de toda entrada de `past_anticipated_commitments` deve referenciar uma termelétrica com antecipação. |
+| Limites do valor comprometido | Viabilidade física   | O `value_mw` de cada janela de `past_anticipated_commitments` deve estar dentro da faixa de geração resolvida de todo estágio de entrega coberto (cobertura dentro do estudo) ou dos limites estáticos `[min_mw, max_mw]` da usina (puramente pós-horizonte), dentro da tolerância do solver. Ver [Códigos de erro](/pt-br/reference/error-codes). |
+| Limites de entrega pós-estudo | Erro de referência   | Todo estágio pós-estudo alcançado pela antecedência de uma termelétrica com antecipação deve ter uma célula `thermal_bounds[]` correspondente em `post_study_stages.json`, e todo estágio pós-estudo coberto por uma janela de compromisso decidido antes do estudo deve ser coberto com cobertura `1.0`. Ver [Códigos de erro](/pt-br/reference/error-codes) para os modos exatos de falha. |
+
+### `system/non_controllable_sources.json` — Cadastro de Fontes Não Despacháveis (NCS)
+
+As fontes não despacháveis (eólica, solar, pequenas hidrelétricas a fio d'água) são definidas
+em `system/non_controllable_sources.json`:
+
+```json
+{
+  "non_controllable_sources": [
+    {
+      "id": 0,
+      "name": "Wind Farm A",
+      "bus_id": 1,
+      "operational_start_date": "2015-06-01",
+      "max_generation_mw": 100.0
+    }
+  ]
+}
+```
+
+| Campo               | Tipo   | Obrigatório | Descrição |
+| -------------------- | ------ | -------- | ----------- |
+| `id`                 | integer | Sim     | Identificador único. |
+| `name`               | string  | Sim     | Nome legível da fonte. |
+| `bus_id`             | integer | Sim     | Barramento no qual a geração desta fonte é injetada. |
+| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a fonte passa a constar do histórico operacional do cadastro — ver [Data de Início de Operação Comum](#data-de-inicio-de-operacao-comum) acima. |
+| `max_generation_mw`  | number  | Sim     | Capacidade instalada, em MW. Escala a disponibilidade estocástica descrita na §6 da metodologia e não limita a geração disponível. |
+| `allow_curtailment`  | boolean | Não     | Padrão `true` (sujeita a corte de geração). Defina `false` para fontes de geração compulsória (must-run) que fixam a geração na disponibilidade realizada em todos os cenários — ver [Visão geral da modelagem dos elementos do sistema §6](/pt-br/math/system-elements#sujeita-a-corte-vs-geracao-compulsoria) para quando isso é necessário (por exemplo, totais agregados de NCS já abatidos). |
+| `curtailment_cost`   | number ou null | Não | Sobrescrita, no nível da entidade, de `non_controllable_source.curtailment_cost` em `penalties.json`. |
+
+A razão de disponibilidade vem de `scenarios/non_controllable_stats.parquet`
+(ou de `scenarios/external_ncs_scenarios.parquet` no esquema `external`), e
+os fatores por patamar, de `scenarios/non_controllable_factors.json`; uma fonte sem
+modelo de disponibilidade obtém a geração disponível de seu estágio em
+`constraints/ncs_bounds.parquet`, ou `max_generation_mw` onde nenhuma linha se aplica — ver
+a aba Entradas e Saídas.
+
+### `system/pumping_stations.json` — Cadastro de Usinas Elevatórias
+
+```json
+{
+  "pumping_stations": [
+    {
+      "id": 0,
+      "name": "Bombeamento Serra da Mesa",
+      "bus_id": 10,
+      "operational_start_date": "2010-09-15",
+      "source_hydro_id": 3,
+      "destination_hydro_id": 5,
+      "consumption_mw_per_m3s": 0.5,
+      "flow": { "min_m3s": 0.0, "max_m3s": 150.0 }
+    }
+  ]
+}
+```
+
+| Campo                     | Tipo    | Obrigatório | Descrição |
+| -------------------------- | ------- | -------- | ----------- |
+| `id`                       | integer | Sim     | Identificador único. |
+| `name`                     | string  | Sim     | Nome legível da usina elevatória. |
+| `bus_id`                   | integer | Sim     | Barramento do qual a potência elétrica é consumida. |
+| `operational_start_date`   | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a usina elevatória passa a constar do histórico operacional do cadastro — ver [Data de Início de Operação Comum](#data-de-inicio-de-operacao-comum) acima. |
+| `source_hydro_id`          | integer | Sim     | Usina hidrelétrica de cujo reservatório a água é retirada (ver §4 da metodologia). Deve ser diferente de `destination_hydro_id` — uma usina elevatória que modele uma autotransferência (mesmo id dos dois lados) é um erro de carga, pois se anularia silenciosamente em uma linha de balanço hídrico enquanto ainda consumiria potência. A janela `[entry_stage_id, exit_stage_id)` da usina elevatória deve estar contida nos estágios em que tanto a usina hidrelétrica de origem quanto a de destino estão em operação (Operating) (não antes da entrada, não na saída nem depois dela, e não em enchimento de volume morto (Filling)); caso contrário, o caso é rejeitado (`BusinessRuleViolation` em `system/pumping_stations.json`), com um erro por lado infrator indicando o primeiro estágio nessa condição. Linhas de `pumping_bounds` com valor zero não satisfazem a regra. |
+| `destination_hydro_id`     | integer | Sim     | Usina hidrelétrica em cujo reservatório a água é injetada (ver §4 da metodologia). |
+| `consumption_mw_per_m3s`   | number  | Sim     | Taxa de consumo de potência, em MW por m³/s (§4 da metodologia). |
+| `flow.min_m3s` / `flow.max_m3s` | number | Sim | Limites da vazão bombeada, em m³/s (§4 da metodologia). |
+
+Limites variáveis por estágio são fornecidos via `constraints/pumping_bounds.parquet`,
+que aceita linhas esparsas `(pumping_station_id, stage_id)` contendo `min_m3s` e/ou
+`max_m3s`, opcionalmente restritas a um patamar por meio de uma coluna opcional `block_id`;
+na ausência de linhas, valem os valores-base da entidade.
+
+### `system/energy_contracts.json` — Cadastro de Contratos
+
+```json
+{
+  "contracts": [
+    {
+      "id": 0,
+      "name": "Importação Argentina",
+      "bus_id": 5,
+      "operational_start_date": "2005-01-01",
+      "type": "import",
+      "price_per_mwh": 200.0,
+      "limits": { "min_mw": 0.0, "max_mw": 1000.0 }
+    },
+    {
+      "id": 1,
+      "name": "Exportação Uruguai",
+      "bus_id": 6,
+      "operational_start_date": "2020-04-01",
+      "type": "export",
+      "entry_stage_id": 1,
+      "exit_stage_id": 60,
+      "price_per_mwh": -150.0,
+      "limits": { "min_mw": 0.0, "max_mw": 500.0 }
+    }
+  ]
+}
+```
+
+| Campo                          | Tipo    | Obrigatório | Descrição |
+| -------------------------------- | ------- | -------- | ----------- |
+| `id`                             | integer | Sim     | Identificador único. |
+| `name`                           | string  | Sim     | Nome legível do contrato. |
+| `bus_id`                         | integer | Sim     | Barramento no qual a potência contratada é injetada ou retirada. |
+| `operational_start_date`         | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que o contrato passa a constar do histórico operacional do cadastro — ver [Data de Início de Operação Comum](#data-de-inicio-de-operacao-comum) acima. |
+| `type`                           | string  | Sim     | `"import"` ou `"export"` — define o sinal no balanço de carga e o pertencimento ao conjunto de importação/exportação da §3 da metodologia. |
+| `price_per_mwh`                  | number  | Sim     | Preço do contrato, em reais por MWh. Positivo para importações (custo), negativo para exportações (receita) — ver §3 da metodologia. |
+| `limits.min_mw` / `limits.max_mw`| number  | Sim     | Limites de despacho, em MW. Um `min_mw` não nulo é o piso rígido take-or-pay. |
+
+Limites e preço variáveis por estágio são fornecidos via
+`constraints/contract_bounds.parquet`, que aceita linhas esparsas
+`(contract_id, stage_id)` contendo qualquer combinação de `min_mw`,
+`max_mw` e `price_per_mwh`, opcionalmente restritas a um patamar por meio de uma
+coluna opcional `block_id`; na ausência de linhas, valem os valores-base da entidade.
+Diferentemente do `cost_per_mwh` das termelétricas, o `price_per_mwh` dos contratos admite variação por patamar —
+o caminho de custos da simulação de um estudo respeita uma sobrescrita de preço por patamar — porque
+o compromisso de despacho é uma decisão de nível de estágio para uma termelétrica, enquanto o preço de um contrato
+pode legitimamente variar dentro de um estágio.

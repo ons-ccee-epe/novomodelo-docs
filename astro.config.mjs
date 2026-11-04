@@ -235,13 +235,13 @@ export default defineConfig({
       pad: 20,
     }),
     starlight({
-      title: "Novomodelo Documentation",
+      title: { en: "Novomodelo Documentation", "pt-BR": "Documentação do Novo Modelo" },
       // Translation-status dashboard (ticket-022). @lunariajs/starlight is a
       // STARLIGHT PLUGIN (not an Astro integration): it hooks Starlight's plugin
       // API to inject the `/lunaria` route, which reads git history + the tracked
       // English chapter sources (per lunaria.config.json) and renders per-page
-      // pt-BR translation status. With no pt-br/ content yet it reports 0%
-      // (untranslated) — the intended "ready for translators" state.
+      // pt-BR translation status: a pt-br/ page whose English source changed
+      // after it was translated shows as outdated.
       //
       // Coverage + two design decisions (ticket-019, extending i18n/Lunaria to
       // the Epics 03–04 software content — math/_impl/*, reference/*, running/*,
@@ -257,12 +257,13 @@ export default defineConfig({
       //     with a fast-glob run against the same pattern (61 matches, including
       //     all `_impl/_*.mdx` partials, `reference/*`, `running/*`, and
       //     `getting-started/*`).
-      // (b) `src/content/docs/pt-br/` stays `.gitkeep`-only — NO mirrored pt-br
-      //     stub scaffold. Starlight falls back to the English source for any
-      //     untranslated page, so 0%-translated across the board (including the
-      //     new software content) is the correct "ready for translators" state,
-      //     not a defect. Do not add empty/stub pt-br `.md`/`.mdx` files — they
-      //     would render as broken pages and skew the dashboard's status.
+      // (b) `src/content/docs/pt-br/` mirrors the English pages with full
+      //     translations, following the guide in
+      //     `pt-br/_GLOSSARIO-E-CRITERIOS-DA-TRADUCAO.md` (its leading `_` keeps
+      //     the `docsLoader` from publishing it). Starlight falls back to the
+      //     English source for a page with no pt-br counterpart. Do not add
+      //     empty/stub pt-br `.md`/`.mdx` files — they would render as broken
+      //     pages and skew the dashboard's status.
       plugins: [lunaria({ configPath: "./lunaria.config.json", route: "/lunaria" })],
       // Unified interleaved sidebar (ticket-005, docs-unification strategy §5
       // sketch). NOT `autogenerate`: the curated TOC crosses content folders
@@ -286,91 +287,120 @@ export default defineConfig({
       // NOT a sidebar entry.
       sidebar: [
         {
-          label: "Get Started",
+          label: "Get Started", translations: { "pt-BR": "Comece aqui" },
           items: [
             "overview/what-novomodelo-solves",
-            "getting-started/installation",
-            "getting-started/quickstart",
-            "getting-started/python-quickstart",
-          ],
-        },
-        {
-          label: "Introduction",
-          items: [
-            "overview/sddp-framework-overview",
-            "overview/notation-conventions",
+            "overview/how-the-model-decides",
             "overview/how-to-read",
           ],
         },
         {
-          label: "System Modelling",
+          label: "Model entities", translations: { "pt-BR": "Entidades do modelo" },
           items: [
-            "math/system-elements",
-            "math/equipment-formulations",
-            "math/lp-formulation",
-            "math/state-augmentation",
-            "math/block-formulations",
-            "math/hydro-production-models",
-            "math/penalty-system",
+            "entities/equipment/hydro-plants",
+            "entities/equipment/thermal-plants",
+            "entities/equipment/non-controllable-sources",
+            "entities/equipment/pumping-stations",
+            "entities/network/buses",
+            "entities/network/lines",
+            "entities/network/load",
+            "entities/network/deficit",
+            "entities/network/energy-contracts",
+            "entities/hydrology/inflows",
+            "entities/hydrology/scenarios",
+            "entities/hydrology/time-structure",
+            "entities/rules/generic-constraints",
+            "entities/rules/penalties",
+            "entities/rules/risk-aversion",
+            "entities/rules/water-value",
           ],
         },
         {
-          label: "Stochastic Modelling",
+          label: "Running studies", translations: { "pt-BR": "Rodando estudos" },
           items: [
-            "math/policy-graphs",
-            "math/par-inflow-model",
-            "math/inflow-nonnegativity",
-            "math/scenario-generation",
-            "math/multi-resolution-studies",
-          ],
-        },
-        {
-          label: "The SDDP Algorithm",
-          items: [
-            "math/sddp-algorithm",
-            "math/cut-management",
-            "math/lp-layout-and-scaling",
-            "math/lp-warm-start",
-            "math/risk-measures",
-            "math/stopping-rules",
-            "math/upper-bound-evaluation",
-            "math/determinism-guarantees",
-          ],
-        },
-        {
-          label: "Coupling & Boundary Conditions",
-          items: [
-            "math/horizon-modes",
-            "math/post-study-boundary",
-            "math/discount-rate",
-          ],
-        },
-        {
-          label: "Running Novomodelo",
-          items: [
+            "getting-started/installation",
+            "getting-started/quickstart",
+            "getting-started/python-quickstart",
+            "running/mcp-server",
             "running/running-studies",
             "running/configuration",
             "running/policy-management",
             "running/performance",
             "running/hpc-deployment",
             "running/case-conversion",
-            "running/mcp-server",
             "running/interpreting-results",
             "running/troubleshooting",
           ],
         },
         {
-          label: "Worked Examples",
+          label: "Worked Examples", translations: { "pt-BR": "Exemplos resolvidos" },
           items: ["examples/toy-single-reservoir", "examples/toy-four-reservoir"],
         },
         {
-          label: "Reference",
+          label: "Technical reference", translations: { "pt-BR": "Referência técnica" },
+          collapsed: true,
           items: [
             {
-              label: "Case Format",
+              label: "Methodology", translations: { "pt-BR": "Metodologia" },
               collapsed: true,
               items: [
-                { slug: "reference/case-format", label: "Overview" },
+                  {
+                    label: "Introduction", translations: { "pt-BR": "Introdução" },
+                    items: [
+                      "overview/sddp-framework-overview",
+                      "overview/notation-conventions",
+                    ],
+                  },
+                  {
+                    label: "System Modelling", translations: { "pt-BR": "Modelagem do sistema" },
+                    items: [
+                      "math/system-elements",
+                      "math/equipment-formulations",
+                      "math/lp-formulation",
+                      "math/state-augmentation",
+                      "math/block-formulations",
+                      "math/hydro-production-models",
+                      "math/penalty-system",
+                    ],
+                  },
+                  {
+                    label: "Stochastic Modelling", translations: { "pt-BR": "Modelagem estocástica" },
+                    items: [
+                      "math/policy-graphs",
+                      "math/par-inflow-model",
+                      "math/inflow-nonnegativity",
+                      "math/scenario-generation",
+                      "math/multi-resolution-studies",
+                    ],
+                  },
+                  {
+                    label: "The SDDP Algorithm", translations: { "pt-BR": "O algoritmo da PDDE" },
+                    items: [
+                      "math/sddp-algorithm",
+                      "math/cut-management",
+                      "math/lp-layout-and-scaling",
+                      "math/lp-warm-start",
+                      "math/risk-measures",
+                      "math/stopping-rules",
+                      "math/upper-bound-evaluation",
+                      "math/determinism-guarantees",
+                    ],
+                  },
+                  {
+                    label: "Coupling & Boundary Conditions", translations: { "pt-BR": "Acoplamento e condições de contorno" },
+                    items: [
+                      "math/horizon-modes",
+                      "math/post-study-boundary",
+                      "math/discount-rate",
+                    ],
+                  },
+              ],
+            },
+            {
+              label: "Case Format", translations: { "pt-BR": "Formato do caso" },
+              collapsed: true,
+              items: [
+                { slug: "reference/case-format", label: "Overview", translations: { "pt-BR": "Visão geral" } },
                 "reference/case-format/stages",
                 "reference/case-format/system",
                 "reference/case-format/hydros",
@@ -383,10 +413,10 @@ export default defineConfig({
             },
             "reference/generic-constraints",
             {
-              label: "Output Format",
+              label: "Output Format", translations: { "pt-BR": "Formato de saída" },
               collapsed: true,
               items: [
-                { slug: "reference/output", label: "Overview" },
+                { slug: "reference/output", label: "Overview", translations: { "pt-BR": "Visão geral" } },
                 "reference/output/training",
                 "reference/output/simulation",
                 "reference/output/policy",
@@ -443,6 +473,7 @@ export default defineConfig({
         // column floors and the right-sidebar TOC width, so its order among them
         // is arbitrary.
         "./src/styles/layout.css",
+        "./src/components/entity/entity.css",
       ],
       defaultLocale: "root",
       locales: {

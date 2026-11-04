@@ -1,0 +1,596 @@
+---
+title: "Conversão de casos (novomodelo-bridge)"
+description: Converta casos do NEWAVE e do DECOMP para o formato de entrada do Novo Modelo e compare seus resultados com o pacote Python independente novomodelo-bridge.
+---
+
+O **novomodelo-bridge** é um pacote Python independente que converte casos de
+despacho hidrotérmico do NEWAVE (longo prazo) e do DECOMP (curto prazo) em
+diretórios de caso do Novo Modelo e compara os resultados publicados pelo modelo de
+origem com a saída da simulação do Novo Modelo.
+
+O pacote é mantido em um repositório separado:
+[github.com/ons-ccee-epe/novomodelo-bridge](https://github.com/ons-ccee-epe/novomodelo-bridge).
+
+---
+
+## Instalação
+
+```bash
+uv tool install novomodelo-bridge    # CLI isolada, no PATH (recomendado)
+pipx install novomodelo-bridge       # alternativa
+pip install novomodelo-bridge        # no ambiente corrente
+```
+
+O novomodelo-bridge requer Python 3.12 ou mais recente. A CLI `novomodelo` (o solver) é
+instalada separadamente (veja [instalando o novomodelo](/pt-br/getting-started/installation/))
+e só é necessária para executar `novomodelo validate` e `novomodelo run` sobre o caso
+convertido.
+
+O `novomodelo-python` é uma dependência de execução **obrigatória**, e não um extra
+opcional — ele fornece os bindings Python de que precisam `convert --validate`,
+`dashboard`, a importação da FCF de fronteira do `convert decomp` e `export dessem`;
+por isso, a instalação do novomodelo-bridge o instala automaticamente. (O `compare` não
+usa os bindings: ele lê diretamente os arquivos parquet de saída da simulação do Novo Modelo.)
+
+Uma versão `X.Y.Z` do novomodelo-bridge corresponde à versão `X.Y.Z` do novomodelo: o
+caso convertido segue o contrato de entrada dessa versão. O bridge registra a versão
+mínima do novomodelo (`0.20.0`) no manifesto de conversão e a usa para decidir se o
+`novomodelo-python` instalado pode executar `convert --validate`.
+A seção [Dependências](#dependencias) lista a fixação de versão que acompanha esse
+mínimo. Se o
+`novomodelo-python` instalado for mais antigo que a versão mínima do novomodelo,
+`convert --validate` pula sua etapa de validação (imprimindo uma nota) em vez de
+falhar.
+
+---
+
+## Fluxo de conversão
+
+Um caso do NEWAVE vai da verificação prévia à comparação de resultados em seis etapas.
+
+```bash
+novomodelo-bridge check newave <newave-dir>                          # verificação prévia; saída 2 = não será convertido
+novomodelo-bridge convert newave <newave-dir> <case-dir> --dry-run   # converte em memória, não grava nada
+novomodelo-bridge convert newave <newave-dir> <case-dir> --validate  # converte e depois valida com o novomodelo-python
+novomodelo validate <case-dir>                                       # valida o caso convertido
+novomodelo run <case-dir>                                            # resolve; resultados vão para <case-dir>/output/
+novomodelo-bridge compare newave <newave-dir> <case-dir>/output      # resultados publicados do NEWAVE vs. simulação do Novomodelo
+```
+
+Para um deck do DECOMP, substitua `newave` por `decomp` nos comandos do novomodelo-bridge;
+[Convertendo um Deck do DECOMP](#convertendo-um-deck-do-decomp) trata da importação da FCF
+de fronteira que o `convert decomp` executa por padrão.
+
+---
+
+## Convertendo um Caso
+
+O subcomando `convert` lê um diretório de caso de origem e grava um diretório de
+caso completo do Novo Modelo:
+
+```bash
+novomodelo-bridge convert newave /path/to/source/case /path/to/output/case
+```
+
+### Opções
+
+Flags do `convert newave`:
+
+| Flag                      | Descrição                                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `--validate`              | Após a conversão, valida a saída com o pacote novomodelo.                                                          |
+| `--force`                 | Sobrescreve o diretório de destino se ele já contiver arquivos.                                                      |
+| `--diagnostics-json PATH` | Grava também os diagnósticos da conversão (contagens + achados) em JSON.                                                     |
+| `--json`                  | Emite um único veredito JSON legível por máquina na saída padrão (stdout) e suprime a saída legível por humanos (Rich).                   |
+| `--dry-run`               | Executa a conversão completa em memória e informa o que seria gravado, sem criar nem modificar o destino.     |
+| `--json-float-digits N`   | Grava cada número de ponto flutuante dos arquivos JSON do caso com `N` dígitos significativos, de `1` a `17`. Padrão: `15`; `17` mantém a precisão completa. Os arquivos Parquet não são afetados. Abaixo de `10` dígitos, o novomodelo pode rejeitar o caso, porque ele confere os valores do JSON com as tabelas Parquet e com as somas dos grupos de unidades com tolerância relativa de `1e-9`. |
+| `-v, --verbose INTEGER`   | Aumenta o nível de detalhe do log no console (`-v` INFO, `-vv` DEBUG). Padrão: `0`.                                                  |
+| `--log-file PATH`         | Grava o log DEBUG completo em `PATH` (o nível de detalhe do console não é afetado). Diretórios-pai ausentes são criados; um caminho que não pode ser aberto é reportado como erro da opção `--log-file`, e o comando sai com `2`. |
+| `--no-color`              | Desativa a saída colorida (também respeitada pela variável de ambiente `NO_COLOR`).                                                     |
+| `--quiet`                 | Suprime o resumo e as notas informativas; avisos/erros continuam sendo exibidos.                                                        |
+
+O `convert decomp` (abaixo) aceita o mesmo conjunto de flags, mais `--no-fcf`.
+
+#### Códigos de saída
+
+| Código | Significado                                |
+| ---- | --------------------------------------- |
+| `0`  | Conversão concluída.                   |
+| `1`  | Erro de conversão.                       |
+| `2`  | `--validate` reportou uma falha de carregamento.   |
+
+Uma conversão que falha com saída `1` ainda informa os avisos encontrados antes
+da falha, nas notas do console e nos diagnósticos do `--json`.
+
+O `convert decomp` usa o mesmo conjunto de códigos de saída `0`/`1`/`2`. Em todo comando
+do novomodelo-bridge, um erro de uso (uma opção desconhecida, um argumento ausente ou um
+valor de opção inválido, como um caminho de `--log-file` sem permissão de escrita) também
+sai com `2`, com uma mensagem de uso no stderr. Com `--json`, ele imprime o envelope do
+veredito no stdout, com status `error` e um diagnóstico `usage-error`.
+
+#### Saída `--json`
+
+Com `--json`, o `convert` (e todos os demais comandos do novomodelo-bridge) emite um
+documento JSON na saída padrão em vez da saída Rich do console, com exatamente
+cinco chaves de primeiro nível nesta ordem fixa: `schema_version`, `command`,
+`status`, `summary`, `diagnostics`. `summary` contém a carga específica do comando
+(contagens de entidades, no caso do `convert`); `diagnostics` é a mesma lista de
+achados que os painéis Rich exibem. Um `convert` que falha lista os avisos que
+encontrou antes da falha junto ao erro, nas notas da conversão e no
+`diagnostics` do `--json`.
+
+Para a referência completa de flags de todos os comandos, consulte a
+[referência da CLI do novomodelo-bridge](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/cli.md).
+
+### Convertendo um Deck do DECOMP
+
+```bash
+novomodelo-bridge convert decomp /path/to/deck /path/to/output/case
+```
+
+Por padrão, quando o deck declara seus arquivos de cortes `cortes`/`cortesh` (seus
+registros FC), o `convert decomp` importa a FCF de fronteira do deck como um
+checkpoint de política do novomodelo no estágio terminal, por meio de uma passagem
+do novomodelo de uma iteração executada no próprio processo. Essa importação é lenta
+e requer o `novomodelo-python`. Ela é sempre pulada com `--dry-run` e é pulada — com
+uma nota informativa, não um erro — quando o deck não declara arquivos de cortes.
+Passe **`--no-fcf`** para pular a importação da FCF de fronteira e obter uma conversão
+mais rápida, sem FCF terminal.
+
+:::caution
+Uma fronteira importada só é carregada por um novomodelo cuja versão seja igual à do
+`novomodelo-python` que converteu o deck, incluindo o patch (`pip show novomodelo-python`
+a exibe). Qualquer outra versão do novomodelo recusa a fronteira: a
+[verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao) identifica o software e
+a versão que a gravaram, e uma fronteira de outro `format_version` de checkpoint é
+recusada na leitura pela verificação de formato.
+Para executar o caso com outra versão do novomodelo, instale a versão do novomodelo-bridge
+pareada com essa versão do novomodelo, que fixa seu `novomodelo-python`, e converta o
+deck novamente. O guia de DECOMP do novomodelo-bridge trata de
+[executar um caso com uma fronteira importada](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/decomp.md#running-a-case-with-an-imported-boundary).
+:::
+
+### O que É Convertido
+
+O fluxo de conversão transforma os arquivos de entrada do caso de origem em um
+diretório de caso completo do Novo Modelo, organizado por subdiretório de saída:
+
+- **`system/`** -- configuração das usinas e da rede: hidrelétricas, termelétricas, barramentos,
+  linhas, usinas elevatórias, fontes não despacháveis, modelos de produção hidrelétrica
+  e geometria das hidrelétricas.
+- **`scenarios/`** -- entradas estocásticas: estatísticas sazonais e fatores de afluência,
+  carga e fontes não despacháveis.
+- **`constraints/`** -- limites por estágio, substituições de penalidades e restrições
+  genéricas.
+- **Nível superior** -- configuração do estudo, definição dos estágios, penalidades e
+  condições iniciais.
+
+Para a rastreabilidade oficial, em nível de campo, da origem ao Novo Modelo -- qual arquivo
+do deck, registro e coluna alimenta qual campo de saída e qual transformação
+é aplicada --, consulte os mapas de dados gerados pelo próprio bridge. Eles são produzidos por
+`scripts/gen-lineage-docs.py`, verificados por testes contra uma conversão real,
+marcados como "Do not edit by hand" e escritos em português:
+[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/newave-data-map.md)
+e
+[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/decomp-data-map.md).
+
+### Estrutura do Diretório de Saída
+
+O `convert newave` grava este conjunto de arquivos:
+
+```
+output/
+  config.json
+  stages.json
+  penalties.json
+  initial_conditions.json
+  conversion_manifest.json
+  system/
+    hydros.json
+    thermals.json
+    buses.json
+    lines.json
+    pumping_stations.json
+    non_controllable_sources.json
+    hydro_production_models.json
+    hydro_geometry.parquet
+    tailrace_curves.parquet             (condicional)
+    hydro_energy_productivity.parquet   (condicional)
+  scenarios/
+    load_factors.json
+    non_controllable_factors.json
+    inflow_history.parquet
+    inflow_seasonal_stats.parquet
+    load_seasonal_stats.parquet
+    non_controllable_stats.parquet
+  constraints/
+    generic_parameters.json
+    line_bounds.parquet
+    hydro_bounds.parquet                (condicional)
+    thermal_bounds.parquet              (condicional)
+    pumping_bounds.parquet              (condicional)
+    penalty_overrides_bus.parquet       (condicional)
+    penalty_overrides_hydro.parquet     (condicional)
+    generic_constraints.json            (condicional: o deck tem restrições genéricas)
+    generic_constraint_bounds.parquet   (condicional: o deck tem restrições genéricas)
+```
+
+Os arquivos marcados como *(condicional)* só são gravados quando o deck de origem fornece
+os dados correspondentes (*conditional: deck has generic constraints* = somente quando o
+deck tem restrições genéricas); `--dry-run` não grava absolutamente nada (o campo
+`would_write_paths` do relatório de conversão antecipa o conjunto que uma execução real gravaria).
+
+Um caso gravado pelo `convert decomp` não grava `scenarios/inflow_history.parquet`,
+`constraints/penalty_overrides_bus.parquet` nem
+`constraints/penalty_overrides_hydro.parquet`, e grava também arquivos que o
+`convert newave` nunca grava:
+
+- `system/energy_contracts.json`
+- `scenarios/external_inflow_scenarios.parquet`,
+  `scenarios/external_load_scenarios.parquet` e
+  `scenarios/external_ncs_scenarios.parquet`
+- `constraints/contract_bounds.parquet` e
+  `constraints/hydro_unit_group_bounds.parquet`
+- `post_study_stages.json` no nível superior
+- a fronteira importada, em `boundary/` (veja
+  [Convertendo um Deck do DECOMP](#convertendo-um-deck-do-decomp))
+
+---
+
+## Comparando Resultados
+
+Depois de executar a ferramenta de origem e o Novo Modelo sobre o mesmo caso, o subcomando
+`compare` alinha os **resultados publicados** da ferramenta de origem com os **arquivos
+parquet de saída da simulação do Novo Modelo**:
+
+```bash
+novomodelo-bridge compare newave /path/to/source/case /path/to/novomodelo/output
+```
+
+`compare newave <NEWAVE_DIR> <NOVOMODELO_OUTPUT_DIR>` compara os resultados publicados
+do NEWAVE (`MEDIAS-*.CSV`, `pmo.dat`) com a saída da simulação do Novo Modelo.
+`compare decomp <DECOMP_DIR> <NOVOMODELO_OUTPUT_DIR>` compara da mesma forma a operação
+publicada de uma execução do DECOMP (`dec_oper_*.csv`), lendo cada arquivo no layout da
+versão do DECOMP indicada no seu cabeçalho. Os dois diretórios de origem
+devem conter o caso/deck e seus arquivos de resultado diretamente (não aninhados em um
+subdiretório). A aba Productivity do `compare newave` posiciona os dois modelos em
+seus pontos de operação apenas quando a execução do NEWAVE tem as tabelas `nwlistop`
+por usina, produzidas com a lista de usinas do `nwlistop.dat` definida como `999`; sem elas,
+os pontos de operação ficam de fora, com uma nota.
+
+O `compare newave` compara as afluências que o Novo Modelo informa. Elas contêm o sorteio
+PAR bruto, que pode ser negativo; a correção que eleva um sorteio negativo no
+balanço hídrico é informada à parte, como `inflow_nonnegativity_slack_m3s`
+([`simulation/hydros/`](/pt-br/reference/output/simulation/#simulationhydros)). Onde
+essa correção atua, a vazão incremental, a afluência total e a energia natural afluente
+do Novo Modelo ficam abaixo da afluência usada pelo balanço hídrico.
+
+O `compare` e o `dashboard` leem os coeficientes dos termos e os limites da restrição
+de cada restrição genérica a partir da saída `generic_constraints/resolved_echo.parquet`
+do Novo Modelo, tal como o PL os recebeu.
+
+| Flag                | Descrição                                                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--tolerance FLOAT` | Tolerância relativa para a comparação de resultados. Padrão `1e-2`. Variável de ambiente `NOVOMODELO_BRIDGE_RESULTS_TOLERANCE`.                            |
+| `--format FORMAT`   | Formato(s) de saída: `console,html,csv,parquet,json,all` (separados por vírgula e/ou repetíveis). Padrão `console,parquet,json`. Variável de ambiente `NOVOMODELO_BRIDGE_FORMAT`. |
+| `--out-dir PATH`    | Diretório para os artefatos em arquivo. Padrão `<novomodelo_output_dir>/comparison_artifacts`. Variável de ambiente `NOVOMODELO_BRIDGE_OUT_DIR`.                     |
+| `--json`            | Emite um único veredito JSON legível por máquina na saída padrão em vez das tabelas Rich.                                               |
+
+O `compare` também compartilha as flags `-v/--verbose`, `--log-file`, `--no-color`
+e `--quiet` do `convert`.
+
+`--tolerance`, `--format` e `--out-dir` obtêm, cada um, seu valor da primeira
+fonte que o define: a flag, depois a variável de ambiente, depois o arquivo de
+configuração e, por fim, o padrão embutido. O `compare` lê um único arquivo de configuração,
+o primeiro destes que existir: `novomodelo-bridge.toml` no diretório corrente ou em qualquer diretório-pai;
+`$XDG_CONFIG_HOME/novomodelo-bridge/config.toml`, somente quando `XDG_CONFIG_HOME` estiver definida
+e não vazia; `~/.config/novomodelo-bridge/config.toml`. Ele não é mesclado com os
+demais.
+Ele pode definir `[compare.results] tolerance`, `[compare] format` e
+`[compare] out_dir`; um arquivo malformado, ou uma chave de tipo errado, é ignorado
+com um aviso na saída de erro (stderr).
+
+O `compare` é informativo: ele relata toda divergência que encontra, além da
+tolerância ou não, mas uma divergência nunca faz a execução falhar. Tanto no fluxo `newave`
+quanto no `decomp`, o código de saída indica apenas se a comparação pôde ser executada:
+
+| Código de saída | Significado                                                                  |
+| --------- | ------------------------------------------------------------------------ |
+| `0`       | A comparação foi executada (tendo ou não encontrado alguma divergência).            |
+| `1`       | O caso ou deck de origem não é encontrado: o diretório não existe ou não contém um caso do NEWAVE ou um deck do DECOMP. |
+| `2`       | Um token de `--format` inválido; um arquivo de saída do Novo Modelo que não pode ser lido (dados ausentes ou malformados); ou, no `compare decomp`, um arquivo de resultado do DECOMP que não pode ser lido, inclusive um `dec_oper_*.csv` gravado por uma versão do DECOMP anterior a todos os layouts que o bridge lê. |
+
+Um caso do NEWAVE cujo `dger.dat` solicita o treinamento (training) sem simulação final
+(`tipo_execucao` 1 com `tipo_simulacao_final` 0) é convertido com
+`simulation.enabled` definido como `false`. O `novomodelo run` então não grava saída de
+simulação, de modo que o `compare newave` não encontra saída de simulação do Novo Modelo para ler e sai com `2`, indicando
+o diretório ausente `simulation/hydro_bus_generation/`.
+
+---
+
+## API Python
+
+Para uso programático, instale o novomodelo-bridge no ambiente do seu projeto
+(`pip install novomodelo-bridge`; uma instalação isolada via `uv tool` ou `pipx` expõe
+apenas a CLI) e importe diretamente o fluxo de conversão:
+
+```python
+from pathlib import Path
+from novomodelo_bridge.newave.pipeline import convert_newave_case
+
+report = convert_newave_case(
+    Path("/path/to/source/case"),
+    Path("/path/to/output/case"),
+    on_phase=lambda phase: print(f"phase: {phase}"),
+    dry_run=False,
+)
+print(report)
+```
+
+`convert_newave_case(src, dst, *, on_phase=None, dry_run=False) ->
+ConversionReport` recebe `src`/`dst` como `Path`s posicionais, mais dois
+argumentos somente nomeados: um callback de progresso opcional `on_phase`, chamado com
+o nome da fase corrente da conversão, e `dry_run` (padrão `False`) — defina-o
+como `True` para executar a conversão completa em memória e preencher o relatório
+sem gravar nada em `dst`.
+
+O `ConversionReport` retornado contém `hydro_count`, `thermal_count`,
+`bus_count`, `line_count`, `stage_count`, `diagnostics` (achados
+estruturados), `warnings` (avisos como strings simples) e `would_write_paths` (os
+caminhos de saída gravados, ou que teriam sido gravados com
+`dry_run=True`).
+
+As conversões do DECOMP usam a função equivalente
+`novomodelo_bridge.decomp.pipeline.convert_decomp_case(src, dst, *, force=False,
+on_phase=None, dry_run=False, fcf_inputs_out=None) -> ConversionReport`.
+
+---
+
+## Outros Comandos
+
+### Verificando um Caso
+
+O `check` valida um caso ou deck de origem sem converter nem gravar nenhuma
+saída — uma verificação prévia antes de partir para uma execução completa do `convert`:
+
+```bash
+novomodelo-bridge check newave /path/to/source/case
+novomodelo-bridge check decomp /path/to/deck
+```
+
+O `check decomp` também informa o que a conversão deixará de fora (funcionalidades do
+deck que o `convert decomp` não transporta), de modo que uma limitação nunca é uma
+omissão silenciosa. O `check` e o `convert` emitem aviso quando um arquivo de entrada de
+colunas fixas contém um caractere de tabulação, que desloca todos os campos seguintes na sua linha.
+
+Os arquivos de texto listados no `arquivos.dat`, no fluxo do NEWAVE, e o `dadger` e o
+`dadgnl`, no fluxo do DECOMP, são lidos por colunas fixas; assim, uma tabulação onde o
+leiaute espera espaços desloca os campos seguintes, e uma linha de registro do DECOMP
+que começa com tabulação não é lida. O `check` e o `convert` emitem aviso sobre
+toda tabulação nesses arquivos, indicando cada arquivo e suas linhas (as linhas de
+comentário do DECOMP, cujo primeiro caractere não branco é `&`, são ignoradas), e um `check`
+que encontra alguma informa "pronto, com avisos".
+
+O `check` compartilha as flags `--json`, `-v/--verbose`, `--log-file`,
+`--no-color` e `--quiet` do `convert`.
+
+#### Códigos de saída
+
+| Código | Significado              |
+| ---- | -------------------- |
+| `0`  | Pronto para converter.     |
+| `1`  | Pronto, com avisos. |
+| `2`  | Não será convertido.     |
+
+### Gerando um Painel
+
+O `dashboard` constrói um painel HTML interativo a partir dos resultados da simulação
+do Novo Modelo:
+
+```bash
+novomodelo-bridge dashboard /path/to/novomodelo/case
+```
+
+| Flag                 | Descrição                                                             |
+| -------------------- | ------------------------------------------------------------------------ |
+| `--output, -o PATH`  | Caminho do arquivo HTML de saída. Padrão `<case_dir>/dashboard.html`.             |
+| `--open`             | Abre o painel gerado no navegador padrão após a gravação.  |
+| `--json`             | Emite um único veredito JSON legível por máquina na saída padrão.                  |
+
+O `dashboard` também compartilha as flags `-v/--verbose`, `--log-file`,
+`--no-color` e `--quiet` do `convert`. Códigos de saída: `0` gravado, `1` erro.
+
+O `dashboard` também é gerado para um caso executado com o treinamento ou a simulação desativados,
+e deixa de fora as abas e seções da fase que não foi executada. Sua
+aba Constraints, assim como as do `compare`, mostra cada restrição genérica tal como o Novo Modelo
+a resolveu, lida do `generic_constraints/resolved_echo.parquet` da execução
+([o eco resolvido](/pt-br/reference/generic-constraints/#o-eco-resolvido)).
+
+### Exportando uma Função de Custo para o DESSEM
+
+O `export dessem` grava a política de um caso resolvido, convertido a partir de um deck do DECOMP,
+como a função de custo futuro que o DESSEM lê:
+
+```bash
+novomodelo-bridge export dessem /path/to/deck /path/to/novomodelo/case
+```
+
+`export dessem <DECOMP_DIR> <CASE_DIR>` lê o checkpoint da política em
+`<CASE_DIR>/output/policy/` por meio do `novomodelo-python` e grava `mapcut.<rev>`,
+`cortdeco.<rev>` e `export_manifest.json`. `DECOMP_DIR` é o deck a partir do qual o caso
+foi convertido: seu `caso.dat` indica a revisão `<rev>`, os códigos do seu `hidr.dat`
+identificam as usinas, e a ordem dos seus registros `VI` numera as usinas
+com tempo de viagem da água, cuja água em trânsito os cortes contêm. Uma usina com
+tempo de viagem mas sem registro `VI` no deck, um tempo de viagem que não seja um número
+inteiro de horas e uma usina com tempo de viagem mas sem usina de jusante são
+recusados. Os cortes do primeiro nó que constrói cortes trazem, para cada térmica com
+antecipação de despacho (GNL), o coeficiente da entrega do segundo estágio do caso, o mesmo
+em todos os patamares de carga, e o registro 9 do `mapcut` traz as horas dos patamares
+desse estágio; os demais coeficientes de GNL da política ficam de fora. Uma usina sem
+coeficiente para essa entrega, ou com coeficiente exatamente zero, é gravada como `0.0`,
+com um aviso. O registro 10 do `mapcut` de cada estágio traz o custo da geração de GNL
+comandada antes do estudo, precificada a partir das janelas de comando do
+`initial_conditions.json` do caso.
+
+| Flag                 | Descrição                                                       |
+| -------------------- | ----------------------------------------------------------------- |
+| `--output, -o PATH`  | Diretório de saída. Padrão `<case_dir>/dessem_fcf/`.               |
+| `--force`            | Sobrescreve as saídas se o diretório de saída já as contiver. |
+| `--audit-csv`        | Grava também os cortes como arquivos CSV de auditoria.                           |
+| `--include-terminal` | Inclui o conjunto de cortes terminal nos arquivos CSV de auditoria.                 |
+| `--json`             | Emite um único veredito JSON legível por máquina na saída padrão.            |
+
+O `export dessem` também compartilha as flags `-v/--verbose`, `--log-file`,
+`--no-color` e `--quiet` do `convert`. Códigos de saída: `0` gravado, `1` erro.
+
+---
+
+## Detalhes da Conversão
+
+### Renumeração dos IDs das Entidades
+
+O NEWAVE identifica subsistemas e usinas por códigos arbitrários com base 1; o Novo Modelo usa
+ids com base 0, sem lacunas. O novomodelo-bridge ordena os códigos de origem em ordem crescente e
+atribui os ids 0, 1, 2 e assim por diante nessa ordem, de modo que um id não depende de
+como o deck ordena suas entidades, e uma entidade mantém o mesmo id em todos os
+arquivos de saída. O `compare newave` reconstrói a mesma numeração a partir do caso de origem,
+de modo que os resultados remetem aos códigos de origem. O `convert decomp` ordena os
+códigos do deck da mesma forma e acrescenta um barramento de transbordo (transshipment) criado pelo conversor após os
+subsistemas declarados.
+
+### Quais Usinas São Convertidas
+
+Em um caso do NEWAVE, uma hidrelétrica se torna uma entidade do Novo Modelo quando o `confhd.dat` a marca como
+em serviço: existente (`EX`) ou existente com expansão ainda por vir (`EE`).
+Uma usina `EE` opera desde o primeiro estágio com a configuração de máquinas que o
+`modif.dat` declara para o início do estudo e ganha as máquinas listadas no
+`exph.dat` à medida que entram em operação, por meio de limites por estágio. Usinas que ainda não
+existem ficam de fora, exceto uma usina futura cujo cronograma no `exph.dat` faz o enchimento
+do seu volume morto. Usinas fictícias de contabilização são removidas; elas são identificadas
+estruturalmente, como uma usina com produtibilidade zero que compartilha seu posto de vazão
+com uma usina geradora e que nenhuma usina elevatória utiliza, e uma ligação da cascata
+que passa por uma usina removida é religada à próxima usina real a jusante.
+
+O `convert decomp` converte as hidrelétricas operadas do deck, com as alterações
+cadastrais do deck aplicadas, e suas pequenas usinas como fontes não despacháveis de geração compulsória (must-run).
+Os parques renováveis do seu arquivo `renovaveis`, com sua geração no cartão
+`PEE-GER-PER-PAT-CEN` ou `PEE-GER-PER-PAT`, também se tornam
+fontes não despacháveis. Um parque cujo estado operativo no `PEE-CONFIG-PER` seja
+`centralizado` pode ter corte de geração (curtailment) abaixo de sua geração declarada; um parque em qualquer
+outro estado é de geração compulsória, assim como um parque sem estado, com um aviso.
+O `convert decomp` grava um `non_controllable_source.curtailment_cost` de
+`0.0001` por MWh no `penalties.json`, abaixo das demais micropenalidades fixas
+do bridge, de modo que cortar a geração de um parque seja a forma mais barata de absorver um excedente.
+Um parque declarado nos dois cartões de geração, ou com mais de um estado
+operativo, interrompe a conversão.
+
+Para a lista completa de regras de conversão, consulte o
+[guia do fluxo NEWAVE](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/newave.md) do novomodelo-bridge.
+
+### Configurações do Estudo
+
+Os dois fluxos definem [`simulation.cut_set`](/pt-br/running/configuration/#conjunto-de-cortes-da-simulacao)
+como `"active"`, de modo que a simulação carrega os cortes ativos ao final do treinamento;
+quando uma conversão não ativa nenhuma seleção de cortes, todos os cortes permanecem ativos e os dois
+conjuntos coincidem. Quando o `dger.dat` ativa a seleção de cortes em qualquer das simulações,
+o `convert newave` define o `selection` de
+[`training.cut_selection`](/pt-br/running/configuration/#trainingcut_selection) como o
+método `level1`, com `check_frequency` `1` e `lookback_iterations` `2`, e,
+quando o `dger.dat` ativa a janela de cortes, emite um aviso de que o Novo Modelo não tem janela de cortes
+e mantém todos os cortes. O `convert newave` define
+[`modeling.inflow_non_negativity`](/pt-br/running/configuration/#modelinginflow_non_negativity)
+como `truncation_with_penalty`, e o `convert decomp` o define como `penalty`, cuja
+correção ilimitada mantém viável a passagem de uma iteração da importação da FCF de fronteira
+quando uma meta de volume se torna um piso rígido de armazenamento. O `convert decomp` treina e simula com a seleção `enumerated`.
+
+### Suporte a Medidas de Risco
+
+Quando o caso de origem configura otimização avessa ao risco (CVaR), o novomodelo-bridge
+converte os parâmetros alfa e lambda em entradas `risk_measure` por estágio
+no `stages.json`. Há suporte a três modos:
+
+- **Desativado** -- todos os estágios usam `"expectation"`.
+- **Constante** -- todos os estágios usam os mesmos parâmetros de CVaR.
+- **Temporal** -- valores de alfa/lambda por estágio, recorrendo às constantes
+  quando o valor específico de um estágio é zero.
+
+### Restrições Genéricas
+
+O `convert newave` converte três famílias de restrições de origem para o formato de
+autoria de restrições genéricas do Novo Modelo: uma definição por restrição em
+`generic_constraints.json` (um `name`, uma `expression` e um `slack` opcional),
+reunidas com IDs inteiros sequenciais, e limites de lado direito por estágio em
+`generic_constraint_bounds.parquet`.
+
+- **VminOP** -- restrições de energia armazenada mínima, uma por REE. Cada uma limita
+  inferiormente a energia armazenada útil, em MWh, dos reservatórios participantes do REE ao
+  final do estágio pela fração da curva aplicada à sua energia armazenada útil
+  máxima. O peso e o máximo de cada reservatório são parâmetros
+  nomeados (`@rho_acum_mwh_h<id>`, `@earm_max_mwh_h<id>`) declarados em
+  `constraints/generic_parameters.json` como parâmetros calculados
+  (`integrated_accumulated_productivity_mwh_per_hm3`, `max_stored_energy_mwh`),
+  que o Novo Modelo resolve a partir das produtibilidades do próprio estudo (veja o
+  [exemplo de curva de segurança](/pt-br/reference/generic-constraints/#exemplo-resolvido-uma-curva-de-seguranca)).
+  A [base de penalização](/pt-br/reference/generic-constraints/#base-de-penalizacao) da folga é
+  `per_unit`, um preço por MWh de violação.
+- **Elétricas** -- restrições operativas sobre a geração hidrelétrica e os fluxos nas linhas,
+  com uma folga `per_hour` precificada pela penalidade de restrição elétrica do
+  `penalid.dat`, ou por 10 vezes o maior custo de déficit quando o caso não declara nenhuma.
+- **AGRINT** -- limites de agrupamentos de intercâmbio, cada um um teto sobre uma soma ponderada de
+  fluxos direcionais nas linhas, sem folga.
+
+O `convert decomp` converte as restrições elétricas `RE`, `RHQ`, `RHV` e LIBS do deck
+com uma folga `per_hour`, e suas restrições de energia armazenada `RHE` com
+uma folga `per_unit`. Um termo `FE` de uma restrição `RE` passa a ser um termo no contrato
+de importação `CI` ou de exportação `CE` com esse número no seu submercado; um termo que
+não corresponde a um único contrato desse tipo descarta a sua restrição, com um aviso
+`decomp-fe-no-contract`.
+
+Uma restrição LIBS mantém seus termos de decisão na expressão e incorpora seus
+termos de dados ao limite em cada estágio e patamar: a carga, os aliases, a
+potência disponível, um termo `peq_<name>_<subsystem>` (a geração da série de
+pequenas usinas `PQ` desse subsistema) e o `ger_usit` de uma usina GNL do `dadgnl`
+(a geração comandada pelo seu registro `GL`). Um termo `peq_` que não corresponde a nenhuma série `PQ`
+descarta sua restrição, com um aviso, e um termo GNL interrompe a
+conversão quando a restrição está ativa em um estágio no qual nenhuma semana `GL`
+começa. Uma restrição declarada apenas por linhas
+`RESTRICAO-ELETRICA-INEQUACAO-PERIODO-PATAMAR` se aplica nos estágios e
+patamares que essas linhas cobrem, e um limite escrito como `1E+31` deixa esse lado
+ilimitado. Nas duas trilhas, um nome de registro no arquivo de restrições elétricas só é
+lido por extenso e em maiúsculas, como o manual o escreve, e toda linha que não é um
+registro lido pela conversão, exceto linhas em branco e comentários `&`, é listada em um
+aviso `libs-unread-lines`.
+
+A folga de cada restrição flexível declara sua `penalty_basis`: a VminOP é
+`per_unit`, de modo que sua penalidade é cobrada por MWh de violação, e as restrições
+elétricas são `per_hour`. No fluxo do DECOMP, a RHE limita a energia armazenada útil
+da mesma forma que a VminOP, uma restrição por registro, e é `per_unit`; as restrições `RE`,
+`HQ`, `HV` e LIBS são `per_hour`.
+
+---
+
+## Dependências
+
+O novomodelo-bridge 0.20.0 instala suas dependências de execução junto com o pacote. Quatro
+fixações de versão são relevantes:
+
+- `novomodelo-python==0.20.0`: a versão fixada é a `MIN_NOVOMODELO_VERSION` do bridge
+  (`0.20.0`), e um teste de empacotamento mantém a fixação e essa constante sincronizadas.
+- `inewave>=1.17.1`: o leitor de arquivos do NEWAVE.
+- `idecomp>=1.18.3`: o leitor de arquivos do DECOMP.
+- `cfinterface>=1.10.3`: a biblioteca de formatos de arquivo sobre a qual os dois leitores
+  são construídos, que o bridge também importa diretamente.
+
+O bridge também requer pandas 3.1, plotly 7.1, polars 2.1, pyarrow 26, rich 15 e typer
+0.27.3 ou mais recentes, de modo que instalá-lo em um ambiente existente os atualiza.
+
+A versão mínima do novomodelo não torna as versões intercambiáveis: uma fronteira importada
+exige correspondência exata de versão (veja o aviso em
+[Convertendo um Deck do DECOMP](#convertendo-um-deck-do-decomp)).
+
+---
+
+## Veja Também
+
+- [Configuração](/pt-br/running/configuration/) -- todos os campos do `config.json`
+- [Formato do caso](/pt-br/reference/case-format/) -- referência completa do esquema de entrada

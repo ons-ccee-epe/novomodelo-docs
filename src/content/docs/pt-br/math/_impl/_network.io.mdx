@@ -1,0 +1,43 @@
+Este é um índice, restrito ao tema, dos arquivos envolvidos pela camada de rede ([Visão geral da modelagem dos elementos do sistema §2](/pt-br/math/system-elements#2-barramentos-subsistemas-regionais)–[§3](/pt-br/math/system-elements#3-linhas-de-transmissao)) —
+ele nomeia cada arquivo e seu papel, sem repetir seus esquemas campo a
+campo. A referência exaustiva, campo a campo, do diretório do caso e das
+saídas pertence ao corpo de Referência (páginas [Formato do caso](/pt-br/reference/case-format/)
+e [Formato de saída](/pt-br/reference/output/)).
+
+### Entradas
+
+| Arquivo | Papel |
+| --- | --- |
+| `system/buses.json` | Cadastro de barramentos (nós) — `id`, `name` e a sobrescrita `deficit_segments` tratada na aba Configurar. Obrigatório em todo caso. |
+| `system/lines.json` | Cadastro de linhas de transmissão (arestas) — `id`, `name`, extremidades, `capacity`, `losses_percent` e a sobrescrita `exchange_cost` tratada na aba Configurar. Array vazio em um caso de barramento único. |
+| `constraints/line_bounds.parquet` | Sobrescritas esparsas, por `(line_id, stage_id)`, de `direct_mw`/`reverse_mw`, opcionalmente restritas a um patamar por meio de uma coluna opcional `block_id` (veja a aba Configurar) — indisponibilidades programadas, redução sazonal de capacidade ou limites de transferência por horário, expressos em MW absolutos e não como multiplicador de `capacity.direct_mw`/`capacity.reverse_mw`. Na ausência de linhas, valem os valores-base da entidade. |
+
+As sobrescritas de **penalidade** variáveis por estágio que afetam esses
+mesmos dois arquivos — `excess_cost` nos barramentos e `exchange_cost` nas
+linhas — são entradas parquet esparsas separadas, pertencentes ao sistema de
+penalidades; veja a aba Entradas e saídas do
+[Sistema de penalidades](/pt-br/math/penalty-system#implementacao-no-novo-modelo)
+para `constraints/penalty_overrides_bus.parquet` e
+`constraints/penalty_overrides_line.parquet`. Este capítulo não repete
+esse índice.
+
+Para o esquema completo, campo a campo, de cada arquivo acima, consulte a
+página de referência [Formato do caso](/pt-br/reference/case-format/) no
+corpo de Referência.
+
+### Saídas
+
+| Arquivo / grupo de colunas | Papel |
+| --- | --- |
+| `simulation/buses/` | Resultados do balanço de carga por (estágio, patamar, barramento): `load_mw`, `deficit_mw`, `excess_mw` (e seus equivalentes em energia `_mwh`) e `spot_price` — a variável dual do balanço de carga. |
+| `simulation/exchanges/` | Resultados de fluxo por (estágio, patamar, linha): `direct_flow_mw`, `reverse_flow_mw`, `net_flow_mw` (e `_mwh`), perdas de transmissão `losses_mw`/`losses_mwh` e o custo monetário `exchange_cost` atribuído ao fluxo dessa linha. |
+
+Uma restrição genérica pode referenciar esse mesmo fluxo líquido da linha
+pelo par de barramentos — `line_exchange(source_bus=X, target_bus=Y)`
+incorpora o sinal de orientação ao termo —; veja
+[Restrições genéricas](/pt-br/reference/generic-constraints/) para a forma
+completa de referência.
+
+Para o esquema completo de saída (colunas, tipos, organização dos arquivos),
+consulte a página de referência [Formato de saída](/pt-br/reference/output/) no
+corpo de Referência.

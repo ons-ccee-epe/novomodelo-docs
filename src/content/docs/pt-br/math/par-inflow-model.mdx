@@ -1,0 +1,806 @@
+---
+title: Modelo de afluências PAR(p)
+description: Modelo autorregressivo periódico para séries temporais de afluências — semântica dos parâmetros, grandezas armazenadas vs. derivadas, forma no PL, ajuste por Yule-Walker e seleção de ordem, fechamento da escala do ruído, invariantes de validação, fatoração da correlação espacial e a extensão anual PAR(p)-A.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as ParConfigure } from './_impl/_par.configure.mdx';
+import { Content as ParIO } from './_impl/_par.io.mdx';
+import { Content as ParNotes } from './_impl/_par.notes.mdx';
+import AcfPacfPlot from "../../../../components/AcfPacfPlot.astro";
+
+## Objetivo
+
+Este capítulo define o modelo autorregressivo periódico de ordem $p$ (PAR(p)) usado para capturar a correlação temporal das séries de afluências. Ele apresenta o modelo, seus parâmetros e as grandezas armazenadas para ele (§1); a forma consumida pelo subproblema do estágio no PL (§2); a estimação dos parâmetros a partir do histórico de vazões, incluindo a seleção de ordem (§3); o fechamento que deriva a escala do ruído (inovação) a partir dos coeficientes AR (§4); os invariantes de validação (§5); a estimação e a fatoração da correlação espacial entre usinas hidrelétricas (§6); e a extensão opcional PAR(p)-A, que acrescenta um único coeficiente anual à estrutura AR periódica para capturar a persistência hidrológica plurianual (§7).
+
+## 1. Definição do modelo
+
+O **modelo autorregressivo periódico de ordem p** (PAR(p)) captura a correlação temporal das séries de afluências, levando em conta a variação sazonal dos parâmetros. Para a usina hidrelétrica $h$ no estágio $t$, correspondente ao período sazonal $m(t)$:
+
+$$
+a_{h,t} = \mu_{m(t)} + \sum_{\ell=1}^{p} \psi_{m(t),\ell} \left( a_{h,t-\ell} - \mu_{m(t-\ell)} \right) + \sigma_{m(t)} \cdot \varepsilon_t
+$$
+
+em que:
+
+- $a_{h,t}$: vazão incremental no estágio $t$ (m³/s)
+- $\mu_{m(t)}$: média sazonal do período sazonal $m(t)$
+- [$\psi_{m(t),\ell}$](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias): coeficiente autorregressivo da defasagem $\ell$ no período sazonal $m(t)$
+- $\sigma_{m(t)}$: desvio-padrão do ruído do período sazonal $m(t)$ (**derivado** na carga — veja §4)
+- [$\varepsilon_t$](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias) $\sim \mathcal{N}(0, 1)$: ruído (inovação) padronizado
+- $m(t)$: o período sazonal resolvido do estágio $t$; os períodos sazonais das defasagens são os antecessores no calendário (veja [Convenções de notação](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias))
+
+A ordem $p$ do modelo pode variar por período sazonal e por usina hidrelétrica.
+
+### 1.1 Conjunto de parâmetros
+
+Para cada usina hidrelétrica $h$ e cada período sazonal $m \in \{1, \ldots, M\}$ (por exemplo, $M = 12$ para base mensal, $M = 52$ para base semanal), o modelo PAR(p) completo requer:
+
+| Parâmetro                     | Símbolo                          | Descrição                                                |
+| ----------------------------- | -------------------------------- | -------------------------------------------------------- |
+| Média sazonal                 | $\mu_m$                          | Afluência média do período sazonal $m$                           |
+| Coeficientes AR               | $\psi_{m,1}, \ldots, \psi_{m,p}$ | Coeficientes autorregressivos                            |
+| Desvio-padrão do ruído        | $\sigma_m$                       | Escala do termo de ruído — derivada, não independente (§4) |
+
+### 1.2 Grandezas armazenadas e derivadas
+
+O modelo de dados armazena **estatísticas amostrais sazonais** e **coeficientes AR padronizados** — e nada mais. A escala do ruído não é uma terceira grandeza armazenada: o arquivo de coeficientes contém apenas os $\psi^*$, invariantes à escala; na carga, a escala adimensional do ruído $r_m$ é derivada de $\psi^*$ por um fechamento da FAC periódica (§4.1) e, em seguida, tudo é convertido para $\psi$ e $\sigma$ em unidades originais, usando as estatísticas sazonais, e consumido pelo subproblema do estágio no PL.
+
+**Dois planos.** Todo parâmetro do PAR($p$) pertence a um de dois planos, e a
+separação é deliberada:
+
+- **Plano de condicionamento** — a média sazonal $\mu_m$ e o desvio-padrão _amostral_
+  sazonal $s_m$ (ambos em m³/s): o nível e a magnitude da série.
+  Um estudo pode _recondicionar_ esses valores — por exemplo, um cenário climático que desloca tanto
+  a média sazonal quanto a variabilidade sazonal.
+- **Plano da dinâmica** — os coeficientes padronizados $\psi^*_{m,\ell}$ e a
+  escala padronizada do ruído $r_m = \sigma_m/s_m$ (ambos adimensionais): a
+  _forma_ da dependência temporal, independente da magnitude. Apenas
+  $\psi^*_{m,\ell}$ é um parâmetro independente aqui — $r_m$ é determinado pelo
+  próprio $\psi^*_{m,\ell}$.
+
+Em execução, os dois planos são reacoplados pela conversão de coeficientes da §2.2 e pelo
+desvio-padrão do ruído da §4.2, de modo que recondicionar o primeiro plano reescala
+tanto os coeficientes quanto o ruído, preservando a estrutura de correlação. A
+**base de padronização** é o desvio-padrão sazonal: $\psi^*$ é o coeficiente do
+processo normalizado por $s_m$ — a padronização clássica da literatura de modelos AR
+periódicos, e a mesma base fornecida por um modelo ajustado externamente (veja a
+aba Entradas e saídas).
+
+```d2
+direction: down
+
+storage: "Formato de armazenamento — arquivos em disco" {
+  stats: "estatísticas sazonais" {
+    f1: "μₘ  —  média sazonal"
+    f2: "sₘ  —  desvio-padrão sazonal (amostral)"
+  }
+  arcoef: "coeficientes AR" {
+    f1: "ψ*ₘ,ℓ  —  coef. AR padronizado"
+    f2: "pₘ  —  ordem AR"
+  }
+}
+
+closure: "Fechamento da FAC periódica\nderiva rₘ apenas de ψ*"
+
+runtime: "Formato em memória, em execução" {
+  psi: "Coef. AR em unidades originais:  ψₘ,ℓ = ψ*ₘ,ℓ · sₘ / sₘ₋ℓ"
+  sigma: "Desvio-padrão do ruído em unidades originais:  σₘ = sₘ · rₘ"
+}
+
+lp: "consumido pelo subproblema do estágio no PL"
+
+storage.stats -> runtime.psi: "× sₘ / sₘ₋ℓ"
+storage.arcoef -> closure
+closure -> runtime.sigma: "rₘ, depois × sₘ"
+runtime.psi -> lp
+runtime.sigma -> lp
+```
+
+**Grandezas armazenadas.** Para cada usina hidrelétrica e período sazonal, o modelo de dados armazena:
+
+| Grandeza armazenada  | Símbolo             | Descrição                                                                       |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------- |
+| Média amostral sazonal | $\mu_m = \bar{a}_m$ | Média das observações históricas do período sazonal $m$                               |
+| Desvio-padrão amostral sazonal | $s_m$     | Desvio-padrão das observações históricas do período sazonal $m$                         |
+| Coeficientes AR      | $\psi^*_{m,\ell}$   | Coeficiente AR **padronizado pelo desvio-padrão sazonal** — a saída direta de Yule-Walker |
+
+A ordem AR $p_m$ **não é armazenada explicitamente**. Ela é derivada em execução a partir do número de coeficientes armazenados de cada par (usina hidrelétrica, estágio).
+
+O coeficiente padronizado $\psi^*_{m,\ell}$ é a saída direta do procedimento de ajuste de Yule-Walker (§3.5). Ele é adimensional — o coeficiente do processo padronizado $(a_{h,t} - \mu_m) / s_m$ — e a §2.2 o converte no coeficiente em unidades originais $\psi_{m,\ell}$ usado no PL.
+
+:::note[Relação com outras implementações do PAR(p)]
+Outras implementações do PAR(p) podem seguir convenções diferentes:
+
+- é comum escreverem os coeficientes autorregressivos como $\phi$, que este capítulo escreve como $\psi$ (unidades originais) e $\psi^*$ (padronizado);
+- algumas armazenam o desvio-padrão do ruído, enquanto este modelo armazena o desvio-padrão amostral sazonal $s_m$ e deriva o desvio-padrão do ruído $\sigma_m = s_m\, r_m$ na carga (§4);
+- algumas sorteiam os resíduos de uma distribuição lognormal, enquanto os ruídos deste modelo são gaussianos e as realizações negativas são tratadas como em [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity).
+
+Para termos equivalentes em outras ferramentas de planejamento, veja o [Glossário](/pt-br/reference/glossary).
+:::
+
+## 2. Forma no PL
+
+Esta seção deduz a transformação algébrica explícita do modelo PAR(p) canônico (§1) para a forma consumida pelo subproblema no PL. A dedução identifica três componentes pré-calculáveis, armazenados uma vez na inicialização e reutilizados em cada transição de estágio da simulação forward.
+
+### 2.1 Forma canônica padronizada
+
+O modelo PAR(p) (§1) opera sobre os desvios em relação à média sazonal, normalizados pelo **desvio-padrão sazonal (marginal)** $s_{m(t)}$ — a mesma base usada pelos coeficientes armazenados $\psi^*$ e a mesma normalização da formulação de referência (padronizar pelo desvio-padrão marginal, e não pelo desvio-padrão do ruído). Nessa forma padronizada:
+
+$$
+\frac{a_{h,t} - \mu_{m(t)}}{s_{m(t)}} = \sum_{\ell=1}^{p} \psi^*_{m(t),\ell}\, \frac{a_{h,t-\ell} - \mu_{m(t-\ell)}}{s_{m(t-\ell)}} + r_{m(t)}\,\varepsilon_t
+$$
+
+em que:
+
+- $\psi^*_{m(t),\ell}$: os coeficientes AR armazenados, padronizados pelo desvio-padrão sazonal $s_m$ (a saída direta de Yule-Walker da §3.5)
+- $s_{m(t)}$: o desvio-padrão sazonal (marginal) do período sazonal $m(t)$
+- $r_{m(t)} = \sigma_{m(t)}/s_{m(t)} \in (0, 1]$: o desvio-padrão do ruído do processo **padronizado** — a escala do ruído derivada pelo fechamento da §4.1, $\sqrt{1 - \sum_\ell \psi^*_{m,\ell}\,\rho_{m(t)}(\ell)}$, sendo $\rho_{m(t)}$ a FAC periódica implícita do modelo
+- $\varepsilon_t \sim \mathcal{N}(0, 1)$: ruído de variância unitária
+
+O ruído do processo padronizado por $s_m$ **não** tem variância unitária: como esse processo tem variância _marginal_ unitária, seu ruído de um passo tem desvio-padrão $r_{m(t)} \le 1$ — e é exatamente por isso que $r_{m(t)}$ aparece aqui explicitamente. A etapa seguinte converte $\psi^*_{m,\ell}$ em $\psi_{m,\ell}$ em unidades originais, para uso no PL.
+
+### 2.2 Conversão dos coeficientes
+
+Os coeficientes padronizados armazenados $\psi^*_{m,\ell}$ são convertidos, em execução, em coeficientes em unidades originais $\psi_{m,\ell}$, usando os desvios-padrão sazonais armazenados:
+
+$$
+\psi_{m,\ell} = \psi^*_{m,\ell} \cdot \frac{s_m}{s_{m-\ell}}
+$$
+
+O desvio-padrão do ruído $\sigma_m$ da §4.2 também é derivado nessa etapa de pré-processamento, a partir da escala do ruído $r_m$ derivada pelo fechamento (§4.1).
+
+Essas conversões são feitas uma única vez, na construção do PL. Elas exigem apenas as estatísticas sazonais ($s_m$), os $\psi^*_{m,\ell}$ armazenados e o $r_m$ derivado pelo fechamento — nenhum dado histórico.
+
+### 2.3 Forma pronta para o PL
+
+Multiplicando ambos os lados da forma canônica (§2.1) por $s_{m(t)}$ e reorganizando, obtém-se a equação pronta para o PL (o termo de ruído passa a ser $s_{m(t)}\,r_{m(t)}\,\varepsilon_t = \sigma_{m(t)}\,\varepsilon_t$):
+
+$$
+a_{h,t} = \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot a_{h,t-\ell} + \left[ \mu_{m(t)} - \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \mu_{m(t-\ell)} \right] + \sigma_{m(t)} \cdot \varepsilon_t
+$$
+
+em que $\psi_{m(t),\ell}$ e $\sigma_{m(t)}$ são derivados das grandezas armazenadas conforme descrito na §2.2.
+
+Isso decompõe a afluência em três componentes aditivas:
+
+1. **Contribuição das defasagens**: $\displaystyle\sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot a_{h,t-\ell}$ — função linear das afluências passadas (variáveis de estado ou valores conhecidos)
+2. **Base determinística**: $\displaystyle\mu_{m(t)} - \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \mu_{m(t-\ell)}$ — deslocamento constante por (estágio, usina hidrelétrica), pré-calculado uma vez
+3. **Ruído estocástico**: $\sigma_{m(t)} \cdot \varepsilon_t$ — sorteio de ruído escalado pelo desvio-padrão sazonal do ruído
+
+### 2.4 Base determinística
+
+A base determinística é definida como:
+
+$$
+b_{h,m(t)} = \mu_{m(t)} - \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \mu_{m(t-\ell)}
+$$
+
+Trata-se de uma constante pré-calculada por par (estágio, usina hidrelétrica). Ela absorve a aritmética de ajuste das médias que, de outro modo, seria repetida em cada transição de estágio da simulação forward. Com essa definição, a forma pronta para o PL (§2.3) se simplifica para:
+
+$$
+a_{h,t} = \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot a_{h,t-\ell} + b_{h,m(t)} + \sigma_{m(t)} \cdot \varepsilon_t
+$$
+
+Em estudos que cobrem parte do ano, as médias dos períodos sazonais das defasagens $\mu_{m(t-\ell)}$ dos períodos sazonais anteriores ao início do estudo são obtidas da janela de defasagens pré-estudo (§3.8); quando não existe tal estatística para um dado período sazonal de defasagem, a contribuição da média dessa defasagem é considerada nula.
+
+### 2.5 Afluências defasadas fixadas por limites das colunas
+
+As afluências defasadas $a_{h,\ell}$ são **variáveis do PL**, e não valores substituídos. No PL, elas aparecem com coeficientes $-\psi_{m(t),\ell}$ na linha de restrição da dinâmica AR, e cada coluna de defasagem de entrada é fixada no valor de defasagem da trajetória $\hat{a}_{h,\ell}$ definindo ambos os seus limites de coluna com esse valor: não há linhas de fixação, como ocorre com toda variável de estado em [Aumento do espaço de estados §2](/pt-br/math/state-augmentation#2-fixacao-por-limites-de-coluna). O valor $\hat{a}_{h,\ell}$ é atualizado por cenário a partir do registro da trajetória.
+
+Como a contribuição das defasagens $\sum_\ell \psi_{m(t),\ell} \cdot a_{h,\ell}$ é representada na matriz de restrições (e não no lado direito), o lado direito da restrição da dinâmica AR se reduz a:
+
+$$
+\text{RHS}_{h,t} = b_{h,m(t)} + \sigma_{m(t)} \cdot \varepsilon_t
+$$
+
+em que:
+
+- $b_{h,m(t)}$ é a base determinística de (estágio, usina hidrelétrica), pré-calculada uma vez na construção do PL (§2.4)
+- $\sigma_{m(t)}$ é a escala do ruído de (estágio, usina hidrelétrica), derivada do $r_m$ obtido pelo fechamento (§4.1) na inicialização (§2.2)
+- $\varepsilon_t$ é o sorteio de ruído do cenário para esse (estágio, usina hidrelétrica)
+
+Os coeficientes $\psi_{m(t),\ell}$ são gravados na matriz de restrições **uma única vez, na construção do PL**, como coeficientes das variáveis de afluência defasada; eles não são recalculados por cenário.
+
+Nenhuma divisão, nenhuma subtração de médias, nenhuma transformação repetida de coeficientes — os três componentes pré-calculados do PL eliminam toda a aritmética redundante do caminho crítico.
+
+A inclusão das afluências defasadas nos cortes de um estágio é uma escolha por estágio; um corte que as projeta para fora incorpora sua contribuição ao termo independente, avaliada nos valores de defasagem do estado visitado (veja [Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)).
+
+### 2.6 Resumo dos componentes do PL
+
+| Componente         | Símbolo            | Dimensão por estágio | Papel no PL                               | Origem                                                                 |
+| ------------------ | ------------------ | -------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
+| Coeficientes das defasagens | $\psi_{m(t),\ell}$ | Um por (usina hidrelétrica, defasagem) | Matriz de restrições (linha da dinâmica AR) | Derivados de $\psi^*$ e $s_m$ armazenados, na inicialização (§2.2) |
+| Base determinística | $b_{h,m(t)}$      | Uma por usina hidrelétrica | Lado direito da restrição da dinâmica AR (termo fixo) | Pré-calculada a partir de $\mu$ e $\psi$                  |
+| Escala do ruído    | $\sigma_{m(t)}$    | Uma por usina hidrelétrica | Lado direito da restrição da dinâmica AR (fator do ruído) | Derivada do $r_m$ obtido pelo fechamento (§4.1) e de $s_m$, na inicialização (§2.2) |
+
+## 3. Estimação
+
+Em estudos com múltiplas resoluções (agregação mensal→trimestral), o mesmo procedimento de ajuste se aplica após a agregação ponderada pela duração; veja [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies).
+
+Esta seção documenta o procedimento de ajuste dos parâmetros do PAR(p) a partir do histórico de vazões. O ajuste é feito quando o sistema deriva os parâmetros do histórico de vazões. Quando estatísticas sazonais e coeficientes AR previamente calculados são fornecidos diretamente, esse procedimento não é executado. A escala do ruído deliberadamente **não** faz parte do ajuste: ela é derivada dos coeficientes armazenados na carga (§4.1), de forma idêntica para modelos ajustados e fornecidos pelo usuário (§4.2).
+
+A figura abaixo acompanha as duas origens dos coeficientes até o modelo em execução.
+Quando os coeficientes são ajustados a partir do histórico de vazões, as estatísticas
+sazonais de cada par (usina hidrelétrica, período sazonal) são estimadas e a classificação dos grupos
+é aplicada ([§3.2](#32-medias-e-desvios-padrao-sazonais),
+[§3.3](#33-classificacao-dos-grupos-historicos)); um período sazonal cujo desvio-padrão sazonal é
+nulo assume ordem 0 diretamente. Cada um dos demais períodos sazonais seleciona sua ordem a partir da
+FACP periódica ([§3.4](#34-autocorrelacoes-sazonais),
+[§3.6](#36-selecao-de-ordem)) e resolve o sistema periódico de Yule-Walker nessa
+ordem para obter seus coeficientes padronizados $\psi^*$
+([§3.5](#35-equacoes-de-yule-walker)). Um período sazonal é redefinido para ordem 0 quando seu primeiro
+coeficiente é negativo, após o ajuste inicial ou qualquer novo ajuste, ou quando seu
+ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude.
+Um período sazonal com influência composta negativa perde uma defasagem em seu teto de ordem
+e passa novamente por seleção e ajuste, até que nenhum período sazonal falhe; os coeficientes são
+então armazenados ([§3.7](#37-coeficientes-padronizados-armazenados)), e a correlação
+espacial é estimada quando o caso não a fornece
+([§6.1](#61-estimacao-da-correlacao)). Coeficientes fornecidos passam, em vez disso, pelo
+filtro de estacionariedade do invariante 2 ([§5](#5-invariantes-de-validacao)), e um
+conjunto que não o satisfaz é rejeitado. Quando o caso fornece apenas os coeficientes, ou
+apenas as estatísticas sazonais, junto com o histórico, o histórico fornece a
+outra parte e a correlação espacial é estimada como acima. Todo modelo,
+ajustado ou fornecido, passa então pelo fechamento que deriva sua escala do
+ruído $r_m$ ([§4.1](#41-derivacao-da-escala-do-ruido)), o qual rejeita um
+sistema de fechamento singular ou uma variância residual implícita negativa; seguem-se os
+coeficientes $\psi$ e a escala do ruído $\sigma$ em execução
+([§4.2](#42-grandezas-em-execucao)).
+
+```d2
+direction: down
+
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+}
+
+hist: "Histórico de vazões" {shape: parallelogram; class: hydro}
+stats: "Estatísticas sazonais\nclassificação dos grupos"
+pacf: "FACP periódica\nseleção de ordem"
+yw: "Ajuste de Yule-Walker\nψ* padronizado"
+resets: "Redefinições para ordem 0\nψ*ₘ,₁ < 0\najuste inicial: limite de magnitude"
+check: "Influência composta ≥ 0\nem todos os períodos sazonais?" {shape: diamond}
+store: "Armazena ψ*\ncorrelação espacial"
+supplied: "ψ* fornecido" {shape: parallelogram}
+gate: "Filtro de estacionariedade\nsolúvel, |ρ| ≤ 1,\nr² acima do piso,\nmonodromia < 1" {shape: diamond}
+rejected: "Rejeitado" {shape: oval}
+closure: "Fechamento\nderiva rₘ"
+runtime: "ψ, σ em execução" {shape: oval}
+
+hist -> stats
+stats -> pacf
+pacf -> yw
+yw -> resets
+resets -> check
+check -> store: "sim"
+stats -> store: "ŝₘ = 0: ordem 0"
+supplied -> gate
+gate -> closure: "aprovado"
+gate -> rejected: "reprovado"
+store -> closure
+closure -> runtime
+closure -> rejected: "singular, ou r² < 0"
+check -> pacf: "não: teto − 1"
+```
+
+### 3.1 Notação
+
+Seja $Y_m = \{a_{h,t} : m(t) = m\}$ o conjunto das observações históricas do período sazonal $m$. Define-se:
+
+| Símbolo          | Descrição                                    |
+| ---------------- | -------------------------------------------- |
+| $N_m$            | Número de observações do período sazonal $m$         |
+| $\bar{a}_m$      | Média amostral do período sazonal $m$                |
+| $s_m$            | Desvio-padrão amostral do período sazonal $m$        |
+| $\gamma_m(\ell)$ | Autocovariância na defasagem $\ell$ do período sazonal $m$ |
+| $\rho_m(\ell)$   | Autocorrelação na defasagem $\ell$ do período sazonal $m$ |
+
+### 3.2 Médias e desvios-padrão sazonais
+
+**Média sazonal**:
+
+$$
+\hat{\mu}_m = \bar{a}_m = \frac{1}{N_m} \sum_{t: m(t) = m} a_{h,t}
+$$
+
+**Desvio-padrão sazonal**:
+
+$$
+\hat{s}_m = \sqrt{\frac{1}{N_m} \sum_{t: m(t) = m} (a_{h,t} - \bar{a}_m)^2}
+$$
+
+O estimador usa o **divisor populacional** $1/N_m$, e não o divisor com correção de Bessel $1/(N_m - 1)$. Isso segue a convenção de [Maceira & Damázio (2006)](/pt-br/reference/bibliography/#modelagem-de-afluencias) e é compartilhado pelos caminhos do PAR(p) clássico e do PAR(p)-A. O divisor populacional é necessário para que os valores da FACP condicional e as ordens selecionadas no caminho do PAR(p)-A sejam autoconsistentes — com a correção de Bessel, o fator de escala amostral vs. populacional se propaga para todas as correlações cruzadas Z⊗A. Usar o mesmo divisor no caminho clássico mantém a saída de estatísticas sazonais dos dois caminhos reutilizável entre configurações.
+
+### 3.3 Classificação dos grupos históricos
+
+Antes que as estatísticas sazonais e os coeficientes AR sejam usados pelas regras de seleção de ordem, cada grupo histórico (bucket) por (usina hidrelétrica, período sazonal) é classificado pela forma de suas observações. A classificação pode substituir os valores empíricos $(\hat{\mu}_m, \hat{s}_m)$ para fins de ajuste, e a substituição se propaga para **ambos** os caminhos, o do PAR(p) clássico e o do PAR(p)-A, porque os dois compartilham o produtor das estatísticas sazonais.
+
+São definidas quatro classes:
+
+| Classe         | Regra de detecção                                                        | Substituição aplicada                                       |
+| -------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| Padrão         | Nenhuma das condições abaixo                                             | Nenhuma — usa os valores empíricos $(\hat{\mu}_m, \hat{s}_m)$ |
+| Constante      | Todas as observações são iguais a um mesmo valor, dentro da tolerância de ponto flutuante | $(\hat{\mu}_m, \hat{s}_m) \leftarrow (\text{value}, 0)$ |
+| Muitos negativos | Observações estritamente negativas excedem 10% do grupo                | Nenhuma — apenas diagnóstico; o ajuste prossegue com as estatísticas empíricas |
+| Saturado       | O valor modal (arredondado em m³/s) ocupa mais de 50% das observações    | $(\hat{\mu}_m, \hat{s}_m) \leftarrow (\text{cap}, 0)$       |
+
+O classificador segue a ordem de prioridade constante → muitos negativos → saturado → padrão. A constância tem precedência sobre a detecção da patologia de valores negativos, que por sua vez tem precedência sobre a saturação.
+
+#### Por que um desvio-padrão sazonal nulo interrompe o ajuste
+
+Quando a substituição define $\hat{s}_m = 0$ para um período sazonal, o ajuste desse período sazonal é interrompido nos dois caminhos:
+
+- No **caminho do PAR(p) clássico**, o período sazonal assume ordem 0 diretamente; sua FACP (§3.6) não é avaliada.
+- No **caminho do PAR(p)-A**, o período sazonal também assume ordem 0 diretamente, com coeficiente anual $\psi^{A*}_m = 0$; sua FACP condicional (§7.5) não é avaliada.
+
+As estatísticas sazonais que alimentam o ajuste são estimadas a partir do histórico, mesmo quando o caso fornece as suas próprias, e estimá-las exige pelo menos duas observações por período sazonal, de modo que nenhum período sazonal chega ao ajuste com desvio-padrão não nulo e $N_m < 2$. Um período sazonal com uma única observação ($N_m = 1$) faz o caso ser rejeitado. Um período sazonal sem observações ($N_m = 0$) não tem estatísticas; o ajuste lê seu desvio-padrão como nulo e o interrompe da mesma forma nos dois caminhos. No caminho do PAR(p)-A, isso também ocorre quando o grupo do regressor anual do período sazonal está vazio ($N^A_m = 0$) ou tem desvio-padrão nulo ($\hat{\sigma}^A_m = 0$, §7.3), e o período sazonal passa então a não ter contribuição anual.
+
+A proteção contra desvio-padrão nulo da §3.4 também anula toda autocorrelação amostral que envolva o período sazonal, de modo que o grupo não possa injetar uma estrutura autorregressiva espúria nas FACPs dos meses adjacentes, e nenhuma contribuição de correlação espacial provém dele na geração de cenários.
+
+#### Interpretação de cada classe
+
+- **Constante** captura usinas cuja vazão incremental é estruturalmente constante em um dado mês — tipicamente vazões regularizadas ou transpostas, em que a subtração das vazões de montante resulta no mesmo valor todos os anos. Impor $(\text{value}, 0)$ registra o nível determinístico sem inventar uma dinâmica autorregressiva.
+- **Saturado** captura limites de vazão (capacidade de turbinamento ou do reservatório) e constantes de vazão baixa (vazões ecológicas transpostas). O valor modal é tratado como o limite. Não há limiar de magnitude — um limite de 0 m³/s se qualifica tanto quanto um limite igual à capacidade instalada.
+- **Muitos negativos** sinaliza grupos que a construção das vazões incrementais a partir de montante levou abaixo de zero em mais de 10% das observações. A condição é registrada para diagnóstico pelo operador, mas não substitui o ajuste — a causa é a qualidade dos dados de montante, e não um sinal metodológico.
+- **Padrão** é o caminho usual; as estatísticas empíricas e a regra de seleção de ordem escolhida determinam a ordem.
+
+### 3.4 Autocorrelações sazonais
+
+A autocorrelação na defasagem $\ell$ do período sazonal $m$ é calculada a partir dos desvios padronizados.
+
+**Autocovariância entre períodos sazonais**:
+
+Para observações do período sazonal $m$ com defasagem $\ell$ que retrocede até o período sazonal $m - \ell$ (mod $M$, em que $M$ é o comprimento do ciclo):
+
+$$
+\hat{\gamma}_m(\ell) = \frac{1}{N_m^{(\ell)}} \sum_{t: m(t) = m} \left( a_{h,t} - \bar{a}_m \right) \left( a_{h,t-\ell} - \bar{a}_{m-\ell} \right)
+$$
+
+em que $N_m^{(\ell)}$ é o número de pares válidos alinhados por ano na defasagem $\ell$ para o período sazonal de referência $m$. O estimador usa o **divisor populacional** $1/N_m^{(\ell)}$, seguindo a convenção adotada na §3.2 e compartilhada pelos caminhos clássico e do PAR(p)-A.
+
+**Autocorrelação**:
+
+$$
+\hat{\rho}_m(\ell) = \frac{\hat{\gamma}_m(\ell)}{\hat{s}_m \cdot \hat{s}_{m-\ell}}
+$$
+
+em que $\hat{s}_{m-\ell}$ é o desvio-padrão do período sazonal $m - \ell$ (ciclicamente, de modo que o período sazonal 0 = período sazonal $M$).
+
+**Proteção contra desvio-padrão nulo.** $\hat{\rho}_m(\ell) = 0$ quando $\hat{s}_m$ ou $\hat{s}_{m-\ell}$ é nulo, ou quando o período sazonal $m$ não tem par alinhado por ano na defasagem $\ell$ ($N_m^{(\ell)} = 0$). Toda estimativa é limitada ao intervalo $[-1, 1]$.
+
+### 3.5 Equações de Yule-Walker
+
+Para cada período sazonal $m$, os coeficientes do PAR(p) $\psi_{m,1}^*, \ldots, \psi_{m,p}^*$ na forma padronizada são obtidos resolvendo o **sistema periódico de Yule-Walker**. Diferentemente das equações de Yule-Walker clássicas (estacionárias), em que todas as linhas usam o mesmo período sazonal de referência, a variante periódica desloca o período sazonal de referência a cada linha. Isso representa corretamente a estrutura de covariância não Toeplitz dos processos autorregressivos periódicos.
+
+**Construção da matriz**: o elemento $(i, j)$, $1 \leq i, j \leq p$, é a correlação entre as observações defasadas $\tilde{a}_{t-i}$ e $\tilde{a}_{t-j}$; seu período sazonal de referência é o da **mais recente** das duas defasagens:
+
+$$
+[\mathbf{R}_m]_{i,j} = \hat{\rho}_{\left(m - \min(i,j)\right) \bmod M}\bigl(|j - i|\bigr)
+$$
+
+em que $M$ é o número de períodos sazonais do ciclo periódico (por exemplo, 12 para base mensal). Os elementos da diagonal são sempre 1 (pois $\hat{\rho}_{m'}(0) = 1$ para qualquer período sazonal $m'$). A matriz é simétrica, mas **não Toeplitz** quando $M > 1$, porque o período sazonal de referência varia entre os elementos.
+
+**Construção do lado direito**: o lado direito contém as correlações do **alvo** $\tilde{a}_t$ (período sazonal $m$) com cada defasagem:
+
+$$
+[\hat{\boldsymbol{\rho}}_m]_i = \hat{\rho}_{m}(i)
+$$
+
+De forma equivalente: forma-se a matriz de correlação estendida $(p{+}1) \times (p{+}1)$ de $(\tilde{a}_t, \tilde{a}_{t-1}, \ldots, \tilde{a}_{t-p})$; a matriz do sistema é seu bloco de defasagens (linhas/colunas $1..p$) e o lado direito é sua primeira linha (as correlações entre o alvo e as defasagens). A linha $i$ do sistema é a recursão dos momentos de segunda ordem do modelo na defasagem $i$.
+
+O sistema completo é:
+
+$$
+\begin{pmatrix}
+1 & \hat{\rho}_{(m-1)}(1) & \hat{\rho}_{(m-1)}(2) & \cdots & \hat{\rho}_{(m-1)}(p{-}1) \\
+\hat{\rho}_{(m-1)}(1) & 1 & \hat{\rho}_{(m-2)}(1) & \cdots & \hat{\rho}_{(m-2)}(p{-}2) \\
+\hat{\rho}_{(m-1)}(2) & \hat{\rho}_{(m-2)}(1) & 1 & \cdots & \hat{\rho}_{(m-3)}(p{-}3) \\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+\hat{\rho}_{(m-1)}(p{-}1) & \hat{\rho}_{(m-2)}(p{-}2) & \hat{\rho}_{(m-3)}(p{-}3) & \cdots & 1
+\end{pmatrix}
+\begin{pmatrix}
+\psi_{m,1}^* \\
+\psi_{m,2}^* \\
+\psi_{m,3}^* \\
+\vdots \\
+\psi_{m,p}^*
+\end{pmatrix}
+=
+\begin{pmatrix}
+\hat{\rho}_{m}(1) \\
+\hat{\rho}_{m}(2) \\
+\hat{\rho}_{m}(3) \\
+\vdots \\
+\hat{\rho}_{m}(p)
+\end{pmatrix}
+$$
+
+em que os índices de período sazonal são tomados módulo $M$ em $\{1, \ldots, M\}$, de modo que o período sazonal $0$ é o período sazonal $M$ (veja [Convenções de notação](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias)).
+
+Em notação matricial: $\mathbf{R}_m \boldsymbol{\psi}_m^* = \hat{\boldsymbol{\rho}}_m$
+
+em que:
+
+- $\mathbf{R}_m$ é a matriz de correlação periódica $p \times p$ (simétrica, mas não Toeplitz para $M > 1$)
+- $\hat{\boldsymbol{\rho}}_m$ é o vetor das autocorrelações do alvo, com deslocamento do período sazonal de referência a cada linha
+
+:::note[Nota]
+Para um modelo de período sazonal único ($M = 1$), todas as linhas usam o mesmo período sazonal de referência e a matriz se reduz à matriz de Yule-Walker clássica, de Toeplitz. A formulação periódica é o caso geral, que trata corretamente dados com múltiplos períodos sazonais (por exemplo, mensais).
+:::
+
+**Solução**:
+
+$$
+\hat{\boldsymbol{\psi}}_m^* = \mathbf{R}_m^{-1} \hat{\boldsymbol{\rho}}_m
+$$
+
+O sistema é resolvido por eliminação gaussiana com pivoteamento parcial, numericamente adequada para os sistemas pequenos que a estimação periódica de Yule-Walker resolve.
+
+**Sistema singular.** Quando o sistema periódico de Yule-Walker é singular na ordem $k$, a FACP da §3.6 para na defasagem $k-1$, de modo que apenas defasagens inferiores a $k$ podem ser selecionadas e o ajuste na ordem selecionada não encontra sistema singular.
+
+:::note[Formulação de referência]
+Este é o sistema periódico de Yule-Walker clássico da literatura de modelos PAR ([Hipel & McLeod, 1994](/pt-br/reference/bibliography/#modelagem-de-afluencias), cap. 14), escrito na forma de correlações. A apresentação canônica o enuncia em autocovariâncias $\gamma$, com coeficientes em unidades originais $\psi_{m,\ell}$; dividir cada linha $\ell'$ desse sistema por $s_m\,s_{m-\ell'}$ e substituir $\psi^*_{m,\ell} = \psi_{m,\ell}\,s_{m-\ell}/s_m$ resulta exatamente na matriz acima. A linha da defasagem 0 da mesma dedução — a identidade da variância $\gamma_m(0) = \sum_\ell \psi_{m,\ell}\,\gamma_m(\ell) + \sigma_m^2$ —, dividida por $s_m^2$, torna-se a decomposição da variância unitária $1 = \sum_\ell \psi^*_{m,\ell}\,\rho_m(\ell) + r_m^2$ que o fechamento da §4.1 avalia sobre a FAC implícita do modelo.
+:::
+
+### 3.6 Seleção de ordem
+
+A ordem $p$ do modelo PAR pode variar por período sazonal. Há duas regras de seleção de ordem disponíveis:
+a regra clássica da FACP periódica, descrita abaixo, e a regra de seleção de ordem
+com componente anual, que estende a mesma regra da FACP para o PAR(p)-A (§7).
+O ajuste considera defasagens até uma defasagem máxima $p_{max}$ e aplica um limite
+opcional de magnitude aos coeficientes do ajuste inicial (abaixo).
+
+A regra clássica calcula a **FACP periódica** (função de autocorrelação parcial periódica) por meio de resoluções progressivas do sistema periódico de Yule-Walker nas ordens $k = 1, 2, \ldots, p_{max}$ e, em seguida, seleciona a ordem usando um limiar de significância.
+
+**Algoritmo**:
+
+1. Para cada ordem $k$ de 1 a $p_{max}$, monte e resolva o sistema periódico de Yule-Walker (§3.5) na ordem $k$. O último coeficiente $\hat{\psi}^*_{m,k}$ da solução de ordem $k$ é o valor da FACP periódica na defasagem $k$.
+2. Selecione como ordem a **maior defasagem com FACP significativa**:
+
+   $$
+   p_m = \max \left\{ k : |\text{PACF}_m(k)| > \frac{z_{0.975}}{\sqrt{N_m}} \right\}
+   $$
+
+   em que $z_{0.975} = 1.96$ (95% de confiança) e $N_m$ é o número de observações do período sazonal $m$. Se nenhuma defasagem for significativa, $p_m = 0$ (ruído branco).
+
+3. Estime os coeficientes AR na ordem selecionada usando o sistema periódico de Yule-Walker (§3.5).
+
+A figura abaixo aplica a regra a uma série sintética: um processo PAR(1) com doze períodos sazonais e variância marginal unitária em todos eles, simulado com uma semente aleatória fixa para $N_m = 60$ anos e mostrado para o período sazonal 6. O painel superior compara a autocorrelação periódica amostral $\hat{\rho}_6(\ell)$ da §3.4 com a autocorrelação implícita do modelo da §4.1, que para um PAR(1) é $\rho_m(\ell) = \prod_{j=0}^{\ell-1} \psi^*_{m-j,1}$, com índices de período sazonal tomados módulo $M$. O painel inferior mostra a FACP periódica do passo 1, amostral e do modelo, em relação à faixa $\pm z_{0.975}/\sqrt{N_m}$, que é o limiar de significância do passo 2: uma defasagem é significativa quando sua FACP amostral fica fora da faixa. A FACP do modelo é $\psi^*_{m,1}$ na defasagem 1 e nula a partir daí, de modo que a autocorrelação decai ao longo das seis defasagens, enquanto a FACP se anula após a defasagem 1. Aqui, a FACP amostral na defasagem 1 fica fora da faixa e a FACP amostral nas defasagens 2 a 6 fica dentro dela, de modo que, com $p_{max} = 6$, a regra seleciona $p_6 = 1$.
+
+<AcfPacfPlot />
+
+**Validação pós-seleção — redução iterativa de ordem ([Maceira & Damázio, 2006](/pt-br/reference/bibliography/#modelagem-de-afluencias))**: após a seleção pela FACP, calcula-se para cada período sazonal a influência composta de cada defasagem sobre a afluência corrente, ao longo da cadeia periódica, mantendo fixas as afluências anteriores a $t-\ell$ e os ruídos:
+
+$$
+\frac{\partial a_{h,t}}{\partial a_{h,t-\ell}} = \psi_{m(t),\ell} + \sum_{\ell'=1}^{\ell-1} \psi_{m(t),\ell'}\, \frac{\partial a_{h,t-\ell'}}{\partial a_{h,t-\ell}}, \qquad \ell = 1, \ldots, p_{m(t)}
+$$
+
+em que $\psi_{m,\ell}$ é o coeficiente em unidades originais da §2.2, considerado nulo quando $s_{m-\ell} = 0$ ou $\ell > p_m$, e cada derivada do lado direito decorre da mesma recursão no estágio $t-\ell'$. A verificação é uma condição de sinal sobre a influência composta das defasagens, e não um teste de estacionariedade: um período sazonal falha quando alguma de suas influências compostas é negativa. Um período sazonal que falha perde uma defasagem em seu teto de ordem (inicialmente $p_{max}$) e passa novamente por seleção e ajuste com o novo teto; um período sazonal cujo teto chega a 0 assume ordem 0, e o laço se repete até que nenhum período sazonal falhe. Um período sazonal cujo primeiro coeficiente satisfaz $\psi^*_{m,1} < 0$, após o ajuste inicial ou após qualquer novo ajuste, é redefinido para ordem 0, assim como um período sazonal cujo ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude.
+
+Para o caminho do PAR(p)-A (§7), duas regras adicionais estendem o critério da FACP:
+
+- **Interrupção por zero estrutural na defasagem 1**. Quando o valor da FACP condicional na defasagem 1 é exatamente zero — o que ocorre quando a série padronizada de afluências $Z$ da §7.5 colapsa no período sazonal anterior, tipicamente porque um grupo degenerado constante ou saturado anulou o desvio-padrão desse período sazonal (§3.3) —, a ordem selecionada é forçada a 0 (ruído branco). Isso impede que grupos degenerados injetem estrutura AR espúria.
+- **Ordem mínima 1 quando a defasagem 1 está bem definida**. Quando a FACP condicional na defasagem 1 é não nula, mas nenhuma defasagem excede o limiar de significância, o modelo adota ordem 1 em vez de ordem 0. A persistência hidrológica torna um ajuste estrito de ordem 0 uma escolha padrão ruim, a menos que o valor na defasagem 1 esteja estruturalmente ausente.
+
+### 3.7 Coeficientes padronizados armazenados
+
+A solução de Yule-Walker $\psi_{m,\ell}^*$ está na forma padronizada — a saída direta da §3.5. Ela é armazenada tal como está, um coeficiente por defasagem. Nenhuma conversão para unidades originais é feita, e nenhuma outra grandeza é gravada junto com ela: a escala do ruído não é uma saída do ajuste. Ela é derivada de $\psi^*$ posteriormente, de maneira uniforme para todo modelo, qualquer que seja sua origem, pelo fechamento da FAC periódica da §4.1 — e não calculada aqui.
+
+### 3.8 Estudos que cobrem parte do ano e a janela de defasagens pré-estudo
+
+Um horizonte de estudo pode ser **mais curto que o ciclo sazonal** — por exemplo, um modelo
+mensal ($M = 12$) executado apenas de setembro a dezembro. O ajuste por período sazonal
+descrito acima precisa então tratar períodos sazonais com poucas ou nenhuma observação dentro
+da janela. Duas regras mantêm o procedimento bem definido.
+
+**Alcançabilidade pelas defasagens.** Um período sazonal é _alcançável pelas defasagens_ apenas se algum estágio do
+horizonte (estendido) a contiver. Cada observação histórica é associada a uma
+período sazonal a partir dos intervalos de datas dos estágios, recorrendo ao calendário do mapa de períodos sazonais para
+datas anteriores ao horizonte; uma observação cujo período sazonal resolvido não tem nenhum estágio
+é **descartada** — suas estatísticas jamais seriam consumidas. O histórico do ciclo
+completo, portanto, não perturba um ajuste de parte do ano.
+
+**Síntese das defasagens pré-estudo (para $p > 0$).** As defasagens autorregressivas do primeiro
+estágio do estudo retrocedem a períodos sazonais _anteriores_ ao início do estudo. Para cada
+defasagem $\ell = 1, \ldots, \min(p,\, M - 1)$, o período sazonal situado $\ell$ posições do calendário
+antes do primeiro período sazonal do estudo é introduzido como um **período sazonal pré-estudo** — a menos que esse período sazonal já esteja coberto por um
+estágio do estudo (uma defasagem que dá a volta dentro da janela, tratada pela busca de defasagens correta quanto ao ciclo).
+As estatísticas sazonais $(\hat{\mu}_m, \hat{s}_m)$ desses períodos sazonais fora da
+janela são estimadas a partir do histórico exatamente como para os períodos sazonais dentro da janela e, em seguida, alimentam
+os termos de defasagem dos estágios iniciais do estudo — tanto a conversão dos coeficientes
+(§2.2) quanto a base determinística (§2.4).
+
+O percurso retrocede pelas ocorrências no calendário da própria resolução do primeiro período sazonal do estudo,
+qualquer que seja a numeração dos períodos sazonais — assim, por exemplo, um estudo que começa em março associa o período sazonal da defasagem 1
+a fevereiro, e não a dezembro.
+
+**Invariância no ciclo completo.** Quando o estudo abrange o ciclo completo (todos os períodos sazonais
+já têm um estágio do estudo) ou não contém histórico fora da janela, nada é
+sintetizado e o ajuste é igual ao ajuste do ciclo completo.
+
+## 4. Fechamento da escala do ruído
+
+### 4.1 Derivação da escala do ruído
+
+Diferentemente de $\mu_m$, $s_m$ e $\psi^*_{m,\ell}$, a escala do ruído $r_m$ não é lida de um arquivo. Ela é determinada pelo próprio $\psi^*$, sob o contrato de variância marginal unitária do modelo — o processo padronizado $(a_{h,t}-\mu_m)/s_m$ de cada período sazonal tem variância unitária —, por meio de um **fechamento da FAC periódica**.
+
+Estenda-se a recursão que define $\psi^*_{m,\ell}$ (§3.5) a todas as defasagens $\ell \ge 1$, e não apenas a $\ell \le p_m$:
+
+$$
+\rho_m(\ell) = \sum_{\ell'=1}^{p_m} \psi^*_{m,\ell'}\, \rho_{(m-\min(\ell',\ell)) \bmod M}\bigl(|\ell - \ell'|\bigr), \qquad \rho_{m'}(0) = 1 \text{ for every season } m'
+$$
+
+Resolver esse sistema conjuntamente para todos os períodos sazonais $m = 1, \ldots, M$ e todas as defasagens $\ell = 1, \ldots, P_h$ (em que $P_h = \max_m p_m$) fornece a **função de autocorrelação periódica implícita** do próprio modelo, $\rho_m(\ell)$ — as autocorrelações que o processo teria se $\psi^*$ descrevesse um processo AR periódico exatamente estacionário. A escala do ruído decorre da mesma decomposição da variância usada na etapa de ajuste (§3.5):
+
+$$
+r_m^2 = 1 - \sum_{\ell=1}^{p_m} \psi^*_{m,\ell}\, \rho_m(\ell)
+$$
+
+Um período sazonal com $p_m = 0$ não contribui com nenhum termo para a soma, de modo que $r_m = 1$ — um período sazonal de ruído branco não tem redução de variância proveniente de uma parte AR que ele não possui.
+
+:::note[Por que a escala do ruído é derivada, e não armazenada]
+Sob o contrato de variância marginal unitária, $r_m$ não é um parâmetro livre do modelo — é exatamente o valor que torna a variância marginal sazonal implícita em $\psi^*$ igual a $s_m^2$. Armazenar $r_m$ independentemente de $\psi^*$ permitiria que ambos perdessem a consistência entre si (por exemplo, uma razão fornecida manualmente que não corresponda aos coeficientes que a acompanham); derivá-lo, em vez disso, garante que o desvio-padrão marginal implícito do processo em cada período sazonal seja exatamente igual ao $s_m$ armazenado, qualquer que seja $\psi^*$.
+:::
+
+Quando todos os períodos sazonais do ciclo têm a mesma ordem AR, o valor do fechamento coincide exatamente com o próprio sistema de Yule-Walker da etapa de ajuste:
+
+$$
+r_m = \sqrt{1 - \boldsymbol{\psi}_m^{*\top} \hat{\boldsymbol{\rho}}_m}
+$$
+
+(usando a solução de Yule-Walker $\boldsymbol{\psi}_m^*$ e o vetor do lado direito $\hat{\boldsymbol{\rho}}_m$ da §3.5). Quando as ordens diferem entre os períodos sazonais do ciclo, os dois não precisam coincidir: o fechamento resolve a FAC implícita do modelo conjuntamente para todos os períodos sazonais, e não apenas a partir das autocorrelações amostrais do período sazonal em questão.
+
+### 4.2 Grandezas em execução
+
+A partir das grandezas armazenadas e do $r_m$ derivado, o PL requer duas grandezas adicionais, calculadas uma vez na inicialização: os **coeficientes AR em unidades originais** $\psi_{m,\ell}$ da §2.2 (para os elementos da matriz de restrições do PL) e o **desvio-padrão do ruído** (a escala do ruído), recuperado na carga a partir da escala do ruído $r_m$ derivada pelo fechamento da §4.1:
+
+$$
+\sigma_m = s_m \cdot r_m
+$$
+
+Nenhum outro valor de autocorrelação é necessário além da derivação pelo fechamento da §4.1. Todas as grandezas necessárias — $\psi_{m,\ell}$, $\sigma_m$ e o $r_m$ do qual dependem — são derivadas exclusivamente das estatísticas sazonais e dos coeficientes AR armazenados, sem dados históricos e sem entrada separada de escala do ruído.
+
+Para um modelo estimado a partir do histórico, isso corresponde a $\hat{\sigma}_m = \hat{s}_m\, r_m$ e, quando todos os períodos sazonais do ciclo têm a mesma ordem AR, a identidade de ordens iguais da §4.1 a reduz à expressão em forma fechada do próprio sistema de ajuste:
+
+$$
+\hat{\sigma}_m = \hat{s}_m \sqrt{1 - \hat{\boldsymbol{\rho}}_m^\top \mathbf{R}_m^{-1} \hat{\boldsymbol{\rho}}_m}
+$$
+
+## 5. Invariantes de validação
+
+O Novo Modelo impõe um conjunto pequeno e bem definido de invariantes, que se dividem em três
+grupos conforme o ponto em que a verificação é feita. Os coeficientes ajustados não são testados quanto à estacionariedade;
+os coeficientes fornecidos passam pelo filtro de estacionariedade do invariante 2.
+
+**Impostos na carga dos coeficientes AR:**
+
+1. **Derivação da ordem AR**: o número de coeficientes armazenados por (usina hidrelétrica, estágio) determina a ordem AR $p_m$, e as defasagens devem estar presentes e ser contíguas $\{1, 2, \ldots, p_m\}$.
+2. **Estacionariedade dos coeficientes fornecidos diretamente**: quando os coeficientes AR de um grupo (usina hidrelétrica, período sazonal) são fornecidos diretamente, em vez de produzidos pelo procedimento interno de ajuste (§3), o fechamento da FAC periódica (§4.1) precisa aceitá-los — o sistema do fechamento deve ser solúvel (não singular), toda variância implícita do ruído $r_m^2 = 1 - \sum_\ell \psi^*_{m,\ell}\,\rho_m(\ell)$ deve ficar acima de um piso numérico, toda autocorrelação implícita deve satisfazer $|\rho_m(\ell)| \le 1$, e a **monodromia periódica** — o produto, tomado uma vez ao longo de todo o ciclo sazonal, das matrizes companheiras AR de cada período sazonal — deve ter raio espectral estritamente menor que 1 (avaliado por uma estimativa conservadora de limite superior, de modo que conjuntos limítrofes são rejeitados, e não aceitos). Um conjunto que não satisfaça alguma das condições é rejeitado de imediato. Independentemente da origem, porém, a própria derivação pelo fechamento (§4.1) é uma verificação final na carga: um sistema de fechamento singular é um erro de carga bloqueante que identifica a usina hidrelétrica, e um $r_m$ derivado não finito — uma variância residual implícita negativa $1 - \sum_\ell \psi^*_{m,\ell}\,\rho_m(\ell)$, proveniente de um ajuste degenerado próximo de raiz unitária — é um erro de carga bloqueante que identifica a usina hidrelétrica e o período sazonal.
+
+**Imposto na validação do modelo montado:**
+
+3. **Desvio-padrão amostral positivo** (erro): um período sazonal com ordem AR $> 0$ deve ter $s_m > 0$ — um desvio-padrão sazonal nulo não permite normalizar os coeficientes AR.
+
+**Imposto durante o ajuste, e não como teste a posteriori:**
+
+4. **Influência composta não negativa**: após a seleção de ordem, as influências compostas das defasagens de cada período sazonal (§3.6) devem ser não negativas; um período sazonal que falha perde uma defasagem em seu teto de ordem e passa novamente por seleção e ajuste até que nenhum período sazonal falhe. Um período sazonal cujo primeiro coeficiente satisfaz $\psi^*_{m,1} < 0$, após o ajuste inicial ou após qualquer novo ajuste, é redefinido para ordem 0, assim como um período sazonal cujo ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude. No caminho clássico, um sistema periódico de Yule-Walker singular limita a ordem selecionável a valores inferiores à sua própria ordem (§3.5), de modo que o ajuste clássico nunca resolve um sistema singular.
+
+## 6. Fatoração da correlação espacial
+
+As afluências são correlacionadas entre usinas hidrelétricas: a §6.1 estima a correlação entre usinas a partir do histórico de vazões, e o restante da seção a fatora. Gerar cenários espacialmente correlacionados exige fatorar a matriz de correlação entre usinas $C$, de modo que um vetor de sorteios normais padrão independentes possa ser transformado em ruído correlacionado. Esta seção documenta a escolha do método de fatoração e sua justificativa.
+
+### 6.1 Estimação da correlação
+
+Quando o modelo de afluências é ajustado a partir do histórico de vazões, total ou parcialmente, e o caso não fornece correlação, a matriz de correlação é estimada a partir do histórico, com base em uma de duas séries padronizadas, escolhida por estudo. A **afluência padronizada** da usina hidrelétrica $h$ no período histórico $t$ é
+
+$$
+\tilde{a}_{h,t} = \frac{a_{h,t} - \hat{\mu}_{m(t)}}{\hat{s}_{m(t)}}
+$$
+
+a afluência padronizada pelas estatísticas sazonais da §3.2, definida como zero quando $\hat{s}_{m(t)} = 0$; todo período observado tem uma. O **resíduo padronizado** da autorregressão é
+
+$$
+\tilde{\varepsilon}_{h,t} = \tilde{a}_{h,t} - \sum_{\ell=1}^{p_{m(t)}} \psi^*_{m(t),\ell}\, \tilde{a}_{h,t-\ell}
+$$
+
+em que $\psi^*_{m,\ell}$ são os coeficientes padronizados do modelo (§1.2). Um período tem resíduo apenas quando todas as $p_{m(t)}$ afluências defasadas correspondentes são observadas. No caminho do PAR(p)-A, o resíduo usa apenas os coeficientes das defasagens: o termo anual da §7.1 não entra nele. A série de resíduos mede a correlação das inovações $\varepsilon_t$ da §1, o ruído que o gerador de cenários correlaciona; a série de afluências padronizadas mede a correlação das próprias afluências. As duas coincidem em um período sazonal em que todas as usinas têm ordem zero.
+
+Duas estimativas são formadas a partir da série escolhida: a estimativa agregada $\hat{C}$, a partir dos seus valores em todos os períodos sazonais, e a estimativa por período sazonal $\hat{C}_m$, a partir dos seus valores nos períodos pertencentes ao período sazonal $m$. Cada elemento fora da diagonal é a correlação de Pearson entre os valores das duas usinas sobre os períodos em que ambas têm valor (uma estimativa por pares completos), com a covariância e os desvios-padrão calculados com o divisor de Bessel, igual ao número desses períodos menos um, diferentemente do divisor populacional da §3.2. O elemento é nulo quando há menos de dois desses períodos ou quando algum dos desvios-padrão sobre eles é inferior ao épsilon da máquina, e é limitado ao intervalo $[-1, 1]$; todo elemento da diagonal é igual a um. Na série de afluências padronizadas, uma usina cujo desvio-padrão sazonal é zero no período sazonal $m$ tem valor zero em todos os períodos desse período sazonal, de modo que seus elementos fora da diagonal em $\hat{C}_m$ são nulos.
+
+Os estágios do período sazonal $m$ usam $\hat{C}_m$ quando todo par de usinas tem pelo menos 30 desses períodos no período sazonal $m$; todos os demais estágios usam $\hat{C}$. Como cada elemento é calculado sobre seu próprio conjunto de períodos, nenhuma das estimativas precisa ser semidefinida positiva; a §6.3 trata de uma matriz indefinida.
+
+### 6.2 O problema da fatoração de Cholesky
+
+A abordagem clássica aplica a fatoração de Cholesky: dada $C = L L^\top$, com $L$ triangular inferior, o ruído correlacionado é obtido como $L z$, em que $z \sim \mathcal{N}(0, I)$. A fatoração de Cholesky exige que $C$ seja **estritamente definida positiva**. Na prática, as matrizes de correlação estimadas a partir de séries de afluências são frequentemente quase singulares ou de posto deficiente, por dois motivos:
+
+- **Séries amostrais curtas**: os históricos de vazões frequentemente abrangem apenas algumas décadas, resultando em um comprimento de histórico $N^{\text{hist}}$ comparável ao número de usinas hidrelétricas em alguns subsistemas. Quando $N^{\text{hist}}$ é próximo da dimensão da matriz, os autovalores amostrais de $C$ se concentram perto de zero.
+- **Séries heterogêneas**: usinas com regimes hidrológicos quase idênticos (pares montante–jusante, mesma bacia hidrográfica) produzem colunas quase linearmente dependentes, reduzindo o posto efetivo de $C$ abaixo de sua dimensão nominal.
+
+Uma matriz $C$ quase singular faz a fatoração de Cholesky falhar ou produzir fatores triangulares inferiores numericamente degenerados. Seria necessária uma etapa de filtragem separada, para remover as usinas "degeneradas" antes da fatoração, descartando informação e introduzindo uma decisão de pré-processamento pouco transparente.
+
+### 6.3 Autodecomposição com raiz quadrada truncada
+
+O Novo Modelo usa a **raiz quadrada matricial simétrica obtida por autodecomposição**. A matriz de correlação é decomposta como:
+
+$$
+C = U \Lambda U^\top
+$$
+
+em que $U$ é a matriz ortogonal de autovetores e $\Lambda = \mathrm{diag}(\lambda_1, \ldots, \lambda_n)$ é a matriz diagonal de autovalores. A raiz quadrada simétrica é então:
+
+$$
+C^{1/2} = U \Lambda^{1/2} U^\top
+$$
+
+Para tratar matrizes quase singulares, qualquer autovalor $\lambda_i < 0$ (que a estimativa por pares completos da §6.1 pode produzir) é **truncado em zero** antes de se tomar a raiz quadrada:
+
+$$
+\tilde{\Lambda}^{1/2} = \mathrm{diag}\!\left(\sqrt{\max(\lambda_1, 0)},\, \ldots,\, \sqrt{\max(\lambda_n, 0)}\right)
+$$
+
+Truncar em zero os autovalores negativos é a projeção espectral da matriz amostral sobre o cone das matrizes semidefinidas positivas — a matriz semidefinida positiva mais próxima na norma de Frobenius; veja [Higham (2002)](/pt-br/reference/bibliography/#metodos-numericos) para o problema relacionado da matriz de correlação mais próxima.
+
+O ruído correlacionado é então gerado como $C^{1/2} z$, em que $z \sim \mathcal{N}(0, I)$.
+
+Com a raiz truncada em $C^{1/2}$, o ruído gerado tem covariância $\tilde{C} = U \max(\Lambda, 0)\, U^\top$, em que $\max(\Lambda, 0) = \mathrm{diag}(\max(\lambda_1, 0), \ldots, \max(\lambda_n, 0))$; essa é a projeção acima, e ela é igual a $C$ quando nenhum autovalor é negativo. Como $C$ tem diagonal unitária, $\sum_i U_{hi}^2 \lambda_i = 1$ para toda usina hidrelétrica $h$, sendo $U_{hi}$ a componente do autovetor $i$ na usina $h$, de modo que
+
+$$
+\tilde{C}_{hh} = \sum_i U_{hi}^2 \max(\lambda_i, 0) = 1 + \sum_{i:\, \lambda_i < 0} U_{hi}^2 \lvert \lambda_i \rvert \ge 1
+$$
+
+Não há renormalização posterior, de modo que o truncamento eleva acima de um a variância marginal do ruído de cada usina afetada.
+
+### 6.4 Por que a autodecomposição
+
+A forma espectral trata nativamente matrizes de correlação de posto deficiente: os autovetores correspondentes a autovalores truncados (nulos) não contribuem para a fatoração, que é o comportamento correto para direções de variância nula. Não é necessária nenhuma filtragem prévia de usinas hidrelétricas degeneradas.
+
+A regra de truncamento é fixa e transparente — exatamente os autovalores estritamente negativos são anulados, e nada mais é alterado. As autodireções com autovalores não negativos mantêm seus autovalores inalterados. Quando algum autovalor é truncado, o ruído gerado tem covariância $\tilde{C}$ (§6.3) em vez de $C$: sua diagonal excede um para toda usina com componente ao longo de um autovetor truncado, e seus elementos fora da diagonal em geral diferem dos de $C$.
+
+### 6.5 Compromissos
+
+| Propriedade                     | Autodecomposição (Novo Modelo)    | Cholesky                            |
+| ------------------------------- | -------------------------------- | ----------------------------------- |
+| Trata $C$ de posto deficiente   | Sim — o truncamento a torna robusta | Não — exige definição positiva   |
+| Custo computacional             | Maior (autodecomposição completa) | Menor em matrizes bem condicionadas |
+| Etapa de filtragem de usinas degeneradas | Não necessária          | Necessária para $C$ quase singular  |
+| Transparência da aproximação    | Trunca exatamente os autovalores negativos; a variância gerada pode exceder um | Falha numérica ou pivô pouco transparentes |
+
+O custo computacional maior é aceitável porque a fatoração é feita uma vez por configuração de estudo, e não no caminho crítico da simulação forward.
+
+## 7. Extensão com componente anual (PAR(p)-A)
+
+O PAR(p) clássico da §1 captura a dependência temporal em defasagens até uma ordem $p$ pequena (mantida baixa em ciclos mensais, pois o sistema periódico de Yule-Walker se torna mal condicionado em ordens mais altas). Em séries longas de afluências, isso basta para reproduzir a persistência dentro do ano, mas não a persistência plurianual visível nos superperíodos secos/úmidos do histórico. A extensão **PAR(p)-A** ([Treistman et al., 2020](/pt-br/reference/bibliography/#modelagem-de-afluencias)) acrescenta um único coeficiente anual à estrutura AR periódica para capturar essa persistência de longo alcance sem aumentar a ordem AR.
+
+A extensão é selecionada pela regra de seleção de ordem com componente anual (§3.6). Quando ativa, o modelo inclui uma tripla adicional por (usina hidrelétrica, período sazonal), além do conjunto de parâmetros clássico.
+
+### 7.1 Modelo aumentado
+
+Seja $A_{h,t-1}$ a **média móvel de 12 meses** das vazões incrementais que termina um estágio antes de $t$:
+
+$$
+A_{h,t-1} = \frac{1}{12} \sum_{\ell=1}^{12} a_{h,\, t-\ell}
+$$
+
+A janela sempre calcula a média das últimas doze observações, de modo que $A_{h,t-1}$ é uma média de um ano apenas em um ciclo mensal ($M = 12$); com a extensão ativa em qualquer usina hidrelétrica, a linha da dinâmica AR (§2.5) abrange doze defasagens, ou a maior ordem clássica, se esta for maior.
+
+O modelo PAR(p)-A acrescenta à §1 o desvio padronizado de $A_{h,t-1}$ em relação à sua própria média sazonal:
+
+$$
+a_{h,t} \;=\; \mu_{m(t)} \;+\; \sum_{\ell=1}^{p} \psi_{m(t),\ell}\,(a_{h,t-\ell} - \mu_{m(t-\ell)})
+\;+\; \psi^A_{m(t)}\,(A_{h,t-1} - \mu^A_{m(t)})
+\;+\; \sigma_{m(t)} \cdot \varepsilon_t
+$$
+
+em que:
+
+- $\mu^A_{m}$, $\sigma^A_{m}$: média amostral e desvio-padrão com **divisor populacional** do próprio regressor anual do período sazonal — os valores de $A_{h,t-1}$ nos estágios $t$ do período sazonal $m$, isto é, as janelas móveis cuja observação mais recente cai no período sazonal anterior (§7.3)
+- $\psi^A_{m(t)}$: coeficiente anual em unidades originais no período sazonal $m(t)$ — derivado em execução a partir do coeficiente padronizado armazenado (§7.4)
+- Todos os demais símbolos têm o significado clássico da §1
+
+Quando a extensão PAR(p)-A está inativa, o termo anual está ausente e o modelo se reduz exatamente ao da §1.
+
+### 7.2 Parâmetros da componente anual
+
+Para cada (usina hidrelétrica, período sazonal), o caminho do PAR(p)-A armazena três grandezas adicionais:
+
+| Grandeza                        | Símbolo      | Descrição                                                                           |
+| ------------------------------- | ------------ | ----------------------------------------------------------------------------------- |
+| Coeficiente anual padronizado   | $\psi^{A*}_m$ | Saída de Yule-Walker para o termo anual — adimensional                             |
+| Média sazonal anual             | $\mu^A_m$    | Média amostral do regressor anual $A_{h,t-1}$ do período sazonal $m$ (m³/s)                 |
+| Desvio-padrão sazonal anual     | $\sigma^A_m$ | Desvio-padrão com divisor populacional do regressor anual $A_{h,t-1}$ do período sazonal $m$ (m³/s, $> 0$) |
+
+O coeficiente padronizado $\psi^{A*}_m$ é a saída direta do sistema periódico de Yule-Walker estendido descrito abaixo (§7.5). Armazenar $\mu^A_m$ e $\sigma^A_m$ junto com as estatísticas sazonais de $a_{h, \cdot}$ permite a conversão de unidades em execução da §7.4 sem reler o histórico.
+
+### 7.3 Estimação das estatísticas sazonais anuais
+
+Formam-se todas as médias móveis de 12 meses $A_t = \frac{1}{12} \sum_{\ell=1}^{12} a_{h,\, t + 1 - \ell}$ que o histórico cronológico permite, e cada janela é atribuída ao período sazonal **seguinte** à sua observação mais recente — o período sazonal cujos estágios usam essa janela como regressor $A_{h,t-1}$. As estatísticas armazenadas para o período sazonal $m$ descrevem, portanto, exatamente o regressor que os estágios desse período sazonal enxergam. Para cada grupo (usina hidrelétrica, período sazonal $m$) de valores $\{A^{(w)}\}$:
+
+$$
+\hat{\mu}^A_m \;=\; \frac{1}{N^A_m} \sum_{w} A^{(w)}
+\qquad
+\hat{\sigma}^A_m \;=\; \sqrt{\frac{1}{N^A_m} \sum_{w} \bigl(A^{(w)} - \hat{\mu}^A_m\bigr)^2}
+$$
+
+Ambos os estimadores usam o divisor populacional $1/N^A_m$, seguindo a convenção da §3.2 e garantindo que nenhum fator de escala amostral vs. populacional se propague para a FACP condicional da §7.5. São necessárias pelo menos 13 observações cronológicas para que uma usina hidrelétrica participe do PAR(p)-A — o mínimo necessário para formar uma média móvel de 12 meses.
+
+### 7.4 Conversão de unidades em execução
+
+O coeficiente padronizado armazenado $\psi^{A*}_m$ é convertido no coeficiente em unidades originais $\psi^A_m$ na construção do PL, usando as estatísticas sazonais e as estatísticas anuais:
+
+$$
+\psi^A_{m} \;=\; \psi^{A*}_m \cdot \frac{s_m}{\sigma^A_m}
+$$
+
+A conversão espelha a da §2.2 para os coeficientes AR clássicos. O termo anual $\psi^A_{m(t)} \cdot \bigl(A_{h,t-1} - \mu^A_{m(t)}\bigr)$ é então expandido pela definição da janela na construção do PL: cada um dos 12 coeficientes de defasagem recebe $\psi^A_{m(t)}/12$ além de seu valor clássico, e a base determinística absorve a contribuição correspondente das médias por meio das médias dos períodos sazonais das defasagens — o PL não contém uma variável anual separada, e o valor da janela móvel é obtido inteiramente pelas variáveis de estado de defasagem que ele já contém.
+
+### 7.5 Seleção de ordem e estimação dos coeficientes
+
+A seleção de ordem do PAR(p)-A é condicionada ao regressor anual. Seja $Z$ a série padronizada de afluências, isto é, a afluência padronizada por suas estatísticas sazonais (§3.2), e seja o regressor anual $A_{t-1}$ da §7.1 padronizado por suas próprias estatísticas sazonais (§7.3). A entrada da seleção de ordem é a **FACP condicional** na defasagem $k$, definida como a autocorrelação parcial entre o valor de $Z$ no estágio corrente e seu valor na defasagem $k$, **condicionada** às defasagens intermediárias de $Z$ e a $A_{t-1}$. O cálculo da FACP condicional exige uma decomposição particionada da covariância que distingue os blocos $Z \otimes Z$, $Z \otimes A$ e $A \otimes Z_{-1}$.
+
+A FACP condicional alimenta a regra de seleção de ordem pela FACP da §3.6, com as duas extensões específicas do PAR(p)-A (interrupção por zero estrutural e ordem mínima 1) já descritas ali.
+
+#### Divisor da covariância cruzada
+
+O bloco $Z \otimes Z$ usa o mesmo divisor populacional alinhado por ano da autocovariância clássica (§3.4). Os blocos $Z \otimes A$ e $A \otimes Z_{-1}$ usam um **divisor pelo tamanho do maior grupo**:
+
+$$
+\hat{\gamma}_{Z \otimes A}(\ell) \;=\; \frac{1}{\max(|A|,\, |Z|)} \sum_w \bigl(Z^{(w)} - \bar{Z}\bigr)\bigl(A^{(w)} - \bar{A}\bigr)
+$$
+
+A convenção do maior grupo é necessária porque $A$ exclui, por construção, o primeiro ano de $Z$ (uma janela móvel de 12 meses não pode se ancorar nas 12 primeiras observações). A contagem estrita de pares distorceria a escala das correlações cruzadas e enviesaria a FACP condicional. O caminho do PAR(p) nunca usa correlações cruzadas Z⊗A, de modo que a questão do divisor é específica do PAR(p)-A.
+
+#### Yule-Walker periódico estendido
+
+Uma vez selecionada a ordem $p$, os coeficientes $(\psi^*_{m,1}, \ldots, \psi^*_{m,p}, \psi^{A*}_m)$ são obtidos resolvendo o **sistema periódico de Yule-Walker estendido**:
+
+$$
+\mathbf{R}^{\,\text{ext}}_m
+\begin{pmatrix} \psi^*_{m,1} \\ \vdots \\ \psi^*_{m,p} \\ \psi^{A*}_m \end{pmatrix}
+= \hat{\boldsymbol{\rho}}^{\,\text{ext}}_m
+$$
+
+em que $\mathbf{R}^{\,\text{ext}}_m$ é a covariância particionada $(p+1) \times (p+1)$ cujas $p$ primeiras linhas reproduzem as linhas do sistema periódico de Yule-Walker clássico (§3.5) e cuja última linha acrescenta os elementos $Z \otimes A$ e $A \otimes A$. O lado direito $\hat{\boldsymbol{\rho}}^{\,\text{ext}}_m$ acrescenta o alvo $A \otimes Z_{-1}$.
+
+**Sistema estendido singular.** A matriz estendida pode ser singular mesmo quando seu bloco principal $p \times p$, a matriz periódica de Yule-Walker clássica da §3.5, não o é, de modo que a garantia do invariante 4 (§5) cobre apenas o caminho clássico. Um período sazonal cujo sistema estendido é singular na ordem selecionada assume ordem 0, com coeficiente anual $\psi^{A*}_m = 0$.
+
+Como no caso clássico, a escala do ruído não é uma saída do ajuste. Para um modelo PAR(p)-A, o fechamento da §4.1 é aplicado ao **sistema efetivo de 12 defasagens**: o regressor anual é um funcional linear das últimas 12 afluências, de modo que expandi-lo por defasagem resulta em um AR periódico efetivo cujo coeficiente padronizado da defasagem $\ell$ é o $\psi^*_{m,\ell}$ clássico (nulo além de $p_m$) mais a contribuição anual $\psi^{A*}_m \cdot s_{m-\ell} / (12\,\sigma^A_m)$. A escala do ruído $r_m$ é derivada da FAC implícita desse sistema efetivo, e a escala do ruído em execução é $\sigma_m = s_m \cdot r_m$, exatamente como na §4.2.
+
+### 7.6 Redução iterativa de ordem
+
+A redução iterativa de Maceira & Damázio da §3.6 também é aplicada a todo o ciclo periódico no caminho do PAR(p)-A: após o ajuste inicial, avalia-se a influência composta de cada defasagem AR ao longo da cadeia periódica, e todo período sazonal com influência composta negativa tem seu teto AR reduzido antes do novo ajuste. O coeficiente anual $\psi^{A*}_m$ não entra na verificação da influência composta — ele está ancorado na média anual móvel e, portanto, não se propaga pela cadeia de defasagens.
+
+### 7.7 Ativação e alternativas
+
+| Condição                                                                   | Caminho                                                                                  |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Regra clássica de seleção de ordem                                         | PAR(p) clássico — tripla anual ausente (§3)                                              |
+| Regra de seleção de ordem com componente anual                             | PAR(p)-A — tripla anual obrigatória para todo (usina hidrelétrica, período sazonal)              |
+| Grupo classificado como constante ou saturado (§3.3)                       | Ordem efetiva 0 em ambos os caminhos; termo anual suprimido quando o desvio-padrão sazonal colapsa |
+| Sistema periódico de Yule-Walker estendido singular na ordem selecionada (§7.5) | Período sazonal do PAR(p)-A com ordem 0 e coeficiente anual $\psi^{A*}_m = 0$               |
+| Usina hidrelétrica com menos de 13 observações no caminho do PAR(p)-A      | Falha bloqueante durante o ajuste (sem retorno silencioso ao caminho clássico)           |
+
+Os dois caminhos compartilham o produtor de estatísticas sazonais da §3.2; alternar entre eles não altera silenciosamente $\hat{\mu}_m$ nem $\hat{s}_m$. O caminho do PAR(p)-A usa a mesma fatoração da correlação espacial do caminho clássico (§6).
+
+### 7.8 Exatidão da troca de condicionamento
+
+A separação em dois planos da §1.2 mostra que recondicionar apenas as estatísticas sazonais ($\mu_m$, $s_m$) — mantendo inalterados $\psi^*$ e o $r_m$ derivado pelo fechamento — reescala a dinâmica clássica preservando exatamente a estrutura de correlação, para qualquer reescalonamento por período sazonal. O termo anual do PAR(p)-A, em geral, não compartilha essa propriedade.
+
+Assim como $r_m$, o desvio-padrão sazonal anual $\sigma^A_m$ é um funcional da própria estrutura de momentos de segunda ordem do processo — não é um parâmetro independente do termo anual. Diferentemente de $r_m$, porém, ele é mantido como **dado de condicionamento armazenado** (§7.2), em vez de ser derivado novamente de $\psi^*$ na carga. O coeficiente anual em execução $\psi^A_m$ (§7.4) é $\psi^A_m = \psi^{A*}_m \cdot s_m / \sigma^A_m$, de modo que uma troca de condicionamento preserva a contribuição do termo anual para a estrutura de correlação apenas quando $\sigma^A_m$ é reescalado pelo mesmo fator que $s_m$ em todos os períodos sazonais — um reescalonamento **uniforme** $\tilde s_m = c\, s_m$ para todo $m$, que resulta em $\tilde\sigma^A_m = c\,\sigma^A_m$ e mantém $\psi^A_m$ inalterado. Uma troca de condicionamento **variável por período sazonal** — que reescala $s_m$ por fatores diferentes em períodos sazonais diferentes — mantém $\sigma^A_m$ no valor anterior à troca enquanto $s_m$ se altera, deslocando $\psi^A_m$ e perturbando a estrutura de correlação que se pretendia preservar.
+
+## Implementação no Novo Modelo
+
+A metodologia acima define o modelo de afluências PAR(p); as abas abaixo mostram como a interface do software do Novo Modelo o configura, o alimenta e informa seus resultados.
+
+<Tabs>
+  <TabItem label="Configurar"><ParConfigure /></TabItem>
+  <TabItem label="Entradas e saídas"><ParIO /></TabItem>
+  <TabItem label="Notas de implementação"><ParNotes /></TabItem>
+</Tabs>
+
+## Referências cruzadas
+
+- [Formulação do PL](/pt-br/math/lp-formulation) — As linhas de vazão afluente realizada do PL do estágio
+- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — Dinâmica AR das afluências: expansão do estado, fixação das colunas de defasagem, extração dos custos reduzidos
+- [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity) — Métodos para tratar realizações negativas produzidas pelo modelo PAR(p)
+- [Geração de cenários](/pt-br/math/scenario-generation) — Quando cenários externos de afluência são usados no treinamento (training), a simulação backward transforma o ruído da árvore de aberturas em afluências com o modelo PAR aplicado, no qual as usinas hidrelétricas com ordem AR 0 e sem componente anual assumem a média e o desvio-padrão das amostras externas.
+- [Convenções de notação](/pt-br/overview/notation-conventions) — Define os símbolos das afluências ($a_{h,t}$, $\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) e as convenções de unidades

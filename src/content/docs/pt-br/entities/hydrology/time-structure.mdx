@@ -1,0 +1,83 @@
+---
+title: Horizonte, estágios e patamares
+description: Como o Novo Modelo organiza o tempo — o horizonte de estudo como sequência de estágios, os patamares de carga dentro de cada estágio, os períodos sazonais, o fim do horizonte e os estágios pós-estudo.
+---
+
+import EntityHero from '../../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../../components/entity/WhyCards.astro';
+import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../../components/entity/FileList.astro';
+import TimeStructure from '../../../../../components/entity/illustrations/TimeStructure.astro';
+
+<EntityHero family="hydrology" icon="time" lead="O horizonte de estudo é uma cadeia de estágios, em geral de um mês, uma semana ou uma hora cada. Cada estágio se divide em patamares de carga, que representam a variação do nível de carga dentro do estágio. Na prática brasileira, os três patamares de carga são denominados leve, média e pesada." />
+
+## Por que importa
+
+<WhyCards items={[
+  { title: 'Decisões estágio a estágio', text: 'O grafo de estágios é uma cadeia linear: o estágio 1 leva ao estágio 2, e assim por diante até o último estágio. Cada estágio é visitado uma vez por simulação forward ou backward, e cada estágio mantém seu próprio conjunto de cortes.' },
+  { title: 'Patamares capturam o nível de carga', text: 'Cada patamar tem um nome e uma duração em horas. Um estágio sempre tem ao menos um patamar, e o modelo oferece duas formas de tratá-los: independentes (paralelos) ou sequenciais (cronológicos).' },
+  { title: 'O fim do horizonte tem um custo', text: 'Com horizonte finito, o valor do futuro depois do último estágio é zero, a menos que uma função terminal seja importada, de modo que a água que sobra nos reservatórios ali não tem valor. Isso produz o efeito de fim de mundo (end-of-world effect): o valor nulo estimula o otimizador a esvaziar os reservatórios antes do último estágio.' },
+]} />
+
+## Estágios, patamares e o fim do horizonte
+
+<TimeStructure lang="pt-BR" />
+
+## O que o modelo decide
+
+Nada sobre a estrutura de tempo em si: ela é um dado. O modelo decide como operar dentro dela, estágio a estágio e patamar a patamar.
+
+## O que você informa
+
+- Os estágios, cada um com identificador, data de início e data de fim, com o fim posterior ao início.
+- Os patamares de cada estágio: identificador, nome e duração em horas, sempre acima de zero.
+- O modo de patamares de cada estágio: paralelo (o padrão) ou cronológico.
+- O número de aberturas de cada estágio (veja a página [Cenários e aberturas](/pt-br/entities/hydrology/scenarios/)).
+- Opcionalmente, o período sazonal de cada estágio, por meio do mapa de períodos sazonais (mensal, semanal ou personalizado).
+- O tipo do grafo da política (policy graph), que deve ser de horizonte finito, e a taxa de desconto anual, com taxa própria opcional para um estágio.
+- Opcionalmente, estágios pré-estudo para as defasagens de afluência e estágios pós-estudo para entregas após o horizonte.
+
+## Patamares paralelos e cronológicos
+
+- **Paralelos (o padrão).** Os patamares de um estágio são independentes. Um único balanço hídrico abrange todos os patamares de uma usina hidrelétrica, e o armazenamento muda apenas do início para o fim do estágio. O PL é menor, e esse modo serve ao planejamento estratégico de longo prazo.
+- **Cronológicos.** Os patamares são sequenciais, com o armazenamento transferido de um patamar para o seguinte, o que permite modelar a ciclagem de armazenamento dentro do estágio, por exemplo a ciclagem diária dentro de um estágio mensal. O PL é maior, e esse modo serve ao planejamento de curto prazo com ciclagem de armazenamento.
+
+O Novo Modelo tem um único nível de decomposição dentro do estágio: os patamares. Não há decomposição por dia representativo. O modo é escolhido por estágio.
+
+## Horizonte finito e cíclico
+
+Só o horizonte finito, uma cadeia acíclica com fim definido, é suportado. O horizonte cíclico, que fecharia a cadeia em um laço para estudos de longo prazo, é um projeto reservado, e um caso que o declare é rejeitado na carga. Quando o valor terminal nulo distorcer a política, uma função terminal importada de um estudo a montante é o remédio suportado.
+
+## Períodos sazonais
+
+Um período sazonal é a posição de um estágio no ciclo anual (mensal, semanal ou personalizado), e os estágios de um mesmo período sazonal compartilham os parâmetros do modelo de afluências. Quando o mapa de períodos sazonais não tem períodos sobrepostos, um estágio sem período sazonal assume o da sua data de início. A estimação do modelo de afluências a partir do histórico exige o mapa de períodos sazonais.
+
+## Estágios de durações diferentes
+
+Um estudo de resolução mista mistura, em um único horizonte, estágios de mais de uma duração, por exemplo um trecho inicial mensal seguido de um trecho final trimestral, ou um trecho inicial semanal seguido de um trecho final mensal. Todos os estágios compartilham um único conjunto de cortes. Cada estágio informa a que período sazonal pertence, e as defasagens do modelo de afluências são as médias ponderadas pela duração das afluências sobre períodos sazonais inteiros. No primeiro estágio grosso, o estado de defasagens é reconstruído a partir dos períodos grossos completos.
+
+## Antes e depois do estudo
+
+- **Estágios pré-estudo.** Períodos datados anteriores ao primeiro estágio que o modelo de afluências usa para suas defasagens. Não têm patamares e nunca são resolvidos.
+- **Estágios pós-estudo.** Segmentos de calendário após o horizonte, começando exatamente no seu fim. Nunca são despachados e nunca carregam cortes. Dão uma posição no calendário às entregas de usinas termelétricas com despacho antecipado que são decididas dentro do estudo e entregues após o horizonte.
+
+## Taxa de desconto
+
+Uma taxa de desconto anual valora os custos futuros abaixo dos presentes. Ela é global, e um estágio pode declarar a sua própria. O desconto acumulado continua sobre os estágios pós-estudo à taxa global.
+
+## Aprofundar
+
+<DeepLinks items={[
+  { kind: 'Metodologia', title: 'Variantes de formulação dos patamares §1 — patamares paralelos', href: '/pt-br/math/block-formulations/#1-patamares-paralelos-padrao' },
+  { kind: 'Metodologia', title: 'Variantes de formulação dos patamares §2 — patamares cronológicos', href: '/pt-br/math/block-formulations/#2-patamares-cronologicos' },
+  { kind: 'Metodologia', title: 'Modos de horizonte §1 — modo finito (acíclico)', href: '/pt-br/math/horizon-modes/#1-modo-finito-aciclico' },
+  { kind: 'Metodologia', title: 'Estudos com múltiplas resoluções §2 — acumulação das defasagens', href: '/pt-br/math/multi-resolution-studies/#2-acumulacao-das-defasagens' },
+  { kind: 'Metodologia', title: 'Formulação da taxa de desconto', href: '/pt-br/math/discount-rate/' },
+]} />
+
+## Para quem roda o modelo
+
+<FileList items={[
+  { dir: 'in', path: 'stages.json', href: '/pt-br/reference/case-format/stages/#stagesjson' },
+  { dir: 'in', path: 'post_study_stages.json', href: '/pt-br/reference/case-format/stages/#post_study_stagesjson' },
+]} />

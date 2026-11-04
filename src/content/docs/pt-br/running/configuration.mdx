@@ -1,0 +1,1218 @@
+---
+title: Configuração
+description: Todos os campos de `config.json` — treinamento, simulação, modelagem, seleção de cortes, estimação, política, resolução temporal e exportações.
+---
+
+Todos os parâmetros de execução de `novomodelo run` são controlados pelo `config.json` no
+diretório do caso. Esta página documenta todas as seções e campos. Todo objeto em
+`config.json` rejeita chaves desconhecidas, de modo que uma chave com erro de digitação faz a carga falhar com um
+erro de análise que indica a chave.
+
+---
+
+## Configuração mínima
+
+```json
+{
+  "training": {
+    "selection": { "method": "sampled", "forward_passes": 50 },
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 100 }]
+  }
+}
+```
+
+Todas as demais seções são opcionais, com os valores padrão documentados abaixo.
+
+---
+
+## Índice de chaves
+
+Todas as chaves de `config.json` até o segundo nível, com seu tipo e valor padrão; cada linha aponta para sua seção.
+
+| Nome                                         | Tipo            | Obrigatório | Padrão       | Unidades | Descrição                                                                                                                                          |
+| -------------------------------------------- | --------------- | -------- | ------------ | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `training`                                   | object          | Sim      | —            | —     | Controla a fase de treinamento (training) da PDDE (SDDP). Veja [`training`](#training).                                                            |
+| `training.selection`                         | object          | Sim      | —            | —     | Método de seleção de cenários da simulação forward do treinamento, `sampled` ou `enumerated`; a chave é obrigatória. Veja [`training.selection`](#trainingselection). |
+| `training.stopping_rules`                    | array           | Sim      | —            | —     | Critérios que encerram o treinamento; a chave é obrigatória. Veja [`training.stopping_rules`](#trainingstopping_rules).                            |
+| `training.enabled`                           | boolean         | Não      | `true`       | —     | Executa a fase de treinamento; `false` passa direto à simulação. Veja [`training`](#training).                                                     |
+| `training.tree_seed`                         | integer \| null | Não      | `null`       | —     | Semente da árvore de aberturas; `null` resolve para 42. Veja [Resolução das sementes](#resolucao-das-sementes).                                           |
+| `training.stopping_mode`                     | string          | Não      | `"any"`      | —     | Um de `"any"`, `"all"`. Como vários critérios de parada se combinam. Veja [`training.stopping_mode`](#trainingstopping_mode).                       |
+| `training.cut_selection`                     | object          | Não      | `{}`         | —     | Processo de gestão de linhas; a seleção de linhas fica desligada salvo se `selection` for definido. Veja [`training.cut_selection`](#trainingcut_selection). |
+| `training.solver`                            | object          | Não      | `{}`         | —     | Sobrescritas, por fase, do perfil do solver de PL; as duas chaves `retry_*` são aceitas e não têm efeito. Veja [`training.solver`](#trainingsolver). |
+| `training.parallelism`                       | object          | Não      | `{}`         | —     | Parâmetros de escalonamento dos trabalhadores da simulação backward. Veja [`training.parallelism`](#trainingparallelism).                          |
+| `training.scenario_source`                   | object \| null  | Não      | `null`       | —     | Fonte de ruído da simulação forward por classe; `null` usa `in_sample` para todas as classes. Veja [`training.scenario_source`](#trainingscenario_source). |
+| `simulation`                                 | object          | Não      | `{}`         | —     | Controla a fase de simulação pós-treinamento. Veja [`simulation`](#simulation).                                                                    |
+| `simulation.enabled`                         | boolean         | Não      | `false`      | —     | Executa a fase de simulação após o treinamento. Veja [`simulation`](#simulation).                                                                  |
+| `simulation.selection`                       | object \| null  | Não      | `null`       | —     | Método de seleção de cenários da fase de simulação; `null` resolve para 2000 cenários amostrados. Veja [`simulation.selection`](#simulationselection). |
+| `simulation.io_channel_capacity`             | integer         | Não      | `64`         | —     | Capacidade da fila entre os trabalhadores da simulação e o gravador de saída. Veja [`simulation`](#simulation).                                     |
+| `simulation.solver`                          | object \| null  | Não      | `null`       | —     | Perfil do solver da fase de simulação; `null` mantém o perfil embutido. Veja [Campos do perfil do solver](#campos-do-perfil-do-solver).                 |
+| `simulation.scenario_source`                 | object \| null  | Não      | `null`       | —     | Fonte de cenários da fase de simulação; `null` reutiliza `training.scenario_source`. Veja [`simulation.scenario_source`](#simulationscenario_source). |
+| `simulation.cut_set`                         | string          | Não      | `"all"`      | —     | Um de `"all"`, `"active"`. Quais linhas da política os PLs de estágio da simulação contêm. Veja [`simulation`](#simulation).                       |
+| `modeling`                                   | object          | Não      | `{}`         | —     | Controla opções de modelagem física. Veja [`modeling`](#modeling).                                                                                 |
+| `modeling.inflow_non_negativity`             | object          | Não      | `{}`         | —     | Tratamento de sorteios negativos de afluência do modelo PAR. Veja [`modeling.inflow_non_negativity`](#modelinginflow_non_negativity).              |
+| `modeling.cost_scale_factor`                 | number \| null  | Não      | `1000000.0`  | —     | Divisor de todo coeficiente da função objetivo que não seja de θ; `null` ou ausente usa o padrão. Veja [`modeling.cost_scale_factor`](#modelingcost_scale_factor). |
+| `estimation`                                 | object          | Não      | `{}`         | —     | Controla o processo de estimação do modelo PAR(p). Veja [`estimation`](#estimation).                                                               |
+| `estimation.max_order`                       | integer         | Não      | `6`          | —     | Ordem máxima de defasagem considerada no ajuste do modelo. Veja [`estimation`](#estimation).                                                       |
+| `estimation.order_selection`                 | string          | Não      | `"pacf"`     | —     | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem. Veja [`estimation`](#estimation).                                                   |
+| `estimation.min_observations_per_season`     | integer         | Não      | `30`         | —     | Mínimo recomendado de ocorrências de estágio totalmente cobertas por período sazonal e usina. Veja [`estimation`](#estimation).                            |
+| `estimation.max_coefficient_magnitude`       | number \| null  | Não      | `null`       | —     | Reduz um ajuste à ordem 0 quando algum coeficiente excede essa magnitude. Veja [`estimation`](#estimation).                                        |
+| `estimation.correlation_target`              | string          | Não      | `"inflows"`  | —     | Um entre `"inflows"`, `"residuals"`. Série a partir da qual uma correlação de afluências estimada é calculada. Veja [`estimation`](#estimation).                       |
+| `policy`                                     | object          | Não      | `{}`         | —     | Controla a persistência da política. Veja [`policy`](#policy).                                                                                     |
+| `policy.path`                                | string          | Não      | `"./policy"` | —     | Diretório da política, resolvido em relação ao diretório de saída da execução. Veja [`policy`](#policy).                                           |
+| `policy.mode`                                | string          | Não      | `"fresh"`    | —     | Um de `"fresh"`, `"warm_start"`, `"resume"`. Modo de inicialização. Veja [`policy`](#policy).                                                      |
+| `policy.boundary`                            | object \| null  | Não      | `null`       | —     | Cortes de fronteira terminal carregados do checkpoint de outro estudo. Veja [`policy.boundary`](#policyboundary).                                  |
+| `policy.checkpointing`                       | object          | Não      | `{}`         | —     | Checkpoints periódicos durante o treinamento. Veja [`policy.checkpointing`](#policycheckpointing).                                                 |
+| `upper_bound_evaluation`                     | object          | Não      | `{}`         | —     | Aceito; nenhuma parte da execução o lê. Veja [`upper_bound_evaluation`](#upper_bound_evaluation).                                                  |
+| `upper_bound_evaluation.enabled`             | boolean \| null | Não      | `null`       | —     | Aceito; não tem efeito. Veja [`upper_bound_evaluation`](#upper_bound_evaluation).                                                                  |
+| `upper_bound_evaluation.initial_iteration`   | integer \| null | Não      | `null`       | —     | Aceito; não tem efeito. Veja [`upper_bound_evaluation`](#upper_bound_evaluation).                                                                  |
+| `upper_bound_evaluation.interval_iterations` | integer \| null | Não      | `null`       | —     | Aceito; não tem efeito. Veja [`upper_bound_evaluation`](#upper_bound_evaluation).                                                                  |
+| `upper_bound_evaluation.lipschitz`           | object          | Não      | `{}`         | —     | Aceito; não tem efeito. Veja [`upper_bound_evaluation`](#upper_bound_evaluation).                                                                  |
+| `exports`                                    | object          | Não      | `{}`         | —     | Controla quais saídas são gravadas no diretório de resultados. Veja [`exports`](#exports).                                                         |
+| `exports.states`                             | boolean         | Não      | `false`      | —     | Armazena os estados visitados de cada conjunto de cortes e os grava no checkpoint da política. Veja [`exports`](#exports).                         |
+| `exports.stochastic`                         | boolean         | Não      | `false`      | —     | Grava os artefatos do pré-processamento estocástico. Veja [`exports`](#exports).                                                                   |
+| `exports.fpha_deviation_points`              | boolean         | Não      | `false`      | —     | Grava a tabela de desvios do ajuste da FPHA calculada. Veja [`exports`](#exports).                                                                 |
+| `$schema`                                    | string \| null  | Não      | `null`       | —     | URI opcional do esquema; o carregador não a lê. Veja [Exemplo completo](#exemplo-completo).                                                            |
+
+---
+
+## `training`
+
+Controla a fase de treinamento da PDDE.
+
+### Campos obrigatórios
+
+| Campo            | Tipo   | Descrição                                                                                                                                                                                              |
+| ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `selection`      | object | Método de seleção de cenários da simulação forward do treinamento — `sampled{forward_passes}` ou `enumerated{}` (veja [`training.selection`](#trainingselection) abaixo). Sem padrão: a ausência de `training.selection` é um erro de carga fatal. |
+| `stopping_rules` | array  | Critérios de parada (veja abaixo). A chave é obrigatória e a lista deve conter pelo menos um critério `iteration_limit`; uma lista sem nenhum, inclusive `[]`, é recusada na carga da configuração. O treinamento nunca ultrapassa o maior `iteration_limit` da lista. |
+
+### `training.selection`
+
+Define quantas trajetórias a simulação forward do treinamento percorre por iteração,
+ou se ela percorre todos os caminhos do grafo da política (policy graph) em vez de
+amostrar. O objeto é discriminado internamente por `method`; cada variante aceita
+apenas seus próprios campos — combinar `forward_passes` com `"enumerated"` é um
+erro de carga (`deny_unknown_fields`).
+
+| Campo            | Tipo    | Obrigatório    | Descrição                                                                                                                                                              |
+| ---------------- | ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `method`         | string  | Sim            | Um de `"sampled"`, `"enumerated"`.                                                                                                                                     |
+| `forward_passes` | integer | apenas `sampled` | Número de trajetórias de cenários por iteração (`>= 1`). Valores maiores reduzem a variância do corte de cada iteração, mas aumentam o custo por iteração. Rejeitado com `"enumerated"`. |
+
+**Não há padrão** para o número de simulações forward: a ausência de `training.selection` é
+um erro de carga fatal ([`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation)).
+
+Exemplo — amostrado:
+
+```json
+{ "method": "sampled", "forward_passes": 50 }
+```
+
+Exemplo — enumerado (a simulação forward percorre todos os caminhos do grafo
+da política em vez de sortear uma quantidade fixa):
+
+```json
+{ "method": "enumerated" }
+```
+
+Com `enumerated`, uma classe de [`scenario_source`](#trainingscenario_source) lê a
+abertura declarada do nó somente quando é `in_sample`, ou `external` com uma
+coluna de cenário que o nó fixa. Uma classe em `out_of_sample` ou `historical`, ou
+em `external` sem coluna fixada, sorteia sua própria realização; assim,
+os limites informados são os do grafo da política declarado somente quando toda
+classe lê a abertura do nó.
+
+Com dois ou mais processos MPI, o treinamento enumerado só admite um grafo da política
+cujas ramificações estejam todas no último estágio (um tronco determinístico terminando em um
+leque terminal); um grafo com nó de ramificação intermediário interrompe `novomodelo run`
+antes do treinamento, com código de saída `1`. `novomodelo validate` não verifica isso; portanto, uma
+validação aprovada não exclui essa situação. A mensagem de erro está listada em
+[Falhas de comunicação](/pt-br/reference/error-codes/#falhas-de-comunicacao).
+
+A seleção enumerada, no treinamento ou na simulação, também exige que todo nó
+do grafo da política tenha uma única abertura: ela percorre cada caminho do
+grafo da política e não enumera as aberturas de um nó. Um nó que fixa um
+`scenario_id` tem uma, e seu estágio não declara `num_openings`; qualquer
+outro nó tem as aberturas que seu estágio gera, de modo que esse estágio declara
+`num_openings: 1` em `stages.json`. Um caso com um nó que tenha mais é
+recusado na preparação do estudo, por `novomodelo validate` e por `novomodelo run` antes do treinamento, com código de saída `1`.
+
+### Campos opcionais
+
+| Campo           | Tipo               | Padrão  | Descrição                                                                                                                                                                                               |
+| --------------- | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`       | boolean            | `true`  | Defina como `false` para pular o treinamento e seguir diretamente para a simulação (exige uma política já treinada).                                                                                    |
+| `tree_seed`     | integer \| null    | `null`  | Semente da árvore de aberturas e dos sorteios de aberturas dentro da amostra (in-sample). Quando `null`, usa-se a semente padrão 42 (determinística, mas arbitrária), sem aviso; um valor negativo é usado em valor absoluto. Veja [Resolução das sementes](#resolucao-das-sementes) para a relação com `scenario_source.seed`. |
+| `stopping_mode` | string             | `"any"` | Um de `"any"`, `"all"`. Como vários critérios de parada se combinam: `"any"` para quando o primeiro critério é satisfeito; `"all"` para quando todos os critérios, exceto `iteration_limit`, são satisfeitos na mesma iteração, e o maior `iteration_limit` limita a execução. |
+| `cut_selection`   | object             | `{}`                                  | Processo de gestão de linhas (seleção de cortes), aninhado em `training.cut_selection` (não é chave de raiz). Veja [`cut_selection`](#trainingcut_selection). |
+| `solver`          | object             | `{}`                                  | Sobrescritas opcionais, por fase, do perfil do solver de PL; as duas chaves `retry_*` não têm efeito. Veja [`training.solver`](#trainingsolver). |
+| `parallelism`     | object             | `{}`                                  | Parâmetros de escalonamento dos trabalhadores da simulação backward. Veja [`parallelism`](#trainingparallelism). |
+| `scenario_source` | object \| null     | `null`              | Fonte de ruído por classe para a simulação forward do treinamento. Veja [`scenario_source`](#trainingscenario_source). |
+
+Para a configuração de `scenario_source` por classe, veja a
+[subseção `scenario_source`](#trainingscenario_source) abaixo e
+[Geração de cenários §3](/pt-br/math/scenario-generation#3-abstracao-do-esquema-de-amostragem).
+
+### `training.scenario_source`
+
+Controla de onde vem o ruído da simulação forward para cada classe de entidade durante
+o treinamento. Quando ausente, todas as classes usam por padrão `in_sample` (reutilizando a
+árvore de aberturas pré-gerada).
+
+| Campo              | Tipo              | Padrão        | Descrição                                                                                               |
+| ------------------ | ----------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
+| `seed`             | integer \| null   | `null`        | Semente forward dos sorteios fora da amostra (out-of-sample) do treinamento e dos da simulação quando `simulation.scenario_source` está ausente; **obrigatória quando alguma classe é `out_of_sample` ou `external`**. A seleção de janelas históricas e de cenários externos não usa semente. Veja [Resolução das sementes](#resolucao-das-sementes). |
+| `inflow`           | object            | `in_sample`   | Esquema de amostragem da afluência às usinas hidrelétricas. Objeto com a chave `"scheme"`.             |
+| `load`             | object            | `in_sample`   | Esquema de amostragem da carga dos barramentos. Objeto com a chave `"scheme"`.                          |
+| `ncs`              | object            | `in_sample`   | Esquema de amostragem da disponibilidade das NCS. Objeto com a chave `"scheme"`.                        |
+| `historical_years` | array \| object   | descoberta automática | Restringe o conjunto de janelas históricas. Quando ausente, todo ano do histórico é candidato. Lista (`[1940, 1953]`) ou intervalo (`{"from": 1940, "to": 2010}`). Cada ano listado designa a janela cujo primeiro estágio do estudo cai na ocorrência, naquele ano, de seu período sazonal; a elegibilidade segue o [Conjunto de janelas históricas](/pt-br/math/scenario-generation/#conjunto-de-janelas-historicas), e um ano que não a atenda é descartado sem mensagem. Um resultado vazio gera o erro "no valid historical windows found" ([Códigos de erro](/pt-br/reference/error-codes/#stochasticpreparationerror)). O mesmo conjunto fornece as aberturas `historical_residuals`. |
+| `openings`         | object            | `{"source": "generated"}` | Origem da árvore de aberturas da simulação backward. `{"source": "generated"}` constrói a árvore internamente, com o `moment_matching` opcional de [`training.scenario_source.openings`](#trainingscenario_sourceopenings); `{"source": "file"}` lê uma árvore fornecida pelo usuário em `scenarios/noise_openings.parquet` (apenas com seleção amostrada, e não com `policy_graph.nodes[]` declarado em `stages.json`; qualquer dessas combinações é rejeitada na validação do caso). Apenas no treinamento. Um arquivo declarado e ausente interrompe a execução em sua fase estocástica ([Arquivo da árvore de aberturas ausente](/pt-br/reference/error-codes/#arquivo-da-arvore-de-aberturas-ausente)). |
+
+Valores válidos para `"scheme"`: `"in_sample"`, `"out_of_sample"`, `"external"` para todas as classes;
+`"historical"` apenas para `inflow`.
+
+Regras de admissão (verificadas na carga; as mensagens estão listadas em
+[Regras de admissão da fonte de cenários](/pt-br/reference/error-codes/#regras-de-admissao-da-fonte-de-cenarios)):
+
+- `historical` só é válido para `inflow` — `load` ou `ncs` em `historical` é rejeitado.
+- `seed` é obrigatório quando alguma classe é `out_of_sample` ou `external`.
+- `historical_years` é rejeitado, a menos que alguma classe use `historical`.
+- Um intervalo `historical_years` deve ter `from <= to`.
+- `openings` só é aceito em `training.scenario_source`; em
+  `simulation.scenario_source` é rejeitado.
+
+Para uma classe no esquema `"external"` no treinamento, as seguintes entidades usam a média
+e o desvio-padrão do arquivo externo, por entidade e estágio:
+
+- os barramentos de carga de uma classe de carga externa;
+- as fontes NCS de uma classe de NCS externa;
+- as usinas hidrelétricas de uma classe de afluência externa cujo modelo de afluências tenha ordem AR 0 e nenhum
+  componente anual.
+
+Para uma classe externa, `load_seasonal_stats.parquet` e
+`non_controllable_stats.parquet` são, portanto, opcionais; um arquivo de estatísticas de carga
+presente mantém sua própria regra de uma linha para cada barramento em cada estágio do estudo.
+`scenarios/inflow_seasonal_stats.parquet` continua exigindo, quando presente, uma linha
+para cada usina em operação em cada estágio do estudo, e as linhas de uma usina com ordem AR 0
+em `inflow_seasonal_stats.parquet` não são usadas na amostragem.
+Uma usina com ordem AR acima de 0 ou com componente anual
+mantém a média, o desvio-padrão e os coeficientes declarados em seus arquivos
+(ou os estimados a partir de `inflow_history.parquet` quando os arquivos os omitem).
+Uma coluna externa com σ = 0 é aceita para carga, NCS e um modelo de afluências de
+ordem AR 0 sem componente anual, e rejeitada para um modelo de afluências cujos
+arquivos declarem ordem AR acima de 0 ou componente anual (veja
+[Códigos de erro](/pt-br/reference/error-codes/#coluna-deterministica-de-afluencia-externa-sob-modelo-autorregressivo)).
+
+Exemplo — afluência fora da amostra com carga e NCS dentro da amostra:
+
+```json
+{
+  "training": {
+    "tree_seed": 42,
+    "selection": { "method": "sampled", "forward_passes": 50 },
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 200 }],
+    "scenario_source": {
+      "seed": 99,
+      "inflow": { "scheme": "out_of_sample" },
+      "load": { "scheme": "in_sample" },
+      "ncs": { "scheme": "in_sample" }
+    }
+  }
+}
+```
+
+Veja [Geração de cenários §3](/pt-br/math/scenario-generation#3-abstracao-do-esquema-de-amostragem)
+para a descrição completa de cada esquema e das janelas históricas.
+
+### `training.scenario_source.openings`
+
+De onde vem a árvore de aberturas da simulação backward e como uma árvore gerada é corrigida
+([Geração de cenários §2.3](/pt-br/math/scenario-generation/#23-arvore-de-aberturas)). Quando
+`openings` está ausente, a árvore é gerada com `moment_matching` no seu valor padrão.
+
+| Campo             | Tipo   | Padrão             | Descrição |
+| ----------------- | ------ | ------------------ | ----------- |
+| `source`          | string | `"generated"`      | Um entre `"generated"`, `"file"`. `"generated"` constrói a árvore a partir do `sampling_method` dos estágios; `"file"` a lê de `scenarios/noise_openings.parquet`. |
+| `moment_matching` | string | `"per_coordinate"` | Um entre `"per_coordinate"`, `"none"`; aceito apenas com `"source": "generated"`. `"per_coordinate"` desloca e escala as aberturas de afluência de cada estágio gerado de modo que, para cada usina hidrelétrica, sua média seja 0 e sua variância seja a que a correlação do estágio atribui ao ruído dessa usina (passo 4 de [§2.3](/pt-br/math/scenario-generation/#23-arvore-de-aberturas)); `"none"` mantém as aberturas como sorteadas. Um estágio `historical_residuals`, um estágio com uma única abertura e os ruídos de carga e de NCS nunca passam pelo casamento de momentos (moment matching). |
+
+```json
+{
+  "training": {
+    "scenario_source": {
+      "openings": { "source": "generated", "moment_matching": "none" }
+    }
+  }
+}
+```
+
+`moment_matching` com `"source": "file"`, ou um valor fora dos dois, é recusado
+quando o `config.json` é carregado. A simulação forward dentro da amostra (in-sample) e o
+`stochastic/noise_openings.parquet` exportado usam a árvore ajustada; os sorteios da
+simulação forward fora da amostra (out-of-sample) não passam pelo ajuste. O
+`training/model_provenance.json` registra o modo de uma árvore gerada como
+`inflow.opening_tree_moment_matching`
+([Arquivos de metadados](/pt-br/reference/output/metadata/#trainingmodel_provenancejson)).
+
+### `training.stopping_rules`
+
+Cada entrada de `stopping_rules` é um objeto JSON com um discriminador `"type"`. A condição de parada de cada critério é definida em [Critérios de parada](/pt-br/math/stopping-rules/).
+
+#### `iteration_limit`
+
+Para após um número fixo de iterações de treinamento.
+
+```json
+{ "type": "iteration_limit", "limit": 200 }
+```
+
+| Campo   | Tipo    | Descrição                                  |
+| ------- | ------- | ------------------------------------------ |
+| `limit` | integer | Número máximo de iterações da PDDE a executar. |
+
+Use uma única entrada `iteration_limit`: em uma execução retomada, seu `limit` também conta as iterações das execuções anteriores ([Treinar em etapas](/pt-br/running/policy-management/#treinar-em-fatias)).
+
+#### `time_limit`
+
+Para quando se esgota um orçamento de tempo de relógio.
+
+```json
+{ "type": "time_limit", "seconds": 3600.0 }
+```
+
+| Campo     | Tipo   | Descrição                          |
+| --------- | ------ | ---------------------------------- |
+| `seconds` | number | Tempo máximo de treinamento, em segundos. |
+
+O critério compara `seconds` com os segundos de relógio decorridos desde o início do treinamento desta execução, verificados após cada iteração.
+
+#### `bound_stalling`
+
+Para quando a melhoria relativa do limite inferior fica abaixo de um limiar (estagnação do limite, bound stalling).
+
+```json
+{ "type": "bound_stalling", "iterations": 20, "tolerance": 0.0001 }
+```
+
+| Campo        | Tipo    | Descrição                                                                                                  |
+| ------------ | ------- | ---------------------------------------------------------------------------------------------------------- |
+| `iterations` | integer | Tamanho da janela: número de limites inferiores registrados mais recentes que são comparados.             |
+| `tolerance`  | number  | Limiar de melhoria relativa. O treinamento para quando a melhoria na janela é inferior a esse valor.      |
+
+O critério não pode ser acionado antes que `iterations` limites tenham sido registrados; uma execução retomada continua a série de limites inferiores de seu checkpoint, e uma partida a quente (warm-start) começa com a série vazia. Com `tolerance` positivo, uma janela de `1` compara o limite com ele mesmo e é acionada na primeira iteração.
+
+#### `gap`
+
+Para quando o limite superior exato se aproxima do limite inferior dentro da
+tolerância. Exige uma simulação forward enumerada no treinamento, para que o limite superior
+comparado seja exato, e não uma estimativa estatística.
+
+```json
+{ "type": "gap", "tolerance": 1000.0, "relative_tolerance": 0.01 }
+```
+
+| Campo                | Tipo   | Descrição                                                                                                                                           |
+| -------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tolerance`          | number | Opcional. Tolerância absoluta do gap, nas unidades dos limites informados.                                                                          |
+| `relative_tolerance` | number | Opcional. Tolerância relativa do gap em **percentual** — `0.01` significa 0,01%, comparada com `100 · gap / max(1, \|lower_bound\|)`.             |
+
+Pelo menos um de `tolerance` / `relative_tolerance` deve estar presente; um critério `gap`
+sem nenhum dos dois campos é rejeitado na validação da configuração:
+`novomodelo validate` o informa como
+[`ConfigValidationError`](/pt-br/reference/error-codes/#configvalidationerror), e
+`novomodelo run` imprime a mesma mensagem e termina com `1`. Quando ambos estão presentes, os
+dois ramos se combinam por **disjunção** — o treinamento para assim que
+qualquer um dos ramos é satisfeito, não necessariamente ambos. O próprio gap é
+`max(0, upper_bound − lower_bound)`.
+
+**Admissibilidade** — o critério `gap` só é aceito quando ambas as condições valem:
+
+- [`training.selection`](#trainingselection)`.method` é `"enumerated"` (a
+  simulação forward percorre todos os caminhos do grafo da política, de modo que o limite superior
+  é exato, e não uma estimativa amostral). A seleção enumerada também
+  exige que todo nó do grafo da política tenha uma única abertura.
+- A medida de risco é **uniforme em todos os estágios**: ou
+  `risk_measure: "expectation"` em todos os estágios, ou a mesma medida `cvar`
+  (`lambda` e `alpha` idênticos) em todos os estágios de `stages.json` (um `cvar`
+  com `lambda: 0` equivale à esperança). Sob um `cvar` uniforme, o
+  limite superior exato é calculado como uma recursão de risco aninhada e consistente no tempo
+  sobre a árvore enumerada, de modo que continua delimitando o limite inferior avesso ao risco.
+
+Com seleção `sampled`, com mais de uma abertura em algum nó ou com uma medida
+**variável por estágio** (a medida de risco difere entre estágios), o critério `gap` é rejeitado na preparação do estudo,
+por `novomodelo validate` e por `novomodelo run` antes do treinamento (saída `1`). A
+comparação com o limite exato da qual o critério depende não está disponível nesses casos.
+
+:::note[Campos restritos ao tipo]
+Cada objeto de critério de parada aceita apenas os campos pertencentes ao seu próprio `type`. Fornecer um parâmetro que pertence a outro tipo de critério (por exemplo, `seconds` em um critério `iteration_limit`) é um erro de carga. A mesma restrição por tipo se aplica a `training.selection`, `simulation.selection` e `training.parallelism.backward_scheduler`.
+:::
+
+### `training.stopping_mode`
+
+Quando vários critérios de parada são listados, `stopping_mode` controla como eles
+se combinam:
+
+- `"any"` (padrão): para quando qualquer um dos critérios é satisfeito.
+- `"all"`: para quando todos os critérios, exceto `iteration_limit`, são satisfeitos na mesma iteração; o maior `iteration_limit` limita a execução, e um menor não tem efeito.
+
+```json
+{
+  "training": {
+    "selection": { "method": "sampled", "forward_passes": 50 },
+    "stopping_mode": "all",
+    "stopping_rules": [
+      { "type": "iteration_limit", "limit": 500 },
+      { "type": "bound_stalling", "iterations": 20, "tolerance": 0.0001 }
+    ]
+  }
+}
+```
+
+### `training.parallelism`
+
+Agrupa os parâmetros de escalonamento dos trabalhadores, que preservam o resultado e determinam como o trabalho da simulação backward é distribuído entre os trabalhadores, ao lado dos campos de semântica do algoritmo na raiz de `training`.
+
+`backward_scheduler` define como as unidades de trabalho da simulação backward são assumidas pelos trabalhadores. É discriminado por `method`; fornecer um campo que não pertence ao método selecionado é um erro de carga (`deny_unknown_fields`), e não uma chave ignorada silenciosamente.
+
+- `"by_scenario"` (padrão) — cada unidade de trabalho paralela é um estado visitado inteiro.
+
+  ```json
+  { "method": "by_scenario" }
+  ```
+
+- `"by_node"` — cada unidade de trabalho paralela é um par `(estado visitado, bloco de aberturas)`, assumido dinamicamente a partir de um contador compartilhado.
+
+  | Campo        | Tipo               | Padrão  | Descrição                                                                                                                                                                                  |
+  | ------------ | ------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `block_size` | integer \| null    | `null`  | Aberturas por bloco. Se ausente, resolve, por estágio, para `⌈\|Ω_s\|/2⌉` (metade das aberturas, arredondada para cima); um valor definido é limitado **silenciosamente** a `min(\|Ω_s\|, block_size)` — sem erro e sem aviso. |
+
+  Duas configurações são erros de carga, e não são aceitas silenciosamente:
+
+  - `block_size` fornecido com `"by_scenario"` — rejeitado (`deny_unknown_fields`).
+  - `block_size: 0` — rejeitado (mínimo `1`).
+
+Dentro de um estágio, os blocos de aberturas são assumidos **do mais difícil para o mais fácil**: os blocos são classificados pelo custo médio, em pivôs do simplex, da iteração anterior por `(stage, block)`, em ordem decrescente (empates resolvidos pelo índice de bloco crescente; a primeira iteração, e qualquer bloco sem dados anteriores, ficam por último). Essa ordem de atribuição altera apenas qual trabalhador processa qual bloco, e quando — ela é **neutra quanto ao resultado**: o conjunto de cortes produzido e o limite inferior do treinamento são idênticos aos da atribuição em ordem canônica.
+
+:::caution[Interação com o método dinâmico]
+Se o [método de seleção `dynamic`](#trainingcut_selection) estiver definido (`cut_selection.selection.method = "dynamic"`), o escalonador `by_node` recai no escalonamento `by_scenario` a partir do `start_iteration` desse método (padrão `2`), de modo que `by_node` deixa de ter efeito a partir desse ponto. Nenhum aviso é emitido. O método **não** é o padrão — esta ressalva só se aplica quando ele está definido. Veja [Aceleradores de desempenho](/pt-br/running/performance/) para o ajuste detalhado de `by_node`.
+:::
+
+Exemplo — padrão (`by_scenario`; nenhum bloco `parallelism` necessário):
+
+```json
+{
+  "training": {
+    "selection": { "method": "sampled", "forward_passes": 50 },
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 100 }]
+  }
+}
+```
+
+Exemplo — `by_node` com `block_size` explícito:
+
+```json
+{
+  "training": {
+    "selection": { "method": "sampled", "forward_passes": 50 },
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 100 }],
+    "parallelism": {
+      "backward_scheduler": { "method": "by_node", "block_size": 4 }
+    }
+  }
+}
+```
+
+Para a simulação backward dentro da qual esse escalonamento ocorre, veja [Algoritmo da PDDE §3.4](/pt-br/math/sddp-algorithm#34-modelo-de-execucao-e-consideracoes-de-desempenho).
+
+---
+
+### `training.cut_selection`
+
+Controla o processo de gestão de linhas do conjunto de linhas de cada estágio. O
+processo tem até duas etapas: um método de seleção e um limite, por estágio, de linhas
+ativas. Desativar uma linha a remove dos PLs do estágio e a mantém no conjunto.
+Para uma explicação detalhada de cada etapa, veja
+[Aceleradores de desempenho](/pt-br/running/performance/#processo-de-gerenciamento-de-cortes) e, para os próprios métodos de seleção, [Gerenciamento de cortes](/pt-br/math/cut-management/).
+
+O bloco tem dois parâmetros sempre ativos no nível superior, mais um subobjeto `selection`
+que escolhe o método e contém apenas os parâmetros desse método.
+Omitir `selection` (ou defini-lo como `null`) desabilita a seleção de linhas — esse é
+o padrão.
+
+#### Campos sempre ativos
+
+| Campo                    | Tipo    | Padrão  | Descrição                                                                                                                                                                |
+| ------------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `row_activity_tolerance` | number  | `1e-6`  | Limiar de atividade para o acompanhamento: uma linha conta como ativa (restritiva) em um ponto de solução quando seu multiplicador dual é estritamente maior que esse valor (comparação com sinal). Os multiplicadores das linhas do conjunto de um estágio somam no máximo o fator de desconto desse estágio, de modo que o limiar é adimensional. A atividade registrada é lida apenas por `max_active_per_stage` e pelo `seed_window` do método `dynamic`, e só é registrada, e gravada no checkpoint da política, quando um deles está configurado. Deve ser `>= 0`; `null` é erro de análise. `0` conta como ativo um multiplicador no nível de arredondamento do solver. |
+| `max_active_per_stage`   | integer | `null`  | Limite de linhas ativas que a execução atual acrescentou ao conjunto de cada estágio estritamente entre o primeiro e o último; o conjunto de cada nó é limitado separadamente. Linhas carregadas de uma política não contam nem são removidas, e as linhas da iteração corrente contam mas nunca são removidas, de modo que um conjunto pode conter mais linhas ativas que o limite. Aplicado a cada iteração, após a etapa de seleção. O excesso é removido em ordem crescente da iteração em que a linha foi ativa pela última vez, depois do número de resoluções em que foi ativa e, por fim, de sua posição no conjunto. `null` = sem limite. Recusado com o método `dynamic` e com [`training.selection`](#trainingselection) enumerado. |
+| `selection`              | object  | `null`  | O método de seleção ativo e seus parâmetros (veja abaixo). `null` (o padrão) desabilita a seleção de linhas.                                                              |
+
+Um limite inferior a `training.selection.forward_passes` é aceito com um aviso: um
+conjunto que recebe essa quantidade de linhas por iteração passa então a remover, a cada
+iteração, todas as linhas que a execução acrescentou em uma iteração anterior.
+
+#### O objeto `selection`
+
+`selection.method` é o discriminador; cada método expõe apenas seus próprios
+parâmetros. Fornecer um parâmetro que pertence a outro método é um erro de
+carga da configuração, um método com erro de digitação é rejeitado com a lista dos métodos válidos, e
+um `selection` fornecido como array é erro de análise. Um parâmetro de contagem definido como `0`
+é erro de análise que indica o caminho da chave, por exemplo
+`training.cut_selection.selection.check_frequency must be >= 1 (got 0)`.
+
+- `"level1"` — seleção de cortes Nível 1 (Level-1) sobre o conjunto de cada estágio estritamente entre
+  o primeiro e o último. Cada um desses conjuntos armazena o estado visitado de cada linha
+  que a execução acrescenta. Em cada estado armazenado, a linha de maior valor é a dona do
+  estado, dentre as linhas pontuadas do conjunto, ativas ou não, e as demais linhas carregadas
+  que estejam ativas; entre linhas com valores exatamente iguais, a que estiver na
+  menor posição do conjunto é a dona. A cada `check_frequency` iterações, uma linha pontuada
+  é desativada quando não é dona de nenhum estado armazenado e reativada quando está
+  inativa e é dona de algum. Os valores são comparados exatamente, e uma linha da iteração
+  corrente é julgada como qualquer outra. Uma linha carregada é pontuada quando a política
+  a registra assim (a execução que a gravou armazenou seu estado visitado, com `level1` ou
+  `exports.states`); uma linha carregada que não é pontuada mantém a atividade com que foi
+  carregada.
+
+  | Campo                 | Tipo    | Padrão  | Descrição                                                                |
+  | --------------------- | ------- | ------- | ------------------------------------------------------------------------ |
+  | `check_frequency`     | integer | `5`     | Iterações entre etapas de seleção. Deve ser `>= 1`.                      |
+  | `lookback_iterations` | integer | `null`  | Iterações da execução atual cujas linhas mantêm seus estados visitados. `null` mantém todos os estados, e a memória cresce com o número de linhas. Um valor `w` descarta os estados das linhas mais antigas que as últimas `w` iterações, nunca uma linha: uma linha cujo estado foi descartado permanece no conjunto e concorre nos estados que restam. Um estado carregado com `warm_start` conta como anterior à primeira iteração da execução. A memória por conjunto fica então limitada a `(lookback_iterations + check_frequency)` vezes o máximo de linhas que a execução pode acrescentar a esse conjunto em uma iteração, vezes a dimensão do estado, vezes 8 bytes, mais os estados carregados. Deve ser `>= 1` e `>= check_frequency`. |
+
+- `"dynamic"` — um laço preguiçoso por resolução, a geração preguiçosa de linhas própria do Novo Modelo. A partir de
+  `start_iteration`, cada resolução do treinamento começa com as linhas iniciais, acrescenta as
+  linhas candidatas violadas por sua solução, no máximo `max_added_per_round` por
+  rodada, e resolve novamente; retorna quando nenhuma candidata é violada. Após um
+  número fixo de rodadas, o limite por rodada é removido. Uma resolução da simulação
+  começa com todas as linhas ativas, de modo que `seed_window` e `candidate_recency` se aplicam
+  apenas ao treinamento. O método nunca desativa uma linha. Ele é recusado com
+  [`training.selection`](#trainingselection) enumerado na preparação do estudo, por
+  `novomodelo validate` e por `novomodelo run` (saída `1`).
+
+  | Campo                 | Tipo    | Padrão  | Descrição                                                                                                                                                                                                                                                                                |
+  | --------------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `start_iteration`     | integer | `2`     | Primeira iteração (contada a partir de 1) em que o laço preguiçoso se torna ativo. Deve ser `>= 1`.                                                                                                                                                                                      |
+  | `seed_window`         | integer | `5`     | Uma resolução começa com as linhas ativas cuja última atuação como restrição ativa ocorreu há no máximo `seed_window` iterações (uma linha que nunca foi ativa conta a partir da iteração que a acrescentou), mais as linhas da iteração corrente. `0` inicia com as linhas da iteração corrente e as que foram ativas nela. Uma linha carregada com `warm_start`, ou de `policy.boundary`, conta a partir do início da execução. |
+  | `candidate_recency`   | integer | `null`  | `null`: toda linha ativa é candidata e uma resolução retorna o ótimo sobre elas. Um valor `n` (deve ser `>= 1`) restringe as candidatas às linhas acrescentadas nas últimas `n` iterações e às linhas carregadas; o resultado é então o ótimo sobre essas linhas juntamente com as linhas iniciais. Com `resume`, uma linha recarregada só é linha carregada quando a execução que gravou o checkpoint a carregou. |
+  | `max_added_per_round` | integer | `10`    | Máximo de linhas acrescentadas por rodada de resolução preguiçosa. Deve ser `>= 1`.                                                                                                                                                                                                       |
+  | `violation_tolerance` | number  | `null`  | Um fator relativo: uma linha candidata é acrescentada quando seu valor excede o valor de custo futuro em mais que o fator vezes a maior das duas magnitudes. `null`: cada fase usa a tolerância de viabilidade primal de seu perfil de solver. Um valor deve ser finito, `> 0`, `< 1` e pelo menos igual à tolerância de viabilidade primal do perfil de solver de cada fase. |
+
+Os dois métodos são mutuamente exclusivos por construção: o bloco discriminado `selection`
+nomeia um só. Uma execução que define `dynamic` e simula com o padrão
+[`simulation.cut_set`](#simulation) `"all"` é recusada na carga quando a política
+que carrega, ou as linhas de `policy.boundary`, contêm uma linha que `"all"` inclui e
+que não está ativa.
+
+Exemplo com o método dinâmico:
+
+```json
+{
+  "training": {
+    "cut_selection": {
+      "row_activity_tolerance": 1e-6,
+      "selection": {
+        "method": "dynamic",
+        "start_iteration": 2,
+        "seed_window": 5,
+        "max_added_per_round": 10
+      }
+    }
+  }
+}
+```
+
+Exemplo com o método `level1` e limite por estágio:
+
+```json
+{
+  "training": {
+    "cut_selection": {
+      "row_activity_tolerance": 1e-6,
+      "max_active_per_stage": 500,
+      "selection": {
+        "method": "level1",
+        "check_frequency": 5,
+        "lookback_iterations": 20
+      }
+    }
+  }
+}
+```
+
+### `training.solver`
+
+Para o tratamento desses mesmos perfis do ponto de vista de ajuste de desempenho, veja
+[Perfis de solver por fase](/pt-br/running/performance/#perfis-de-solver-por-fase).
+
+As duas chaves `retry_*` não têm efeito ([Chaves inertes](#chaves-inertes)); `backward` e `forward` são sobrescritas opcionais, por fase, do perfil do solver de PL.
+
+| Campo                       | Tipo              | Padrão  | Descrição                                                                   |
+| ---------------------------- | ----------------- | ------- | --------------------------------------------------------------------------- |
+| `retry_max_attempts`        | integer           | `5`     | Número máximo de novas tentativas do solver antes de propagar um erro fatal. Sem efeito; veja [Chaves inertes](#chaves-inertes). |
+| `retry_time_budget_seconds` | number            | `30.0`  | Orçamento total de tempo, em segundos, para todas as novas tentativas de uma resolução. Sem efeito; veja [Chaves inertes](#chaves-inertes). |
+| `backward`                  | object \| null    | `null`  | Sobrescrita do perfil do solver de PL aplicada durante a simulação backward. |
+| `forward`                   | object \| null    | `null`  | Sobrescrita do perfil do solver de PL aplicada durante a simulação forward.  |
+
+`simulation.solver` (veja [`simulation`](#simulation) abaixo) é um terceiro irmão,
+independente, com o mesmo formato — `training.solver.backward`,
+`training.solver.forward` e `simulation.solver` resolvem-se todos a partir de um
+mesmo conjunto de campos de perfil do solver, documentado uma única vez abaixo.
+
+#### Campos do perfil do solver
+
+Todo campo é opcional e tem padrão `null`. Um campo ausente mantém a
+opção correspondente no **perfil ajustado embutido da fase** — e não no perfil
+padrão do próprio solver subjacente; os dois diferem (por exemplo, os três
+perfis de fase definem `price` como `"row_hyper_sparse"`, enquanto o padrão
+de pricing do próprio HiGHS é `"row"`). A resolução ocorre uma única vez na preparação — antes que qualquer modelo
+de PL seja montado — e todo processo resolve o mesmo perfil a partir da configuração difundida.
+
+| Campo | Tipo / valores |
+| --- | --- |
+| `dual_edge_weight` | `"devex"` \| `"steepest_edge"` \| `"dantzig"` |
+| `scale` | `"off"` \| `"solver_scaling"` |
+| `price` | `"row"` \| `"row_hyper_sparse"` |
+| `presolve` | `"on"` \| `"off"` \| `"choose"` |
+| `primal_feasibility_tolerance` | number |
+| `dual_feasibility_tolerance` | number |
+| `simplex_update_limit` | integer |
+| `cost_perturbation` | number |
+| `factor_pivot_threshold` | number |
+| `use_warm_start` | boolean |
+| `steepest_edge_devex_fallback_threshold` | number |
+
+- `presolve` só afeta uma resolução realmente a frio — uma resolução com aproveitamento de base
+  pula o presolve independentemente da configuração.
+- `use_warm_start` define se as resoluções do HiGHS de uma fase partem da base
+  armazenada. Os perfis embutidos o definem como `true` para `training.solver.forward` e
+  `training.solver.backward`, e como `false` para `simulation.solver`. Com `false`,
+  o HiGHS ignora a base armazenada e resolve a frio, com presolve (ligado em todos os
+  perfis embutidos). Defina `"use_warm_start": true` em `simulation.solver` para usar
+  aproveitamento de base na simulação; em um PL grande, uma simulação com aproveitamento de
+  base pode ser mais lenta que uma a frio, porque uma resolução com aproveitamento de base
+  pula o presolve. Uma resolução a frio pode parar em um
+  vértice diferente, igualmente ótimo, do de uma resolução com aproveitamento de base: o mesmo valor
+  objetivo, possivelmente com duais diferentes. A escalada de novas tentativas do HiGHS mantém o
+  `use_warm_start` da fase em todos os níveis de nova tentativa. O backend CLP não tem essa configuração:
+  toda fase parte da base armazenada quando ela existe. A forma como o armazenamento de bases
+  alimenta cada fase está nas
+  [notas de implementação do Aproveitamento de base do PL](/pt-br/math/lp-warm-start/#implementacao-no-novo-modelo).
+- `dual_edge_weight: "steepest_edge"` é uma **solicitação, não uma garantia** —
+  o HiGHS recai silenciosamente no pricing Devex quando o erro logarítmico do peso dual
+  steepest-edge excede `steepest_edge_devex_fallback_threshold`.
+
+:::caution[`scale: "solver_scaling"` compromete a exatidão do desescalonamento único]
+Definir `scale` como `"solver_scaling"` reativa o escalonamento (scaling) no próprio solver (Curtis–Reid)
+sobre o pré-escalonador offline do próprio Novo Modelo. O desescalonamento dos duais e dos coeficientes
+dos cortes (veja [Estrutura e escalonamento do PL §2.3](/pt-br/math/lp-layout-and-scaling#23-escalonamento-de-linhas-media-geometrica))
+só é exato quando a resolução não aplica nenhum escalonamento além desse pré-escalonador —
+habilitar `solver_scaling` introduz um segundo fator de escala que a
+identidade de desescalonamento único não leva em conta.
+:::
+
+#### Validação
+
+Seis campos têm sua faixa verificada; um valor fora da faixa é rejeitado na
+preparação do estudo, por `novomodelo validate` e por `novomodelo run` (saída `1`), com um erro que indica a fase e o campo problemático:
+
+- `primal_feasibility_tolerance` — deve ser finito.
+- `dual_feasibility_tolerance` — deve ser finito e `>= 1e-10`.
+- `simplex_update_limit` — deve ser `<= 2147483647` (`i32::MAX`).
+- `cost_perturbation` — deve ser finito e `>= 0`.
+- `factor_pivot_threshold` — deve estar em `[8e-4, 0.5]`.
+- `steepest_edge_devex_fallback_threshold` — deve ser finito e `>= 1.0`.
+
+Os enums fechados (`dual_edge_weight`, `scale`, `price`, `presolve`) e
+`use_warm_start` são incondicionalmente válidos — todas as variantes são suportadas.
+
+#### Backend CLP
+
+As sobrescritas de perfil de solver por fase são exclusivas do HiGHS. No backend CLP, qualquer
+campo definido em `backward`, `forward` ou `simulation.solver` é rejeitado na
+preparação — de forma determinística, em todo processo, antes que qualquer modelo de PL seja montado —
+com um erro nomeado que identifica a fase e o campo. Um bloco de sobrescrita vazio
+(por exemplo `"solver": {}` ou `"backward": {}`) e um bloco ausente
+são ambos válidos no CLP; apenas um campo efetivamente definido provoca a rejeição.
+O CLP inicia as resoluções de todas as fases a partir de uma base armazenada quando há uma
+disponível. Veja [Instalação — Escolha do backend](/pt-br/getting-started/installation) para a
+seleção do backend e as demais limitações do CLP.
+
+Exemplo — `training.solver.backward` com duas sobrescritas:
+
+```json
+{
+  "training": {
+    "solver": {
+      "retry_max_attempts": 5,
+      "retry_time_budget_seconds": 30.0,
+      "backward": {
+        "dual_edge_weight": "steepest_edge",
+        "factor_pivot_threshold": 0.05
+      }
+    }
+  }
+}
+```
+
+---
+
+## `simulation`
+
+Controla a fase opcional de simulação pós-treinamento.
+
+| Campo       | Tipo    | Padrão  | Descrição                                                                                                                                                                   |
+| ----------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`   | boolean | `false` | Habilita a fase de simulação após o treinamento.                                                                                                                            |
+| `selection` | object \| null | `null`  | Método de seleção de cenários da fase de simulação — `sampled{num_scenarios}` ou `enumerated{}` (veja [`simulation.selection`](#simulationselection) abaixo). Se ausente, resolve para uma contagem amostrada de `2000`. |
+| `io_channel_capacity` | integer | `64` | Capacidade da fila entre os trabalhadores da simulação e o gravador de saída; `0` se comporta como `1`. |
+| `solver` | object \| null   | `null` | Perfil do solver da fase de simulação, com os mesmos campos de um perfil de fase de `training.solver` (veja [`training.solver`](#trainingsolver)). Se ausente, mantém o perfil embutido da fase. |
+| `scenario_source` | object \| null   | `null` | Fonte de cenários da fase de simulação; se ausente, reutiliza `training.scenario_source` (veja [`simulation.scenario_source`](#simulationscenario_source)). |
+| `cut_set` | string | `"all"` | Um de `"all"`, `"active"`. Quais linhas do conjunto de linhas de cada estágio a simulação carrega no PL do estágio (veja [Conjunto de cortes da simulação](#conjunto-de-cortes-da-simulacao) abaixo). |
+
+### Conjunto de cortes da simulação
+
+`"all"` carrega todas as linhas que uma execução de treinamento acrescentou ao conjunto, inclusive as linhas que o
+método de seleção desativou e as que `max_active_per_stage` removeu, de modo que um
+PL da simulação pode ser maior que os PLs do treinamento. `"active"` carrega apenas as
+linhas ativas ao fim do treinamento.
+
+Uma execução com o treinamento desabilitado carrega cada linha da política com o papel que ela tinha
+na execução que a gravou, de modo que `"all"` carrega o que o `"all"` daquela execução continha e
+`"active"`, as linhas ativas quando ela terminou; um `resume` faz o mesmo. Com
+`warm_start` e para as linhas de `policy.boundary`, `"all"` carrega uma linha que a política
+registra como pontuada (a execução que a gravou armazenou o estado visitado da linha, com
+`exports.states` ou `level1`), qualquer que seja sua marcação de ativa, e qualquer outra linha carregada
+somente quando essa marcação está definida. A marcação exportada `is_active` registra a última
+seleção.
+
+Uma execução com o método `dynamic` que simula com `"all"` é recusada na carga
+quando conteria uma linha que `"all"` inclui e que não está ativa, na
+política que carrega com `warm_start` ou `resume` ou com o treinamento desabilitado, ou nas
+linhas de `policy.boundary`; defina `"active"` ou use o método `level1`.
+
+### `simulation.selection`
+
+Define quantas trajetórias a simulação pós-treinamento executa, ou se
+ela percorre todos os caminhos do grafo da política em vez de amostrar. É discriminado
+internamente por `method`, espelhando [`training.selection`](#trainingselection)
+acima. Ao contrário de `training.selection`, este campo é **opcional**: a ausência de
+`simulation.selection` resolve para uma contagem amostrada de `2000`.
+
+| Campo           | Tipo    | Obrigatório        | Descrição                                                                                                         |
+| --------------- | ------- | ------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `method`        | string  | Sim (se presente)  | Um de `"sampled"`, `"enumerated"`.                                                                                |
+| `num_scenarios` | integer | apenas `sampled`   | Número de cenários independentes de simulação Monte Carlo a avaliar. Rejeitado com `"enumerated"`.              |
+
+Quando `simulation.enabled` é `false`, ou a contagem amostrada `num_scenarios`
+resolve para `0`, a fase de simulação é inteiramente pulada.
+
+Com `enumerated`, as classes leem a abertura do nó como em
+[`training.selection`](#trainingselection): uma classe que não a lê sorteia
+sua própria realização. A exigência de abertura única de
+[`training.selection`](#trainingselection) também se aplica aqui. Quando exatamente um entre treinamento e simulação é `enumerated`, `novomodelo run` registra um aviso na preparação indicando a estatística que falta à outra fase: com treinamento enumerado e simulação amostrada, o limite inferior exato está disponível, mas as estatísticas ponderadas da simulação censitária (census simulation) não. O aviso é apenas informativo e a execução prossegue; defina ambas as seleções como `enumerated` para uma simulação censitária.
+
+Exemplo:
+
+```json
+{
+  "simulation": {
+    "enabled": true,
+    "selection": { "method": "sampled", "num_scenarios": 1000 }
+  }
+}
+```
+
+### `simulation.scenario_source`
+
+Controla de onde vem o ruído da simulação forward durante a fase de simulação.
+Quando ausente, a simulação recai no esquema configurado em
+`training.scenario_source`. Isso permite treinar com ruído dentro da amostra e
+simular com outro esquema (por exemplo, fora da amostra ou histórico)
+sem alterar os esquemas do treinamento. Para saber qual semente cada sorteio usa, e a
+regra de admissão da semente da simulação, veja [Resolução das sementes](#resolucao-das-sementes).
+
+Os campos são os de `training.scenario_source`, exceto `openings`, que é
+exclusivo do treinamento. Quando `simulation.scenario_source` está presente, ele substitui integralmente a
+fonte do treinamento — uma classe que ele omite recebe o padrão `in_sample`, e não o valor
+do treinamento:
+
+| Campo              | Tipo              | Padrão        | Descrição                                                                                               |
+| ------------------ | ----------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
+| `seed`             | integer \| null   | `null`        | Semente forward dos sorteios fora da amostra da simulação; **obrigatória quando uma classe de `simulation.scenario_source` é `out_of_sample` ou `external`**. Veja [Resolução das sementes](#resolucao-das-sementes). |
+| `inflow`           | object            | `in_sample`   | Esquema de amostragem da afluência às usinas hidrelétricas. Objeto com a chave `"scheme"`.             |
+| `load`             | object            | `in_sample`   | Esquema de amostragem da carga dos barramentos. Objeto com a chave `"scheme"`.                          |
+| `ncs`              | object            | `in_sample`   | Esquema de amostragem da disponibilidade das NCS. Objeto com a chave `"scheme"`.                        |
+| `historical_years` | array \| object   | descoberta automática | Restringe o conjunto de janelas históricas. Lista (`[1940, 1953]`) ou intervalo (`{"from": 1940, "to": 2010}`); cada ano listado é interpretado como em [`training.scenario_source`](#trainingscenario_source). Só tem efeito quando o esquema de afluência do treinamento não é `historical`: quando o treinamento também é `historical`, a simulação reproduz o conjunto do treinamento e esta chave não tem efeito. |
+
+Os valores de esquema e as regras de admissão são os de [`training.scenario_source`](#trainingscenario_source); `openings` é rejeitado aqui.
+
+Uma configuração completa de exemplo está em [Simulação fora da amostra](#simulacao-fora-da-amostra).
+
+---
+
+## Resolução das sementes
+
+Três sementes em `config.json` conduzem os sorteios aleatórios: `training.tree_seed`,
+`training.scenario_source.seed` e `simulation.scenario_source.seed`. A
+seleção, na simulação forward, de janelas históricas e de cenários
+externos não usa semente.
+
+- `training.tree_seed` é a semente da árvore de aberturas e dos sorteios de aberturas dentro da amostra.
+  Quando é um inteiro não nulo, o Novo Modelo usa `|seed|` (valor absoluto sem sinal)
+  como semente-base para a geração determinística de ruído com SipHash-1-3, de modo que uma
+  semente negativa `-n` atua como `n`. Quando ausente ou `null`, a semente é `42` e nenhum
+  aviso é impresso. Defina-a explicitamente para tornar a escolha intencional e
+  visível aos demais usuários do diretório do caso.
+- `training.scenario_source.seed` é a semente forward dos sorteios fora da
+  amostra. O Novo Modelo aplica a mesma regra do valor absoluto: usa `|seed|`. A afluência
+  sorteia diretamente a partir dela; carga e NCS derivam, cada uma, seu próprio fluxo a partir dela, de modo que
+  as três classes sorteiam ruídos independentes. Ela é obrigatória sempre que alguma classe
+  é `out_of_sample` ou `external`.
+- Os sorteios dentro da amostra da simulação usam `training.tree_seed`, e seus
+  sorteios fora da amostra usam `simulation.scenario_source.seed`, ou
+  `training.scenario_source.seed` quando `simulation.scenario_source` está ausente;
+  `simulation.scenario_source.seed` é obrigatória quando uma classe de
+  `simulation.scenario_source` é `out_of_sample` ou `external`.
+- A janela de uma trajetória `historical` e o cenário de uma trajetória `external` são
+  escolhidos por um hash determinístico dos índices de iteração e de trajetória que
+  não usa semente.
+- A janela que cada abertura `historical_residuals` lê faz parte da árvore de
+  aberturas e segue `training.tree_seed`.
+
+Com as mesmas sementes e entradas, os sorteios são idênticos entre execuções.
+
+---
+
+## `modeling`
+
+Controla opções de modelagem física.
+
+| Campo                   | Tipo   | Padrão         | Descrição                                                                                                                         |
+| ----------------------- | ------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `inflow_non_negativity` | object | `{}`           | Estratégia de tratamento de sorteios negativos de afluência do modelo PAR.                                                        |
+| `cost_scale_factor`     | number \| null | `1000000.0`    | Divisor de todo coeficiente da função objetivo que não seja de θ (condicionamento da função objetivo; não altera o modelo, ao contrário dos demais campos desta seção). Veja abaixo. |
+
+### `modeling.inflow_non_negativity`
+
+| Campo    | Tipo   | Padrão                      | Descrição                                                                     |
+| -------- | ------ | --------------------------- | ----------------------------------------------------------------------------- |
+| `method` | string | `"truncation_with_penalty"` | Um de `"none"`, `"penalty"`, `"truncation"` ou `"truncation_with_penalty"`.   |
+
+Em todos os métodos, a vazão incremental de uma usina mantém o valor dado pelo modelo
+de afluências, que pode ser negativo, e as defasagens de afluência dos estágios posteriores são
+construídas a partir desse valor (agregado sobre o período da defasagem quando o período abrange
+vários estágios). Os métodos diferem na água que uma coluna de folga pode acrescentar a ela
+no balanço hídrico da usina:
+
+- `"none"` -- sem folga; uma afluência negativa pode tornar um estágio inviável.
+- `"penalty"` -- qualquer quantidade não negativa, precificada pelo
+  `inflow_nonnegativity_cost` da usina vezes as horas do estágio; o padrão do estudo
+  para esse custo é `penalties.json::hydro.inflow_nonnegativity_cost` (padrão
+  `1000.0`).
+- `"truncation"` -- exatamente `max(-inflow, 0)`, sem custo, de modo que o balanço hídrico
+  recebe `max(inflow, 0)`. A quantidade é calculada em cada resolução a partir das
+  defasagens de afluência daquela resolução.
+- `"truncation_with_penalty"` -- qualquer quantidade de 0 a `max(-inflow, 0)`, precificada
+  como em `"penalty"`.
+
+Com `"truncation"` e `"truncation_with_penalty"`, o limite inferior pode exceder
+o limite superior, e um critério de parada [`gap`](#gap) (admitido apenas com seleção forward
+enumerada) pode então indicar uma convergência que não ocorreu.
+
+A saída da simulação informa a vazão incremental como `incremental_inflow_m3s`
+e a folga como `inflow_nonnegativity_slack_m3s`
+([`simulation/hydros/`](/pt-br/reference/output/simulation/#simulationhydros)). Os
+quatro métodos são definidos em [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity/).
+
+Exemplo — a folga `"penalty"` sem limite superior no lugar do padrão:
+
+```json
+{
+  "modeling": {
+    "inflow_non_negativity": {
+      "method": "penalty"
+    }
+  }
+}
+```
+
+### `modeling.cost_scale_factor`
+
+Divisor aplicado a todo coeficiente da função objetivo que não seja de θ na montagem do modelo
+de PL; toda saída no domínio de custos (valor objetivo, duais, coeficientes dos cortes) é
+multiplicada de volta pelo mesmo fator em toda fronteira de informação de resultados. Trata-se de
+**condicionamento da função objetivo, e não de uma escolha de modelagem física** — ao contrário de
+`inflow_non_negativity` acima, os resultados são idênticos em aritmética exata;
+alterá-lo nunca altera o modelo.
+
+O padrão é `1000000.0` quando ausente ou `null`. Deve ser finito e `> 0`; um
+valor fora de `[1.0, 1e12]` é **aceito, mas registra um aviso informativo** -- não
+é rejeitado.
+
+:::caution[A armadilha da tolerância dual]
+A tolerância dual efetiva em unidades monetárias é `dual_feasibility_tolerance
+× cost_scale_factor`. Aumentar `cost_scale_factor` sem reduzir proporcionalmente
+`dual_feasibility_tolerance` afrouxa a otimalidade em termos
+monetários, mesmo que o próprio valor configurado da tolerância permaneça inalterado.
+:::
+
+Exemplo:
+
+```json
+{
+  "modeling": {
+    "cost_scale_factor": 1000000.0
+  }
+}
+```
+
+Para a metodologia, veja
+[Estrutura e escalonamento do PL §2.1](/pt-br/math/lp-layout-and-scaling#21-escalonamento-de-custos).
+
+---
+
+## `estimation`
+
+Controla o processo de estimação do modelo PAR(p) do [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model/). Quando o caso fornece
+`inflow_history.parquet`, o Novo Modelo pode estimar automaticamente os coeficientes AR,
+em vez de exigir um `inflow_ar_coefficients.parquet` pré-calculado.
+
+| Campo                         | Tipo    | Padrão   | Descrição                                                                                         |
+| ----------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `max_order`                   | integer | `6`      | Ordem máxima de defasagem considerada no ajuste do modelo autorregressivo.                        |
+| `order_selection`             | string  | `"pacf"` | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem: baseado na FACP (PACF) ou na FACP com componente anual. |
+| `min_observations_per_season` | integer | `30`     | Número mínimo recomendado de ocorrências de estágio totalmente cobertas de cada período sazonal, por usina. Uma ocorrência é um estágio em `stages.json` (do estudo ou pré-estudo) que tem o período sazonal; ela só conta quando as linhas de `inflow_history.parquet` que começam dentro de sua janela a cobrem integralmente, de modo que o histórico fora de toda janela de estágio não é contado. Quando a estimação é executada, um grupo (usina, período sazonal) com pelo menos uma ocorrência desse tipo, mas menos do que esse valor, gera um aviso [`ModelQuality`](/pt-br/reference/error-codes/#modelquality) que indica a usina e o período sazonal, e a estimação prossegue. |
+| `max_coefficient_magnitude`   | number \| null | `null`   | Rede de segurança: reduz à ordem 0 se algum coeficiente exceder essa magnitude.                   |
+| `correlation_target`          | string  | `"inflows"` | Um entre `"inflows"`, `"residuals"`. Série a partir da qual a correlação espacial das afluências é estimada quando o modelo de afluências é ajustado, total ou parcialmente, a partir de `inflow_history.parquet` e o caso não fornece `scenarios/correlation.json`: as afluências padronizadas (`"inflows"`) ou os resíduos da autorregressão ajustada (`"residuals"`); veja [Modelo de afluências PAR(p) §6.1](/pt-br/math/par-inflow-model/#61-estimacao-da-correlacao). O `training/model_provenance.json` a registra como `inflow.correlation_target`. |
+
+Exemplo:
+
+```json
+{
+  "estimation": {
+    "max_order": 6,
+    "order_selection": "pacf",
+    "min_observations_per_season": 30
+  }
+}
+```
+
+Definir `"order_selection": "pacf_annual"` ativa a extensão com componente anual. Quando
+habilitado, o processo de estimação executa quatro etapas adicionais além do caminho PAR
+clássico: (1) o sistema de Yule-Walker é estendido para incluir um termo de correlação cruzada entre
+a afluência do período sazonal corrente e a média móvel de 12 meses; (2) as estatísticas amostrais por período sazonal
+(média e desvio-padrão) dessa média móvel são calculadas para cada
+usina hidrelétrica; (3) o coeficiente, a média e o desvio-padrão são gravados em
+`inflow_annual_component.parquet` em `output/stochastic/` quando `exports.stochastic` é `true`; e (4) o passo de defasagem usado
+na montagem das colunas de ruído do PL é ampliado para acomodar o termo anual adicional. Use
+esta opção quando sua série de afluências apresentar persistência que vá além da
+janela de defasagens sazonal padrão.
+
+---
+
+## `policy`
+
+Controla a persistência da política (gravação de checkpoints e carga para partida a quente).
+
+| Campo                    | Tipo                                     | Padrão       | Descrição                                                                                                                                   |
+| ------------------------ | ---------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `path`                   | string                                   | `"./policy"` | Diretório da política, resolvido em relação ao diretório de saída da execução (`<case>/output` por padrão); o treinamento grava o checkpoint nele, e a partida a quente, a retomada e a execução somente de simulação o leem. Um caminho vazio, `.`, `..` ou um caminho sem componente nomeado é recusado na carga da configuração; após a resolução, e seguindo o destino de um link simbólico, é recusado um caminho que seja o diretório de saída ou um de seus ancestrais, que designe ou contenha um diretório cujos arquivos uma execução substitui (como `simulation/solver` ou `training/solver`), ou que esteja dentro de um diretório que uma execução remove por inteiro (como `simulation/costs`). Este diretório contém apenas checkpoints completos: uma execução cujo treinamento termina com erro grava sua política no diretório irmão `<path>.partial`, substituindo o que já houver ali, e deixa este diretório como o último checkpoint completo o deixou. Uma execução só lê o diretório irmão quando `policy.path` o designa, e um `resume` dele é recusado. Os arquivos do checkpoint estão listados em [Checkpoint da política](/pt-br/reference/output/policy/). |
+| `mode`                   | string                                   | `"fresh"`    | Um de `"fresh"`, `"warm_start"`, `"resume"`. Modo de inicialização. `"fresh"` começa do zero; `"warm_start"` carrega cortes de uma execução anterior; `"resume"` continua uma execução interrompida como ela teria continuado, restaurando a numeração das iterações, o papel de cada linha, seu histórico de atividade e o estado visitado armazenado, e a base de PL de cada cenário. Um `resume` é recusado quando o checkpoint não permite continuar a execução de forma idêntica ([Retomada](/pt-br/running/policy-management/#retomada)); um `warm_start` não é recusado por esses motivos. |
+| `boundary`               | object \| null                           | `null`       | Configuração dos cortes de fronteira terminal para acoplamento com a FCF de um modelo externo. Veja abaixo.                                 |
+
+### `policy.checkpointing`
+
+`enabled`, `initial_iteration` e `interval_iterations` programam checkpoints periódicos ([Gerenciamento da política — Configuração de checkpoints](/pt-br/running/policy-management/#configuracao-de-checkpoints)); `store_basis` e `compress` não têm efeito ([Chaves inertes](#chaves-inertes)).
+
+| Campo                 | Tipo    | Padrão  | Descrição                                                           |
+| --------------------- | ------- | ------- | ------------------------------------------------------------------- |
+| `enabled`             | boolean \| null | `null`  | `true` liga os checkpoints periódicos; `null` ou `false` os mantém desligados. |
+| `initial_iteration`   | integer \| null | `null`  | Primeira iteração em que um checkpoint é gravado, em números absolutos de iteração; `null` significa `interval_iterations`. |
+| `interval_iterations` | integer \| null | `null`  | Iterações entre checkpoints; obrigatório e pelo menos `1` quando `enabled` é `true`. |
+| `store_basis`         | boolean \| null | `null`  | Reservado e não lido: um checkpoint contém as bases de PL dos cenários da execução, qualquer que seja seu valor. Veja [Chaves inertes](#chaves-inertes). |
+| `compress`            | boolean \| null | `null`  | Reservado e não lido: os arquivos de checkpoint são gravados sem compressão, qualquer que seja seu valor. Veja [Chaves inertes](#chaves-inertes). |
+
+### `policy.boundary`
+
+Configuração opcional para carregar cortes de fronteira do estágio terminal a partir de
+outro checkpoint de política do Novo Modelo. Quando presente, o solver carrega cortes do
+checkpoint de origem e os injeta como condições de contorno fixas no
+estágio terminal do estudo atual. Os cortes importados não são atualizados pelo
+treinamento — permanecem fixos durante toda a execução.
+
+Isso permite o acoplamento de modelos Novo Modelo com Novo Modelo: um estudo a montante produz um
+checkpoint de política, e um estudo encadeado importa um conjunto de cortes desse checkpoint como
+sua função terminal fixa
+([Fronteira pós-estudo e estudos encadeados §5](/pt-br/math/post-study-boundary#5-estudos-encadeados)).
+
+O conjunto de origem é selecionado automaticamente pela **data da fronteira
+terminal** do estudo atual (o `end_date` do último estágio não negativo) — não há
+parâmetro de índice de estágio. `strict` rege uma origem que precifica _mais_ do que este estudo
+modela.
+
+| Campo    | Tipo    | Padrão  | Descrição                                                                                                                                                          |
+| -------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `path`   | string  | —       | Caminho do diretório do checkpoint de origem, resolvido em relação a este diretório do caso (um caminho absoluto é usado como está), de modo que o checkpoint de um estudo vizinho é `../<study>/output/policy`. |
+| `strict` | boolean | `false` | Rejeita a carga quando a origem precifica uma entidade ou um compromisso que este estudo não modela. `false` descarta o excedente (registrado no relatório de conciliação) e carrega. |
+
+Exemplo — carregar a política de um estudo a montante como fronteira terminal:
+
+```json
+{
+  "policy": {
+    "mode": "fresh",
+    "boundary": {
+      "path": "../upstream_study/output/policy",
+      "strict": false
+    }
+  }
+}
+```
+
+Executar `novomodelo validate --json` em um caso que configura uma fronteira e treina
+emite a data selecionada e o relatório de conciliação por família como um único objeto —
+o formato de sucesso contém `configured`, `boundary_date` e `report`. A fronteira
+só é conciliada quando a execução treina, de modo que um caso com o treinamento desabilitado informa
+`configured: false`:
+
+```json
+{
+  "configured": true,
+  "boundary_date": "2027-12-01",
+  "report": {
+    "reconciled": true,
+    "storage": { "copy": 44, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
+    "inflow_lag": { "copy": 44, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
+    "transit_bucket": { "copy": 6, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
+    "anticipated": { "copy": 3, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 1 },
+    "anticipated_coverage": { "source_interval_count": 4 },
+    "other_identity": { "copy": 0, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
+    "dropped_source_slots": [
+      { "family": "anticipated", "entity_id": 17, "subindex": 0, "interval": ["2028-01-01", "2028-02-01"], "reference_date": null }
+    ],
+    "straddling_slots": []
+  }
+}
+```
+
+Aqui, uma posição de compromisso antecipado que a origem precificou (usina `17`, com entrega
+em janeiro de 2028) não é modelada por este estudo; por isso, é descartada e contabilizada
+em `anticipated.dropped_source`; com `strict: true`, esse mesmo descarte faria a
+carga ser rejeitada.
+
+Veja [Gerenciamento da política — Cortes de fronteira](/pt-br/running/policy-management/#cortes-de-fronteira)
+para uma explicação completa do fluxo de acoplamento, e
+[Requisitos de compatibilidade](/pt-br/running/policy-management/#requisitos-de-compatibilidade)
+para as rejeições por seleção de data e por subconjunto.
+
+---
+
+## `upper_bound_evaluation`
+
+O carregador aceita o bloco e verifica suas chaves e os tipos de valor; nenhuma parte
+da execução o lê, de modo que seus campos não têm efeito ([Chaves inertes](#chaves-inertes)).
+
+| Nome                                              | Tipo            | Obrigatório | Padrão | Unidades | Descrição                                                        |
+| ------------------------------------------------- | --------------- | -------- | ------- | ----- | ---------------------------------------------------------------- |
+| `upper_bound_evaluation.enabled`                  | boolean \| null | Não      | `null`  | —     | Aceito; não tem efeito. Marcação de habilitação.                 |
+| `upper_bound_evaluation.initial_iteration`        | integer \| null | Não      | `null`  | —     | Aceito; não tem efeito. Iteração inicial.                        |
+| `upper_bound_evaluation.interval_iterations`      | integer \| null | Não      | `null`  | —     | Aceito; não tem efeito. Intervalo, em iterações.                 |
+| `upper_bound_evaluation.lipschitz.mode`           | string \| null  | Não      | `null`  | —     | Aceito; não tem efeito. Modo de Lipschitz; qualquer string é aceita. |
+| `upper_bound_evaluation.lipschitz.fallback_value` | number \| null  | Não      | `null`  | —     | Aceito; não tem efeito. Valor alternativo de Lipschitz.          |
+| `upper_bound_evaluation.lipschitz.scale_factor`   | number \| null  | Não      | `null`  | —     | Aceito; não tem efeito. Fator de escala de Lipschitz.            |
+
+---
+
+## Resolução temporal
+
+Nenhuma chave de `config.json` define a resolução temporal: a resolução de cada estágio vem
+de suas datas e do `season_id` em `stages.json`.
+[Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies/) explica como estágios
+de durações diferentes compartilham ruído, agregam o histórico e mudam a resolução das defasagens;
+[Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary/) acopla dois
+estudos, e [Variantes de formulação dos patamares](/pt-br/math/block-formulations/) fornece
+despacho semanal dentro de um estágio mensal por meio de patamares cronológicos.
+
+### Comportamento com resolução mista
+
+- Estágios compartilham um grupo de ruído quando têm o mesmo `season_id` e suas
+  datas de início caem no mesmo ano civil. A árvore de aberturas copia as aberturas de um grupo
+  apenas entre estágios adjacentes do grupo; uma classe forward `out_of_sample`
+  atribui a todos os estágios do grupo o mesmo sorteio, adjacentes ou não. Um estágio
+  posterior do grupo pode ter menos aberturas que o primeiro estágio do grupo e, nesse caso,
+  copia as primeiras delas; um com mais aberturas é recusado
+  ([Número de aberturas do grupo de ruído](/pt-br/reference/error-codes/#numero-de-aberturas-do-grupo-de-ruido)).
+- Quando os estágios passam de mensais para trimestrais, a reconstrução das defasagens
+  toma o mês de cada estágio mensal a partir do `month_start` de seu período sazonal e calcula a média dos valores
+  mensais por trimestre civil (janeiro-março, abril-junho, julho-setembro,
+  outubro-dezembro), quaisquer que sejam os meses declarados pelos períodos sazonais trimestrais. A reconstrução
+  ocorre no primeiro estágio cujo período sazonal abrange um trimestre civil logo após um
+  estágio cujo período sazonal abrange um mês civil, conforme as abrangências declaradas pelos períodos sazonais:
+  esse estágio lê as
+  defasagens mensais, e as defasagens trimestrais promediadas são lidas pela primeira vez pelo estágio
+  seguinte.
+- Com um mapa de períodos sazonais personalizado cujos períodos sazonais se sobrepõem (períodos sazonais mensais e trimestrais
+  cobrindo os mesmos meses), uma observação datada dentro de um estágio de
+  `stages.json` (um estágio do estudo, ou um estágio pré-estudo com `season_id`) vai para
+  o período sazonal desse estágio, e uma datada fora de todos esses estágios vai para o
+  período sazonal de menor id que cubra sua data; um período sazonal que nunca tem o menor id
+  recebe, portanto, observações apenas de dentro dos estágios de `stages.json` desse
+  período sazonal.
+- Em um estágio que não fecha seu período de defasagem, como um estágio semanal dentro de um
+  mês, as defasagens de afluência de saída são as de entrada, e no estágio que
+  executa a reconstrução mensal-para-trimestral elas são as defasagens trimestrais promediadas,
+  enquanto um corte nos componentes de defasagem de afluência associa a defasagem 1 à afluência do próprio
+  estágio e cada defasagem posterior ℓ à defasagem de entrada ℓ − 1. Com esses estágios e uma ordem PAR
+  de 1 ou mais, não há garantia de que o limite inferior permaneça abaixo do limite superior,
+  mesmo com as defasagens de afluência na projeção do corte
+  ([`stages[].state_variables`](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes)).
+
+---
+
+## `exports`
+
+Controla quais saídas são gravadas no diretório de resultados.
+
+| Campo                   | Tipo    | Padrão  | Descrição                                                                                                                  |
+| ----------------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `states`                | boolean | `false` | Armazena o estado visitado de cada linha que a execução acrescenta, em qualquer método de seleção, e grava os estados armazenados no checkpoint da política (`policy/states/<pool>.bin`). Cada conjunto que recebe linhas armazena os estados de suas próprias linhas: o conjunto do primeiro estágio mantém todos os estados, e o conjunto de cada estágio estritamente entre o primeiro e o último mantém, com `level1` e `lookback_iterations`, apenas os estados dentro da janela. Uma execução `level1` armazena e grava os estados dos conjuntos que seleciona, esteja esta opção definida ou não. Armazenar os estados não altera nenhum resultado; a política passa então a marcar suas linhas como pontuadas, e uma execução `level1` posterior que a carregue as seleciona como suas próprias linhas. |
+| `stochastic`            | boolean | `false` | Exporta os artefatos do pré-processamento estocástico para `output/stochastic/`.                                           |
+| `fpha_deviation_points` | boolean | `false` | Exporta a tabela de desvios do ajuste da FPHA calculada, por ponto da grade, para `output/hydro_models/fpha_deviation_points.parquet`. É opcional porque emite uma linha por ponto amostral (usina, estágio, V, Q) com vertimento = 0. |
+
+---
+
+## Chaves inertes
+
+Estas chaves são aceitas na carga de `config.json` — seus nomes e tipos de valor são verificados — e nenhuma parte de uma execução as lê; portanto, defini-las não altera nada.
+
+| Nome                                        | Padrão  | O que a execução faz em vez disso                                                                                                                                              |
+| ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `policy.checkpointing.store_basis`          | `null`  | Um checkpoint contém as bases de PL dos cenários da execução.                                                                                                                  |
+| `policy.checkpointing.compress`             | `null`  | Os arquivos de checkpoint são gravados sem compressão.                                                                                                                         |
+| `training.solver.retry_max_attempts`        | `5`     | Uma resolução que não atinge a otimalidade escala pela sequência de novas tentativas embutida no solver, e não por esta configuração ([Salvaguardas do solver](/pt-br/running/performance/#salvaguardas-do-solver)). |
+| `training.solver.retry_time_budget_seconds` | `30.0`  | Uma resolução que não atinge a otimalidade escala pela sequência de novas tentativas embutida no solver, e não por esta configuração ([Salvaguardas do solver](/pt-br/running/performance/#salvaguardas-do-solver)). |
+| `upper_bound_evaluation`                    | `{}`    | Nada lê o bloco: todas as suas chaves, inclusive as chaves `lipschitz`, não têm efeito.                                                                                        |
+
+---
+
+## Receitas
+
+Cada receita é um trecho de `config.json` que se mescla a um caso: uma chave do trecho substitui a mesma chave no caso, inclusive um array. As regras por trás de suas chaves estão nas seções indicadas.
+
+### Convergir até um gap
+
+Treine com simulação forward enumerada e pare quando o gap exato se fechar. `relative_tolerance` é um percentual: `0.01` para com gap de 0,01%. A entrada `iteration_limit` encerra a execução se o gap não se fechar antes; uma simulação amostrada após o treinamento registra um aviso informativo na preparação ([`simulation.selection`](#simulationselection)). O critério [`gap`](#gap) só é admitido com seleção `enumerated` e a mesma medida de risco em todos os estágios (o padrão `expectation` atende), e todo estágio declara uma única abertura (`num_openings: 1` em `stages.json`), porque a seleção enumerada o exige ([`training.selection`](#trainingselection)).
+
+{/* capture: novomodelo validate case (exit 0); novomodelo run case --output <dir> (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
+
+```json
+{
+  "training": {
+    "selection": { "method": "enumerated" },
+    "stopping_rules": [
+      { "type": "gap", "relative_tolerance": 0.01 },
+      { "type": "iteration_limit", "limit": 50 }
+    ]
+  }
+}
+```
+
+### Execução com tempo limitado
+
+Limite uma execução pelo tempo de relógio. Com o [`stopping_mode`](#trainingstopping_mode) padrão (`"any"`), o treinamento para no primeiro critério satisfeito; portanto, combine [`time_limit`](#time_limit) com um `iteration_limit` acima do que o tempo permite: o treinamento nunca ultrapassa o maior `iteration_limit` do conjunto.
+
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
+
+```json
+{
+  "training": {
+    "stopping_rules": [
+      { "type": "time_limit", "seconds": 600.0 },
+      { "type": "iteration_limit", "limit": 1000 }
+    ]
+  }
+}
+```
+
+### Simulação fora da amostra
+
+Treine com ruído dentro da amostra e simule com afluência fora da amostra. A `simulation.scenario_source.seed` (77) conduz os sorteios fora da amostra da simulação ([Resolução das sementes](#resolucao-das-sementes)). Os campos de `simulation.scenario_source` estão listados em [`simulation.scenario_source`](#simulationscenario_source).
+
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
+
+```json
+{
+  "training": {
+    "selection": { "method": "sampled", "forward_passes": 50 },
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 200 }],
+    "scenario_source": { "seed": 77 }
+  },
+  "simulation": {
+    "enabled": true,
+    "selection": { "method": "sampled", "num_scenarios": 2000 },
+    "scenario_source": {
+      "seed": 77,
+      "inflow": { "scheme": "out_of_sample" },
+      "load": { "scheme": "in_sample" },
+      "ncs": { "scheme": "in_sample" }
+    }
+  }
+}
+```
+
+---
+
+## Exemplo completo
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/config.schema.json",
+  "training": {
+    "tree_seed": 42,
+    "selection": { "method": "sampled", "forward_passes": 50 },
+    "stopping_rules": [
+      { "type": "iteration_limit", "limit": 200 },
+      { "type": "bound_stalling", "iterations": 20, "tolerance": 0.0001 }
+    ],
+    "stopping_mode": "any",
+    "scenario_source": {
+      "seed": 99,
+      "inflow": { "scheme": "out_of_sample" },
+      "load": { "scheme": "in_sample" },
+      "ncs": { "scheme": "in_sample" }
+    },
+    "cut_selection": {
+      "row_activity_tolerance": 1e-6,
+      "max_active_per_stage": null,
+      "selection": {
+        "method": "level1",
+        "check_frequency": 5
+      }
+    }
+  },
+  "modeling": {
+    "inflow_non_negativity": {
+      "method": "truncation_with_penalty"
+    }
+  },
+  "simulation": {
+    "enabled": true,
+    "selection": { "method": "sampled", "num_scenarios": 2000 }
+  },
+  "policy": {
+    "path": "./policy",
+    "mode": "fresh"
+  },
+  "exports": {
+    "states": false,
+    "stochastic": false
+  }
+}
+```
+
+---
+
+## Veja também
+
+- [Formato do caso](/pt-br/reference/case-format/) — esquema completo de todos os arquivos de entrada
+- [Executando estudos](/pt-br/running/running-studies/) — guia do fluxo de trabalho de ponta a ponta
+- [Códigos de erro](/pt-br/reference/error-codes/) — erros de validação, incluindo `SchemaViolation` para campos de configuração
+- [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies/) — como a resolução dos estágios afeta o compartilhamento de ruído do PAR (grupos de ruído) e a agregação das observações

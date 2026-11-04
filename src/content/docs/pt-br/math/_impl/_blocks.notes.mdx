@@ -1,0 +1,55 @@
+Comportamento não normativo do software para as formulações de patamares — o que o
+Novo Modelo faz em tempo de execução, além das equações acima. Esta aba remete ao
+corpo metodológico
+([§4](/pt-br/math/block-formulations/#4-portabilidade-dos-cortes-entre-estruturas-de-patamares)) para a
+portabilidade de cortes, em vez de reproduzi-lo.
+
+### O que a carga de uma política verifica entre estruturas de patamares
+
+A carga de uma política associa um checkpoint ao estudo pela identidade dos
+estados. Uma carga da FCF completa (partida a quente (warm-start), retomada, somente simulação)
+compara com as do estudo a dimensão do vetor de estado e o manifesto de entidades
+por posição, que vincula cada coordenada do estado à entidade com que foi treinada;
+uma carga de fronteira concilia as posições da origem com as do estudo pela
+identidade das entidades. Nenhuma das duas verificações lê o modo de patamares, o
+número de patamares ou as durações dos patamares. A sequência completa está em
+[Gerenciamento da política — Ordem de verificação](/pt-br/running/policy-management/#ordem-de-verificacao).
+
+Uma carga da FCF completa só usa uma base de PL armazenada quando ela é compatível
+com o PL do estágio
+([verificação da base armazenada](/pt-br/running/policy-management/#verificacao-das-bases-armazenadas)), e
+somente uma fase que faz aproveitamento de base a lê ([Aproveitamento de base do PL](/pt-br/math/lp-warm-start)). Uma
+mudança de modo de patamares ou de número de patamares que altere o número de
+colunas de um PL de estágio, portanto, deixa de fora a base armazenada desse
+estágio, com um aviso, e a carga prossegue. Em um estágio com usinas hidrelétricas,
+ambas as mudanças alteram esse número: as colunas de turbinamento, vertimento e
+desvio são alocadas por patamar, e um estágio cronológico com mais de um patamar
+também possui uma coluna de armazenamento interior por usina hidrelétrica e por
+fronteira interior entre patamares, que um estágio paralelo não possui.
+
+Uma carga de fronteira não lê base alguma, de modo que os mesmos cortes continuam
+sendo carregados por meio de
+[`policy.boundary`](/pt-br/running/policy-management/#cortes-de-fronteira) entre modos e números
+de patamares diferentes.
+
+{/* capture: reused from running/policy-management.mdx, Stored-basis gate | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative, two parallel blocks per stage in training, the same blocks chronological in a simulation-only run */}
+
+:::note
+Toda execução de treinamento (training) grava as bases dos PLs de estágio no
+checkpoint, e `policy.checkpointing.store_basis` não tem efeito sobre essa gravação;
+assim, toda carga da FCF completa de um checkpoint treinado verifica a
+compatibilidade de cada base armazenada.
+[Verificação da base armazenada](/pt-br/running/policy-management/#verificacao-das-bases-armazenadas) mostra o
+aviso para um derivado do `1dtoy` treinado com dois patamares paralelos por estágio
+e depois simulado com os mesmos patamares em modo cronológico.
+:::
+
+### Modo de patamares registrado no treinamento
+
+O manifesto do checkpoint registra, no seu bloco de produtor, o modo de patamares
+com que a política foi treinada
+([`policy/manifest.bin`](/pt-br/reference/output/policy/#policymanifestbin)):
+`training_block_mode` contém `"parallel"` ou `"chronological"` quando todos os
+estágios coincidem e `"mixed"` caso contrário, e `training_block_mode_per_stage`
+lista o modo de cada estágio, na ordem dos estágios do estudo, apenas para um estudo
+misto. Ambos os campos são descritivos: nenhuma carga de política os verifica.

@@ -1,0 +1,64 @@
+---
+title: Lines and interchanges
+description: How Novomodelo treats transmission lines and interchanges — flow in each direction, directional capacity, no losses in the dispatch and a small exchange cost.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import Line from '../../../../components/entity/illustrations/Line.astro';
+
+<EntityHero family="network" icon="line" lead="A transmission line connects exactly two buses and lets power flow between them, up to a capacity limit in each direction. The power transferred across a line is the exchange." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'A limit for each direction', text: 'A line has a capacity in the direct direction (source to target) and another in the reverse direction. Both are hard limits.' },
+  { title: 'Where prices separate', text: 'Once a line capacity binds, each bus resolves its own marginal price, and dispatch in one bus cannot freely substitute for a shortfall in another.' },
+  { title: 'Lossless in the dispatch', text: 'The dispatch does not reduce the delivered power. Transmission losses are computed after the solve and reported as an output.' },
+]} />
+
+## Flow in both directions
+
+<Line lang="en" />
+
+## What the model decides
+
+<DecisionChips family="network" items={[
+  { label: 'Direct flow (source to target)', unit: 'MW' },
+  { label: 'Reverse flow (target to source)', unit: 'MW' },
+]} note="In each block, each flow lies between zero and the capacity of its direction, and these bounds are hard, with no slack. The direct flow leaves the source bus and enters the target bus; the reverse flow does the opposite. Two non-negative flows are used instead of one signed flow, which simplifies the bounds and, through the exchange cost, naturally prevents flow in both directions at once." />
+
+## What you provide
+
+- The source bus and the target bus. The source-to-target direction defines the direct flow.
+- The capacity in the direct direction and in the reverse direction, in MW.
+- Optionally, a loss percentage. It is used for reporting only and does not enter the dispatch.
+- Optionally, an exchange cost for this line, which replaces the case default.
+- Entry and exit stages, when the line does not exist throughout the study.
+- Optionally, capacities that vary by stage and, if you wish, by block, in absolute MW. They replace the base capacities. A value of zero closes the line in that direction.
+
+## The exchange cost
+
+The exchange cost is a small cost per MWh of flow. It is a regularization term, not a real transmission cost: it prevents degenerate solutions with unnecessary power circulation and encourages minimal transfers when the model is indifferent. It is set well below every generation and deficit cost, so that it only breaks ties. If it noticeably changes dispatch decisions, it is set too high.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'System elements overview — transmission lines', href: '/math/system-elements/#3-transmission-lines' },
+  { kind: 'Methodology', title: 'Equipment formulations §2 — transmission lines', href: '/math/equipment-formulations/#2-transmission-lines' },
+  { kind: 'Methodology', title: 'Penalty system — lines', href: '/math/penalty-system/#lines' },
+  { kind: 'Methodology', title: 'Single-bus vs. multi-bus', href: '/math/system-elements/#single-bus-vs-multi-bus' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'system/lines.json', href: '/reference/case-format/system/#systemlinesjson' },
+  { dir: 'in', path: 'constraints/line_bounds.parquet', href: '/reference/case-format/constraints/#constraintsline_boundsparquet' },
+  { dir: 'in', path: 'penalties.json', href: '/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'constraints/penalty_overrides_line.parquet', href: '/reference/case-format/penalties/#constraintspenalty_overrides_lineparquet' },
+  { dir: 'out', path: 'simulation/exchanges/', href: '/reference/output/simulation/#simulationexchanges' },
+]} />

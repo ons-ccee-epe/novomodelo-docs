@@ -1,0 +1,283 @@
+---
+title: "Formato de saída"
+description: Todos os arquivos que o novomodelo run grava — a árvore do diretório de saída, os marcadores de sucesso e o layout de partições Hive — com o esquema de cada arquivo na página do respectivo grupo.
+---
+
+Estas páginas constituem a referência completa de esquemas de todos os arquivos que o `novomodelo run`
+grava: nomes de colunas, tipos Arrow, anulabilidade, unidades, campos JSON e o
+checkpoint binário. Esta página apresenta a árvore do diretório de saída, os marcadores
+de sucesso e o layout de partições Hive; o esquema de cada arquivo está na página do
+respectivo grupo.
+
+Se você está começando com as saídas do Novo Modelo, comece por
+[Convergência e diagnóstico](/pt-br/running/interpreting-results/). Essa página
+explica como ler os resultados programaticamente e avaliar a convergência. As
+páginas de grupo destinam-se a quem precisa da definição precisa dos esquemas — para
+escrever parsers, montar painéis ou implementar verificações de compatibilidade.
+
+---
+
+## Arquivos por página
+
+A tabela lista cada arquivo que o `novomodelo run` pode gravar, na ordem da árvore de
+diretórios abaixo, com a página que o documenta.
+
+| Arquivo                                                                                                                  | Página                                                   |
+| ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson)                                             | [Arquivos de metadados](/pt-br/reference/output/metadata/)            |
+| [`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet)                                 | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/dictionaries/`](/pt-br/reference/output/training/#trainingdictionaries)                                             | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/dictionaries/codes.json`](/pt-br/reference/output/training/#codesjson)                                              | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/dictionaries/entities.csv`](/pt-br/reference/output/training/#entitiescsv)                                          | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/dictionaries/variables.csv`](/pt-br/reference/output/training/#variablescsv)                                        | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/dictionaries/bounds.parquet`](/pt-br/reference/output/training/#boundsparquet)                                      | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/timing/iterations.parquet`](/pt-br/reference/output/training/#trainingtimingiterationsparquet)                      | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/solver/iterations.parquet`](/pt-br/reference/output/training/#trainingsolveriterationsparquet)                      | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/solver/retry_histogram.parquet`](/pt-br/reference/output/training/#trainingsolverretry_histogramparquet)            | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/scaling_report.json`](/pt-br/reference/output/training/#trainingscaling_reportjson)                                 | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/hydro_models.json`](/pt-br/reference/output/hydro-models/#traininghydro_modelsjson)                                 | [Artefatos dos modelos hidrelétricos](/pt-br/reference/output/hydro-models/) |
+| [`training/model_provenance.json`](/pt-br/reference/output/metadata/#trainingmodel_provenancejson)                             | [Arquivos de metadados](/pt-br/reference/output/metadata/)            |
+| [`training/cut_selection/iterations.parquet`](/pt-br/reference/output/training/#trainingcut_selectioniterationsparquet)        | [Saídas do treinamento](/pt-br/reference/output/training/)           |
+| [`training/_SUCCESS`](#marcadores-de-sucesso)                                                                                  | [Formato de Saída](#marcadores-de-sucesso)                        |
+| [`policy/manifest.bin`](/pt-br/reference/output/policy/#policymanifestbin)                                                     | [Checkpoint da política](/pt-br/reference/output/policy/)           |
+| [`policy/cuts/NNN.bin`](/pt-br/reference/output/policy/#policycutsnnnbin)                                                      | [Checkpoint da política](/pt-br/reference/output/policy/)           |
+| [`policy/basis/NNN.bin`](/pt-br/reference/output/policy/#policybasisnnnbin)                                                    | [Checkpoint da política](/pt-br/reference/output/policy/)           |
+| [`policy/states/NNN.bin`](/pt-br/reference/output/policy/#policystatesnnnbin)                                                  | [Checkpoint da política](/pt-br/reference/output/policy/)           |
+| [`simulation/metadata.json`](/pt-br/reference/output/metadata/#simulationmetadatajson)                                         | [Arquivos de metadados](/pt-br/reference/output/metadata/)            |
+| [`simulation/paths.parquet`](/pt-br/reference/output/simulation/#simulationpathsparquet)                                       | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/scenario_summary.parquet`](/pt-br/reference/output/simulation/#simulationscenario_summaryparquet)                 | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/costs/`](/pt-br/reference/output/simulation/#simulationcosts)                                                     | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/hydros/`](/pt-br/reference/output/simulation/#simulationhydros)                                                   | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/hydro_bus_generation/`](/pt-br/reference/output/simulation/#simulationhydro_bus_generation)                       | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/thermals/`](/pt-br/reference/output/simulation/#simulationthermals)                                               | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/exchanges/`](/pt-br/reference/output/simulation/#simulationexchanges)                                             | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/buses/`](/pt-br/reference/output/simulation/#simulationbuses)                                                     | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/pumping_stations/`](/pt-br/reference/output/simulation/#simulationpumping_stations)                               | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/contracts/`](/pt-br/reference/output/simulation/#simulationcontracts)                                             | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/non_controllables/`](/pt-br/reference/output/simulation/#simulationnon_controllables)                             | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/inflow_lags/`](/pt-br/reference/output/simulation/#simulationinflow_lags)                                         | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/in_transit/`](/pt-br/reference/output/simulation/#simulationin_transit)                                           | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/transit_seed/`](/pt-br/reference/output/simulation/#simulationtransit_seed)                                       | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/anticipated_lanes/`](/pt-br/reference/output/simulation/#simulationanticipated_lanes)                             | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/violations/generic/`](/pt-br/reference/output/simulation/#simulationviolationsgeneric)                            | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/solver/iterations.parquet`](/pt-br/reference/output/simulation/#simulationsolveriterationsparquet)                | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/solver/retry_histogram.parquet`](/pt-br/reference/output/simulation/#simulationsolverretry_histogramparquet)      | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`simulation/_SUCCESS`](#marcadores-de-sucesso)                                                                                | [Formato de Saída](#marcadores-de-sucesso)                        |
+| [`anticipated/fixed_deliveries.parquet`](/pt-br/reference/output/simulation/#anticipatedfixed_deliveriesparquet)               | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`generic_constraints/resolved_echo.parquet`](/pt-br/reference/output/simulation/#generic_constraintsresolved_echoparquet)     | [Saídas da simulação](/pt-br/reference/output/simulation/)       |
+| [`hydro_models/fpha_hyperplanes.parquet`](/pt-br/reference/output/hydro-models/#hydro_modelsfpha_hyperplanesparquet)           | [Artefatos dos modelos hidrelétricos](/pt-br/reference/output/hydro-models/) |
+| [`hydro_models/evaporation_models.parquet`](/pt-br/reference/output/hydro-models/#hydro_modelsevaporation_modelsparquet)       | [Artefatos dos modelos hidrelétricos](/pt-br/reference/output/hydro-models/) |
+| [`hydro_models/fpha_deviation_points.parquet`](/pt-br/reference/output/hydro-models/#hydro_modelsfpha_deviation_pointsparquet) | [Artefatos dos modelos hidrelétricos](/pt-br/reference/output/hydro-models/) |
+| [`stochastic/inflow_seasonal_stats.parquet`](/pt-br/reference/output/stochastic/#arquivos-exportados)                               | [Artefatos estocásticos](/pt-br/reference/output/stochastic/)    |
+| [`stochastic/inflow_ar_coefficients.parquet`](/pt-br/reference/output/stochastic/#arquivos-exportados)                              | [Artefatos estocásticos](/pt-br/reference/output/stochastic/)    |
+| [`stochastic/inflow_annual_component.parquet`](/pt-br/reference/output/stochastic/#stochasticinflow_annual_componentparquet)   | [Artefatos estocásticos](/pt-br/reference/output/stochastic/)    |
+| [`stochastic/correlation.json`](/pt-br/reference/output/stochastic/#arquivos-exportados)                                            | [Artefatos estocásticos](/pt-br/reference/output/stochastic/)    |
+| [`stochastic/fitting_report.json`](/pt-br/reference/output/stochastic/#stochasticfitting_reportjson)                           | [Artefatos estocásticos](/pt-br/reference/output/stochastic/)    |
+| [`stochastic/noise_openings.parquet`](/pt-br/reference/output/stochastic/#stochasticnoise_openingsparquet)                     | [Artefatos estocásticos](/pt-br/reference/output/stochastic/)    |
+| [`stochastic/load_seasonal_stats.parquet`](/pt-br/reference/output/stochastic/#arquivos-exportados)                                 | [Artefatos estocásticos](/pt-br/reference/output/stochastic/)    |
+
+---
+
+## Árvore do diretório de saída
+
+Uma execução completa do `novomodelo run` produz a estrutura de diretórios a seguir. Nem todo
+diretório de entidade aparece em todas as execuções: o `novomodelo run` só grava diretórios para
+os tipos de entidade presentes no caso. Por exemplo, um caso sem usinas elevatórias
+não produz `simulation/pumping_stations/`.
+
+```
+<output_dir>/
+  training/
+    metadata.json
+    convergence.parquet
+    dictionaries/
+      codes.json
+      entities.csv
+      variables.csv
+      bounds.parquet
+    timing/
+      iterations.parquet
+    solver/
+      iterations.parquet
+      retry_histogram.parquet
+    scaling_report.json
+    hydro_models.json                (sempre)
+    model_provenance.json            (sempre)
+    cut_selection/
+      iterations.parquet           (quando há método de seleção ou max_active_per_stage definido)
+    _SUCCESS                         # após training/metadata.json
+  policy/                            # em policy.path (padrão ./policy), resolvido em relação ao diretório de saída
+    manifest.bin                     # global do estudo; FlatBuffers, gravado por último
+    cuts/                            # indexado por conjunto de cortes
+      000.bin
+      001.bin
+      ...
+      NNN.bin
+    basis/                           # indexado por nó
+      000.bin
+      001.bin
+      ...
+      NNN.bin
+    states/                          # indexado por conjunto de cortes; com exports.states ou level1
+      000.bin
+      001.bin
+      ...
+      NNN.bin
+  simulation/
+    metadata.json
+    paths.parquet
+    scenario_summary.parquet
+    costs/
+      scenario_id=0000/
+        data.parquet
+      scenario_id=0001/
+        data.parquet
+      ...
+    hydros/
+      scenario_id=0000/data.parquet
+      ...
+    hydro_bus_generation/
+      scenario_id=0000/data.parquet
+      ...
+    thermals/
+      scenario_id=0000/data.parquet
+      ...
+    exchanges/
+      scenario_id=0000/data.parquet
+      ...
+    buses/
+      scenario_id=0000/data.parquet
+      ...
+    pumping_stations/
+      scenario_id=0000/data.parquet
+      ...
+    contracts/
+      scenario_id=0000/data.parquet
+      ...
+    non_controllables/
+      scenario_id=0000/data.parquet
+      ...
+    inflow_lags/
+      scenario_id=0000/data.parquet
+      ...
+    in_transit/                     # quando há trecho com tempo de viagem declarado
+      scenario_id=0000/data.parquet
+      ...
+    transit_seed/                   # quando há trecho com tempo de viagem declarado
+      scenario_id=0000/data.parquet
+      ...
+    anticipated_lanes/               # quando o estudo declara post_study_stages
+      scenario_id=0000/data.parquet
+      ...
+    violations/
+      generic/
+        scenario_id=0000/data.parquet
+        ...
+    solver/
+      iterations.parquet
+      retry_histogram.parquet
+    _SUCCESS                         # após simulation/metadata.json
+  anticipated/                       # quando existe compromisso pós-horizonte decidido antes do estudo
+    fixed_deliveries.parquet
+  generic_constraints/               # quando o estudo tem restrições genéricas
+    resolved_echo.parquet
+  hydro_models/
+    fpha_hyperplanes.parquet         (quando um ajuste calculado produz planos)
+    evaporation_models.parquet       (quando alguma usina tem evaporação)
+    fpha_deviation_points.parquet    (quando exports.fpha_deviation_points = true e existe ponto de desvio)
+  stochastic/                        # somente quando exports.stochastic = true (desativado por padrão)
+    inflow_seasonal_stats.parquet    (sempre, quando exportado)
+    inflow_ar_coefficients.parquet   (sempre, quando exportado)
+    inflow_annual_component.parquet  (sempre, quando exportado)
+    correlation.json                 (sempre, quando exportado)
+    fitting_report.json              (quando houve estimação)
+    noise_openings.parquet           (sempre, quando exportado)
+    load_seasonal_stats.parquet      (quando algum modelo de carga tem std_mw > 0)
+```
+
+Todo arquivo Parquet de saída é gravado com compressão ZSTD (nível 3),
+codificação por dicionário e grupos de linhas de no máximo 100 000 linhas.
+
+---
+
+## Marcadores de sucesso
+
+O `novomodelo run` grava seus arquivos em uma ordem fixa. `training/_SUCCESS` é um arquivo
+vazio gravado por último quando houve treinamento (training), e `simulation/_SUCCESS`, um arquivo gravado por último
+quando houve simulação:
+
+1. Antes do início do treinamento: quando o treinamento vai ser executado, o
+   `training/_SUCCESS` obsoleto e os arquivos condicionais do treinamento
+   (`training/cut_selection/`, arquivos de `training/solver/`,
+   `anticipated/fixed_deliveries.parquet`, `hydro_models/*.parquet`,
+   `generic_constraints/resolved_echo.parquet`) são removidos; quando a simulação
+   vai ser executada, `simulation/_SUCCESS` e toda saída de simulação anterior (cada
+   árvore `simulation/<family>/`, arquivos de `simulation/solver/`, `paths.parquet`,
+   `scenario_summary.parquet` e `metadata.json`) são removidos; em seguida, são gravados
+   `training/hydro_models.json`, `training/model_provenance.json`, as
+   exportações de `stochastic/` (quando `exports.stochastic = true`) e
+   `training/scaling_report.json`.
+2. Durante o treinamento: checkpoints periódicos em `policy.path` quando
+   `policy.checkpointing.enabled` é `true`.
+3. Após o treinamento: o checkpoint da política em `policy.path` (`policy/` por
+   padrão; `manifest.bin` por último dentro dele), depois `training/dictionaries/`,
+   `training/convergence.parquet`, `training/timing/iterations.parquet` e
+   `training/metadata.json`, depois `hydro_models/fpha_hyperplanes.parquet`,
+   `hydro_models/evaporation_models.parquet`,
+   `hydro_models/fpha_deviation_points.parquet`,
+   `generic_constraints/resolved_echo.parquet`,
+   `anticipated/fixed_deliveries.parquet`,
+   `training/solver/iterations.parquet`,
+   `training/solver/retry_histogram.parquet` e
+   `training/cut_selection/iterations.parquet`, cada um somente quando a execução tem
+   conteúdo para ele, e então `training/_SUCCESS`.
+4. Durante a simulação: as partições de entidades em `simulation/`, à medida que os
+   cenários são executados.
+5. Após a simulação: `simulation/metadata.json`,
+   `simulation/solver/iterations.parquet`,
+   `simulation/solver/retry_histogram.parquet`, `simulation/paths.parquet` e
+   `simulation/scenario_summary.parquet`, e então `simulation/_SUCCESS`.
+
+Uma exportação de `stochastic/` nunca é removida, e uma execução somente de treinamento preserva uma
+árvore `simulation/` anterior, incluindo seu `_SUCCESS`.
+
+Um marcador `_SUCCESS`, portanto, sinaliza que sua fase terminou de gravar;
+os arquivos de `stochastic/` não são cobertos por nenhum dos marcadores. Ele não é um veredito sobre a
+execução: quando o treinamento é interrompido por falha, o `novomodelo run` grava o checkpoint
+da política em `<policy.path>.partial`, sem tocar em `policy.path` (ver
+[Execução com falha](/pt-br/running/policy-management/#uma-execucao-que-falhou)), todas as saídas do treinamento (`convergence.termination_reason` é
+`"error"`) e `training/_SUCCESS`, e então encerra com o código do erro (ver
+[Códigos de Saída](/pt-br/reference/cli-reference/#codigos-de-saida)). Uma execução que falha antes da
+última gravação de uma fase deixa essa fase sem marcador.
+
+O status de saída do `novomodelo run` é o sinal do resultado da execução. Um cenário cujas
+partições de saída não puderam ser gravadas não o altera: o cenário é
+contabilizado em `scenarios.failed` de `simulation/metadata.json`, e a execução ainda assim
+grava `simulation/_SUCCESS` e encerra com `0`. Um script que precise da saída de todos os cenários
+deve verificar `scenarios.failed`.
+
+---
+
+## Particionamento Hive
+
+Todas as saídas Parquet da simulação usam particionamento Hive: os resultados de cada cenário
+são armazenados em um diretório chamado `scenario_id=NNNN/` contendo um único
+arquivo `data.parquet`. `scenario_id` é **ao mesmo tempo** o diretório de partição Hive
+**e** uma coluna explícita `Int32` não nula dentro de cada arquivo Parquet de entidade
+(a coluna inicial do eixo compartilhado `(scenario_id, stage_id, node_id)` —
+ver [Eixo de Nós e Saídas do Grafo da Política](/pt-br/reference/output/simulation/#eixo-de-nos-e-saidas-do-grafo-da-politica)).
+Uma junção tripla entre arquivos de entidades, ou uma junção com
+`simulation/paths.parquet` / `simulation/scenario_summary.parquet`, é,
+portanto, uma junção sobre colunas comuns, e não uma interpretação de nomes de diretório.
+
+Todas as principais ferramentas de dados colunares entendem esse layout e conseguem ler um diretório
+`simulation/<entity>/` inteiro como uma única tabela, seja inferindo
+`scenario_id` a partir dos nomes dos diretórios de partição, seja lendo-o diretamente da
+coluna no arquivo — ambos coincidem por construção.
+Receitas de leitura com Polars e pandas estão em
+[Convergência e diagnóstico — Leitura de uma tabela inteira](/pt-br/running/interpreting-results/#leitura-de-uma-tabela-inteira);
+os filtros de cenário em R e DuckDB estão em
+[Filtragem para um único cenário](/pt-br/running/interpreting-results/#filtragem-de-um-unico-cenario).
+
+Os IDs de cenário são inteiros com base zero. O número de partições `scenario_id=NNNN/`
+gravadas é `scenarios.completed` em `simulation/metadata.json`.

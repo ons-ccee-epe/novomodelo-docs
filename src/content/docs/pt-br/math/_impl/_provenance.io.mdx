@@ -1,0 +1,74 @@
+Esta aba lista onde uma execução registra as categorias de
+[Determinismo e rastreabilidade §5](/pt-br/math/determinism-guarantees#5-rastreabilidade), por arquivo
+e nome de campo: metadados da execução, rastreabilidade do modelo estocástico e o checkpoint
+da política, além do que não é registrado. As tabelas completas de campos estão em
+[Formato de saída](/pt-br/reference/output/).
+
+### Metadados da execução
+
+[`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson) e
+[`simulation/metadata.json`](/pt-br/reference/output/metadata/#simulationmetadatajson)
+registram o software, os tempos e o ambiente de execução. O
+arquivo do treinamento (training) também registra a configuração.
+
+- **Versão, solver e máquina.** `software` indica o programa que gravou o arquivo
+  (`novomodelo`) e `software_version`, sua versão. `hostname` indica a máquina,
+  `solver`, o backend de PL, e
+  `solver_version`, sua versão; `solver_version` é omitido quando a versão é
+  desconhecida.
+- **Tempos.** `started_at`, `completed_at` e `duration_seconds`.
+- **Semente e configuração** (somente em `training/metadata.json`). O objeto `configuration`
+  contém `seed`, `max_iterations`, `forward_passes`, `stopping_mode` e
+  `policy_mode`. `seed` é `training.tree_seed` conforme configurado no estudo, e é
+  `null` quando o estudo não define nenhuma; nesse caso, a execução usa a semente padrão 42. A
+  semente efetivamente usada é `rng_seed` no [checkpoint da política](#checkpoint-da-politica).
+- **Distribuição.** O objeto `distribution` contém `backend` (`"mpi"` ou
+  `"local"`), `world_size`, `ranks_participated`, `num_hosts`, `threads_per_rank`
+  e `hosts`, com uma entrada por máquina e os processos (ranks MPI) alocados nela. Uma execução MPI também contém
+  `mpi_library`, `mpi_standard` e `thread_level`; uma execução local os omite.
+  `slurm_job_id` é omitido quando ausente; consulte [Não registrado](#nao-registrado) para saber
+  quais builds o gravam.
+
+### Rastreabilidade do modelo estocástico
+
+[`training/model_provenance.json`](/pt-br/reference/output/metadata/#trainingmodel_provenancejson)
+é gravado em toda execução. Seu objeto `inflow` registra o
+`estimation_path` seguido e a origem de cada parte do modelo de afluências em
+`seasonal_stats_source`, `ar_coefficients_source`, `correlation_source` e
+`opening_tree_source`, cada um com valor `estimated`, `user_file` ou `n/a`;
+`correlation_target` indica a série a partir da qual uma correlação estimada foi
+calculada, e `opening_tree_moment_matching`, o casamento de momentos (moment matching) de uma árvore de
+aberturas gerada, cada um `null` nos demais casos. Para um modelo
+autorregressivo estimado, `ar_method` indica o método de seleção de ordem e
+`ar_max_order`, a maior ordem selecionada; `white_noise_fallbacks` lista os ids
+das usinas hidrelétricas que recaíram em ruído branco. `n_hydros` conta as usinas.
+`historical_library_seed_digest` é um digest SipHash-1-3 da tendência
+hidrológica derivada para a biblioteca de cenários históricos; ele é gravado somente quando essa
+biblioteca foi construída. O objeto
+`hydro_production` conta as usinas hidrelétricas segundo a origem de seus hiperplanos da FPHA
+e de seu nível de referência para evaporação.
+
+### Checkpoint da política
+
+[`policy/manifest.bin`](/pt-br/reference/output/policy/#policymanifestbin) é o
+manifesto do checkpoint, gravado por último. Ele registra `format_version`,
+`software`, `software_version` e `created_at` do checkpoint, e
+`completed_iterations`,
+`final_lower_bound`, `max_iterations`, `forward_passes` e `rng_seed` da
+execução de treinamento que o gravou, junto ao manifesto do grafo. `rng_seed` é a semente
+efetivamente usada: o valor absoluto de `training.tree_seed`, ou a semente padrão 42 quando
+o estudo não define nenhuma.
+
+### Não registrado
+
+O Novo Modelo não registra nenhum hash dos arquivos de entrada; por isso, o diretório do caso deve ser mantido junto às
+saídas. As sementes forward fora da amostra (out-of-sample), `training.scenario_source.seed` e
+`simulation.scenario_source.seed`, não são gravadas em nenhum arquivo de saída; mantenha a
+configuração que as define junto ao diretório
+do caso. O registro não contém compilador, perfil de build, alvo
+nem commit do código-fonte: `software_version` é a string de versão, e o
+banner de `novomodelo version` mostra a arquitetura e o sistema operacional do
+binário em uso e se é um build de release ou de depuração. `slurm_job_id` é
+gravado somente por builds com suporte a topologia sensível a NUMA
+([Implantação em HPC e clusters](/pt-br/running/hpc-deployment/)) e está ausente dos metadados do
+asset de release `novomodelo-mpi`, mesmo em um job do SLURM.

@@ -1,0 +1,124 @@
+Comportamento não normativo do software na estimação do modelo PAR(p) — o que o Novo Modelo faz
+em tempo de execução, além das equações acima. Esta aba remete ao corpo da
+metodologia para as deduções, em vez de repeti-las.
+
+### `std_m3s` vs `sigma_m`
+
+Os dois arquivos da aba Entradas e saídas armazenam dois desvios-padrão
+diferentes, e a interface do software nunca os confunde: `std_m3s` (coluna
+de `inflow_seasonal_stats.parquet`) é o **desvio-padrão amostral armazenado**
+da série histórica para um par (usina hidrelétrica, período sazonal) — um número fixo,
+gravado em disco. `sigma_m`, o desvio-padrão do ruído (inovação) que escala o
+termo estocástico, nunca é armazenado; ele é **derivado na carga** a partir de
+`std_m3s` e da escala do ruído `r_m`, que o Novo Modelo sempre deriva dos
+coeficientes AR pelo fechamento da FAC periódica (metodologia §4). Ler
+`std_m3s` como se fosse `sigma_m` — ou vice-versa — reescala silenciosamente todos
+os sorteios de ruído.
+
+### Onde o fechamento é executado em relação ao ajuste
+
+A derivação de `r_m` pelo fechamento é uma **etapa de carga, não de ajuste**: ela
+é executada após a montagem do modelo em todos os caminhos de entrada — tanto na
+carga pura de arquivos quanto em todos os caminhos de estimação —, de modo que um
+modelo ajustado e um modelo fornecido pelo usuário com os mesmos coeficientes obtêm
+a mesma escala do ruído. Quando as ordens AR diferem entre os períodos sazonais do ciclo
+periódico, o valor derivado pelo fechamento pode diferir ligeiramente da identidade
+de Yule-Walker de um único período sazonal avaliado sobre as autocorrelações amostrais
+(§4.1 da metodologia) — o fechamento resolve conjuntamente, para todos os períodos sazonais,
+a FAC implícita do próprio modelo, e é isso que faz o desvio-padrão marginal sazonal
+gerado coincidir exatamente com `std_m3s`. Quando todos os períodos sazonais têm a mesma
+ordem, os dois valores coincidem em precisão dupla.
+
+### Rejeição pela variância residual (`r_squared`)
+
+O fechamento define $r_m^2 = 1 - \sum_\ell \psi^*_{m,\ell}\rho_m(\ell)$, a variância residual (do ruído) padronizada do período sazonal $m$ implícita em $\psi^*$ (§4.1 da metodologia), e a trata como um teste de admissibilidade, não como uma medida de qualidade. Duas verificações atuam sobre ela na carga, correspondentes ao invariante 2 da §5 da metodologia: cada uma rejeita o caso com um erro que identifica a usina hidrelétrica, e nenhuma é uma nota atribuída a um modelo aceito. As chaves nas mensagens citadas marcam valores preenchidos pela execução.
+
+**Coeficientes fornecidos: o filtro de estacionariedade.** Um caso que fornece `inflow_ar_coefficients.parquet` é verificado pelo filtro de estacionariedade PAR, que rejeita um período sazonal cujo $r_m^2$ seja menor ou igual a `1e-12` (suas demais verificações estão listadas na aba Entradas e saídas):
+
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:376-380 at novomodelo v0.20.0 */}
+```text
+Hydro {hydro_id} season {season}: PAR stationarity gate rejected inflow_ar_coefficients.parquet -- implied residual variance r² = {r_squared} is at or below the numerical floor
+```
+
+**Todos os caminhos de carga: a verificação da derivação.** Após a montagem do modelo, a derivação de $r_m$ pelo fechamento é executada qualquer que seja a origem dos coeficientes. Ela rejeita a carga quando o sistema do fechamento é singular e quando um $r_m$ derivado é não finito, o que ocorre quando a variância implícita $r_m^2$ é negativa:
+
+{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:141 at novomodelo v0.20.0 */}
+```text
+residual_std_ratio closure is singular for hydro_id={hydro_id}
+```
+
+{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:145-151 at novomodelo v0.20.0 */}
+```text
+derived residual_std_ratio is non-finite for hydro_id={hydro_id} season={season}: the coefficients imply a non-stationary process (implied residual variance 1 - sum(psi*rho) is negative)
+```
+
+Nas mensagens do filtro e de valor não finito, `season` é contado a partir de 0: em um mapa de períodos sazonais de resolução única, é a posição do período sazonal na ordem do calendário; em um mapa que sobrepõe resoluções, ou na ausência de mapa, é a posição do identificador do período sazonal entre os identificadores de período sazonal do caso. Ele coincide com o `id` do período sazonal quando os identificadores seguem $0, 1, 2, \ldots$ na ordem do calendário.
+
+Um modelo ajustado a partir do histórico não passa pelo filtro e não tem piso: somente a verificação da derivação se aplica a ele, de modo que um período sazonal ajustado cujo $r_m^2$ seja pequeno, porém positivo, é aceita.
+
+O Novo Modelo expõe `r_squared` apenas dentro da mensagem do filtro: não há campo de CLI nem atributo Python específico para ele, nem sinal de variância isolado em um ajuste aceito.
+
+### Comportamento da seleção de ordem
+
+A regra clássica de seleção de ordem pela FACP (metodologia §3.6) e a
+redução iterativa de Maceira & Damázio que ela aciona são aplicadas automaticamente
+sempre que o Novo Modelo estima a partir de `inflow_history.parquet`. Três detalhes
+de execução acompanham essa regra, mas não fazem parte da dedução:
+
+- **`min_observations_per_season`**: um mínimo recomendado que gera apenas um
+  aviso, nunca um erro; veja
+  [Configuração — `estimation`](/pt-br/running/configuration/#estimation) para saber como
+  os grupos são contados e quando o aviso é emitido.
+- **Um período sazonal com uma única observação faz o caso ser rejeitado.** Sempre que o Novo Modelo
+  estima a partir de `inflow_history.parquet`, ele primeiro estima as estatísticas
+  sazonais a partir do histórico, mesmo quando o caso também fornece
+  `inflow_seasonal_stats.parquet` (as estatísticas fornecidas alimentam então apenas o
+  modelo montado, não o ajuste). Um grupo (usina hidrelétrica, período sazonal) com exatamente uma
+  observação interrompe a estimação com um erro de dados insuficientes ("… need at
+  least 2 for std estimation"), qualquer que seja o valor de `min_observations_per_season`.
+  Um período sazonal sem observações não tem estatísticas e é ajustado com ordem 0.
+- **A redução automática de ordem é registrada por período sazonal em `fitting_report.json`** (`contribution_reductions[].reason`), com três motivos distintos:
+  - `magnitude_bound` — uma verificação preliminar: se algum coeficiente ajustado exceder `max_coefficient_magnitude` em valor absoluto, o período sazonal é redefinido como ruído branco (ordem 0, $r_m = 1$), independentemente da verificação de contribuição.
+  - `phi1_negative` — uma verificação preliminar, repetida após cada novo ajuste: se o primeiro coeficiente ajustado $\psi^*_{m,1}$ for negativo, o período sazonal também é redefinido como ruído branco (ordem 0).
+  - `negative_contribution` — a verificação iterativa de contribuição de Maceira–Damázio (metodologia §3.6): o teto de ordem do período sazonal (inicialmente `max_order`) é reduzido em um, e a seleção pela FACP e o ajuste de Yule-Walker são refeitos com o novo teto, repetindo-se até que nenhum período sazonal falhe (um período sazonal cujo teto chega a 0 assume ordem 0). A `reduced_order` registrada para o evento é a maior ordem sem influência composta negativa.
+
+### A classificação do histórico é executada antes de qualquer seleção de ordem
+
+Antes que a seleção pela FACP analise um grupo (usina hidrelétrica, período sazonal), o processo de
+classificação do histórico (metodologia §3.3) é executado automaticamente: séries
+constantes, saturadas e dominadas por valores negativos são detectadas e, nos dois primeiros casos,
+encaminhadas a um ajuste degenerado de ordem 0, em vez de se permitir um sobreajuste a um
+grupo estruturalmente pouco informativo. Essa classificação é incondicional —
+é sempre executada na estimação a partir do histórico, tanto no caminho do PAR(p)
+clássico quanto no do PAR(p)-A.
+
+### Comportamento em execução da componente anual do PAR(p)-A
+
+Definir `order_selection: "pacf_annual"` (aba Configurar) estende o
+processo de estimação com as etapas da §7 da metodologia. Em execução, isso acrescenta
+um requisito que não aparece nas equações: uma usina hidrelétrica precisa de **pelo menos 13
+observações cronológicas** para participar do PAR(p)-A — o mínimo para
+formar uma média móvel de 12 meses (§7.3). Uma usina com menos observações no
+caminho do PAR(p)-A gera uma **falha de estimação bloqueante**; não há retorno
+silencioso ao caminho clássico (metodologia §7.7).
+
+### Defasagens de vazão fora de todos os cortes
+
+Se os cortes de um estágio incluem as dimensões das defasagens de vazão é definido pelo campo
+por estágio `stages[].state_variables`. Seu valor padrão, seu aviso de validação e
+se esse aviso se aplica a coeficientes AR fornecidos ou a um modelo
+estimado a partir do histórico de vazões estão documentados em
+[Gerenciamento de cortes](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes),
+a referência única dessa chave.
+
+### Garantia de determinismo
+
+O ajuste do modelo PAR(p) é uma das famílias de modelos cobertas pela garantia de
+ajuste paralelo com ordem estável do Novo Modelo: os coeficientes são ajustados de forma
+independente por usina hidrelétrica e remontados em uma posição canônica por usina, de modo que o
+modelo ajustado é função apenas das entradas — independentemente de quantas threads
+são executadas ou de como as usinas são distribuídas entre elas. Veja
+[Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos) para o
+mecanismo completo, que o processo de estimação deste capítulo compartilha com o
+processo de ajuste da FPHA calculada descrito em
+[Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models).

@@ -1,0 +1,75 @@
+As configurações de gerenciamento de cortes do Novo Modelo ficam em dois lugares: o bloco
+`training.cut_selection` do `config.json` (gerenciamento de linhas) e o campo
+`state_variables` por estágio do `stages.json` (projeção dos cortes). O próprio
+conjunto de cortes é gerado durante o treinamento (training), e não informado pelo caso. Esta aba
+mostra como cada um é configurado; os algoritmos de seleção propriamente ditos permanecem nas
+seções da metodologia acima (§5–§9).
+
+### `training.cut_selection` — Configuração do Gerenciamento de Linhas
+
+O gerenciamento de linhas combina uma etapa de seleção, configurada pelo objeto `selection`
+e desligada por padrão, com uma etapa de orçamento por estágio definida por `max_active_per_stage`.
+O exemplo executa a seleção de cortes Nível 1 (Level-1) (`level1`) a cada 5 iterações, mantém os
+estados visitados das últimas 20 iterações e limita cada estágio intermediário a 500
+linhas ativas geradas pela execução:
+
+```json
+{
+  "training": {
+    "cut_selection": {
+      "row_activity_tolerance": 1e-6,
+      "max_active_per_stage": 500,
+      "selection": {
+        "method": "level1",
+        "check_frequency": 5,
+        "lookback_iterations": 20
+      }
+    }
+  }
+}
+```
+
+[`training.cut_selection`](/pt-br/running/configuration/#trainingcut_selection) lista
+todos os campos, valores padrão e parâmetros de método, e as combinações recusadas na carga;
+[Processo de gestão de cortes](/pt-br/running/performance/#processo-de-gerenciamento-de-cortes)
+descreve a etapa de orçamento. Quais linhas a simulação pós-treinamento carrega é definido por uma
+chave separada, [`simulation.cut_set`](/pt-br/running/configuration/#simulation).
+
+### `stages[].state_variables` — Projeção dos Cortes
+
+Cada estágio do estudo seleciona sobre quais dimensões do estado inicial seus cortes são projetados —
+a projeção do estado dos cortes de
+[Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte).
+
+| Campo | Tipo | Padrão | Descrição |
+| ------------- | ------- | ------- | ----------- |
+| `storage`     | boolean | `true`  | Projeta os cortes sobre as dimensões de armazenamento. |
+| `inflow_lags` | boolean | `false` | Projeta os cortes sobre as dimensões de defasagem de afluência. |
+
+Com `inflow_lags` definido como `true` em um estágio, os cortes gerados nesse estágio também
+contêm os coeficientes das defasagens de afluência; com `false`, não contêm coeficientes de defasagem de afluência.
+
+A ausência de `state_variables` resulta no padrão apenas com armazenamento,
+`{ "storage": true, "inflow_lags": false }`; um campo desconhecido é rejeitado na
+carga. Os in-transit buckets e os slots do commitment ring são sempre projetados e
+não têm campo.
+
+Um estudo que fornece coeficientes AR de ordem acima de zero
+(`scenarios/inflow_ar_coefficients.parquet`), mas tem `inflow_lags` definido como
+`false` em todos os estágios do estudo, explicitamente ou por padrão, recebe um
+aviso de validação [`ModelQuality`](/pt-br/reference/error-codes/#modelquality) que
+não bloqueia a execução; um modelo PAR estimado a partir do histórico de vazões nunca
+gera esse aviso, porque a verificação é feita sobre a tabela fornecida, antes da estimação. Com
+as defasagens excluídas da projeção, as colunas de defasagem continuam fixadas para a dinâmica AR,
+mas nenhum corte gerado no treinamento contém seus coeficientes (cortes importados de
+uma política de fronteira podem conter).
+
+Para manter as defasagens de afluência nos cortes gerados por um estágio, defina os dois campos nesse
+estágio:
+
+```json
+"state_variables": { "storage": true, "inflow_lags": true }
+```
+
+A entrada `stages[]` completa está listada em
+[`stages.json`](/pt-br/reference/case-format/stages/#stagesjson).

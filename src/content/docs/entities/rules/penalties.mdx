@@ -1,0 +1,68 @@
+---
+title: Penalties and deficit cost
+description: The costs that keep the stage problem always feasible and signal how severe a violation is — the three purposes of penalties, their priority order and how values are resolved.
+---
+
+import EntityHero from '../../../../components/entity/EntityHero.astro';
+import WhyCards from '../../../../components/entity/WhyCards.astro';
+import DecisionChips from '../../../../components/entity/DecisionChips.astro';
+import DeepLinks from '../../../../components/entity/DeepLinks.astro';
+import FileList from '../../../../components/entity/FileList.astro';
+import PenaltyLadder from '../../../../components/entity/illustrations/PenaltyLadder.astro';
+
+<EntityHero family="rules" icon="penalties" lead="Penalties are costs on slack variables that enter each stage's objective function. They keep the problem always feasible, even in extreme scenarios, and signal how severe each violation is. The deficit, the cost of unserved load, is the best-known penalty." />
+
+## Why it matters
+
+<WhyCards items={[
+  { title: 'The problem must always have a solution', text: 'Droughts and equipment failures can make some constraints impossible to meet. Slacks with graded costs keep the problem feasible while signalling how severe the violations are. This is what gives SDDP its relatively complete recourse: every subproblem is feasible, whatever the scenario.' },
+  { title: 'Three distinct purposes', text: 'Recourse slacks guarantee feasibility (deficit, excess, inflow non-negativity). Constraint-violation penalties shape the policy. Regularization costs steer the solution where the problem would otherwise be indifferent; they are not real costs and must be orders of magnitude smaller than any economic cost.' },
+  { title: 'The order among costs is part of the design', text: 'Costs follow a priority order in which the deficit outranks the operational constraint slacks. The model checks the configured values when the case loads and emits a warning, without stopping the run, when the order is not respected. That check compares the values as given, so a case can pass it and still invert the energy-equivalent ordering. Two rules reject the case outright: a negative turbining cost on a hydro plant that uses FPHA, and a filling schedule that cannot reach the dead volume (see the ordering validation, under Go deeper).' },
+]} />
+
+## The priority ladder
+
+<PenaltyLadder lang="en" />
+
+The deficit, charged by depth segments with rising costs, is detailed on the [Deficit](/entities/network/deficit/) page. Above it sits the violation of the minimum storage of a plant being filled: keeping the reservoir above its dead volume is more critical than serving the load, because operating below it endangers the dam. The filling target sits on a separate rung, below the deficit. Its position relative to the operational constraints is left to the study's calibration.
+
+The costs have different units (\$/MWh, \$/hm³, \$/(m³/s·h)). The ordering is expressed in energy-equivalent costs, in \$/MWh. The load-time check compares the values as given, without that conversion, so a case can pass it and still invert the energy-equivalent ordering.
+
+## What the model decides
+
+<DecisionChips family="rules" items={[
+  { label: 'Load deficit, by segment', unit: 'MW' },
+  { label: 'Violation of each flexible constraint, when it occurs', unit: 'unit of each constraint' },
+]} note="Each violation is charged at the cost of its penalty. The per-stage cost breakdown has each component in its own column, such as deficit, excess, spillage and flow violations." />
+
+## What you provide
+
+- The global default for each cost, in `penalties.json`, with four required sections: buses, lines, hydro plants and non-controllable sources. Required costs must be positive, except the turbining cost, which may be zero.
+- Optionally, sparse per-stage overrides, in separate files for buses, lines, hydro plants and non-controllable sources. Rows exist only for the entity-stage pairs where the value differs from the default.
+- The deficit segments: in each bus's registry or, when the bus declares none, in the case default.
+
+## How each cost value is resolved
+
+The cascade has three levels of specificity. The per-stage override, defined for an entity at a stage, is the most specific. The per-entity override comes next, and the case-wide global default is the last resort. The most specific value present wins.
+
+## Go deeper
+
+<DeepLinks items={[
+  { kind: 'Methodology', title: 'Penalty System §1 — cascade resolution', href: '/math/penalty-system/#1-cascade-resolution' },
+  { kind: 'Methodology', title: 'Penalty System §2 — penalty categories', href: '/math/penalty-system/#2-penalty-categories' },
+  { kind: 'Methodology', title: 'Penalty System — priority ordering', href: '/math/penalty-system/#penalty-priority-ordering' },
+  { kind: 'Methodology', title: 'Penalty System — ordering validation', href: '/math/penalty-system/#penalty-ordering-validation' },
+  { kind: 'Methodology', title: 'Penalty System §4 — constraint violation coverage', href: '/math/penalty-system/#4-constraint-violation-coverage' },
+  { kind: 'Reference', title: 'Penalty files — penalties.json', href: '/reference/case-format/penalties/#penaltiesjson' },
+]} />
+
+## For those who run the model
+
+<FileList items={[
+  { dir: 'in', path: 'penalties.json', href: '/reference/case-format/penalties/#penaltiesjson' },
+  { dir: 'in', path: 'constraints/penalty_overrides_bus.parquet', href: '/reference/case-format/penalties/#constraintspenalty_overrides_busparquet' },
+  { dir: 'in', path: 'constraints/penalty_overrides_line.parquet', href: '/reference/case-format/penalties/#constraintspenalty_overrides_lineparquet' },
+  { dir: 'in', path: 'constraints/penalty_overrides_hydro.parquet', href: '/reference/case-format/penalties/#constraintspenalty_overrides_hydroparquet' },
+  { dir: 'in', path: 'constraints/penalty_overrides_ncs.parquet', href: '/reference/case-format/penalties/#constraintspenalty_overrides_ncsparquet' },
+  { dir: 'out', path: 'simulation/costs/', href: '/reference/output/simulation/#simulationcosts' },
+]} />

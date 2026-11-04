@@ -1,0 +1,56 @@
+---
+title: Solução de problemas
+description: Causa e correção de cada falha que um estudo pode encontrar ao carregar um caso, carregar uma política, resolver os PLs, iniciar sob MPI e preparar cenários.
+---
+
+Cada tabela associa uma falha observada à sua causa e à alteração que a elimina. O texto exato das mensagens está em [Códigos de erro](/pt-br/reference/error-codes/), e os códigos de saída, na [Referência da CLI](/pt-br/reference/cli-reference/#codigos-de-saida); cada linha aponta para a entrada responsável pela respectiva mensagem.
+
+## Erros de carga e validação
+
+| Sintoma | Causa | Correção |
+| --- | --- | --- |
+| `unknown field` em `config.json`; saída `1`; [mensagem](/pt-br/reference/error-codes/#parseerror) | O `config.json` contém uma chave que o objeto que a envolve não aceita, como um nome digitado errado ou um campo que pertence a outro `type` de critério de parada. | Remova ou corrija a chave conforme [Configuração](/pt-br/running/configuration/). A mensagem informa a linha e a coluna. |
+| `a forward-pass count is required`; saída `1`; [mensagem](/pt-br/reference/error-codes/#schemaviolation) | `training.selection` está ausente. A chave é obrigatória mesmo quando `training.enabled` é `false`. | Adicione `training.selection`; veja [`training.selection`](/pt-br/running/configuration/#trainingselection). |
+| `required field is missing` em `training.stopping_rules`; saída `1`; [mensagem](/pt-br/reference/error-codes/#schemaviolation) | `training.stopping_rules` está ausente. A chave é obrigatória mesmo quando `training.enabled` é `false`. | Adicione um conjunto de regras que contenha uma regra `iteration_limit`; veja [`training`](/pt-br/running/configuration/#training). |
+| `unsupported factor_pivot_threshold` (ou outro campo do perfil do solver); saída `1`; [mensagem](/pt-br/reference/error-codes/#validacao-do-perfil-do-solver) | Uma sobrescrita por fase (`training.solver.backward`, `training.solver.forward` ou `simulation.solver`) é verificada contra o backend de solver compilado no momento em que o estudo é montado. Tanto `novomodelo validate` quanto `novomodelo run` reportam a rejeição. Uma compilação com CLP recusa qualquer sobrescrita. | Defina o campo dentro do intervalo indicado na mensagem ou remova a sobrescrita; veja [`training.solver`](/pt-br/running/configuration/#trainingsolver). |
+| `initial storage` … `must lie in [min_storage_hm3, max_storage_hm3]`; saída `1`; [mensagem](/pt-br/reference/error-codes/#invalidvalue) | Um valor de `storage` em `initial_conditions.json` está fora da faixa de armazenamento da própria usina hidrelétrica em `system/hydros.json`; uma usina que entra em operação após o primeiro estágio também é verificada. Os limites por estágio em `constraints/hydro_bounds.parquet` não participam desta verificação. | Defina o armazenamento inicial dentro da faixa indicada na mensagem ou corrija `min_storage_hm3` e `max_storage_hm3` da usina. |
+| `so its initial storage belongs in`; saída `1`; [mensagem](/pt-br/reference/error-codes/#invalidvalue) | Uma usina hidrelétrica com configuração de `filling` está listada em `storage` no `initial_conditions.json`, ou uma usina sem essa configuração está listada em `filling_storage`. | Mova a entrada para o array indicado na mensagem. |
+
+As regras de admissão dos blocos `scenario_source` reportam uma falha por vez, na ordem do código; assim, corrigir uma mensagem pode revelar a seguinte: execute `novomodelo validate` novamente até que passe. As regras verificam `simulation.scenario_source` além de `training.scenario_source`, e o fazem mesmo quando `simulation.enabled` é `false`. A tabela de regras está em [Regras de admissão da fonte de cenários](/pt-br/reference/error-codes/#regras-de-admissao-da-fonte-de-cenarios).
+
+## Recusas na carga da política
+
+| Sintoma | Causa | Correção |
+| --- | --- | --- |
+| `policy was written by`; saída `1`; [Códigos de erro — `PolicySoftwareMismatch`](/pt-br/reference/error-codes/#policysoftwaremismatch) | O `manifest.bin` do checkpoint registra software ou versão diferente do que está em execução. A comparação é exata. | Execute novamente o programa que produziu o checkpoint com a versão em uso; no caso de uma política de fronteira convertida, converta-a de novo; veja [Verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao). |
+| `Policy directory not found`; saída `1`; [mensagem](/pt-br/reference/error-codes/#como-uma-falha-de-carga-da-politica-chega-ate-voce) | Não há checkpoint em `policy.path`, resolvido em relação ao diretório de saída. Uma primeira execução interrompida antes de gravar qualquer checkpoint não deixa nenhum. | Aponte `policy.path` para o checkpoint ou execute o treinamento antes; veja [Contrato de carga da política](/pt-br/running/policy-management/#contrato-de-carga-da-politica). |
+| `failed to read policy checkpoint`; saída `1` (`2` com `I/O error in …` para um arquivo que o sistema operacional se recusa a ler); [mensagem](/pt-br/reference/error-codes/#como-uma-falha-de-carga-da-politica-chega-ate-voce) | O checkpoint em `policy.path` não pode ser lido — por exemplo, um cujo `format_version` não é `4` (`unsupported checkpoint manifest format_version …`), ou o diretório existe e nem ele nem seus irmãos `.staging` e `.previous` contêm um `manifest.bin`. Uma gravação interrompida que substitui um checkpoint deixa um checkpoint completo, antigo ou novo. | Execute novamente o programa que produziu o checkpoint com a versão em uso, ou aponte `policy.path` para um checkpoint completo; veja [Conteúdo do diretório de checkpoint](/pt-br/running/policy-management/#conteudo-do-diretorio-de-checkpoint). |
+
+`novomodelo validate` executa a mesma carga (`--output` indica outro diretório de saída), de modo que os dois comandos encontram essas recusas. Ambos os comandos leem um checkpoint de `policy.boundary`.
+
+## Falhas do solver
+
+| Sintoma | Causa | Correção |
+| --- | --- | --- |
+| `LP infeasible at scenario`; saída `3`; [mensagem](/pt-br/reference/error-codes/#falhas-da-simulacao) | Um PL de estágio de um cenário da simulação não tem solução viável. `novomodelo validate` não resolve PLs de estágio e, portanto, aceita esse caso. | Leia o cenário e o estágio indicados na mensagem e verifique os limites das restrições nesse estágio, como armazenamentos mínimo e máximo de uma usina hidrelétrica que entram em conflito. Um armazenamento inicial abaixo do mínimo vigente ao final do primeiro estágio de operação de uma usina precisa ser completado com a afluência desse próprio estágio; `novomodelo validate` o reporta como aviso [`ModelQuality`](/pt-br/reference/error-codes/#modelquality). [Sistema de penalidades](/pt-br/math/penalty-system/) lista quais restrições são flexíveis (soft). |
+| `Training failed after`; saída `3` (`4` para falha de comunicação); [mensagem](/pt-br/reference/error-codes/#falhas-do-solver) | Um PL de estágio de uma iteração do treinamento (training) falhou — por exemplo, um subproblema inviável. O treinamento é interrompido e grava saídas parciais no diretório de saída. | No caso de subproblema inviável, a linha `error: LP infeasible at stage …` indica o estágio, a iteração e o cenário (estágio e cenário são numerados a partir de 0); verifique os limites das restrições nesse estágio. [Sistema de penalidades](/pt-br/math/penalty-system/) lista quais restrições são flexíveis (soft). Uma falha do solver imprime a mensagem do solver, listada na entrada indicada. |
+
+## Execuções MPI
+
+| Sintoma | Causa | Correção |
+| --- | --- | --- |
+| O cabeçalho `Execution` é impresso uma vez por processo, e sua linha `Layout:    {world_size} {rank_word} on <host>` mostra `1 rank`; [diagnóstico](/pt-br/running/hpc-deployment/#solucao-de-problemas) | Os processos não formaram um único job MPI: cada um inicializou o MPI como um job próprio de um único processo. | Siga os passos de diagnóstico e recompilação em [Implantação em HPC e clusters](/pt-br/running/hpc-deployment/#solucao-de-problemas). |
+| `pmijobid missing in fullinit command`; [diagnóstico](/pt-br/running/hpc-deployment/#solucao-de-problemas) | Um MPICH compilado para PMIx não possui cliente PMI-2, de modo que `srun --mpi=pmi2` não consegue iniciá-lo. Uma incompatibilidade entre o plugin PMI2 do SLURM e o protocolo PMI2 do MPICH produz o mesmo erro. | Inicie com `srun --mpi=pmix`; veja [Implantação em HPC e clusters](/pt-br/running/hpc-deployment/#solucao-de-problemas). |
+| `same --threads value`; saída `1`; [mensagem](/pt-br/reference/error-codes/#falhas-do-solver) | Os processos (ranks MPI) de um mesmo job foram iniciados com valores diferentes de `--threads`, o que a simulação backward detecta. | Inicie todos os processos com o mesmo valor de `--threads`. |
+| `'mpi' is not available in this build`; saída `4`; [mensagem](/pt-br/reference/error-codes/#falhas-de-comunicacao) | `--comm-backend mpi` foi definido em um binário compilado sem suporte a MPI; `novomodelo version` imprime `comm: local`. | Execute o binário `novomodelo-mpi` sob um lançador MPI; veja [Implantação em HPC e clusters](/pt-br/running/hpc-deployment/). |
+
+## Recusas na preparação estocástica
+
+`novomodelo validate` reporta as três primeiras linhas como `StochasticPreparationError` para a biblioteca da árvore de aberturas e como `StudySetupError` para a biblioteca do esquema forward `historical` (`BoundaryReconciliationError` com `policy.boundary`); [Recusas da biblioteca histórica](/pt-br/reference/error-codes/#recusas-da-biblioteca-historica) reproduz as mensagens.
+
+| Sintoma | Causa | Correção |
+| --- | --- | --- |
+| `V2.1: stage`; saída `1`; [mensagem](/pt-br/reference/error-codes/#recusas-da-biblioteca-historica) | Um estágio do estudo não tem `season_id`: não declara nenhum, e as definições de períodos sazonais estão ausentes ou não cobrem sua data de início. | Atribua um `season_id` a todos os estágios do estudo. |
+| `V2.3`, `non-finite eta`; saída `1`; [mensagem](/pt-br/reference/error-codes/#recusas-da-biblioteca-historica) | Uma usina hidrelétrica tem desvio-padrão sazonal nulo e uma observação histórica diferente de sua média, ou o ajuste falha numericamente. | Forneça histórico igual à média da usina ou um desvio-padrão não nulo. |
+| `no valid historical windows found`; saída `1`; [mensagem](/pt-br/reference/error-codes/#recusas-da-biblioteca-historica) | Nenhum ano inicial tem histórico que cubra os períodos sazonais necessários, de modo que o conjunto de janelas fica vazio. | Forneça histórico que cubra os períodos sazonais necessários para pelo menos um ano inicial. |
+| `openings source is 'file'`; saída `2`; [mensagem](/pt-br/reference/error-codes/#arquivo-da-arvore-de-aberturas-ausente) | `training.scenario_source.openings` é `{"source": "file"}` e `scenarios/noise_openings.parquet` está ausente. | Coloque a árvore em `scenarios/noise_openings.parquet` ou declare `{"source": "generated"}` (ou omita `openings`) para que o Novo Modelo a gere; veja [`training`](/pt-br/running/configuration/#training). |

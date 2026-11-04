@@ -1,0 +1,440 @@
+---
+title: Determinismo e rastreabilidade
+description: Resultados idênticos bit a bit por binário, com qualquer número de processos ou de threads, os mecanismos que os garantem e o que cada execução registra.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Content as ProvenanceIO } from './_impl/_provenance.io.mdx';
+
+## Objetivo
+
+Este capítulo define o que significa "determinístico" no Novo Modelo e o que uma execução registra
+para que seus resultados possam ser obtidos novamente. A garantia é de resultados numéricos idênticos
+bit a bit por binário: dadas as mesmas entradas e a mesma semente aleatória, um binário do Novo Modelo
+em uma mesma imagem de plataforma produz os mesmos limites inferiores, os mesmos cortes, as
+mesmas trajetórias de estados visitados, os mesmos custos de simulação e a mesma árvore de
+cenários, bit a bit, com qualquer número de processos MPI e qualquer número de threads, e em toda
+reexecução, até a iteração de parada sob um critério de parada por tempo de relógio
+(seção 4).
+
+Essa propriedade não é um acaso da implementação. É um compromisso metodológico
+explícito, alcançado por um conjunto de mecanismos coordenados
+descritos na seção 3. A seção 5 define o registro que torna esse
+compromisso operacional: o que o Novo Modelo registra para que qualquer execução possa ser
+reproduzida de forma independente.
+
+## 1. Definição
+
+O Novo Modelo garante **resultados idênticos bit a bit por binário**. Um binário é uma compilação do
+Novo Modelo: um artefato de release ou uma compilação local. Uma imagem de plataforma é o sistema
+operacional juntamente com as bibliotecas de sistema que o binário carrega — a biblioteca matemática,
+o runtime de C++ e, para o artefato de release `novomodelo-mpi`, a biblioteca MPI — e um
+job com vários nós executa a mesma imagem de plataforma em todos os nós. Dadas as mesmas entradas
+e a mesma semente aleatória, um binário em uma imagem de plataforma produz resultados numéricos
+idênticos bit a bit ao longo dos três eixos que os usuários mais frequentemente variam:
+
+- **Reexecuções com entradas idênticas.** Executar novamente o mesmo estudo, com a mesma
+  configuração e a mesma semente-base, produz valores de saída
+  idênticos até o último bit.
+- **Número de processos MPI.** Distribuir o mesmo estudo por um número diferente de
+  processos (ranks MPI) não altera os limites inferiores, os cortes, os estados visitados nem os
+  custos de simulação calculados. A mesma resposta é obtida independentemente de como o trabalho é
+  particionado.
+- **Número de threads.** Alterar o número de threads por processo, igual em todos os
+  processos, também não os altera.
+
+Duas compilações são dois binários, e não se promete que suas saídas sejam iguais. O
+artefato de release de processo único `novomodelo` e o artefato de release `novomodelo-mpi` são
+compilações diferentes; portanto, não se promete que uma execução de `novomodelo` reproduza uma execução de `novomodelo-mpi`
+com qualquer número de processos; um binário compilado com outro backend de PL é, da mesma forma, uma
+compilação diferente. A variação do tempo de relógio, incluindo a iteração de parada sob um
+critério de parada por tempo de relógio, e as demais grandezas fora da garantia estão
+listadas na seção 4.
+
+A definição se aplica a todo o conjunto de saídas da PDDE (SDDP): o treinamento (training) produz os
+mesmos limites inferiores em cada iteração, os mesmos coeficientes de corte acrescentados ao
+conjunto de cortes na mesma ordem e os mesmos estados visitados na simulação forward; a simulação final
+produz o mesmo custo esperado e as mesmas trajetórias de custo por cenário; a geração da árvore
+de cenários produz os mesmos vetores de ruído para cada par (estágio, índice da abertura).
+
+## 2. Abrangência
+
+**Treinamento.** A simulação forward percorre as mesmas trajetórias de estados visitados na
+mesma ordem; a simulação backward resolve os mesmos subproblemas para os mesmos cenários
+e estágios; os cortes resultantes têm os mesmos coeficientes e ocupam a mesma
+posição determinística no conjunto de cortes (uma função fixa da iteração e do índice
+da simulação forward). A sequência de limites inferiores em cada iteração é
+idêntica entre execuções.
+
+**Simulação.** A fase de simulação avalia a política treinada sobre o mesmo
+conjunto de cenários, independentemente da atribuição aos processos. Os custos por cenário e o
+custo esperado agregado são idênticos entre execuções.
+
+**Geração da árvore de cenários.** A árvore de aberturas é gerada antes do início do treinamento,
+derivando sementes da semente-base: uma por par (índice da abertura, estágio)
+na amostragem Monte Carlo e uma por estágio em um método em lote (seção 3).
+Como a derivação das sementes e a atribuição dos grupos de ruído (na árvore de
+aberturas, estágios consecutivos de um mesmo grupo de ruído reutilizam um mesmo sorteio) são funções puras
+de entradas globalmente conhecidas — a semente-base e o calendário de estágios do
+sistema difundido — e o casamento de momentos (moment matching) soma sobre as aberturas em
+uma ordem fixa, todo processo MPI gera a mesma árvore, idêntica bit a bit. Veja
+[Geração de cenários](/pt-br/math/scenario-generation)
+para o procedimento de derivação das sementes e a construção da árvore de aberturas.
+
+**Fora da abrangência.** O tempo de relógio, o pico de memória, a iteração de parada sob um
+critério de tempo de relógio, compilações diferentes e execuções em modelos de processador diferentes
+não são cobertos por esta garantia. Esses pontos são tratados na seção 4.
+
+## 3. Mecanismos metodológicos
+
+Um conjunto de decisões de projeto coordenadas torna a garantia alcançável nos
+três eixos.
+
+**Entradas de resolução reprodutíveis, incluindo a base inicial.** A simulação backward
+não reconstrói cada subproblema do zero, mas também não mantém um
+único PL residente por estágio que ela modifica continuamente ao longo das aberturas de uma
+iteração. Cada unidade de trabalho da simulação backward é uma cadeia com as aberturas de um estado visitado em um
+estágio; ela começa reinicializando a base e a fatoração retidas pelo solver e
+recarregando o modelo congelado de PL do estágio, e depois acrescenta os cortes gerados durante
+a iteração corrente. Quando a simulação backward aproveita a base (warm-start da base), esse aproveitamento entra
+em exatamente um ponto da cadeia:
+na primeira abertura resolvida, a base capturada para a posição `(scenario, node)`
+do próprio estado visitado — uma captura por estado visitado por nó, e não uma compartilhada
+por todos os estados visitados — é carregada como ponto de partida. As demais aberturas
+da cadeia continuam a quente a partir da fatoração que a abertura anterior deixou
+pronta, avançando ao longo da ordem de resolução fixada, pois apenas os limites que dependem do ruído
+mudam de uma abertura para a seguinte. Uma fase que parte a frio inicia
+toda resolução sem base, de modo que seu ponto de partida é o mesmo em toda execução. Veja
+[Aproveitamento de base do PL](/pt-br/math/lp-warm-start) para a configuração por fase, o armazenamento de bases
+e o mecanismo de reconstrução completo.
+
+O aproveitamento de base é compatível com a garantia, mas por uma razão mais específica
+do que "a resposta não depende da base". O _valor_ ótimo de um PL é
+único — fixado apenas por sua função objetivo, restrições e limites, e nenhuma base
+inicial pode alterá-lo. Já sua _base_ ótima não precisa ser única. Quando o ótimo é
+degenerado, várias bases distintas atingem esse mesmo valor, e o simplex
+para naquela que seu caminho de pivoteamento alcançar. Como os coeficientes de um corte são
+lidos dos custos reduzidos das colunas fixadas do estado de entrada, eles são
+propriedades da base final, e não do valor ótimo: em um ótimo
+degenerado, os valores marginais do subproblema formam um intervalo, e uma
+resolução retorna um de seus extremos.
+
+Toda escolha desse tipo produz um corte igualmente válido. Cada vetor de custos reduzidos
+obtido em uma base ótima é um subgradiente da função de valor do subproblema
+no estado visitado, de modo que o corte que ele induz suporta essa função por
+baixo em todo o domínio e a toca exatamente no estado visitado. A agregação herda
+essa propriedade: quaisquer que sejam as bases em que as aberturas terminem, o corte agregado avaliado
+no estado visitado resulta no mesmo valor ótimo ponderado pelas probabilidades. O que difere
+entre duas escolhas admissíveis é a inclinação do corte fora do estado visitado —
+o suficiente para alterar as iterações subsequentes bit a bit, mas não o suficiente para afetar a
+validade de um corte ou a convergência do algoritmo.
+
+A identidade bit a bit exige, portanto, que a sequência de bases seja reprodutível, e
+o Novo Modelo obtém isso tornando cada entrada de uma resolução — inclusive a base
+inicial — uma função de grandezas globalmente conhecidas, e não do escalonamento das tarefas.
+A ordem em que as aberturas de um estado visitado são resolvidas é uma permutação constante na execução
+e invariante ao processo, fixada de antemão a partir da própria identidade das aberturas e do
+seu conteúdo de ruído e calculada de forma idêntica em todo processo, independentemente de como o trabalho
+é particionado. Essa ordem fixa toda a cadeia de aproveitamento de base: qual base capturada
+ancora a primeira abertura resolvida e a sequência de fatorações
+retidas a partir das quais as demais aberturas continuam. Como a base de ancoragem
+é indexada pela posição `(scenario, node)` do estado visitado, e não pelo trabalhador
+que por acaso a executa, reparticionar o mesmo estudo em um número diferente
+de processos ou threads apresenta a cada resolução a mesma base inicial que ela
+teria visto sob qualquer outra partição. O resultado do subproblema para a abertura $\omega$
+no estado visitado $\hat{x}$ é, portanto, reprodutível, não por ser indiferente
+ao histórico de resolução, mas porque esse histórico é ele próprio fixado.
+
+A ordenação dos blocos do vetor de estado é ela própria canônica: armazenamento, defasagens AR,
+buckets de tempo de viagem da água em trânsito e slots das termelétricas com antecipação de despacho ocupam, cada um, um
+intervalo fixo, de modo que o vetor de coeficientes de um corte tem leiaute idêntico independentemente
+do número de processos ou da topologia de processos. Dentro de cada bloco, as entidades são dispostas na
+ordem total canônica $(\text{operational\_start\_date}, \text{id})$ —
+primeiro pela data de início operativo e, entre entidades com a mesma data, pelo id
+(único, de modo que a ordem é total). A ordem é invariante a renomeações: o `name` de uma
+entidade não tem papel nela, de modo que renomear uma entidade nunca altera o leiaute das
+colunas do PL, a ordenação dos coeficientes dos cortes nem a ordem das colunas de saída; renumerar o
+`id` de uma entidade, por outro lado, pode mover sua posição e, portanto, altera os
+três. Os in-transit buckets são ordenados por `(plant, lag)` — a usina
+receptora na mesma ordem canônica de entidades usada por todos os outros blocos de estado e, em seguida,
+a defasagem de maturação crescente —, de forma coerente com as ordenações dos blocos de armazenamento e de
+defasagens de afluência. Veja
+[Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling#1-estrutura-de-colunas-e-linhas)
+para o leiaute de colunas e linhas que essa construção produz.
+
+**Valores dos estados visitados canonizados nos limites.** O leiaute canônico é apenas metade
+do que torna um estado visitado reprodutível; seus valores também são fixados. O
+estado de saída que uma resolução da simulação forward registra não é o primal bruto do PL, e sim sua
+projeção sobre os limites admissíveis resolvidos — cada coordenada limitada
+(armazenamento, volume em trânsito, retenção de compromisso de termelétrica com antecipação) é truncada para dentro de
+seu intervalo, e as defasagens de afluência, não limitadas, passam inalteradas; a projeção
+é a identidade para um ótimo dentro da caixa. Como uma coordenada fixada em um limite pode
+terminar ligeiramente fora de seu intervalo em uma resolução degenerada ou com deriva
+numérica, essa projeção na leitura é o que torna o estado visitado $\hat{x}$ uma
+função do valor ótimo do estágio e de seus limites resolvidos — e não do
+vértice final nem de erros de arredondamento —, a mesma propriedade de que depende a leitura do corte a partir
+dos custos reduzidos. Ela é aplicada uma única vez, na leitura, e usada por todos os consumidores.
+Veja [Algoritmo da PDDE §3.1](/pt-br/math/sddp-algorithm#31-simulacao-forward) para a
+projeção descrita por completo.
+
+**Ordem de resolução fixada; ordem de conclusão irrelevante.** Duas ordens importam na
+simulação backward, e o Novo Modelo fixa cada uma por um motivo diferente. A primeira é a
+ordem em que as aberturas de um estado visitado são resolvidas. Como o mecanismo anterior
+estabeleceu, essa ordem fixa a cadeia de aproveitamento de base e, portanto, em um
+ótimo degenerado, qual base final — e, logo, qual dentre vários subgradientes igualmente
+válidos — cada resolução retorna; fixá-la é o que torna o corte resultante
+idêntico bit a bit entre execuções e topologias. Trata-se de uma permutação constante na execução
+e invariante ao processo, fixada de antemão apenas a partir da identidade das aberturas, de modo que
+não varia com a atribuição aos trabalhadores, o número de processos ou o número de threads. A segunda é a ordem em que
+os resultados por abertura são combinados. Aqui, o que se fixa é onde cada resultado
+é armazenado: os valores duais, o termo independente e o objetivo produzidos para a abertura $\omega$
+são armazenados sob a identidade canônica da própria $\omega$, nunca sob a posição em
+que a resolução por acaso ocorreu. A agregação lê esses resultados de volta na
+ordem canônica de $\omega$, combinando-os como a média ponderada pelas probabilidades
+definida em [Gerenciamento de cortes](/pt-br/math/cut-management) — como a
+adição em ponto flutuante não é associativa, o valor calculado de uma soma depende da
+ordem em que seus termos são somados, e é exatamente por isso que essa ordem é fixada na
+canônica, em vez de ficar sujeita à ordem de conclusão das resoluções. Separar as duas
+ordens é o que torna a ordem de conclusão irrelevante: qualquer que seja a abertura que termine
+primeiro, seu resultado é arquivado sob sua própria identidade e somado na sequência
+canônica.
+
+**Ordenação total nas comparações em ponto flutuante.** Em todos os caminhos de ordenação e seleção
+nos laços críticos das simulações forward e backward, o Novo Modelo compara valores em ponto flutuante
+usando uma ordenação total, e não a ordem parcial do IEEE 754. A ordem parcial do IEEE 754
+deixa indefinidas as comparações com NaN; uma ordenação total atribui uma
+posição determinística a todo valor representável, inclusive NaNs. Isso
+elimina a classe de não determinismo que surge quando uma aritmética que produz NaN
+interage com algoritmos de ordenação ou rotinas de seleção do máximo.
+
+**Contagens globais de amostras, e não por processo.** Toda decisão que dependa do
+número de cenários processados — como uma verificação de convergência ou um gatilho de
+seleção de cortes — é avaliada com base em uma contagem agregada globalmente, e não em uma contagem local ao
+processo que a chama. O mesmo limiar é, portanto, atingido na mesma iteração,
+independentemente de como os cenários são distribuídos entre os processos, garantindo que todos os processos
+cheguem às mesmas decisões algorítmicas ao mesmo tempo.
+
+**Reduções em ordem canônica.** Os limites e custos que combinam resultados
+de todos os processos são reduzidos em uma única ordem fixa. Os custos da simulação forward de todos os processos
+são reunidos em um único buffer, na ordem canônica dos cenários, e reduzidos ali: por
+soma compensada, para um limite exato sob a esperança; pela recursão aninhada da
+medida de risco sobre a árvore de cenários enumerada, para um limite exato sob
+uma medida avessa ao risco; e por média e variância em fluxo, para um limite amostrado.
+O limite inferior é avaliado em um único processo a partir das aberturas do primeiro estágio, em
+ordem canônica, e difundido; os custos da simulação são, da mesma forma, reunidos na
+ordem canônica dos cenários e reduzidos ali. Nenhuma dessas reduções, portanto,
+depende de como o trabalho é particionado. Veja
+[Aceleradores de desempenho — Modelo de execução paralela](/pt-br/running/performance/#modelo-de-execucao-paralela)
+para a partição entre processos e as operações coletivas.
+
+**Derivação determinística das sementes entre processos MPI.** Cada sorteio é produzido por um
+gerador de números pseudoaleatórios cuja semente é um valor derivado deterministicamente
+de uma semente-raiz e de uma tupla que identifica o sorteio. A tupla depende do
+método de amostragem e da simulação:
+
+- **Simulação forward dentro da amostra (in-sample):** (semente-base, iteração, cenário, estágio), em
+  todo método de amostragem; ela seleciona uma abertura.
+- **Árvore de aberturas, amostragem Monte Carlo:** (semente-base, índice da abertura, estágio).
+- **Árvore de aberturas, método em lote** (hipercubo latino ou quase-Monte Carlo): um método
+  em lote sorteia todas as aberturas de um estágio em conjunto, de modo que a tupla é (semente-base,
+  estágio).
+- **Simulação forward fora da amostra (out-of-sample):** uma semente forward, separada da semente-base,
+  com o estágio substituído pelo grupo de ruído do estágio. Na amostragem Monte Carlo,
+  a tupla é (semente forward, iteração, cenário, grupo de ruído); em um método
+  em lote, (semente forward, iteração, grupo de ruído) gera a semente do lote da iteração, e
+  o índice do cenário seleciona seu ponto.
+
+Como a derivação usa apenas
+constantes globalmente conhecidas e um hash determinístico idêntico, todo processo
+calcula de forma independente a mesma semente para qualquer tupla dada, sem comunicação.
+Não há condições de corrida na difusão, nem entropia por processo, nem dependência da
+ordem das mensagens MPI. Veja [Geração de cenários](/pt-br/math/scenario-generation) para
+a codificação da entrada do hash e o leiaute de bytes little-endian que garante
+a estabilidade entre plataformas.
+
+**Injeção da fronteira terminal invariante ao processo.** Quando um estudo importa sua
+função terminal de uma política de fronteira, o conjunto de cortes importado é conciliado
+com o estado terminal do próprio estudo **uma única vez** — a distribuição datada e ponderada por horas
+e a conciliação por família descritas em
+[Fronteira pós-estudo e estudos encadeados §4](/pt-br/math/post-study-boundary) — e o único resultado
+conciliado é injetado de forma idêntica no estágio terminal em **todos** os processos. Essa
+conciliação é uma função pura de entradas globalmente conhecidas: a política
+de origem importada, juntamente com o calendário de estágios e o leiaute de estado do próprio estudo atual —
+grandezas que todo processo já possui. Ela, portanto, não depende do número
+de processos, de como o trabalho é particionado nem de qual processo lê a política de origem.
+Todo processo injeta o mesmo conjunto de cortes terminais, de modo que a função terminal importada,
+e todo limite inferior e todo corte dela derivados, são idênticos entre topologias —
+a mesma invariância ao número de processos já estabelecida para os cortes gerados internamente,
+os estados visitados e os custos de simulação.
+
+**Seleção de cortes paralela independente de ordem.** A seleção de cortes Nível 1 (Level-1) atribui a cada
+estado visitado armazenado um único dono: o corte de maior valor naquele ponto, com um empate
+exato resolvido em favor do corte na menor posição do conjunto. Os estados visitados armazenados são
+particionados em blocos de tamanho fixo processados em paralelo, e o dono de cada ponto
+é calculado apenas a partir desse ponto e dos cortes, de modo que nenhum resultado depende de como os
+blocos são distribuídos entre as threads nem de quantas threads são executadas — uma
+execução com uma só thread e uma execução totalmente paralela produzem as mesmas desativações e
+reativações. Os valores são comparados exatamente, sem tolerância, e o
+índice determinístico da posição no conjunto de cortes fecha o ciclo: o desempate pela menor posição
+resolve para o mesmo corte em toda execução, porque cada corte ocupa a mesma posição
+em toda execução.
+
+A mesma disciplina se estende ao **método dinâmico**, que escolhe um
+subconjunto residente de cortes por resolução, em vez de desativar algum. O conjunto residente
+é inicializado a partir de metadados do conjunto de cortes sincronizados por posição (e não de registros de resolução por trabalhador),
+as pontuações de violação dos cortes omitidos vêm de um produto em lote determinístico bit a bit,
+e a ordem em que os cortes violados são acrescentados é fixada por uma ordenação total da
+magnitude da violação, com desempate pelo índice de posição crescente. O conjunto residente —
+e, portanto, o resultado da resolução — é, consequentemente, idêntico para quaisquer números de threads e de
+processos MPI. Veja [Gerenciamento de cortes](/pt-br/math/cut-management).
+
+**Ajuste paralelo de modelos estável em relação à ordem.** A fase de preparação do estudo ajusta em paralelo duas famílias
+de modelos por entidade: os coeficientes do modelo de afluências periódico autorregressivo (PAR(p)),
+ajustados de forma independente por usina, e os hiperplanos da FPHA calculada, ajustados
+de forma independente por usina e estágio. O paralelismo se dá sobre as entidades, e o resultado de cada
+trabalhador é remontado em sua posição canônica de entidade, de modo que os modelos ajustados
+são função apenas das entradas — independentemente de quantas threads são executadas
+ou de como as entidades são distribuídas. Duas disciplinas complementares mantêm os ajustes
+idênticos bit a bit: a etapa de envoltória convexa ordena sua nuvem de pontos de entrada e as facetas de saída em
+uma ordem canônica, de modo que os hiperplanos emitidos não dependem da ordenação dos pontos nem do
+número de processos MPI (veja [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models)); e
+a redução opcional de hiperplanos semelhantes sorteia suas amostras de um gerador
+cuja semente vem apenas da identidade estável da entidade/plano, nunca do relógio, da
+thread ou do processo. Um ajuste com uma só thread e um ajuste totalmente paralelo, portanto,
+produzem os mesmos modelos, byte a byte.
+
+## 4. Fora da abrangência
+
+**Tempo de relógio e pico de memória.** O Novo Modelo não faz afirmações sobre o tempo gasto
+nem sobre a memória consumida entre execuções, mesmo com entradas idênticas. Essas grandezas
+dependem da carga do hardware, do escalonamento do sistema operacional, do comportamento do alocador de memória e da
+implementação da biblioteca MPI — nada disso está sob o controle do Novo Modelo.
+
+**Carga do sistema.** Processos em segundo plano, redução térmica de frequência, posicionamento NUMA e
+outros efeitos do estado do sistema alteram os tempos, e não o resultado numérico de nenhuma
+iteração, e não são registrados. Sob um critério de parada por tempo de relógio
+([Critérios de parada §3](/pt-br/math/stopping-rules#3-limite-de-tempo)), o tempo decorrido decide
+a iteração em que o treinamento para, de modo que a carga do sistema e o número de threads podem
+alterar quantas iterações uma execução de processo único conclui; duas execuções desse tipo concordam
+iteração a iteração até a parada mais precoce. Sob esse critério, os processos
+de uma execução com vários processos concordam sobre um único tempo decorrido em cada fronteira de iteração, de modo que
+todos os processos param na mesma iteração, uma iteração que depende dos tempos;
+o número de iterações, e não o tempo decorrido, é o limite reprodutível de uma execução desse tipo.
+
+**Compilações diferentes.** Um binário compilado com outro compilador, outras flags de
+compilação, outro backend de PL, outro alvo ou a partir de outra release é outro
+binário, e a garantia não faz promessas entre binários; os artefatos de release de processo único
+`novomodelo` e `novomodelo-mpi` são duas compilações desse tipo. Também não se promete que execuções em modelos de
+processador diferentes sejam iguais, nem um job com vários nós cujos
+nós difiram no modelo de processador, pois as bibliotecas de sistema que um binário carrega podem
+selecionar caminhos de código conforme os recursos do processador. O produto de pontuação de cortes do próprio Novo Modelo não
+é um deles: toda compilação x86_64 de uma versão do Novo Modelo, tanto os artefatos de release quanto as
+compilações a partir do código-fonte, o compila em um único kernel de ponto flutuante sem
+instruções AVX2 ou FMA, de modo que essas compilações pontuam e selecionam cortes de forma idêntica. Uma
+compilação com recursos adicionais de alvo ou para uma CPU-alvo específica pode fundir
+multiplicações e adições nesse ponto, e uma compilação para outra arquitetura pode resolver outro
+kernel; qualquer delas pode selecionar cortes diferentes, igualmente válidos. O solver de PL embutido
+e o código de envoltória convexa são compilados sem multiplicação-adição fundida em todo alvo, de modo que um
+compilador cujo alvo padrão tenha FMA não altera nem as soluções de PL de uma compilação nem
+seus planos de produção ajustados.
+
+**Igualdade binária dos arquivos de saída entre plataformas.** Carimbos de data/hora, campos de
+versão de esquema e preenchimento do formato de arquivo podem diferir entre plataformas e versões de bibliotecas.
+A garantia abrange o conteúdo numérico das saídas, e não os bytes brutos dos
+arquivos de saída. A reobtenção independente do conteúdo numérico é o tema
+da seção 5.
+
+**Concordância entre valores calculados em ordens diferentes.** A identidade bit a bit é uma
+propriedade de cada valor informado entre reexecuções, números de processos e números de threads.
+Dois valores iguais em aritmética exata, mas calculados por fórmulas
+diferentes — um total formado pela multiplicação de uma soma por um fator e a soma das
+parcelas, cada uma multiplicada por esse fator — não precisam concordar até o último bit, porque
+a multiplicação em ponto flutuante não é exatamente distributiva em relação à adição. Eles
+podem diferir por uma quantidade da ordem do arredondamento, e cada um ainda é reproduzido
+de forma idêntica bit a bit em toda execução.
+
+**Reutilização da política entre versões do software.** Uma política armazenada só é carregada na
+versão do software que a gravou; portanto, a garantia abrange a reobtenção de uma política
+a partir de suas entradas registradas, e não a carga de uma política armazenada em outra versão (veja
+[Verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao)).
+
+## 5. Rastreabilidade
+
+O determinismo é a propriedade algorítmica; a rastreabilidade é o registro que
+o torna operacional. Uma garantia de que entradas idênticas produzem resultados idênticos
+é vazia se as entradas forem desconhecidas. Por isso, o Novo Modelo registra, a cada execução,
+metadados a partir dos quais qualquer pessoa que possua as entradas da execução pode obter novamente seu
+conteúdo numérico — os mesmos cortes, a mesma política e os mesmos custos
+de simulação — reexecutando-a dentro da abrangência das seções 1 e 4, sem o
+operador original nem qualquer outro contexto. O compromisso abrange o conteúdo numérico,
+e não os bytes dos arquivos. Os arquivos que contêm o registro são uma questão da camada de software.
+
+### 5.1 O que é registrado
+
+- **Rastreabilidade do modelo estocástico.** Qual fonte alimentou cada parte do modelo
+  de afluências — as estatísticas sazonais, os coeficientes autorregressivos, a
+  correlação e a árvore de aberturas — e, para um modelo ajustado, o
+  método de seleção de ordem e a maior ordem selecionada. Para saber como as entradas da
+  árvore de aberturas são geradas a partir dessas partes, veja
+  [Geração de cenários](/pt-br/math/scenario-generation).
+- **Linhagem das sementes aleatórias.** A semente-base: os metadados da execução a registram tal como o
+  estudo a configura, ou não registram nenhuma quando o estudo não configura nenhuma e a
+  execução usa um padrão fixo; uma política armazenada registra a semente-base em vigor.
+  Toda semente derivada decorre de uma semente-raiz — a semente-base ou a semente
+  separada de uma simulação forward fora da amostra — pela regra fixa de
+  [Geração de cenários](/pt-br/math/scenario-generation); a semente fora da amostra é
+  lida da configuração do estudo e não é registrada.
+- **Identificadores do solver e das bibliotecas.** O solver de PL e sua versão, a biblioteca
+  MPI de uma execução MPI e a versão do software. Uma versão diferente do solver
+  constitui uma compilação diferente, que pode terminar em bases ótimas diferentes e,
+  portanto, produzir cortes diferentes e igualmente válidos (seção 3); os identificadores
+  mostram se duas execuções usaram as mesmas versões do solver e do software.
+- **Topologia de execução.** O número de processos, as threads por processo e os hosts.
+  A seção 1 garante que os números de processos e de threads não alteram os
+  resultados numéricos de um binário; a topologia registrada permite a um auditor reexecutar
+  sob a topologia original e verificar essa afirmação.
+
+O Novo Modelo não registra nenhum hash dos arquivos de entrada; por isso, o diretório do caso de um estudo é guardado
+junto com suas saídas.
+
+### 5.2 O que isso possibilita
+
+**Reobtenção independente dos cortes e da política.** Um pesquisador, auditor ou
+colaborador que possua as entradas de uma execução e seus metadados registrados pode reproduzir
+todo coeficiente de corte e toda decisão da política sem qualquer comunicação com
+o operador original. A metodologia do Novo Modelo está aberta à verificação externa.
+
+**Trilha de auditoria para relatórios regulatórios ou científicos.** Estudos submetidos a
+órgãos reguladores ou citados na literatura científica precisam ser rastreáveis. Um auditor
+que receba os metadados registrados e o diretório do caso correspondente pode
+verificar que os resultados informados decorrem dessas entradas reexecutando o Novo Modelo
+e comparando as saídas. A auditoria não depende de confiança no operador.
+
+**Análise de diferenças entre execuções.** Quando duas execuções produzem saídas diferentes, comparar
+seus metadados registrados e seus diretórios de caso isola onde as execuções
+divergiram — nos dados do caso, na configuração, no modelo estocástico, na semente
+ou nas versões do solver e do software — e restringe a causa-raiz da
+diferença a um ou mais desses itens.
+
+## Implementação no Novo Modelo
+
+A metodologia acima define o que o Novo Modelo garante e o que toda execução registra;
+a aba abaixo lista os arquivos de saída e os nomes de campos que contêm esse registro.
+
+<Tabs>
+  <TabItem label="Entradas e saídas"><ProvenanceIO /></TabItem>
+</Tabs>
+
+## Referências cruzadas
+
+- [Geração de cenários](/pt-br/math/scenario-generation) — Derivação determinística das sementes
+  para a árvore de aberturas e a simulação forward; a propriedade de árvore idêntica bit a bit enunciada
+  na seção 2.3, que este capítulo formaliza
+- [Gerenciamento de cortes](/pt-br/math/cut-management) — Monotonicidade dos cortes, que só são acrescentados; a
+  ordem dos cortes é determinística entre iterações e é pré-condição para a
+  garantia de sequência de limites inferiores idêntica bit a bit
+- [Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling) — Determinismo na construção
+  do PL; a ordenação de colunas e linhas que o leiaute canônico dos blocos de estado
+  preserva
+- [Aproveitamento de base do PL](/pt-br/math/lp-warm-start) — O armazenamento de bases cuja ordem de cadeia o §3
+  fixa

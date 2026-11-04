@@ -1,0 +1,70 @@
+O Novo Modelo lê a medida de risco de cada estágio no campo `risk_measure` da
+entrada do estágio em `stages.json`. Esta aba é a referência de configuração
+em nível de campo; a medida que ela seleciona, $\rho^{\lambda,\alpha}$, é definida em
+[§3 Medida de risco por combinação convexa](/pt-br/math/risk-measures#3-medida-de-risco-por-combinacao-convexa);
+os pesos que o Novo Modelo aplica às aberturas estão descritos na aba Notas de
+implementação. A referência completa do arquivo é
+[`stages.json`](/pt-br/reference/case-format/stages/#stagesjson).
+
+### `stages[].risk_measure` — Medida de risco
+
+| Valor                                 | Significado                                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `"expectation"`                       | Neutro ao risco: cada abertura é ponderada por sua probabilidade. É o valor assumido quando `risk_measure` está ausente; qualquer outra string é rejeitada na carga. |
+| `{"cvar": {"alpha": α, "lambda": λ}}` | A combinação convexa do valor esperado e do CVaR com fração de cauda `alpha`, com peso `lambda` no CVaR e `1 - lambda` no valor esperado.              |
+
+O objeto `cvar` recebe as duas chaves abaixo, ambas obrigatórias; um objeto sem
+alguma delas gera um [`ParseError`](/pt-br/reference/error-codes/#parseerror).
+
+| Campo    | Tipo   | Faixa    | Descrição                                                                                               |
+| -------- | ------ | -------- | ------------------------------------------------------------------------------------------------------- |
+| `alpha`  | number | `(0, 1]` | A fração de cauda do CVaR: a fração `alpha` dos piores resultados entra no CVaR. `1` corresponde ao valor esperado: todas as aberturas passam a contar na cauda. |
+| `lambda` | number | `[0, 1]` | O peso do termo de CVaR: `0` corresponde ao valor esperado e `1` ao CVaR puro.                          |
+
+As duas faixas são verificadas na carga: um valor fora da faixa gera um
+[`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation) em `stages.json`.
+
+:::caution[Convenção da fração de cauda]
+`alpha` é a **fração de cauda**: a fração `alpha` dos piores resultados entra
+no CVaR. Assim, `0.95` calcula a média dos 95% piores resultados e é quase
+neutro ao risco; os 5% piores correspondem a `0.05`. Uma ferramenta que recebe um
+parâmetro de nível de confiança `c` corresponde a `alpha = 1 - c`.
+:::
+
+### Exemplo
+
+A medida pode variar de um estágio para outro. Este trecho de `stages.json` reduz
+`lambda` do primeiro para o segundo estágio e atribui ao terceiro estágio o
+valor esperado:
+
+```json
+{
+  "stages": [
+    {
+      "id": 0,
+      "risk_measure": { "cvar": { "alpha": 0.5, "lambda": 0.5 } }
+    },
+    {
+      "id": 1,
+      "risk_measure": { "cvar": { "alpha": 0.5, "lambda": 0.25 } }
+    },
+    {
+      "id": 2,
+      "risk_measure": "expectation"
+    }
+  ]
+}
+```
+
+### Medida efetiva e associação aos estágios
+
+`lambda: 0` pondera cada abertura por sua probabilidade, como `"expectation"`,
+qualquer que seja o `alpha`, e é tratado como `"expectation"` pela regra do gap. A regra
+do gap exige uma única medida efetiva em todos os estágios
+([Gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade)).
+
+O `risk_measure` de um estágio pondera as aberturas do estágio seguinte nos cortes
+que esse estágio armazena, e o `risk_measure` do primeiro estágio também pondera as
+aberturas do próprio primeiro estágio no limite inferior. O `risk_measure` do último
+estágio do estudo não entra em nenhum corte, mas é considerado quando a regra do gap
+verifica se a medida é a mesma em todos os estágios.

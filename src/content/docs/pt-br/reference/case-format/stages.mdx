@@ -1,0 +1,287 @@
+---
+title: "Arquivos de estágios"
+description: O eixo temporal de um caso, campo a campo — stages.json, com seu grafo da política, estágios, patamares e períodos sazonais, e o calendário opcional pós-horizonte post_study_stages.json.
+---
+
+Um caso do Novo Modelo descreve seu eixo temporal em dois arquivos na raiz do caso. `stages.json` é obrigatório: contém o
+grafo da política (policy graph), os estágios do estudo com seus patamares de carga, o mapa opcional de períodos sazonais e os estágios pré-estudo opcionais.
+`post_study_stages.json` é opcional: contém o calendário e os limites de custo e de entrega por térmica para compromissos de despacho
+decididos dentro do estudo e entregues após o horizonte. O [Resumo dos arquivos](/pt-br/reference/case-format/#resumo-dos-arquivos)
+associa cada arquivo do caso à sua página, e [Convenções](/pt-br/reference/case-format/#convencoes) apresenta as regras comuns a todos eles.
+
+---
+
+## `stages.json`
+
+**Metodologia:** [Grafos da política](/pt-br/math/policy-graphs/) · [Variantes de formulação dos patamares](/pt-br/math/block-formulations/) · [Formulação da taxa de desconto](/pt-br/math/discount-rate/)
+
+Define a estrutura temporal do estudo: sequência de estágios, decomposição em patamares
+e tipo de horizonte do grafo da política.
+
+**Campos de nível superior:**
+
+| Nome                 | Tipo           | Obrigatório | Padrão | Unidades | Descrição                                                                                                               |
+| -------------------- | -------------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------- |
+| `policy_graph`       | object         | Sim      | —       | —     | Tipo de horizonte, taxa de desconto anual e transições/nós entre estágios (veja abaixo)                                   |
+| `stages`             | array          | Sim      | —       | —     | Array com as definições dos estágios do estudo                                                                            |
+| `season_definitions` | object \| null | Não      | —       | —     | Rotulagem de períodos sazonais para alinhamento com o modelo sazonal                                                               |
+| `pre_study_stages`   | array          | Não      | —       | —     | Estágios pré-estudo para aquecimento (warm-up) do modelo AR (IDs negativos)                                               |
+
+**Subobjeto `policy_graph`:**
+
+| Nome                                | Tipo   | Obrigatório | Padrão | Unidades | Descrição                                                                                                                                |
+| ----------------------------------- | ------ | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `policy_graph.type`                 | string | Sim      | —       | —     | Um entre `"finite_horizon"`, `"cyclic"`. Tipo de horizonte. Apenas `"finite_horizon"` é suportado; `"cyclic"` é **reservado** e rejeitado na carga |
+| `policy_graph.annual_discount_rate` | number | Sim      | —       | —     | Taxa de desconto anual global (>= 0.0)                                                                                                     |
+| `policy_graph.nodes`                | array  | Não      | —       | —     | Nós do grafo da política (veja abaixo). Ausente ⇒ o grafo é uma cadeia de estágios e as extremidades de `transitions[]` são lidas diretamente como ids de estágio |
+| `policy_graph.transitions`          | array  | Não      | —       | —     | Transições entre estágios (veja abaixo). Padrão: array vazio                                                                                |
+
+**Campos das entradas de `policy_graph.nodes[]`:**
+
+| Nome                               | Tipo            | Obrigatório | Padrão | Unidades | Descrição                                                                                                                                                                                                                                                                 |
+| ---------------------------------- | --------------- | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `policy_graph.nodes[].id`          | integer         | Sim      | —       | —     | Id único do nó, referenciado pelas extremidades de `transitions[]` quando `nodes[]` é declarado                                                                                                                                                                             |
+| `policy_graph.nodes[].stage_id`    | integer         | Sim      | —       | —     | Id declarado do estágio do estudo em que este nó se situa; resolvido em relação aos estágios do estudo, nunca um índice de array                                                                                                                                              |
+| `policy_graph.nodes[].scenario_id` | integer \| null | Não      | `null`  | —     | Coluna de realização, por estágio, da biblioteca externa associada a este nó. Obrigatório em um estágio com uma classe externa que ocupa posição, omitido onde não houver. `scenario_id: k` equivale exatamente ao conjunto degenerado de aberturas ponderadas com um elemento `[{ "scenario_id": k, "probability": 1.0 }]` |
+| `policy_graph.nodes[].label`       | string \| null  | Não      | `null`  | —     | Rótulo opcional legível                                                                                                                                                                                                                                                      |
+
+**Campos das entradas de `policy_graph.transitions[]`:**
+
+| Nome                                                       | Tipo           | Obrigatório | Padrão | Unidades | Descrição                                                                                                                                                                                                                                         |
+| ---------------------------------------------------------- | -------------- | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `policy_graph.transitions[].source_id`                     | integer        | Sim      | —       | —     | Extremidade de origem: um id de nó quando `policy_graph.nodes[]` não é vazio; caso contrário, um id de estágio                                                                                                                                       |
+| `policy_graph.transitions[].target_id`                     | integer        | Sim      | —       | —     | Extremidade de destino: um id de nó quando `policy_graph.nodes[]` não é vazio; caso contrário, um id de estágio                                                                                                                                      |
+| `policy_graph.transitions[].probability`                   | number         | Sim      | —       | —     | Probabilidade de transição; as probabilidades de saída de uma origem devem somar `1` com tolerância de `1e-6` (uma soma mais distante é rejeitada), e o carregador então as reescala para que somem `1`                                               |
+| `policy_graph.transitions[].annual_discount_rate_override` | number \| null | Não      | `null`  | —     | Somente no dialeto de cadeia de estágios (sem `policy_graph.nodes[]`): incorporado ao estágio de origem da transição, e o `annual_discount_rate_override` do próprio estágio prevalece quando ambos são definidos; rejeitado sob `policy_graph.nodes[]` — declare a taxa no estágio. |
+
+:::caution[Não há `scenario_source` de nível superior em `stages.json`]
+A amostragem de cenários é configurada por simulação em `config.json` —
+[`training.scenario_source`](/pt-br/running/configuration/#trainingscenario_source) para a simulação forward do treinamento (training) e
+[`simulation.scenario_source`](/pt-br/running/configuration/#simulationscenario_source) para a simulação final após o treinamento. Uma chave `scenario_source` de nível superior em
+`stages.json` com valor diferente de `null` é rejeitada na carga (`novomodelo validate`
+reporta um erro `[SchemaViolation]` no campo `scenario_source`; veja
+[Códigos de erro](/pt-br/reference/error-codes/#schemaviolation)).
+:::
+
+**Campos das entradas de `stages[]`:**
+
+| Nome                                     | Tipo             | Obrigatório | Padrão      | Unidades | Descrição                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------- | ---------------- | ----------- | ------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stages[].id`                            | integer          | Sim         | —            | —     | Identificador do estágio (inteiro não negativo, único). Um id negativo não é rejeitado; o estágio é lido como estágio pré-estudo, e não como estágio do estudo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `stages[].start_date`                    | string           | Sim         | —            | —     | Data ISO 8601 (ex.: `"2024-01-01"`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `stages[].end_date`                      | string           | Sim         | —            | —     | Data ISO 8601; deve ser posterior a `start_date`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `stages[].blocks`                        | array            | Sim         | —            | —     | Array de patamares de carga (`id`, `name`, `hours`): não vazio, ids de patamar `0..n-1` (cada um uma vez, em qualquer ordem), todo `hours` finito e `> 0`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `stages[].blocks[].id`                   | integer          | Sim         | —            | —     | Índice do patamar no estágio; os ids de um estágio são `0..n-1`, cada um uma vez, em qualquer ordem.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `stages[].blocks[].name`                 | string           | Sim         | —            | —     | Rótulo legível do patamar.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `stages[].blocks[].hours`                | number           | Sim         | —            | h     | Duração do patamar em horas; deve ser `> 0`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `stages[].num_openings`                  | integer \| null  | Condicional | `null`       | —     | Número de aberturas dentro do nó para este estágio (>= 1); obrigatório no dialeto simples de cadeia de estágios (sem `policy_graph.nodes[]`) e em um estágio com aberturas geradas sob `nodes[]`; rejeitado em um estágio que tenha apenas aberturas externas; em um estágio de um grupo de ruído, no máximo o número de aberturas do primeiro estágio do grupo ([Número de aberturas do grupo de ruído](/pt-br/reference/error-codes/#numero-de-aberturas-do-grupo-de-ruido))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `stages[].season_id`                     | integer \| null  | Não         | `null`       | —     | Referência a um período sazonal em `season_definitions`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `stages[].block_mode`                    | string           | Não         | `"parallel"` | —     | Um entre `"parallel"`, `"chronological"`. Modo de execução dos patamares: `"parallel"` (padrão) ou `"chronological"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `stages[].state_variables`               | object \| null   | Não         | —            | —     | Projeção dos cortes deste estágio. Para seus campos e valor padrão, veja [`stages[].state_variables` — Projeção dos Cortes](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `stages[].state_variables.storage`       | boolean          | Não         | `true`       | —     | Indicador de armazenamento da projeção dos cortes do estágio. Veja [`stages[].state_variables` — Projeção dos Cortes](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `stages[].state_variables.inflow_lags`   | boolean          | Não         | `false`      | —     | Indicador de defasagens de afluência da projeção dos cortes do estágio. Veja [`stages[].state_variables` — Projeção dos Cortes](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `stages[].risk_measure`                  | string \| object | Não         | —            | —     | Medida de risco por estágio: `"expectation"` (o padrão) ou `{"cvar": {"alpha": …, "lambda": …}}` com `alpha` em `(0, 1]` (a fração da cauda) e `lambda` em `[0, 1]`; valores fora desses intervalos são rejeitados; veja [Medidas de risco](/pt-br/math/risk-measures#implementacao-no-novo-modelo)                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `stages[].risk_measure.cvar`             | object           | Condicional | —            | —     | Parâmetros do `CVaR`, contendo `alpha` e `lambda`; obrigatório quando `stages[].risk_measure` é um objeto.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `stages[].risk_measure.cvar.alpha`       | number           | Sim         | —            | —     | Fração da cauda, em `(0, 1]`; um valor fora do intervalo é rejeitado.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `stages[].risk_measure.cvar.lambda`      | number           | Sim         | —            | —     | Peso de aversão ao risco, em `[0, 1]`; um valor fora do intervalo é rejeitado.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `stages[].sampling_method`               | string           | Não         | `"saa"`      | —     | Um entre `"saa"`, `"lhs"`, `"qmc_sobol"`, `"qmc_halton"`, `"selective"`, `"historical_residuals"`. Método de geração de ruídos do estágio: `"saa"` (padrão), `"lhs"`, `"qmc_sobol"`, `"qmc_halton"`, `"selective"` ou `"historical_residuals"`. `"selective"` exige uma árvore de aberturas fornecida (`training.scenario_source.openings` `{"source": "file"}`, `scenarios/noise_openings.parquet`); `"historical_residuals"` exige `scenarios/inflow_history.parquet` e um `season_id` em todo estágio do estudo quando a árvore de aberturas é gerada. Para uma classe em `out_of_sample`, `"selective"` e `"historical_residuals"` sorteiam ruído Monte Carlo simples na simulação forward, com um aviso. Veja [Geração de cenários](/pt-br/math/scenario-generation/#23a-metodo-de-amostragem-e-geracao-da-arvore-de-aberturas) |
+| `stages[].annual_discount_rate_override` | number \| null   | Não         | `null`       | —     | Taxa de desconto anual própria do estágio; se ausente, usa `policy_graph.annual_discount_rate`. Veja [Formulação da taxa de desconto](/pt-br/math/discount-rate#implementacao-no-novo-modelo).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+**Campos das entradas de `pre_study_stages[]`:**
+
+| Nome                            | Tipo            | Obrigatório | Padrão | Unidades | Descrição                                                                                                                                                                  |
+| ------------------------------- | --------------- | -------- | ------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre_study_stages[].id`         | integer         | Sim      | —       | —     | Id de estágio negativo; único e distinto de todos os ids de estágio do estudo. Um id não negativo é lido como estágio do estudo, e a carga falha porque esse estágio não declara patamares. |
+| `pre_study_stages[].start_date` | string          | Sim      | —       | —     | Data ISO 8601 (`YYYY-MM-DD`).                                                                                                                                                |
+| `pre_study_stages[].end_date`   | string          | Sim      | —       | —     | Data ISO 8601, posterior a `start_date`.                                                                                                                                           |
+| `pre_study_stages[].season_id`  | integer \| null | Não      | `null`  | —     | Um período sazonal de `season_definitions`, adotado conforme declarado (nunca derivada das datas).                                                                                          |
+
+Os estágios pré-estudo são períodos datados anteriores ao primeiro estágio do estudo, usados pelo modelo autorregressivo (AR) de afluências
+para suas defasagens. Os estágios pré-estudo não têm patamares e nunca são resolvidos.
+
+**Subobjeto `season_definitions`:**
+
+O objeto opcional `season_definitions` associa IDs de período sazonal a períodos do calendário para o modelo PAR;
+ele associa os valores de `season_id` dos estágios aos parâmetros do PAR.
+Quando ausente, não há mapa de períodos sazonais, de modo que um estágio sem `season_id` não tem período sazonal. Quando presente
+como mapa de resolução única, um estágio sem `season_id` assume o período sazonal de sua data de início; um
+mapa de múltiplas resoluções (um mapa `custom` cujos períodos sazonais de resoluções diferentes se sobrepõem; períodos sazonais cujas durações diferem em no máximo 7 dias formam uma resolução, e dois períodos sazonais de uma mesma resolução não podem compartilhar um dia do calendário) exige `season_id` em todos os estágios.
+A estimação a partir de `inflow_history.parquet` exige `season_definitions`, e um estudo cuja classe
+de afluências usa o esquema `historical`, ou que gera sua árvore de aberturas para um estágio `historical_residuals`, exige um período sazonal
+em todos os estágios do estudo.
+
+| Nome                            | Tipo   | Obrigatório | Padrão | Unidades | Descrição                                 |
+| ------------------------------- | ------ | -------- | ------- | ----- | ------------------------------------------- |
+| `season_definitions.cycle_type` | string | Sim      | —       | —     | Um entre `"monthly"`, `"weekly"`, `"custom"`. |
+| `season_definitions.seasons`    | array  | Sim      | —       | —     | Array de entradas de período sazonal (veja abaixo)  |
+
+**Campos das entradas de `season_definitions.seasons[]`:**
+
+| Nome                                       | Tipo            | Obrigatório | Padrão | Unidades | Descrição                                                                                                                    |
+| ------------------------------------------ | --------------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `season_definitions.seasons[].id`          | integer         | Sim      | —       | —     | Identificador do período sazonal (inteiro com base 0, único no mapa de períodos sazonais)                                                       |
+| `season_definitions.seasons[].label`       | string          | Sim      | —       | —     | Rótulo legível (ex.: `"January"`, `"Q1"`, `"Wet Season"`)                                                                      |
+| `season_definitions.seasons[].month_start` | integer         | Sim      | —       | —     | Mês do calendário em que o período sazonal começa (1–12)                                                                                |
+| `season_definitions.seasons[].day_start`   | integer \| null | Não      | `null`  | —     | Dia do calendário em que o período sazonal começa (1–31). Lido apenas no tipo de ciclo `custom`; um valor omitido é lido como `1`.       |
+| `season_definitions.seasons[].month_end`   | integer \| null | Não      | `null`  | —     | Mês do calendário em que o período sazonal termina (1–12). Lido apenas no tipo de ciclo `custom`; um valor omitido é lido como `month_start`. |
+| `season_definitions.seasons[].day_end`     | integer \| null | Não      | `null`  | —     | Dia do calendário em que o período sazonal termina, inclusive (1–31). Lido apenas no tipo de ciclo `custom`; um valor omitido é lido como `31`. |
+
+**Tipos de ciclo:**
+
+- `"monthly"` — os períodos sazonais correspondem aos meses do calendário (12 períodos sazonais); o `month_start` de cada entrada indica seu mês (1 = janeiro, ..., 12 = dezembro), independentemente de seu `id`.
+  Apenas `id`, `label` e `month_start` são necessários em cada entrada.
+- `"weekly"` — os períodos sazonais correspondem às semanas ISO do calendário (52 períodos sazonais). Apenas `id`, `label`
+  e `month_start` são necessários em cada entrada.
+- `"custom"` — intervalos de datas definidos pelo usuário, com `month_start`/`day_start`/`month_end`/`day_end` explícitos.
+  Os campos de limite `day_start`, `month_end` e `day_end` são lidos apenas neste tipo de ciclo; quando omitidos, são lidos como `1`, `month_start` e `31`, respectivamente. Use este tipo de ciclo em estudos com resoluções mistas,
+  em que alguns estágios são mensais (IDs 0–11) e outros trimestrais (IDs 12–15).
+
+**Exemplo — Tipo de ciclo personalizado com períodos sazonais mensais e trimestrais:**
+
+```json
+{
+  "season_definitions": {
+    "cycle_type": "custom",
+    "seasons": [
+      {
+        "id": 0,
+        "label": "January",
+        "month_start": 1,
+        "day_start": 1,
+        "month_end": 1,
+        "day_end": 31
+      },
+      {
+        "id": 1,
+        "label": "February",
+        "month_start": 2,
+        "day_start": 1,
+        "month_end": 2,
+        "day_end": 29
+      },
+      {
+        "id": 11,
+        "label": "December",
+        "month_start": 12,
+        "day_start": 1,
+        "month_end": 12,
+        "day_end": 31
+      },
+      {
+        "id": 12,
+        "label": "Q1",
+        "month_start": 1,
+        "day_start": 1,
+        "month_end": 3,
+        "day_end": 31
+      },
+      {
+        "id": 13,
+        "label": "Q2",
+        "month_start": 4,
+        "day_start": 1,
+        "month_end": 6,
+        "day_end": 30
+      },
+      {
+        "id": 14,
+        "label": "Q3",
+        "month_start": 7,
+        "day_start": 1,
+        "month_end": 9,
+        "day_end": 30
+      },
+      {
+        "id": 15,
+        "label": "Q4",
+        "month_start": 10,
+        "day_start": 1,
+        "month_end": 12,
+        "day_end": 31
+      }
+    ]
+  }
+}
+```
+
+Neste exemplo, os períodos sazonais 0–11 cobrem os modelos PAR mensais da fase de curto prazo e os períodos sazonais 12–15
+cobrem os modelos PAR trimestrais da fase de longo prazo. Cada estágio mensal recebe um `season_id` entre 0 e 11;
+cada estágio trimestral recebe um `season_id` entre 12 e 15. Estágios que compartilham um `season_id` devem ter
+durações que difiram em no máximo 7 dias entre si; por isso, estágios mensais e trimestrais usam valores distintos de `season_id`.
+
+---
+
+## `post_study_stages.json`
+
+**Metodologia:** [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary/)
+
+O calendário da fronteira pós-estudo: uma sequência de estágios posteriores ao horizonte, mais uma
+tabela de custo e de limites de entrega por `(thermal, post-study stage)`. Sua
+tabela `thermal_bounds[]` é o **único meio** de declarar o limite e o
+custo de um compromisso de despacho que uma térmica com antecipação de despacho decide **dentro do estudo**, mas entrega
+após o horizonte (sua coluna de decisão é cobrada ao custo da célula,
+descontado até o estágio de decisão, e a fronteira carregada valora o compromisso
+que ela contém). É opcional
+e sem efeito quando ausente; é **obrigatório** sempre que a antecedência de alguma térmica com antecipação de despacho alcança
+um estágio pós-estudo — a falta de uma célula para um estágio alcançado é rejeitada na carga,
+com indicação da usina e do índice do estágio pós-estudo. Veja
+[Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) para a formulação da fronteira
+alimentada por este arquivo.
+
+**`stages[]`** — o calendário pós-horizonte:
+
+| Nome                      | Tipo   | Obrigatório | Padrão | Unidades | Descrição                                                                                                           |
+| ------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `stages[].start_date`     | string | Sim      | —       | —     | Data de início do estágio (inclusive), ISO 8601 YYYY-MM-DD                                                            |
+| `stages[].duration_hours` | number | Sim      | —       | h     | Duração do estágio em horas; finita e `> 0.0`. `end_date` é derivada de `start_date + duration_hours`, nunca declarada |
+
+Os estágios são **contíguos em datas** (o `end_date` implícito de cada estágio é igual ao
+`start_date` do estágio seguinte) e o **primeiro `start_date` deve ser igual ao fim do horizonte
+do estudo** — a data imediatamente posterior ao último estágio do estudo. Os estágios
+pós-estudo **servem apenas como fronteira**: nunca são despachados, nunca são estágios do estudo
+e nunca contêm cortes de Benders — existem unicamente para dar a uma entrega posterior ao horizonte
+uma posição no calendário em relação à qual ela é valorada. Dois estágios não podem compartilhar o mesmo
+`start_date`. Os estágios pós-estudo não declaram taxa de desconto: o desconto acumulado
+continua sobre eles à taxa `policy_graph.annual_discount_rate`.
+
+**`thermal_bounds[]`** — custo e capacidade de entrega por `(thermal, post-study stage)`:
+
+| Nome                                      | Tipo    | Obrigatório | Padrão | Unidades   | Descrição                                                                       |
+| ----------------------------------------- | ------- | -------- | ------- | ------- | --------------------------------------------------------------------------------- |
+| `thermal_bounds[].thermal_id`             | integer | Sim      | —       | —       | Identificador da usina termelétrica; deve referenciar uma térmica que declare `anticipated_config` |
+| `thermal_bounds[].post_study_stage_index` | integer | Sim      | —       | —       | Índice, com base zero, em `stages[]`; deve ser `< stages.len()`                    |
+| `thermal_bounds[].cost_per_mwh`           | number  | Sim      | —       | R\$/MWh | Custo de combustível (`USD/MWh`) nesta célula; finito                               |
+| `thermal_bounds[].min_mw`                 | number  | Sim      | —       | MW      | Limite inferior da potência entregue (MW) nesta célula; finito                      |
+| `thermal_bounds[].max_mw`                 | number  | Sim      | —       | MW      | Limite superior da potência entregue (MW) nesta célula; finito, `>= min_mw`         |
+
+Duas linhas não podem compartilhar o mesmo par `(thermal_id, post_study_stage_index)`. Todo
+estágio pós-estudo alcançado pela antecedência de uma térmica com antecipação de despacho deve ter uma linha
+`thermal_bounds` correspondente: o compromisso entregue é limitado pelo intervalo
+`[min_mw, max_mw]` dessa célula e cobrado ao seu `cost_per_mwh` na coluna de decisão,
+descontado do estágio pós-estudo até o estágio de decisão.
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/post_study_stages.schema.json",
+  "stages": [
+    { "start_date": "2026-11-01", "duration_hours": 720.0 },
+    { "start_date": "2026-12-01", "duration_hours": 744.0 }
+  ],
+  "thermal_bounds": [
+    {
+      "thermal_id": 86,
+      "post_study_stage_index": 0,
+      "cost_per_mwh": 210.0,
+      "min_mw": 0.0,
+      "max_mw": 350.0
+    },
+    {
+      "thermal_id": 86,
+      "post_study_stage_index": 1,
+      "cost_per_mwh": 220.0,
+      "min_mw": 0.0,
+      "max_mw": 300.0
+    }
+  ]
+}
+```
