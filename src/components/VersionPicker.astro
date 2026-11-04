@@ -8,26 +8,28 @@ const norm = (b: string): string => (b.endsWith("/") ? b : b + "/");
 const current = norm(import.meta.env.BASE_URL);
 const all = [versions.latest, ...versions.versions];
 const currentEntry = all.find((v) => norm(v.base) === current) ?? all[0];
+const pt = (Astro.currentLocale ?? "en").toLowerCase().startsWith("pt");
+const shown = pt ? [currentEntry] : all;
 ---
 
-<label class="version-picker" title="Documentation version">
-  <span class="version-picker__label">Version: {currentEntry.label}</span>
+<label class="version-picker" title={pt ? "Versão da documentação" : "Documentation version"}>
+  <span class="version-picker__label">{pt ? "Versão" : "Version"}: {currentEntry.label}</span>
   {
     currentEntry.novomodelo && (
       <span
         class="version-picker__novomodelo"
-        title="novomodelo release these pages describe"
+        title={pt ? "versão do Novo Modelo descrita nestas páginas" : "novomodelo release these pages describe"}
       >
-        documents novomodelo {currentEntry.novomodelo}
+        {pt ? "documenta o Novo Modelo" : "documents novomodelo"} {currentEntry.novomodelo}
       </span>
     )
   }
   <select
     class="version-picker__select"
-    aria-label="Select documentation version"
+    aria-label={pt ? "Selecionar versão da documentação" : "Select documentation version"}
   >
     {
-      all.map((v) => (
+      shown.map((v) => (
         <option value={v.base} selected={norm(v.base) === current}>
           {v.label}
         </option>

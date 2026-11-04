@@ -1,0 +1,84 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'Uma soma ponderada de grandezas do modelo deve respeitar os limites que você define',
+  axis: 'soma ponderada das grandezas (por estágio e patamar)',
+  floor: 'piso', cap: 'teto', ok: 'valores permitidos',
+  slack: 'folga penalizada', slackNote: 'custo cresce com a violação',
+  forms: 'A forma decorre de quais limites estão presentes',
+  f1: 'piso', f1s: 'só limite inferior',
+  f2: 'teto', f2s: 'só limite superior',
+  f3: 'igualdade', f3s: 'limites idênticos',
+  f4: 'faixa', f4s: 'dois limites diferentes',
+  aria: 'Eixo horizontal com a soma ponderada de grandezas do modelo. Entre um piso e um teto, uma faixa sombreada indica os valores permitidos. À esquerda do piso e à direita do teto, regiões tracejadas indicam a folga penalizada, cujo custo cresce com a violação. Abaixo, quatro formas possíveis: piso, teto, igualdade e faixa.',
+  cap_: 'Figura: uma restrição genérica e sua folga penalizada opcional. Ilustração esquemática, sem escala.',
+} : {
+  title: 'A weighted sum of model quantities must respect the limits you define',
+  axis: 'weighted sum of quantities (per stage and block)',
+  floor: 'floor', cap: 'cap', ok: 'allowed values',
+  slack: 'penalized slack', slackNote: 'cost grows with the violation',
+  forms: 'The shape follows from which limits are present',
+  f1: 'floor', f1s: 'lower limit only',
+  f2: 'cap', f2s: 'upper limit only',
+  f3: 'equality', f3s: 'identical limits',
+  f4: 'band', f4s: 'two different limits',
+  aria: 'Horizontal axis with the weighted sum of model quantities. Between a floor and a cap, a shaded band marks the allowed values. To the left of the floor and to the right of the cap, dashed regions mark the penalized slack, whose cost grows with the violation. Below, four possible shapes: floor, cap, equality and band.',
+  cap_: 'Figure: a generic constraint and its optional penalized slack. Schematic illustration, not to scale.',
+};
+---
+<figure class="entity-illustration entity-rules">
+  <svg viewBox="0 0 760 360" role="img" aria-label={T.aria}>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-rules-fg)">{T.title}</text>
+
+    <rect x="120" y="70" width="140" height="60" fill="var(--ent-rules-bg)" stroke="var(--ent-rules)" stroke-width="2" stroke-dasharray="6 4" />
+    <polygon points="120,130 260,130 260,70" fill="var(--ent-rules)" fill-opacity="0.35" />
+    <rect x="500" y="70" width="140" height="60" fill="var(--ent-rules-bg)" stroke="var(--ent-rules)" stroke-width="2" stroke-dasharray="6 4" />
+    <polygon points="500,130 500,70 640,130" fill="var(--ent-rules)" fill-opacity="0.35" />
+    <text x="190" y="62" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ent-rules-fg)">{T.slack}</text>
+    <text x="570" y="62" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ent-rules-fg)">{T.slack}</text>
+    <text x="190" y="150" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.slackNote}</text>
+    <text x="570" y="150" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.slackNote}</text>
+
+    <rect x="260" y="70" width="240" height="60" fill="var(--ent-rules)" fill-opacity="0.45" />
+    <text x="380" y="106" text-anchor="middle" font-size="14" font-weight="600">{T.ok}</text>
+    <line x1="260" y1="60" x2="260" y2="140" stroke="var(--ent-rules)" stroke-width="3" />
+    <line x1="500" y1="60" x2="500" y2="140" stroke="var(--ent-rules)" stroke-width="3" />
+    <text x="260" y="168" text-anchor="middle" font-size="13" font-weight="600">{T.floor}</text>
+    <text x="500" y="168" text-anchor="middle" font-size="13" font-weight="600">{T.cap}</text>
+
+    <line x1="100" y1="132" x2="660" y2="132" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <polygon points="660,127 670,132 660,137" fill="var(--sl-color-gray-3)" />
+    <text x="380" y="190" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.axis}</text>
+
+    <text x="20" y="226" font-size="14" font-weight="600" style="fill: var(--ent-rules-fg)">{T.forms}</text>
+
+    <!-- floor -->
+    <line x1="20" y1="276" x2="170" y2="276" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <rect x="80" y="258" width="90" height="18" fill="var(--ent-rules)" fill-opacity="0.45" />
+    <line x1="80" y1="250" x2="80" y2="284" stroke="var(--ent-rules)" stroke-width="3" />
+    <text x="95" y="312" text-anchor="middle" font-size="13" font-weight="600">{T.f1}</text>
+    <text x="95" y="330" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.f1s}</text>
+    <!-- cap -->
+    <line x1="210" y1="276" x2="360" y2="276" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <rect x="210" y="258" width="90" height="18" fill="var(--ent-rules)" fill-opacity="0.45" />
+    <line x1="300" y1="250" x2="300" y2="284" stroke="var(--ent-rules)" stroke-width="3" />
+    <text x="285" y="312" text-anchor="middle" font-size="13" font-weight="600">{T.f2}</text>
+    <text x="285" y="330" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.f2s}</text>
+    <!-- equality -->
+    <line x1="400" y1="276" x2="550" y2="276" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <line x1="475" y1="250" x2="475" y2="284" stroke="var(--ent-rules)" stroke-width="4" />
+    <text x="475" y="312" text-anchor="middle" font-size="13" font-weight="600">{T.f3}</text>
+    <text x="475" y="330" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.f3s}</text>
+    <!-- band -->
+    <line x1="590" y1="276" x2="740" y2="276" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <rect x="630" y="258" width="70" height="18" fill="var(--ent-rules)" fill-opacity="0.45" />
+    <line x1="630" y1="250" x2="630" y2="284" stroke="var(--ent-rules)" stroke-width="3" />
+    <line x1="700" y1="250" x2="700" y2="284" stroke="var(--ent-rules)" stroke-width="3" />
+    <text x="665" y="312" text-anchor="middle" font-size="13" font-weight="600">{T.f4}</text>
+    <text x="665" y="330" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.f4s}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

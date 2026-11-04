@@ -1,0 +1,65 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'O horizonte é uma sequência de estágios, e cada estágio se divide em patamares',
+  pre: 'pré-estudo', preb: 'só para as defasagens',
+  stage: 'Estágio', blocks: ['leve', 'média', 'pesada'],
+  end: 'fim do horizonte', post: 'pós-estudo', postb: 'só calendário, nunca despachado',
+  study: 'Estágios do estudo', time: 'tempo',
+  aria: 'Linha do tempo. À esquerda, estágios pré-estudo tracejados, usados só para as defasagens de afluência. No centro, quatro estágios do estudo, cada um dividido em três patamares de carga (leve, média e pesada) com alturas e larguras ilustrativas. Uma linha vertical marca o fim do horizonte. À direita, estágios pós-estudo tracejados, que dão calendário a entregas após o horizonte e nunca são despachados.',
+  cap_: 'Figura: estágios e patamares. Alturas e larguras dos patamares são ilustrativas, sem escala.',
+} : {
+  title: 'The horizon is a sequence of stages, and each stage splits into blocks',
+  pre: 'pre-study', preb: 'for inflow lags only',
+  stage: 'Stage', blocks: ['light', 'medium', 'heavy'],
+  end: 'horizon end', post: 'post-study', postb: 'calendar only, never dispatched',
+  study: 'Study stages', time: 'time',
+  aria: 'A timeline. On the left, dashed pre-study stages, used only for the inflow lags. In the centre, four study stages, each split into three load blocks (light, medium and heavy) with illustrative heights and widths. A vertical line marks the horizon end. On the right, dashed post-study stages, which give a calendar to deliveries after the horizon and are never dispatched.',
+  cap_: 'Figure: stages and blocks. Block heights and widths are illustrative, not to scale.',
+};
+const base = 250, sw = 150, gap = 8, x0 = 150;
+const w = [0.3, 0.4, 0.3];
+const h = [[48, 70, 100], [40, 62, 92], [52, 76, 108], [44, 66, 96]];
+const order = [0, 1, 2];
+const stages = [0, 1, 2, 3].map((s) => ({ x: x0 + s * (sw + gap), s }));
+const endX = x0 + 4 * (sw + gap) - gap / 2 + 2;
+---
+<figure class="entity-illustration entity-hydrology">
+  <svg viewBox="0 0 980 340" role="img" aria-label={T.aria}>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-hydrology-fg)">{T.title}</text>
+    <rect x="20" y="130" width="112" height="120" rx="6" fill="none" stroke="var(--sl-color-gray-3)" stroke-dasharray="5 4" />
+    <text x="76" y="186" text-anchor="middle" font-size="12" font-weight="600">{T.pre}</text>
+    <text x="76" y="204" text-anchor="middle" font-size="11" style="fill: var(--sl-color-gray-2)">{T.preb}</text>
+    {stages.map(({ x, s }) => {
+      let cx = x;
+      return (
+        <g>
+          <rect x={x - 3} y="80" width={sw + 6} height="172" rx="8" fill="var(--ent-hydrology-bg)" stroke="var(--ent-hydrology)" stroke-width="1.5" />
+          <text x={x + sw / 2} y="100" text-anchor="middle" font-size="12" font-weight="600" style="fill: var(--ent-hydrology-fg)">{T.stage} {s + 1}</text>
+          {order.map((b) => {
+            const bw = sw * w[b] - 3;
+            const bx = x + sw * w.slice(0, b).reduce((a, c) => a + c, 0) + 1.5;
+            return (
+              <g>
+                <rect x={bx} y={base - h[s][b]} width={bw} height={h[s][b]} fill="var(--ent-hydrology)" fill-opacity={0.4 + 0.2 * b} />
+                {s === 0 && <text x={bx + bw / 2} y={base + 16} text-anchor="middle" font-size="11">{T.blocks[b]}</text>}
+              </g>
+            );
+          })}
+        </g>
+      );
+    })}
+    <line x1={endX} y1="60" x2={endX} y2="270" stroke="var(--sl-color-gray-2)" stroke-width="2" stroke-dasharray="6 4" />
+    <text x={endX} y="52" text-anchor="middle" font-size="12" font-weight="600">{T.end}</text>
+    {[0, 1].map((i) => <rect x={endX + 12 + i * 86} y="150" width="78" height="100" rx="6" fill="none" stroke="var(--sl-color-gray-3)" stroke-dasharray="5 4" />)}
+    <text x={endX + 12} y="130" font-size="12" font-weight="600">{T.post}</text>
+    <text x={endX + 12} y="270" font-size="11" style="fill: var(--sl-color-gray-2)">{T.postb}</text>
+    <line x1="150" y1="300" x2="960" y2="300" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <path d="M954 294 L962 300 L954 306" fill="none" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <text x="150" y="320" font-size="12" style="fill: var(--sl-color-gray-2)">{T.study} · {T.time}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

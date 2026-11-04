@@ -1,0 +1,80 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'Da série histórica ao leque de séries sintéticas',
+  p1: '1. Histórico de vazões', p1b: 'uma observação por período',
+  p2: '2. Modelo PAR(p) ajustado', p2b: 'média e desvio por período sazonal',
+  p3: '3. Séries sintéticas', p3b: 'cada cenário é uma trajetória possível',
+  mean: 'média sazonal', band: 'faixa do desvio', time: 'tempo', flow: 'vazão',
+  aria: 'Três painéis em sequência, ligados por setas. No primeiro, uma série histórica de vazões irregular, com padrão sazonal. No segundo, a curva da média sazonal com uma faixa de desvio em volta. No terceiro, um leque de cinco séries sintéticas que seguem o padrão sazonal e se espalham em torno da média.',
+  cap_: 'Figura: o modelo aprende o padrão sazonal e a memória do histórico e gera séries sintéticas. Curvas ilustrativas, sem escala.',
+} : {
+  title: 'From the historical record to a fan of synthetic series',
+  p1: '1. Inflow history', p1b: 'one observation per period',
+  p2: '2. Fitted PAR(p) model', p2b: 'mean and spread per season',
+  p3: '3. Synthetic series', p3b: 'each scenario is one possible path',
+  mean: 'seasonal mean', band: 'spread band', time: 'time', flow: 'flow',
+  aria: 'Three panels in sequence, linked by arrows. The first shows an irregular historical inflow series with a seasonal pattern. The second shows the seasonal mean curve with a spread band around it. The third shows a fan of five synthetic series that follow the seasonal pattern and spread around the mean.',
+  cap_: 'Figure: the model learns the seasonal pattern and the memory of the record, then generates synthetic series. Illustrative curves, not to scale.',
+};
+const W = 270, X = [20, 345, 670], Y0 = 70, H = 150;
+const n = 13;
+const base = (i: number) => 0.5 - 0.32 * Math.sin((i / (n - 1)) * Math.PI * 2);
+const noise = [0.06, -0.1, 0.12, -0.04, 0.09, -0.12, 0.05, 0.1, -0.07, 0.04, -0.09, 0.11, -0.05];
+const px = (i: number) => (i / (n - 1)) * W;
+const py = (v: number) => H - v * H;
+const line = (f: (i: number) => number) => Array.from({ length: n }, (_, i) => `${px(i).toFixed(1)},${py(f(i)).toFixed(1)}`).join(' ');
+const hist = line((i) => base(i) + noise[i]);
+const mean = line((i) => base(i));
+const bandTop = Array.from({ length: n }, (_, i) => `${px(i).toFixed(1)},${py(base(i) + 0.14).toFixed(1)}`);
+const bandBot = Array.from({ length: n }, (_, i) => `${px(n - 1 - i).toFixed(1)},${py(base(n - 1 - i) - 0.14).toFixed(1)}`);
+const band = [...bandTop, ...bandBot].join(' ');
+const offs = [
+  [0.1, -0.08, 0.12, -0.02, 0.07, -0.1, 0.04, 0.09, -0.05, 0.02, -0.07, 0.1, 0.0],
+  [-0.1, 0.07, -0.05, 0.1, -0.09, 0.06, -0.11, 0.03, 0.08, -0.06, 0.09, -0.04, 0.05],
+  [0.04, 0.1, -0.1, 0.05, 0.11, -0.03, 0.09, -0.08, 0.02, 0.1, -0.02, -0.1, 0.08],
+  [-0.06, -0.1, 0.06, -0.09, -0.02, 0.1, -0.07, 0.11, -0.1, 0.07, 0.06, 0.02, -0.09],
+  [0.0, 0.03, 0.09, 0.08, -0.1, -0.08, 0.1, -0.02, 0.06, -0.09, 0.0, 0.07, 0.11],
+];
+const fan = offs.map((o) => line((i) => base(i) + o[i]));
+const sh = ['var(--ent-hydrology)', 'var(--ent-hydrology)', 'var(--ent-hydrology)', 'var(--ent-hydrology)', 'var(--ent-hydrology)'];
+---
+<figure class="entity-illustration entity-hydrology">
+  <svg viewBox="0 0 960 330" role="img" aria-label={T.aria}>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-hydrology-fg)">{T.title}</text>
+    {[0, 1, 2].map((p) => (
+      <g transform={`translate(${X[p]} ${Y0})`}>
+        <line x1="0" y1={H} x2={W} y2={H} stroke="var(--sl-color-gray-3)" />
+        <line x1="0" y1="0" x2="0" y2={H} stroke="var(--sl-color-gray-3)" />
+        <text x={W} y={H + 14} text-anchor="end" font-size="11" style="fill: var(--sl-color-gray-2)">{T.time}</text>
+        <text x="6" y="10" font-size="11" style="fill: var(--sl-color-gray-2)">{T.flow}</text>
+      </g>
+    ))}
+    <g transform={`translate(${X[0]} ${Y0})`}>
+      <polyline points={hist} fill="none" stroke="var(--sl-color-gray-2)" stroke-width="2" stroke-linejoin="round" />
+      {Array.from({ length: n }, (_, i) => <circle cx={px(i)} cy={py(base(i) + noise[i])} r="3" fill="var(--sl-color-gray-2)" />)}
+    </g>
+    <g transform={`translate(${X[1]} ${Y0})`}>
+      <polygon points={band} fill="var(--ent-hydrology)" fill-opacity="0.25" />
+      <polyline points={mean} fill="none" stroke="var(--ent-hydrology)" stroke-width="3" stroke-linejoin="round" />
+      <text x="150" y="-8" text-anchor="middle" font-size="11" style="fill: var(--ent-hydrology-fg)">{T.mean} · {T.band}</text>
+    </g>
+    <g transform={`translate(${X[2]} ${Y0})`}>
+      {fan.map((f, i) => <polyline points={f} fill="none" stroke={sh[i]} stroke-opacity={0.45 + 0.1 * i} stroke-width="2" stroke-linejoin="round" />)}
+    </g>
+    <g stroke="var(--sl-color-gray-3)" stroke-width="2" fill="none">
+      <path d="M303 145 L335 145 M327 138 L335 145 L327 152" />
+      <path d="M628 145 L660 145 M652 138 L660 145 L652 152" />
+    </g>
+    {[0, 1, 2].map((p) => (
+      <g>
+        <text x={X[p]} y="262" font-size="13" font-weight="600">{[T.p1, T.p2, T.p3][p]}</text>
+        <text x={X[p]} y="280" font-size="12" style="fill: var(--sl-color-gray-2)">{[T.p1b, T.p2b, T.p3b][p]}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

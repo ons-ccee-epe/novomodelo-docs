@@ -1,0 +1,50 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'Os custos de penalidade seguem uma ordem de prioridade',
+  up: 'custo relativo maior', down: 'custo relativo menor',
+  rows: [
+    ['Armazenamento abaixo do volume morto', 'usina em enchimento, após entrar em operação'],
+    ['Déficit', 'carga não atendida'],
+    ['Violações de restrições operativas', 'vazões, geração mínima, evaporação, retirada, afluência'],
+    ['Custos de térmicas e de contratos', 'geração térmica e contratos de energia'],
+    ['Custos de regularização', 'vertimento, turbinamento, desvio, corte de geração, intercâmbio'],
+  ],
+  aria: 'Uma escada de cinco degraus, do custo relativo mais alto ao mais baixo: armazenamento abaixo do volume morto de uma usina em enchimento; déficit; violações de restrições operativas; custos de térmicas e de contratos; custos de regularização, como vertimento, turbinamento, desvio, corte de geração e intercâmbio.',
+  cap_: 'Figura: ordem relativa dos custos, comparados em energia (R$/MWh). Ilustração esquemática, sem escala e sem valores.',
+} : {
+  title: 'Penalty costs follow a priority order',
+  up: 'higher relative cost', down: 'lower relative cost',
+  rows: [
+    ['Storage below the dead volume', 'plant being filled, after entering operation'],
+    ['Deficit', 'unserved load'],
+    ['Operational constraint violations', 'flows, minimum generation, evaporation, withdrawal, inflow'],
+    ['Thermal and contract costs', 'thermal generation and energy contracts'],
+    ['Regularization costs', 'spillage, turbining, diversion, curtailment, exchange'],
+  ],
+  aria: 'A ladder of five tiers, from the highest relative cost to the lowest: storage below the dead volume of a plant being filled; deficit; operational constraint violations; thermal and contract costs; regularization costs such as spillage, turbining, diversion, curtailment and exchange.',
+  cap_: 'Figure: relative order of the costs, compared in energy terms ($/MWh). Schematic illustration, not to scale and without values.',
+};
+const widths = [220, 190, 160, 130, 100];
+const fills = [0.9, 0.75, 0.6, 0.45, 0.3];
+---
+<figure class="entity-illustration entity-rules">
+  <svg viewBox="0 0 760 380" role="img" aria-label={T.aria}>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-rules-fg)">{T.title}</text>
+    <line x1="30" y1="64" x2="30" y2="330" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <polygon points="25,72 30,60 35,72" fill="var(--sl-color-gray-3)" />
+    <text x="46" y="52" font-size="12" style="fill: var(--sl-color-gray-2)">{T.up}</text>
+    <text x="46" y="352" font-size="12" style="fill: var(--sl-color-gray-2)">{T.down}</text>
+    {T.rows.map((r, i) => (
+      <g>
+        <rect x="46" y={64 + i * 56} width={widths[i]} height="44" rx="4" fill="var(--ent-rules)" fill-opacity={fills[i]} />
+        <text x="290" y={82 + i * 56} font-size="13" font-weight="600">{r[0]}</text>
+        <text x="290" y={100 + i * 56} font-size="12" style="fill: var(--sl-color-gray-2)">{r[1]}</text>
+      </g>
+    ))}
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

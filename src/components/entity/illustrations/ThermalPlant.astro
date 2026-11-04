@@ -1,0 +1,81 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  titleA: 'Geração em um patamar: da geração mínima à capacidade',
+  must: 'geração mínima', mustSub: '(inflexibilidade)',
+  flex: 'faixa que o modelo pode despachar',
+  disp: 'g · despacho decidido pelo modelo', cap: 'capacidade', capSub: '(geração máxima)',
+  cost: 'custo = CVU × g  (R$/MWh: combustível + O&M)', mw: 'MW',
+  titleB: 'Despacho antecipado (GNL): decisão antes da entrega',
+  decide: 'Estágio de decisão', decideSub: 't = m − K', carry: 'compromisso transportado inalterado',
+  carrySub: 'no commitment ring, estágios t + 1 … m − 1', deliver: 'Estágio de entrega', deliverSub: 'm · geração = compromisso',
+  why: 'antecedência para encomendar o combustível (terminais de GNL)',
+  aria: 'Duas figuras. Acima, a faixa de geração de uma termelétrica em um patamar: da geração mínima (inflexibilidade) à capacidade, com o valor despachado entre elas e o custo dado pelo CVU. Abaixo, a linha do tempo da antecipação de despacho: o compromisso é decidido no estágio t = m − K, transportado no commitment ring e entregue no estágio m.',
+  cap_: 'Figura: faixa de geração de uma termelétrica e a antecipação de despacho. Valores ilustrativos, sem escala.',
+} : {
+  titleA: 'Generation in one load block: from minimum generation to capacity',
+  must: 'minimum generation', mustSub: '(inflexibility)',
+  flex: 'range the model may dispatch',
+  disp: 'g · dispatch chosen by the model', cap: 'capacity', capSub: '(maximum generation)',
+  cost: 'cost = CVU × g  ($/MWh: fuel + O&M)', mw: 'MW',
+  titleB: 'Anticipated dispatch (LNG): decision before delivery',
+  decide: 'Decision stage', decideSub: 't = m − K', carry: 'commitment carried unchanged',
+  carrySub: 'in the commitment ring, stages t + 1 … m − 1', deliver: 'Delivery stage', deliverSub: 'm · generation = commitment',
+  why: 'lead time to order the fuel (LNG terminals)',
+  aria: 'Two figures. Top: the generation band of a thermal plant in one load block, from minimum generation (inflexibility) to capacity, with the dispatched value in between and the cost given by the CVU. Bottom: the anticipated dispatch timeline: the commitment is decided at stage t = m − K, carried in the commitment ring and delivered at stage m.',
+  cap_: 'Figure: generation band of a thermal plant and anticipated dispatch. Illustrative values, not to scale.',
+};
+const X0 = 60, X1 = 700, XM = 230, XG = 600;
+---
+<figure class="entity-illustration entity-equipment">
+  <svg viewBox="0 0 760 420" role="img" aria-label={T.aria}>
+    <defs>
+      <pattern id="th-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="8" height="8" fill="var(--ent-equipment-bg)" />
+        <line x1="0" y1="0" x2="0" y2="8" stroke="var(--ent-equipment)" stroke-width="3" />
+      </pattern>
+      <marker id="th-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ent-equipment)" /></marker>
+    </defs>
+
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-equipment-fg)">{T.titleA}</text>
+    <!-- axis and band -->
+    <rect x={X0} y="70" width={XM - X0} height="44" fill="url(#th-hatch)" stroke="var(--ent-equipment)" />
+    <rect x={XM} y="70" width={X1 - XM} height="44" fill="var(--ent-equipment-bg)" stroke="var(--ent-equipment)" />
+    <text x={(XM + 540) / 2} y="97" text-anchor="middle" font-size="13" style="fill: var(--ent-equipment-fg)">{T.flex}</text>
+    <line x1={X0} y1="130" x2={X1} y2="130" stroke="var(--sl-color-gray-3)" />
+    <text x={X0} y="148" font-size="12" text-anchor="middle" style="fill: var(--sl-color-gray-3)">0</text>
+    <text x={X1 + 18} y="134" font-size="12" text-anchor="start" style="fill: var(--sl-color-gray-3)">{T.mw}</text>
+    <!-- minimum -->
+    <line x1={XM} y1="62" x2={XM} y2="122" stroke="var(--ent-equipment)" stroke-width="2" />
+    <text x={XM} y="56" text-anchor="middle" font-size="13" font-weight="600">{T.must}</text>
+    <text x={XM} y="188" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.mustSub}</text>
+    <!-- capacity -->
+    <line x1={X1} y1="62" x2={X1} y2="122" stroke="var(--ent-equipment)" stroke-width="2" />
+    <text x={X1} y="56" text-anchor="end" font-size="13" font-weight="600">{T.cap}</text>
+    <text x={X1} y="188" text-anchor="end" font-size="12" style="fill: var(--sl-color-gray-2)">{T.capSub}</text>
+    <!-- dispatched -->
+    <path d={`M${XG} 118 L${XG - 8} 134 L${XG + 8} 134 Z`} fill="var(--ent-equipment)" />
+    <line x1={XG} y1="70" x2={XG} y2="118" stroke="var(--ent-equipment)" stroke-width="3" />
+    <text x={XG} y="152" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ent-equipment-fg)">{T.disp}</text>
+    <text x="20" y="208" font-size="13" style="fill: var(--sl-color-gray-2)">{T.cost}</text>
+
+    <line x1="20" y1="222" x2="740" y2="222" stroke="var(--sl-color-hairline)" />
+
+    <text x="20" y="252" font-size="15" font-weight="600" style="fill: var(--ent-equipment-fg)">{T.titleB}</text>
+    <!-- timeline -->
+    <line x1="60" y1="330" x2="700" y2="330" stroke="var(--ent-equipment)" stroke-width="3" marker-end="url(#th-arrow)" />
+    <circle cx="110" cy="330" r="11" fill="var(--ent-equipment)" />
+    <circle cx="640" cy="330" r="11" fill="var(--sl-color-bg)" stroke="var(--ent-equipment)" stroke-width="4" />
+    <text x="110" y="300" text-anchor="middle" font-size="13" font-weight="600">{T.decide}</text>
+    <text x="110" y="364" text-anchor="middle" font-size="13" style="fill: var(--ent-equipment-fg)">{T.decideSub}</text>
+    <text x="640" y="300" text-anchor="middle" font-size="13" font-weight="600">{T.deliver}</text>
+    <text x="640" y="364" text-anchor="middle" font-size="13" style="fill: var(--ent-equipment-fg)">{T.deliverSub}</text>
+    <text x="375" y="318" text-anchor="middle" font-size="13">{T.carry}</text>
+    <text x="375" y="352" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.carrySub}</text>
+    <text x="20" y="400" font-size="12" style="fill: var(--sl-color-gray-3)">{T.why}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

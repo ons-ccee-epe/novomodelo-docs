@@ -1,0 +1,53 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'Uma linha liga dois barramentos e tem um limite para cada sentido',
+  src: 'Barramento de origem', dst: 'Barramento de destino',
+  dir: 'fluxo direto (origem → destino)', dirSub: 'até a capacidade no sentido direto (MW)',
+  rev: 'fluxo reverso (destino → origem)', revSub: 'até a capacidade no sentido reverso (MW)',
+  line: 'Linha',
+  n1: 'Sem perdas no despacho: as perdas são calculadas e informadas depois.',
+  n2: 'Pequeno custo de intercâmbio: serve só para desempatar, não é um custo real de transmissão.',
+  aria: 'Dois barramentos ligados por uma linha. Uma seta leva o fluxo direto do barramento de origem ao de destino, até a capacidade no sentido direto. Outra seta leva o fluxo reverso do barramento de destino ao de origem, até a capacidade no sentido reverso. No despacho a linha não tem perdas, que são calculadas e informadas depois, e o pequeno custo de intercâmbio serve só para desempatar.',
+  cap_: 'Figura: uma linha de transmissão entre dois barramentos. Ilustração esquemática, sem escala.',
+} : {
+  title: 'A line connects two buses and has a limit for each direction',
+  src: 'Source bus', dst: 'Target bus',
+  dir: 'direct flow (source → target)', dirSub: 'up to the direct-direction capacity (MW)',
+  rev: 'reverse flow (target → source)', revSub: 'up to the reverse-direction capacity (MW)',
+  line: 'Line',
+  n1: 'Lossless in the dispatch: losses are computed and reported afterwards.',
+  n2: 'Small exchange cost: it only breaks ties and is not a real transmission cost.',
+  aria: 'Two buses joined by a line. One arrow carries the direct flow from the source bus to the target bus, up to the direct-direction capacity. Another arrow carries the reverse flow from the target bus to the source bus, up to the reverse-direction capacity. The line is lossless in the dispatch, losses being computed and reported afterwards, and the small exchange cost only breaks ties.',
+  cap_: 'Figure: a transmission line between two buses. Schematic illustration, not to scale.',
+};
+---
+<figure class="entity-illustration entity-network">
+  <svg viewBox="0 0 760 330" role="img" aria-label={T.aria}>
+    <defs>
+      <marker id="ln-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ent-network)" /></marker>
+    </defs>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-network-fg)">{T.title}</text>
+
+    <rect x="60" y="70" width="20" height="170" rx="4" fill="var(--ent-network)" />
+    <rect x="680" y="70" width="20" height="170" rx="4" fill="var(--ent-network)" />
+    <text x="70" y="262" text-anchor="middle" font-size="13" font-weight="600">{T.src}</text>
+    <text x="690" y="262" text-anchor="middle" font-size="13" font-weight="600">{T.dst}</text>
+
+    <line x1="84" y1="115" x2="676" y2="115" stroke="var(--ent-network)" stroke-width="3" marker-end="url(#ln-arrow)" />
+    <text x="380" y="96" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ent-network-fg)">{T.dir}</text>
+    <text x="380" y="136" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.dirSub}</text>
+
+    <line x1="676" y1="195" x2="84" y2="195" stroke="var(--ent-network)" stroke-width="3" marker-end="url(#ln-arrow)" />
+    <text x="380" y="176" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ent-network-fg)">{T.rev}</text>
+    <text x="380" y="216" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.revSub}</text>
+
+
+    <text x="20" y="298" font-size="12" style="fill: var(--sl-color-gray-2)">{T.n1}</text>
+    <text x="20" y="318" font-size="12" style="fill: var(--sl-color-gray-2)">{T.n2}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

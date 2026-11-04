@@ -1,0 +1,226 @@
+---
+import { ICONS } from './icons';
+import { ENTITIES, entityHref, key } from './entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const pt = k === 'pt';
+const soon = pt ? 'em breve' : 'coming soon';
+const L = pt
+  ? {
+      title: 'O caminho da energia, da chuva à cidade',
+      sub: 'Cada etapa abre as entidades que o modelo representa nela',
+      aria: 'Quatro cenas ligadas por uma faixa contínua: água (chuva, rio e reservatório), geração (barragem, termelétrica, eólica e solar), rede (torres e barramento) e consumo (cidade)',
+      s: ['1 · ÁGUA', '2 · GERAÇÃO', '3 · REDE', '4 · CONSUMO'],
+      band: ['vazões', 'energia gerada', 'energia transportada', 'energia consumida'],
+      bus: 'barramento',
+      time: 'AO LONGO DO TEMPO',
+      timeAria: 'Linha do tempo ilustrativa: estágios divididos em patamares, com a água armazenada passando de um estágio ao seguinte',
+      stage: 'estágio',
+      blocks: 'patamares leve · média · pesada',
+      carry: 'água armazenada passa ao estágio seguinte',
+      rules: 'REGRAS DO JOGO',
+    }
+  : {
+      title: 'The path of energy, from rain to city',
+      sub: 'Each stage opens the entities the model represents in it',
+      aria: 'Four scenes joined by a continuous band: water (rain, river and reservoir), generation (dam, thermal plant, wind and solar), network (towers and bus) and consumption (city)',
+      s: ['1 · WATER', '2 · GENERATION', '3 · NETWORK', '4 · CONSUMPTION'],
+      band: ['inflows', 'generated energy', 'transported energy', 'consumed energy'],
+      bus: 'bus',
+      time: 'OVER TIME',
+      timeAria: 'Illustrative timeline: stages divided into load blocks, with stored water carrying over from one stage to the next',
+      stage: 'stage',
+      blocks: 'load blocks light · medium · heavy',
+      carry: 'stored water carries over to the next stage',
+      rules: 'RULES OF THE GAME',
+    };
+const bySlug = (s: string) => ENTITIES.find((e) => e.slug.endsWith('/' + s))!;
+const columns: { fam: string; slugs: string[] }[] = [
+  { fam: 'hydrology', slugs: ['inflows', 'scenarios'] },
+  { fam: 'equipment', slugs: ['hydro-plants', 'thermal-plants', 'non-controllable-sources', 'pumping-stations'] },
+  { fam: 'network', slugs: ['buses', 'lines', 'energy-contracts'] },
+  { fam: 'rules', slugs: ['load', 'deficit'] },
+];
+const timeLinks = ['time-structure', 'water-value'].map(bySlug);
+const rules = ['generic-constraints', 'penalties', 'risk-aversion'].map(bySlug);
+const noBlurb = new Set(['penalties']);
+const stageX = [24, 304, 584, 864];
+const stageCls = ['hyd', 'eqp', 'net', 'rul'];
+const bandX = [140, 416, 696, 968];
+const icon = (n: string) => ICONS[n] ?? '';
+---
+<section class="energy-path" id="entidades" aria-labelledby="ep-title">
+  <div class="energy-path__head">
+    <h2 id="ep-title">{L.title}</h2>
+    <span>{L.sub}</span>
+  </div>
+  <div class="energy-path__scroll">
+    <div class="energy-path__inner">
+      <svg class="ep-scene" role="img" aria-label={L.aria} viewBox="0 0 1120 300" width="1120" height="300">
+        <rect class="bg" x="0" y="0" width="1120" height="300" rx="18" />
+        {L.s.map((t, i) => <text class={`stage ${stageCls[i]}`} x={stageX[i]} y="34" font-size="12" font-weight="600" letter-spacing="1.2">{t}</text>)}
+        <line class="sep" x1="280" y1="20" x2="280" y2="210" />
+        <line class="sep" x1="560" y1="20" x2="560" y2="210" />
+        <line class="sep" x1="840" y1="20" x2="840" y2="210" />
+
+        <path class="hill" d="M20 200 L80 120 L120 160 L170 100 L250 200 Z" />
+        <ellipse class="cloud" cx="70" cy="66" rx="34" ry="13" />
+        <ellipse class="cloud" cx="98" cy="60" rx="24" ry="11" />
+        <path class="rain" d="M60 86 l-4 10 M76 86 l-4 10 M92 86 l-4 10" fill="none" stroke-width="2.5" stroke-linecap="round" />
+        <path class="river" d="M110 130 C 140 160, 170 170, 190 180" fill="none" stroke-width="7" stroke-linecap="round" />
+        <path class="lake" d="M180 172 C 200 165, 240 166, 262 172 L 262 200 C 230 202, 196 196, 180 172 Z" />
+
+        <path class="lake" d="M300 200 L300 150 C 320 140, 340 140, 352 146 L352 200 Z" />
+        <path class="dam" d="M352 120 L362 120 L372 200 L352 200 Z" />
+        <circle class="turbine" cx="384" cy="190" r="9" stroke-width="2.5" />
+        <rect class="plant" x="404" y="150" width="40" height="50" stroke-width="2" />
+        <rect class="chimney" x="430" y="114" width="9" height="38" />
+        <circle class="smoke" cx="440" cy="104" r="7" />
+        <path class="wind" d="M478 200 v-90 M478 110 l-18 -12 M478 110 l20 -8 M478 110 l-2 22" stroke-width="2.6" stroke-linecap="round" fill="none" />
+        <path class="panel" d="M496 200 l40 0 l10 -18 l-40 0 Z" stroke-width="1.6" />
+        <circle class="sun" cx="526" cy="146" r="11" fill="none" stroke-width="2" />
+
+        <path class="tower" d="M612 200 l12 -110 l12 110 M604 120 h40 M608 150 h32" fill="none" stroke-width="2" />
+        <path class="tower" d="M752 200 l12 -110 l12 110 M744 120 h40 M748 150 h32" fill="none" stroke-width="2" />
+        <path class="wire" d="M624 120 Q 694 150, 764 120 M624 150 Q 694 176, 764 150" fill="none" stroke-width="2" />
+        <rect class="busbar" x="660" y="186" width="68" height="8" rx="4" />
+        <text class="buslabel" x="694" y="178" text-anchor="middle" font-size="11">{L.bus}</text>
+
+        <path class="bld" d="M872 200 v-50 h22 v50 M898 200 v-84 h26 v84 M928 200 v-40 h22 v40 M954 200 v-66 h22 v66" stroke-width="1.8" />
+        <path class="bld" d="M992 200 v-34 l22 -18 l22 18 v34 Z" stroke-width="1.8" />
+        <rect class="window" x="1006" y="176" width="10" height="10" />
+        <path class="bld" d="M1048 200 v-40 l18 10 v-10 l18 10 v30 Z" stroke-width="1.8" />
+
+        <path class="band hyd" d="M20 228 H262 l14 18 l-14 18 H20 Z" />
+        <path class="band eqp" d="M276 228 H542 l14 18 l-14 18 H276 l14 -18 Z" />
+        <path class="band net" d="M556 228 H822 l14 18 l-14 18 H556 l14 -18 Z" />
+        <path class="band rul" d="M836 228 H1100 V264 H836 l14 -18 Z" />
+        {L.band.map((t, i) => <text class="bandtext" x={bandX[i]} y="251" text-anchor="middle" font-size="13" font-weight="600">{t}</text>)}
+      </svg>
+
+      <div class="ep-cols">
+        {columns.map((c) => (
+          <div class={`ep-col entity-${c.fam}`}>
+            {c.slugs.map((s) => {
+              const e = bySlug(s);
+              const inner = (<><strong>{e.title[k]}</strong><span>{e.blurb[k]}</span>{!e.ready && <em class="ep-soon">{soon}</em>}</>);
+              return e.ready
+                ? <a class="ep-card" href={entityHref(e.slug, lang)}>{inner}</a>
+                : <div class="ep-card ep-card--soon">{inner}</div>;
+            })}
+          </div>
+        ))}
+      </div>
+
+      <div class="ep-foot">
+        <div class="ep-box entity-hydrology">
+          <span class="ep-label">{L.time}</span>
+          <svg class="ep-time" role="img" aria-label={L.timeAria} viewBox="0 0 600 96" width="600" height="96" font-size="11">
+            <g class="slot">
+              <rect x="0" y="22" width="130" height="50" rx="6" /><rect x="150" y="22" width="130" height="50" rx="6" /><rect x="300" y="22" width="130" height="50" rx="6" /><rect x="450" y="22" width="130" height="50" rx="6" />
+            </g>
+            <g class="blk">
+              <rect x="14" y="52" width="30" height="14" /><rect x="50" y="42" width="30" height="24" /><rect x="86" y="32" width="30" height="34" />
+              <rect x="164" y="52" width="30" height="14" /><rect x="200" y="42" width="30" height="24" /><rect x="236" y="32" width="30" height="34" />
+              <rect x="314" y="52" width="30" height="14" /><rect x="350" y="42" width="30" height="24" /><rect x="386" y="32" width="30" height="34" />
+              <rect x="464" y="52" width="30" height="14" /><rect x="500" y="42" width="30" height="24" /><rect x="536" y="32" width="30" height="34" />
+            </g>
+            {[0, 150, 300, 450].map((x, i) => <text class="tlabel" x={x} y="14" font-weight="600">{`${L.stage} ${i + 1}`}</text>)}
+            <path class="carry" d="M130 74 C 138 82, 142 82, 150 74 M280 74 C 288 82, 292 82, 300 74 M430 74 C 438 82, 442 82, 450 74" fill="none" stroke-width="2" />
+            <text class="tnote" x="0" y="94">{L.blocks}</text>
+            <text class="tcarry" x="300" y="94">{L.carry}</text>
+          </svg>
+          <div class="ep-pills">
+            {timeLinks.map((e) => e.ready
+              ? <a class="ep-pill" href={entityHref(e.slug, lang)}>{e.title[k]}</a>
+              : <span class="ep-pill ep-pill--soon">{e.title[k]}<em class="ep-soon">{soon}</em></span>)}
+          </div>
+        </div>
+        <div class="ep-box entity-rules">
+          <span class="ep-label">{L.rules}</span>
+          {rules.map((e) => {
+            const inner = (<>
+              <svg aria-hidden="true" focusable="false" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icon(e.icon)} />
+              <span><strong>{e.title[k]}</strong>{!noBlurb.has(e.slug.split('/').pop()!) && <> · {e.blurb[k]}</>}{!e.ready && <em class="ep-soon">{soon}</em>}</span>
+            </>);
+            return e.ready
+              ? <a class="ep-rule" href={entityHref(e.slug, lang)}>{inner}</a>
+              : <div class="ep-rule ep-rule--soon">{inner}</div>;
+          })}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .energy-path { margin-block: 1.5rem 2rem; scroll-margin-top: 4rem; }
+  .energy-path__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; margin-bottom: 1rem; }
+  .energy-path__head h2 { margin: 0; font-size: var(--sl-text-2xl); color: var(--sl-color-white); border: 0; }
+  .energy-path__head span { font-size: var(--sl-text-sm); color: var(--sl-color-gray-3); }
+  .energy-path__scroll { overflow-x: auto; }
+  .energy-path__inner { min-width: 720px; display: flex; flex-direction: column; gap: 1rem; }
+  .energy-path__inner > *, .ep-cols > *, .ep-col > *, .ep-foot > *, .ep-box > *, .ep-pills > * { margin-top: 0 !important; }
+  .ep-scene { display: block; width: 100%; height: auto; font-family: var(--sl-font); }
+  .ep-scene .bg { fill: var(--ep-scene-bg); }
+  .ep-scene .sep { stroke: var(--ep-sep); }
+  .ep-scene .hill { fill: var(--ep-hill); }
+  .ep-scene .cloud { fill: var(--ep-cloud); }
+  .ep-scene .rain { stroke: var(--ent-hydrology); }
+  .ep-scene .river { stroke: var(--ep-water); }
+  .ep-scene .lake { fill: var(--ep-water); }
+  .ep-scene .dam { fill: var(--ep-dam); }
+  .ep-scene .turbine { fill: var(--ep-cloud); stroke: var(--ent-hydrology); }
+  .ep-scene .plant { fill: var(--ep-plant); stroke: var(--ep-copper); }
+  .ep-scene .chimney { fill: var(--ep-copper); }
+  .ep-scene .smoke { fill: var(--ep-smoke); }
+  .ep-scene .wind { stroke: var(--ep-copper); }
+  .ep-scene .panel { fill: var(--ep-panel); stroke: var(--ep-copper); }
+  .ep-scene .sun { stroke: var(--ent-equipment); }
+  .ep-scene .tower { stroke: var(--ep-tower); }
+  .ep-scene .wire { stroke: var(--ent-network); }
+  .ep-scene .busbar { fill: var(--ent-network); }
+  .ep-scene .buslabel { fill: var(--ent-network-fg); }
+  .ep-scene .bld { fill: var(--ep-bld); stroke: var(--ent-network); }
+  .ep-scene .window { fill: var(--ep-window); }
+  .ep-scene .stage.hyd { fill: var(--ent-hydrology-fg); }
+  .ep-scene .stage.eqp { fill: var(--ent-equipment-fg); }
+  .ep-scene .stage.net { fill: var(--ent-network-fg); }
+  .ep-scene .stage.rul { fill: var(--ent-rules-fg); }
+  .ep-scene .band.hyd { fill: var(--ep-band-hyd); }
+  .ep-scene .band.eqp { fill: var(--ep-band-eqp); }
+  .ep-scene .band.net { fill: var(--ep-band-net); }
+  .ep-scene .band.rul { fill: var(--ep-band-rul); }
+  .ep-scene .bandtext { fill: #fff; }
+
+  .ep-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .ep-col { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+  .ep-card { display: flex; flex-direction: column; text-decoration: none; background: var(--sl-color-bg-nav); border: 1px solid var(--sl-color-hairline); border-left: 4px solid var(--ent); border-radius: 10px; padding: .6rem .75rem; color: var(--sl-color-text); }
+  a.ep-card:hover { border-color: var(--ent); }
+  a.ep-card:focus-visible, a.ep-pill:focus-visible, a.ep-rule:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 2px; }
+  .ep-card strong { font-size: 14px; color: var(--sl-color-white); line-height: 1.3; }
+  .ep-card > span { font-size: 12.5px; color: var(--sl-color-gray-2); line-height: 1.4; }
+  .ep-soon { align-self: flex-start; font-style: normal; font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--sl-color-gray-3); border: 1px solid var(--sl-color-hairline); border-radius: 999px; padding: 0 .5rem; margin-top: .3rem; }
+  .ep-card--soon { opacity: .9; }
+
+  .ep-foot { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+  .ep-box { background: var(--sl-color-bg-nav); border: 1px solid var(--sl-color-hairline); border-radius: 14px; padding: .9rem 1.1rem; display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+  .ep-label { font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--sl-color-gray-2); }
+  .ep-time { display: block; width: 100%; height: auto; font-family: var(--sl-font); }
+  .ep-time .slot rect { fill: var(--ep-slot); }
+  .ep-time .blk rect { fill: var(--ep-blk); }
+  .ep-time .tlabel { fill: var(--sl-color-gray-2); }
+  .ep-time .tnote { fill: var(--sl-color-gray-3); }
+  .ep-time .tcarry { fill: var(--ent-hydrology-fg); }
+  .ep-time .carry { stroke: var(--ent-hydrology); }
+  .ep-pills { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .ep-pill { text-decoration: none; font-size: 13.5px; background: var(--ep-scene-bg); color: var(--sl-color-text); border-radius: 999px; padding: .35rem .75rem; display: inline-flex; align-items: center; gap: .5rem; }
+  a.ep-pill:hover { outline: 1px solid var(--sl-color-accent); }
+  .ep-pill .ep-soon { margin-top: 0; }
+  .ep-rule { display: flex; gap: .65rem; align-items: center; text-decoration: none; color: var(--sl-color-text); font-size: 14px; }
+  .ep-rule svg { flex: none; color: var(--ent); }
+  .ep-rule strong { color: var(--sl-color-white); }
+  .ep-rule .ep-soon { margin: 0 0 0 .5rem; display: inline-block; }
+  a.ep-rule:hover strong { text-decoration: underline; }
+</style>

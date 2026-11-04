@@ -1,0 +1,85 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = {
+  inflow: { pt: ['Afluência', 'vazão natural + defluência', 'da usina de montante'], en: ['Inflow', 'natural flow + outflow', 'of the upstream plant'] },
+  evap: { pt: ['Evaporação e retirada'], en: ['Evaporation and withdrawal'] },
+  reservoir: { pt: ['Reservatório', 'armazenamento em hm³'], en: ['Reservoir', 'storage in hm³'] },
+  useful: { pt: ['Volume útil'], en: ['Useful volume'] },
+  dead: { pt: ['Volume morto'], en: ['Dead volume'] },
+  dam: { pt: ['Barragem'], en: ['Dam'] },
+  spill: { pt: ['Vertimento', 'passa sem gerar'], en: ['Spillage', 'passes without generating'] },
+  turb: { pt: ['Vazão turbinada', '→ turbina'], en: ['Turbined flow', '→ turbine'] },
+  bus: { pt: ['Barramento', 'geração em MW'], en: ['Bus', 'generation in MW'] },
+  fpha: { pt: ['produtibilidade ou FPHA'], en: ['productivity or FPHA'] },
+  head: { pt: ['Queda'], en: ['Head'] },
+  down: { pt: ['Defluência', '→ usina de jusante'], en: ['Outflow', '→ downstream plant'] },
+  div: { pt: ['Desvio', '→ outro canal ou usina'], en: ['Diversion', '→ another channel or plant'] },
+};
+const aria = k === 'pt'
+  ? 'Corte de uma usina hidrelétrica: afluência chega ao reservatório (volume útil e volume morto), a barragem libera vazão turbinada, vertimento e desvio, a turbina gera para o barramento e a defluência segue para a usina de jusante.'
+  : 'Cross-section of a hydro plant: inflow reaches the reservoir (useful and dead volume), the dam releases turbined flow, spillage and diversion, the turbine generates to the bus and the outflow continues to the downstream plant.';
+const caption = k === 'pt'
+  ? 'Ilustração simplificada: os caminhos da água em uma usina hidrelétrica. O diagrama completo, com tempo de viagem e usinas elevatórias, está na página técnica.'
+  : 'Simplified illustration: the water paths in a hydro plant. The full diagram, with travel time and pumping stations, is on the technical page.';
+const cw = (s: string[]) => Math.round(Math.max(...s.map((x) => x.length)) * 6.8 + 20);
+const ch = (s: string[]) => s.length * 16 + 12;
+// boxed label: first line bold
+const boxes: { id: keyof typeof T; x: number; y: number; strong?: boolean }[] = [
+  { id: 'inflow', x: 8, y: 66 }, { id: 'evap', x: 230, y: 46, strong: false }, { id: 'spill', x: 640, y: 206 },
+  { id: 'turb', x: 680, y: 318 }, { id: 'down', x: 810, y: 366 }, { id: 'div', x: 210, y: 380 },
+];
+---
+<figure class="entity-illustration entity-hydrology">
+  <svg viewBox="0 0 980 440" role="img" aria-label={aria}>
+    <path d="M0 360 L120 300 L160 330 L520 330 L520 440 L0 440 Z" fill="var(--sl-color-gray-5)" />
+    <path d="M600 440 L600 400 L980 380 L980 440 Z" fill="var(--sl-color-gray-5)" />
+    <path d="M40 150 L520 150 L520 330 L160 330 L120 300 Z" fill="var(--ent-hydrology)" opacity=".4" />
+    <path d="M40 150 L520 150" stroke="var(--ent-hydrology)" stroke-width="2" />
+    <line x1="140" y1="200" x2="520" y2="200" stroke="var(--ent-hydrology)" stroke-width="1.5" stroke-dasharray="6 5" />
+    <line x1="150" y1="290" x2="520" y2="290" stroke="var(--ent-hydrology)" stroke-width="1.5" stroke-dasharray="6 5" />
+    <path d="M520 110 L560 110 L620 440 L520 440 Z" fill="var(--sl-color-gray-3)" stroke="var(--sl-color-gray-2)" stroke-width="2" />
+    <path d="M530 300 C 560 330, 580 360, 640 372" fill="none" stroke="var(--ent-hydrology)" stroke-width="10" stroke-linecap="round" />
+    <circle cx="652" cy="374" r="20" fill="var(--sl-color-bg)" stroke="var(--ent-hydrology)" stroke-width="4" />
+    <path d="M642 374 L662 374 M652 364 L652 384" stroke="var(--ent-hydrology)" stroke-width="3" />
+    <path d="M600 392 L980 372 L980 400 L620 418 Z" fill="var(--ent-hydrology)" opacity=".5" />
+    <path d="M540 140 C 600 140, 610 220, 640 300 C 650 330, 660 350, 700 378" fill="none" stroke="var(--ent-hydrology)" stroke-width="5" stroke-dasharray="10 8" stroke-linecap="round" />
+    <path d="M652 354 L652 80 L840 80" fill="none" stroke="var(--ent-network)" stroke-width="3" />
+    <path d="M840 72 L856 80 L840 88" fill="var(--ent-network)" />
+    <path d="M120 290 C 100 330, 120 380, 200 410" fill="none" stroke="var(--ent-hydrology)" stroke-width="5" stroke-linecap="round" />
+    <path d="M196 402 L206 412 L192 416" fill="none" stroke="var(--ent-hydrology)" stroke-width="3" />
+    <path d="M0 120 C 30 130, 40 140, 70 160" fill="none" stroke="var(--ent-hydrology)" stroke-width="8" stroke-linecap="round" />
+    <path d="M60 148 L76 166 L56 168" fill="none" stroke="var(--ent-hydrology)" stroke-width="3" />
+    <path d="M260 140 c -6 -10, 6 -16, 0 -26 s 6 -16, 0 -26" fill="none" stroke="var(--sl-color-gray-3)" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M300 140 c -6 -10, 6 -16, 0 -26 s 6 -16, 0 -26" fill="none" stroke="var(--sl-color-gray-3)" stroke-width="2.5" stroke-linecap="round" />
+    <line x1="910" y1="150" x2="910" y2="378" stroke="var(--sl-color-gray-3)" stroke-width="1.5" />
+    <path d="M904 158 L910 148 L916 158 M904 370 L910 380 L916 370" fill="none" stroke="var(--sl-color-gray-3)" stroke-width="1.5" />
+    <line x1="560" y1="150" x2="910" y2="150" stroke="var(--sl-color-gray-3)" stroke-width="1" stroke-dasharray="3 4" />
+
+    {boxes.map((b) => {
+      const lines = T[b.id][k];
+      return (
+        <g>
+          <rect x={b.x} y={b.y} width={cw(lines)} height={ch(lines)} rx="8" fill="var(--sl-color-bg)" stroke="var(--ent-hydrology)" stroke-opacity=".6" />
+          {lines.map((ln, i) => <text x={b.x + 10} y={b.y + 18 + i * 16} font-size="13" font-weight={i === 0 ? 600 : 400} style={i === 0 ? 'fill: var(--ent-hydrology-fg)' : ''}>{ln}</text>)}
+        </g>
+      );
+    })}
+
+    <text x="300" y="172" font-size="15" font-weight="600" style="fill: var(--ent-hydrology-fg)">{T.reservoir[k][0]}</text>
+    <text x="300" y="190" font-size="13" style="fill: var(--ent-hydrology-fg)">{T.reservoir[k][1]}</text>
+    <rect x="400" y="236" width={cw(T.useful[k])} height="22" rx="6" fill="var(--sl-color-bg)" opacity=".8" />
+    <text x="410" y="252" font-size="13" style="fill: var(--ent-hydrology-fg)">{T.useful[k][0]}</text>
+    <rect x="400" y="304" width={cw(T.dead[k])} height="22" rx="6" fill="var(--sl-color-bg)" opacity=".8" />
+    <text x="410" y="320" font-size="13" style="fill: var(--ent-hydrology-fg)">{T.dead[k][0]}</text>
+    <text x="524" y="96" font-size="13" font-weight="600">{T.dam[k][0]}</text>
+    <text x="670" y="120" font-size="12" font-weight="600" style="fill: var(--ent-network)">{T.fpha[k][0]}</text>
+    <text x="920" y="270" font-size="13" font-weight="600">{T.head[k][0]}</text>
+    <rect x="858" y="58" width={cw(T.bus[k])} height="44" rx="10" fill="var(--ent-network)" />
+    <text x="868" y="77" font-size="13" font-weight="600" style="fill: #fff">{T.bus[k][0]}</text>
+    <text x="868" y="95" font-size="13" style="fill: #fff">{T.bus[k][1]}</text>
+  </svg>
+  <figcaption>{caption}</figcaption>
+</figure>

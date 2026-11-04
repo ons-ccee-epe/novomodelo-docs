@@ -1,0 +1,20 @@
+// Inline SVG path markup (24x24 viewBox, stroke-based).
+export const ICONS: Record<string, string> = {
+  hydro: '<path d="M4 20V8l8-4 8 4v12"/><path d="M4 14c2 1 4 1 6 0s4-1 6 0 3 1 4 0"/><path d="M10 20v-4h4v4"/>',
+  thermal: '<path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-6 1-9z"/>',
+  solar: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+  wind: '<path d="M12 12v9"/><path d="M12 12l-6-6"/><path d="M12 12l7-2"/><path d="M12 12l-1-8"/><circle cx="12" cy="12" r="1.5"/>',
+  pump: '<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/><path d="M5 21h14"/>',
+  bus: '<path d="M4 12h16"/><path d="M7 7v10M12 7v10M17 7v10"/>',
+  line: '<path d="M3 12h18"/><path d="M6 8l-3 4 3 4M18 8l3 4-3 4"/>',
+  load: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  contract: '<path d="M7 3h7l4 4v14H7z"/><path d="M10 12h5M10 16h5"/>',
+  inflow: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>',
+  scenarios: '<path d="M3 17l5-6 4 3 5-8 4 5"/><path d="M3 21h18"/>',
+  time: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  constraints: '<path d="M4 6h16M4 12h16M4 18h16"/><path d="M9 4v4M15 10v4M8 16v4"/>',
+  penalties: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/>',
+  risk: '<path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>',
+  water: '<path d="M4 8c2 1 4 1 6 0s4-1 6 0 3 1 4 0"/><path d="M4 14c2 1 4 1 6 0s4-1 6 0 3 1 4 0"/><path d="M4 20c2 1 4 1 6 0s4-1 6 0 3 1 4 0"/>',
+  deficit: '<path d="M13 2L5 14h6l-1 8 8-12h-6z"/><path d="M3 3l18 18"/>',
+};

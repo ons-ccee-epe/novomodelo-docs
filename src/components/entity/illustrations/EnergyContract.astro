@@ -1,0 +1,53 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'Um contrato injeta ou retira potência no barramento, a um preço por MWh',
+  out1: 'Fora do sistema modelado', in_: 'Contrato de importação', imp: 'injeta potência no barramento', impP: 'preço positivo: custo',
+  exp: 'retira potência do barramento', expP: 'preço negativo: receita de exportação', ex: 'Contrato de exportação',
+  bus: 'Barramento',
+  lim: 'potência entre o mínimo e o máximo contratados (MW)',
+  top: 'mínimo positivo = take-or-pay: despachado mesmo havendo oferta mais barata',
+  aria: 'Um barramento no centro. À esquerda, vindo de fora do sistema modelado, um contrato de importação injeta potência no barramento a um preço positivo, que é custo. À direita, um contrato de exportação retira potência do barramento a um preço negativo, que é receita. Cada contrato fica entre o mínimo e o máximo contratados, e um mínimo positivo é uma obrigação take-or-pay, despachada mesmo havendo oferta mais barata.',
+  cap_: 'Figura: um contrato de importação e um de exportação em um barramento. Ilustração esquemática, sem escala.',
+} : {
+  title: 'A contract injects or withdraws power at the bus, at a price per MWh',
+  out1: 'Outside the modelled system', in_: 'Import contract', imp: 'injects power into the bus', impP: 'positive price: cost',
+  exp: 'withdraws power from the bus', expP: 'negative price: export revenue', ex: 'Export contract',
+  bus: 'Bus',
+  lim: 'power between the contracted minimum and maximum (MW)',
+  top: 'positive minimum = take-or-pay: dispatched even when cheaper supply exists',
+  aria: 'A bus at the centre. On the left, coming from outside the modelled system, an import contract injects power into the bus at a positive price, which is a cost. On the right, an export contract withdraws power from the bus at a negative price, which is revenue. Each contract lies between the contracted minimum and maximum, and a positive minimum is a take-or-pay obligation, dispatched even when cheaper supply exists.',
+  cap_: 'Figure: an import contract and an export contract at a bus. Schematic illustration, not to scale.',
+};
+---
+<figure class="entity-illustration entity-network">
+  <svg viewBox="0 0 760 330" role="img" aria-label={T.aria}>
+    <defs>
+      <marker id="ct-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ent-network)" /></marker>
+    </defs>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-network-fg)">{T.title}</text>
+
+    <rect x="20" y="56" width="720" height="190" rx="12" fill="none" stroke="var(--sl-color-gray-3)" stroke-dasharray="6 4" />
+    <text x="726" y="78" text-anchor="end" font-size="12" style="fill: var(--sl-color-gray-3)">{T.out1}</text>
+
+    <rect x="370" y="86" width="20" height="130" rx="4" fill="var(--ent-network)" />
+    <text x="380" y="236" text-anchor="middle" font-size="13" font-weight="600">{T.bus}</text>
+
+    <line x1="40" y1="150" x2="364" y2="150" stroke="var(--ent-network)" stroke-width="4" marker-end="url(#ct-arrow)" />
+    <text x="40" y="112" font-size="13" font-weight="600">{T.in_}</text>
+    <text x="40" y="130" font-size="12" style="fill: var(--sl-color-gray-2)">{T.imp}</text>
+    <text x="40" y="176" font-size="12" style="fill: var(--ent-network-fg)">{T.impP}</text>
+
+    <line x1="394" y1="150" x2="720" y2="150" stroke="var(--ent-network)" stroke-width="4" marker-end="url(#ct-arrow)" />
+    <text x="720" y="112" text-anchor="end" font-size="13" font-weight="600">{T.ex}</text>
+    <text x="720" y="130" text-anchor="end" font-size="12" style="fill: var(--sl-color-gray-2)">{T.exp}</text>
+    <text x="720" y="176" text-anchor="end" font-size="12" style="fill: var(--ent-network-fg)">{T.expP}</text>
+
+    <text x="20" y="282" font-size="12" style="fill: var(--sl-color-gray-2)">{T.lim}</text>
+    <text x="20" y="302" font-size="12" style="fill: var(--sl-color-gray-2)">{T.top}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

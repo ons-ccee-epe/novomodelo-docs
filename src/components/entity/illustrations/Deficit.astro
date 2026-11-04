@@ -1,0 +1,47 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'O déficit é a folga que fecha a diferença entre a carga e a geração disponível',
+  load: 'Carga', gen: 'Geração e importação disponíveis', def: 'Déficit',
+  segs: 'Custo por segmento de profundidade',
+  s1: 'primeiro segmento', s2: 'último segmento (sem limite)', up: 'custo maior',
+  note: 'O último segmento não tem limite, então o problema sempre tem solução.',
+  aria: 'Duas barras horizontais. A barra de cima é a carga. A de baixo é a geração disponível, mais curta que a carga; a diferença, tracejada, é o déficit, que fecha o balanço. À direita, uma escada de custos: o déficit é valorado por segmentos de profundidade, com custos crescentes, e o último segmento não tem limite.',
+  cap_: 'Figura: o déficit como folga de custo alto. Ilustração esquemática, sem escala.',
+} : {
+  title: 'Deficit is the slack that closes the gap between load and generation',
+  load: 'Load', gen: 'Available generation and imports', def: 'Deficit',
+  segs: 'Cost by depth segment',
+  s1: 'first segment', s2: 'last segment (unbounded)', up: 'higher cost',
+  note: 'The last segment is unbounded, so the problem always has a solution.',
+  aria: 'Two horizontal bars. The top bar is the load. The bottom bar is the available generation, shorter than the load; the dashed difference is the deficit, which closes the balance. On the right, a staircase of costs: the deficit is priced by depth segments with rising costs, and the last segment is unbounded.',
+  cap_: 'Figure: the deficit as a high-cost slack. Schematic illustration, not to scale.',
+};
+---
+<figure class="entity-illustration entity-network">
+  <svg viewBox="0 0 760 330" role="img" aria-label={T.aria}>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-network-fg)">{T.title}</text>
+
+    <text x="20" y="70" font-size="13" font-weight="600">{T.load}</text>
+    <rect x="20" y="78" width="400" height="38" rx="4" fill="var(--sl-color-gray-4)" fill-opacity="0.55" stroke="var(--sl-color-gray-3)" />
+
+    <text x="20" y="160" font-size="13" font-weight="600">{T.gen}</text>
+    <rect x="20" y="168" width="270" height="38" rx="4" fill="var(--ent-network)" fill-opacity="0.75" />
+    <rect x="290" y="168" width="130" height="38" rx="4" fill="var(--ent-network-bg)" stroke="var(--ent-network)" stroke-width="2" stroke-dasharray="6 4" />
+    <text x="355" y="192" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ent-network-fg)">{T.def}</text>
+
+    <text x="470" y="70" font-size="13" font-weight="600">{T.segs}</text>
+    <rect x="480" y="190" width="100" height="40" fill="var(--ent-network)" fill-opacity="0.45" />
+    <rect x="580" y="140" width="140" height="90" fill="var(--ent-network)" fill-opacity="0.8" />
+    <text x="530" y="250" text-anchor="middle" font-size="12">{T.s1}</text>
+    <text x="650" y="268" text-anchor="middle" font-size="12">{T.s2}</text>
+    <line x1="474" y1="230" x2="474" y2="110" stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <text x="470" y="104" font-size="12" style="fill: var(--sl-color-gray-2)">{T.up}</text>
+
+    <text x="20" y="310" font-size="12" style="fill: var(--sl-color-gray-2)">{T.note}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>
