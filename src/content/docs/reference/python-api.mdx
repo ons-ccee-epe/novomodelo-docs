@@ -20,7 +20,7 @@ Conventions used by every entry:
 __version__: str
 ```
 
-The package version string, for example `0.19.1`.
+The package version string, for example `0.20.0`.
 
 ### `novomodelo.version_info`
 
@@ -32,7 +32,7 @@ Describes the running build. The dict has the keys `version` (equal to `novomode
 
 **Returns**: the build description dict.
 
-{/* capture: python t231-version-info | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: none */}
+{/* capture: python t231-version-info | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none */}
 
 ```python
 import novomodelo
@@ -41,7 +41,7 @@ print(novomodelo.version_info())
 ```
 
 ```text
-{'version': '0.19.1', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
+{'version': '0.20.0', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
 ```
 
 ### `novomodelo.Study`
@@ -50,10 +50,10 @@ print(novomodelo.version_info())
 class Study:
     def __init__(
         self,
-        case_dir: Union[str, Path],
-        output_dir: Optional[Union[str, Path]] = None,
-        threads: Optional[int] = None,
-        config_overrides: Optional[Mapping[str, Any]] = None,
+        case_dir: str | Path,
+        output_dir: str | Path | None = None,
+        threads: int | None = None,
+        config_overrides: Mapping[str, Any] | None = None,
     ) -> None: ...
 ```
 
@@ -134,8 +134,8 @@ Reports the warnings captured during construction and checks the configured poli
 ```python
 def train(
     self,
-    on_iteration: Optional[Callable[[dict[str, Any]], Any]] = None,
-) -> "Policy": ...
+    on_iteration: Callable[[dict[str, Any]], Any] | None = None,
+) -> Policy: ...
 ```
 
 Trains an SDDP policy against the study's in-memory setup and returns a [`novomodelo.Policy`](#novomodelopolicy). The call writes the policy to `<output_dir>/<policy.path>` (default `policy/`) and the training artifacts under `training/`. The GIL is released while the solver computes; the callback runs on a separate thread that takes the GIL only at iteration boundaries.
@@ -164,8 +164,8 @@ A second `train` call on the same `Study` runs against a setup that already carr
 ```python
 def load_policy(
     self,
-    output_dir: Optional[Union[str, Path]] = None,
-) -> "Policy": ...
+    output_dir: str | Path | None = None,
+) -> Policy: ...
 ```
 
 Reads a policy checkpoint from `<output_dir>/<policy.path>/` and returns a [`novomodelo.Policy`](#novomodelopolicy) that `simulate` accepts in the same way as a trained one. The checkpoint is always checked against the study's state dimension, stage count and terminal entity manifest.
@@ -187,8 +187,8 @@ Reads a policy checkpoint from `<output_dir>/<policy.path>/` and returns a [`nov
 ```python
 def simulate(
     self,
-    policy: "Policy",
-    output_dir: Optional[Union[str, Path]] = None,
+    policy: Policy,
+    output_dir: str | Path | None = None,
 ) -> dict[str, Any]: ...
 ```
 
@@ -288,7 +288,7 @@ Returns the active cuts of one stage as two NumPy arrays, in ascending slot orde
 - `OverflowError` (builtin) when `stage` is negative.
 - `ImportError` (builtin) when NumPy is not installed.
 
-{/* capture: python t232-policy-units | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t232-policy-units | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo
@@ -310,24 +310,24 @@ print(round(stage0["cuts"][0]["intercept"] / intercepts[0]))
 
 ```text
 (128,) (128, 1)
-21.650084092030454
-31.669512704831718 31.669512704831718
+29.299602605817142
+59.78879458073435 59.78879458073435
 1000000.0
 1
 ```
 
-The saved intercept equals the in-memory one: both are in the scale of `cost_scale_factor`. The `evaluate` result of about `21.65` is therefore about `21650084` in currency units.
+The saved intercept equals the in-memory one: both are in the scale of `cost_scale_factor`. The `evaluate` result of about `29.30` is therefore about `29299603` in currency units.
 
 ### `novomodelo.write_policy_checkpoint`
 
 ```python
 def write_policy_checkpoint(
-    path: Union[str, Path],
+    path: str | Path,
     stage_cuts: Sequence[Mapping[str, Any]],
     metadata: Mapping[str, Any],
-    stage_bases: Optional[Sequence[Mapping[str, Any]]] = None,
-    stage_states: Optional[Sequence[Mapping[str, Any]]] = None,
-    inflow_lag_depth: Optional[int] = None,
+    stage_bases: Sequence[Mapping[str, Any]] | None = None,
+    stage_states: Sequence[Mapping[str, Any]] | None = None,
+    inflow_lag_depth: int | None = None,
 ) -> None: ...
 ```
 
@@ -353,11 +353,11 @@ Writes a policy checkpoint to `path` from plain Python dicts. `stage_cuts`, `met
 
 ```python
 def run(
-    case_dir: Union[str, Path],
-    output_dir: Optional[Union[str, Path]] = None,
-    threads: Optional[int] = None,
-    config_overrides: Optional[Mapping[str, Any]] = None,
-    on_iteration: Optional[Callable[[dict[str, Any]], Optional[bool]]] = None,
+    case_dir: str | Path,
+    output_dir: str | Path | None = None,
+    threads: int | None = None,
+    config_overrides: Mapping[str, Any] | None = None,
+    on_iteration: Callable[[dict[str, Any]], bool | None] | None = None,
 ) -> RunResult: ...
 ```
 
@@ -389,7 +389,7 @@ A stop requested by `on_iteration` records `convergence.termination_reason` as `
 - The classes listed for [`novomodelo.Study`](#novomodelostudy), [`novomodelo.Study.train`](#novomodelostudytrain) and [`novomodelo.Study.simulate`](#novomodelostudysimulate), according to the phase that fails.
 - Any exception raised by the callback, re-raised verbatim after the artifacts are written.
 
-{/* capture: python t231-run-on-iteration | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-run-on-iteration | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo.run
@@ -404,9 +404,9 @@ novomodelo.run.run("case", output_dir="output", on_iteration=on_iteration)
 ```
 
 ```text
-{'kind': 'iteration', 'iteration': 1, 'lower_bound': 5060208.389407688, 'upper_bound': 17125951.86504142, 'gap': 2.3844360838756016, 'wall_time_ms': 4}
-{'kind': 'iteration', 'iteration': 2, 'lower_bound': 6970347.641468819, 'upper_bound': 583065.760305419, 'gap': -0.9163505480219416, 'wall_time_ms': 7}
-{'kind': 'iteration', 'iteration': 3, 'lower_bound': 7171550.050534341, 'upper_bound': 12565763.664663631, 'gap': 0.752168440033041, 'wall_time_ms': 11}
+{'kind': 'iteration', 'iteration': 1, 'lower_bound': 12282078.645359315, 'upper_bound': 21236944.064237505, 'gap': 0.7291001529502268, 'wall_time_ms': 5}
+{'kind': 'iteration', 'iteration': 2, 'lower_bound': 14580933.83976896, 'upper_bound': 594119.170972256, 'gap': -0.959253695442207, 'wall_time_ms': 8}
+{'kind': 'iteration', 'iteration': 3, 'lower_bound': 15245185.133569838, 'upper_bound': 18707186.646276362, 'gap': 0.2270881909517261, 'wall_time_ms': 12}
 ```
 
 `wall_time_ms` varies between runs. The stop requested at iteration 3 takes effect at a later iteration boundary, so the run can finish after more than three iterations.
@@ -416,7 +416,7 @@ novomodelo.run.run("case", output_dir="output", on_iteration=on_iteration)
 ### `novomodelo.io.load_case`
 
 ```python
-def load_case(path: Union[str, Path]) -> model.System: ...
+def load_case(path: str | Path) -> model.System: ...
 ```
 
 Loads and validates a case directory through the full validation pipeline and returns a [`novomodelo.model.System`](#novomodelomodelsystem). A relative path resolves from the process working directory.
@@ -436,10 +436,10 @@ Loads and validates a case directory through the full validation pipeline and re
 
 ```python
 def validate(
-    path: Union[str, Path],
-    config_overrides: Optional[Mapping[str, Any]] = None,
+    path: str | Path,
+    config_overrides: Mapping[str, Any] | None = None,
     *,
-    output_dir: Optional[Union[str, Path]] = None,
+    output_dir: str | Path | None = None,
 ) -> dict[str, Any]: ...
 ```
 
@@ -457,7 +457,7 @@ Runs the full validation pipeline (case structure, schema, configuration, stocha
 
 - `ValueError` (builtin) only when `config_overrides` is malformed.
 
-{/* capture: python t231-io-validate | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-io-validate | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo.io
@@ -477,7 +477,7 @@ Loaders for the artifacts a run writes under its output directory. Every functio
 ### `novomodelo.results.load_results`
 
 ```python
-def load_results(output_dir: Union[str, Path]) -> dict[str, Any]: ...
+def load_results(output_dir: str | Path) -> dict[str, Any]: ...
 ```
 
 Reads the run manifests.
@@ -502,7 +502,7 @@ Both `"complete"` values are `_SUCCESS` marker flags, not a verdict on the run. 
 ### `novomodelo.results.load_convergence`
 
 ```python
-def load_convergence(output_dir: Union[str, Path]) -> Any: ...
+def load_convergence(output_dir: str | Path) -> Any: ...
 ```
 
 Reads `training/convergence.parquet`; for the columns, see [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet).
@@ -518,7 +518,7 @@ Reads `training/convergence.parquet`; for the columns, see [`training/convergenc
 - `FileNotFoundError` (builtin) when `output_dir` or `training/convergence.parquet` is missing.
 - `OSError` (builtin) for other I/O failures and Parquet decoding failures.
 
-{/* capture: python t232-load-convergence | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t232-load-convergence | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo.results
@@ -539,7 +539,7 @@ print(sorted(rows[0]))
 ### `novomodelo.results.load_convergence_arrow`
 
 ```python
-def load_convergence_arrow(output_dir: Union[str, Path]) -> Any: ...
+def load_convergence_arrow(output_dir: str | Path) -> Any: ...
 ```
 
 Reads the same file as [`novomodelo.results.load_convergence`](#novomodeloresultsload_convergence) without building Python objects per value.
@@ -560,8 +560,8 @@ Reads the same file as [`novomodelo.results.load_convergence`](#novomodeloresult
 
 ```python
 def load_simulation(
-    output_dir: Union[str, Path],
-    entity_type: Optional[str] = None,
+    output_dir: str | Path,
+    entity_type: str | None = None,
 ) -> Any: ...
 ```
 
@@ -583,8 +583,8 @@ Reads the Hive-partitioned Parquet files under `simulation/`; see [Simulation Ou
 
 ```python
 def load_simulation_arrow(
-    output_dir: Union[str, Path],
-    entity_type: Optional[str] = None,
+    output_dir: str | Path,
+    entity_type: str | None = None,
 ) -> Any: ...
 ```
 
@@ -606,7 +606,7 @@ Reads the same files as [`novomodelo.results.load_simulation`](#novomodeloresult
 
 ```python
 def load_policy(
-    output_dir: Union[str, Path],
+    output_dir: str | Path,
     policy_subdir: str = "policy",
 ) -> Any: ...
 ```
@@ -628,7 +628,7 @@ Reads the policy checkpoint from `<output_dir>/<policy_subdir>` into plain dicts
 ### `novomodelo.results.load_stochastic`
 
 ```python
-def load_stochastic(output_dir: Union[str, Path]) -> Stochastic: ...
+def load_stochastic(output_dir: str | Path) -> Stochastic: ...
 ```
 
 Reads the fitted stochastic model from `stochastic/inflow_ar_coefficients.parquet` and `stochastic/noise_openings.parquet`; see [Stochastic Artifacts](/reference/output/stochastic/). Those files exist only when the run had `exports.stochastic` enabled. Constructing the handle does not need NumPy.
@@ -711,7 +711,7 @@ The loaded system: entity counts and one list per entity class.
 | `pumping_stations` | `list[PumpingStation]` | The pumping stations, in canonical order. Empty when the case has none. |
 | `non_controllable_sources` | `list[NonControllableSource]` | The non-controllable sources, in canonical order. Empty when the case has none. |
 
-{/* capture: python t231a-load-case | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231a-load-case | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo.io
@@ -775,12 +775,12 @@ A hydroelectric plant with reservoir storage. Plants form a cascade through `dow
 | --- | --- | --- |
 | `id` | `int` | The entity id from the case file. |
 | `name` | `str` | The entity name from the case file. |
-| `downstream_id` | `Optional[int]` | The id of the next hydro in the cascade. `None` for a plant with no downstream plant. |
+| `downstream_id` | `int \| None` | The id of the next hydro in the cascade. `None` for a plant with no downstream plant. |
 | `min_storage_hm3` | `float` | The minimum operational storage (dead volume), in hm³. |
 | `max_storage_hm3` | `float` | The maximum operational storage (flood control level), in hm³. |
 | `min_turbined_m3s` | `float` | The minimum turbined flow, in m³/s. |
 | `max_turbined_m3s` | `float` | The maximum turbined flow (installed turbine capacity), in m³/s. |
-| `productivity_mw_per_m3s` | `Optional[float]` | Always `None`. The productivity is resolved per stage from the production-model files. |
+| `productivity_mw_per_m3s` | `float \| None` | Always `None`. The productivity is resolved per stage from the production-model files. |
 
 ### `novomodelo.model.EnergyContract`
 
@@ -793,8 +793,8 @@ A bilateral energy contract with an external system.
 | `operational_start_date` | `str` | The date the entity enters service, as an ISO 8601 `YYYY-MM-DD` string. |
 | `bus_id` | `int` | The id of the bus the contract connects to. |
 | `contract_type` | `str` | The direction of energy flow: `"import"` or `"export"`. |
-| `entry_stage_id` | `Optional[int]` | The stage index at which the contract enters service. `None` when it is active from the first stage. |
-| `exit_stage_id` | `Optional[int]` | The stage index at which the contract expires. `None` when it never expires. |
+| `entry_stage_id` | `int \| None` | The stage index at which the contract enters service. `None` when it is active from the first stage. |
+| `exit_stage_id` | `int \| None` | The stage index at which the contract expires. `None` when it never expires. |
 | `price_per_mwh` | `float` | The contract price, in $/MWh. A negative value represents export revenue. |
 | `min_mw` | `float` | The minimum contracted power, in MW. |
 | `max_mw` | `float` | The maximum contracted power, in MW. |
@@ -811,8 +811,8 @@ A pumping station that transfers water between hydro reservoirs.
 | `bus_id` | `int` | The id of the bus the station draws power from. |
 | `source_hydro_id` | `int` | The id of the hydro the pumped water is taken from. |
 | `destination_hydro_id` | `int` | The id of the hydro that receives the pumped water. |
-| `entry_stage_id` | `Optional[int]` | The stage index at which the station enters service. `None` when it is active from the first stage. |
-| `exit_stage_id` | `Optional[int]` | The stage index at which the station is decommissioned. `None` when it is never decommissioned. |
+| `entry_stage_id` | `int \| None` | The stage index at which the station enters service. `None` when it is active from the first stage. |
+| `exit_stage_id` | `int \| None` | The stage index at which the station is decommissioned. `None` when it is never decommissioned. |
 | `consumption_mw_per_m3s` | `float` | The power consumption per unit of pumped flow, in MW/(m³/s). |
 | `min_flow_m3s` | `float` | The minimum pumped flow, in m³/s. |
 | `max_flow_m3s` | `float` | The maximum pumped flow (installed pump capacity), in m³/s. |
@@ -827,8 +827,8 @@ An intermittent generation source that is not dispatched.
 | `name` | `str` | The entity name from the case file. |
 | `operational_start_date` | `str` | The date the entity enters service, as an ISO 8601 `YYYY-MM-DD` string. |
 | `bus_id` | `int` | The id of the bus the source feeds. |
-| `entry_stage_id` | `Optional[int]` | The stage index at which the source enters service. `None` when it is active from the first stage. |
-| `exit_stage_id` | `Optional[int]` | The stage index at which the source is decommissioned. `None` when it is never decommissioned. |
+| `entry_stage_id` | `int \| None` | The stage index at which the source enters service. `None` when it is active from the first stage. |
+| `exit_stage_id` | `int \| None` | The stage index at which the source is decommissioned. `None` when it is never decommissioned. |
 | `max_generation_mw` | `float` | The maximum generation (installed capacity), in MW. |
 | `allow_curtailment` | `bool` | Whether the LP may curtail the source. `False` is the must-run regime. |
 | `curtailment_cost` | `float` | The resolved cost of curtailed generation, in $/MWh. Unused when `allow_curtailment` is `False`. |
@@ -912,7 +912,7 @@ An internal software or environment fault, such as a worker-thread panic. Raised
 
 Some failures raise a builtin exception that is not a `NovomodeloError`: a missing case directory (`OSError`), `threads=0` and a malformed `config_overrides` mapping (`ValueError`), and a callback's own exception.
 
-{/* capture: python t231-validation-error | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: 1dtoy scaffold */}
+{/* capture: python t231-validation-error | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: 1dtoy scaffold */}
 
 ```python
 import novomodelo
@@ -935,7 +935,7 @@ config override error: schema error in <config_overrides>, field trainning: unkn
 ### `novomodelo.schema.export`
 
 ```python
-def export(output_dir: Union[str, Path] = ".") -> int: ...
+def export(output_dir: str | Path = ".") -> int: ...
 ```
 
 Writes the JSON Schema file of every case-directory input type into `output_dir`, creating the directory if needed and overwriting existing files. For the schemas, see [JSON Schemas](/reference/json-schemas/).
@@ -951,7 +951,7 @@ Writes the JSON Schema file of every case-directory input type into `output_dir`
 - `ValueError` (builtin) when schema generation or serialisation fails.
 - `OSError` (builtin) when the directory cannot be created or a file cannot be written.
 
-{/* capture: python t232-schema-export | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: none */}
+{/* capture: python t232-schema-export | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none */}
 
 ```python
 import novomodelo.schema
@@ -991,14 +991,14 @@ The dict `novomodelo.run.run` returns.
 | `converged` | `bool` | `True` when the stopping rules ended training and a `gap` or `bound_stalling` rule triggered at that iteration. `False` for any other stopping reason and for a run without training. |
 | `iterations` | `int` | The number of training iterations run. `0` when training did not run. |
 | `lower_bound` | `float` | The final lower bound, in currency units. |
-| `upper_bound` | `Optional[float]` | The final upper bound, in currency units. `None` when it is not available. |
-| `gap_percent` | `Optional[float]` | The relative optimality gap times 100. `None` when training did not run. |
+| `upper_bound` | `float \| None` | The final upper bound, in currency units. `None` when it is not available. |
+| `gap_percent` | `float \| None` | The relative optimality gap times 100. `None` when training did not run. |
 | `total_time_ms` | `int` | The training time in milliseconds. `0` when training did not run. |
 | `output_dir` | `str` | The output directory the run wrote to. |
-| `simulation` | `Optional[SimulationSummary]` | The simulation summary. `None` when simulation did not run. |
-| `stochastic` | `Optional[StochasticSummary]` | The same summary as `novomodelo.Study.stochastic`. `novomodelo.run.run` always sets it. |
-| `hydro_models` | `Optional[HydroModelsSummary]` | The same summary as `novomodelo.Study.hydro_models`. `novomodelo.run.run` always sets it. |
-| `provenance` | `Optional[ProvenanceReport]` | The same summary as `novomodelo.Study.provenance`. `novomodelo.run.run` always sets it. |
+| `simulation` | `SimulationSummary \| None` | The simulation summary. `None` when simulation did not run. |
+| `stochastic` | `StochasticSummary \| None` | The same summary as `novomodelo.Study.stochastic`. `novomodelo.run.run` always sets it. |
+| `hydro_models` | `HydroModelsSummary \| None` | The same summary as `novomodelo.Study.hydro_models`. `novomodelo.run.run` always sets it. |
+| `provenance` | `ProvenanceReport \| None` | The same summary as `novomodelo.Study.provenance`. `novomodelo.run.run` always sets it. |
 
 Every key is present on every branch. After training, `upper_bound` and `gap_percent` are set. On a simulation-only run (training disabled, simulation enabled), `iterations` is `0`, `gap_percent` is `None`, and `upper_bound` is the loaded checkpoint's recorded upper bound (the last training iteration's value) when it is finite, otherwise `None`. With both phases disabled, `lower_bound` is `0.0` and `upper_bound`, `gap_percent` and `simulation` are `None`.
 
@@ -1011,8 +1011,8 @@ The six training headline keys that `RunResult` carries at its top level. No fun
 | `converged` | `bool` | `True` when the stopping rules ended training and a `gap` or `bound_stalling` rule triggered at that iteration. `False` for any other stopping reason and for a run without training. |
 | `iterations` | `int` | The number of training iterations run. `0` when training did not run. |
 | `lower_bound` | `float` | The final lower bound, in currency units. |
-| `upper_bound` | `Optional[float]` | The final upper bound, in currency units. `None` when it is not available. |
-| `gap_percent` | `Optional[float]` | The relative optimality gap times 100. `None` when training did not run. |
+| `upper_bound` | `float \| None` | The final upper bound, in currency units. `None` when it is not available. |
+| `gap_percent` | `float \| None` | The relative optimality gap times 100. `None` when training did not run. |
 | `total_time_ms` | `int` | The training time in milliseconds. `0` when training did not run. |
 
 ### `novomodelo._types.SimulationSummary`
@@ -1030,13 +1030,15 @@ The dict `novomodelo.Study.stochastic` returns.
 
 | Key | Type | Description |
 | --- | --- | --- |
-| `inflow_source` | `Optional[str]` | The source of the inflow seasonal statistics: one of `"estimated"` (computed from the historical records), `"loaded"` (read from the case files) or `None` (the component is not modelled). |
+| `inflow_source` | `str \| None` | The source of the inflow seasonal statistics: one of `"estimated"` (computed from the historical records), `"loaded"` (read from the case files) or `None` (the component is not modelled). |
 | `n_hydros` | `int` | The number of hydro plants. |
 | `n_seasons` | `int` | The number of seasons in the PAR model. |
-| `ar_order` | `Optional[dict]` | The autoregressive (AR) order summary; `None` when the system has no hydros. The dict has the keys `method` (`str`, the order-selection method: `"PACF"` or `"PACF_ANNUAL"` for the `estimation.order_selection` that ran, or `"fixed"` when the orders come from the case files), `min_order` and `max_order` (`int`), `n_hydros` (`int`) and `order_counts` (`list[int]`, the number of hydros at each order, indexed by order). |
-| `correlation_source` | `Optional[str]` | The source of the correlation data: one of `"estimated"` (computed from the historical records), `"loaded"` (read from the case files) or `None` (the component is not modelled). |
-| `correlation_dim` | `Optional[str]` | The dimension of the correlation matrix as a string, for example `"1x1"`. `None` when there is no correlation matrix. |
-| `opening_tree_source` | `Optional[str]` | The source of the opening tree: one of `"estimated"` (computed from the historical records), `"loaded"` (read from the case files) or `None` (the component is not modelled). |
+| `ar_order` | `dict \| None` | The autoregressive (AR) order summary; `None` when the system has no hydros. The dict has the keys `method` (`str`, the order-selection method: `"PACF"` or `"PACF_ANNUAL"` for the `estimation.order_selection` that ran, or `"fixed"` when the orders come from the case files), `min_order` and `max_order` (`int`), `n_hydros` (`int`) and `order_counts` (`list[int]`, the number of hydros at each order, indexed by order). |
+| `correlation_source` | `str \| None` | The source of the correlation data: one of `"estimated"` (computed from the historical records), `"loaded"` (read from the case files) or `None` (the component is not modelled). |
+| `correlation_target` | `str \| None` | The series the spatial correlation was estimated from, the run's `estimation.correlation_target`: `"inflows"` or `"residuals"`. `None` unless `correlation_source` is `"estimated"`. `training/model_provenance.json` records it as [`inflow.correlation_target`](/reference/output/metadata/#trainingmodel_provenancejson). |
+| `correlation_dim` | `str \| None` | The dimension of the correlation matrix as a string, for example `"1x1"`. `None` when there is no correlation matrix. |
+| `opening_tree_source` | `str \| None` | The source of the opening tree: one of `"estimated"` (computed from the historical records), `"loaded"` (read from the case files) or `None` (the component is not modelled). |
+| `opening_tree_moment_matching` | `str \| None` | The moment matching of the generated opening tree, the run's `training.scenario_source.openings.moment_matching`: `"per_coordinate"` (the default) or `"none"`, recorded whether or not a stage was matched. `None` unless `opening_tree_source` is `"estimated"`. `training/model_provenance.json` records it as [`inflow.opening_tree_moment_matching`](/reference/output/metadata/#trainingmodel_provenancejson). |
 | `openings_per_stage` | `list[int]` | The number of openings at each stage. |
 | `n_stages` | `int` | The number of stages in the stochastic context. |
 | `n_load_buses` | `int` | The number of buses with stochastic load noise. |
@@ -1064,9 +1066,11 @@ The dict `novomodelo.Study.provenance` returns.
 | `seasonal_stats_source` | `str` | The origin of the seasonal mean and standard deviation: one of `"estimated"` (computed from the inflow history), `"user_file"` (read from a case file) or `"n/a"` (not applicable). |
 | `ar_coefficients_source` | `str` | The origin of the AR coefficients: one of `"estimated"` (computed from the inflow history), `"user_file"` (read from a case file) or `"n/a"` (not applicable). |
 | `correlation_source` | `str` | The origin of the spatial correlation: one of `"estimated"` (computed from the inflow history), `"user_file"` (read from a case file) or `"n/a"` (not applicable). |
+| `correlation_target` | `str \| None` | The series the spatial correlation was estimated from, the run's `estimation.correlation_target`: `"inflows"` or `"residuals"`. `None` unless `correlation_source` is `"estimated"`. `training/model_provenance.json` records it as [`inflow.correlation_target`](/reference/output/metadata/#trainingmodel_provenancejson). |
 | `opening_tree_source` | `str` | The origin of the noise opening tree: one of `"estimated"` (computed from the inflow history), `"user_file"` (read from a case file) or `"n/a"` (not applicable). |
+| `opening_tree_moment_matching` | `str \| None` | The moment matching of the generated opening tree, the run's `training.scenario_source.openings.moment_matching`: `"per_coordinate"` (the default) or `"none"`, recorded whether or not a stage was matched. `None` unless `opening_tree_source` is `"estimated"`. `training/model_provenance.json` records it as [`inflow.opening_tree_moment_matching`](/reference/output/metadata/#trainingmodel_provenancejson). |
 | `n_hydros` | `int` | The number of hydro plants. |
-| `ar_method` | `Optional[str]` | The order-selection method used when the AR coefficients were estimated: `"PACF"` or `"PACF_ANNUAL"`. `None` when they were not estimated. |
-| `ar_max_order` | `Optional[int]` | The maximum AR order across all hydros when the AR coefficients were estimated. `None` otherwise. |
+| `ar_method` | `str \| None` | The order-selection method used when the AR coefficients were estimated: `"PACF"` or `"PACF_ANNUAL"`. `None` when they were not estimated. |
+| `ar_max_order` | `int \| None` | The maximum AR order across all hydros when the AR coefficients were estimated. `None` otherwise. |
 | `white_noise_fallbacks` | `list[int]` | The ids of the hydros that fell back to white noise. Empty unless the path is `"partial_estimation"`. |
 | `hydro_production` | `dict` | The hydro-production source counts. The dict has the integer keys `n_fpha_computed_from_geometry`, `n_fpha_precomputed_hyperplanes`, `n_evaporation_ref_user_supplied` and `n_evaporation_ref_default_midpoint`. |

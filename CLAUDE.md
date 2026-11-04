@@ -30,7 +30,7 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.19.1 (2026-10-26).**
+**Synced to: novomodelo v0.20.0 (2026-11-03).**
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -178,7 +178,7 @@ partial filenames so the render split holds.
 ## Quality Gates
 
 ```bash
-# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.19.1/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
+# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.20.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:python-api \
@@ -190,7 +190,7 @@ npm run check:figures && npm run check:voice && npm run check:counts \
 
 - **d2 v0.7.1** on `PATH`: without it `npm run build` and `npm run dev` abort with
   "Could not find D2".
-- **novomodelo v0.19.1** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
+- **novomodelo v0.20.0** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
   The gate exits 2 when the binary is missing, lies under a cargo
   `target/release/` or `target/debug/` directory, or reports a version other
   than `DEFAULT_NOVOMODELO_REF` in `scripts/novomodelo-ref.mjs`.
@@ -275,8 +275,10 @@ only.
 software-layer/devguide concern; keep the math backend-generic.)
 → **Warm start per phase**: each phase's solver profile
 (`solve/solver_phase.rs`) sets `use_warm_start`. The HiGHS profiles warm-start
-the backward pass (`true`) and start forward and simulation solves cold
-(`false`); a cold HiGHS solve uses neither the offered basis nor the one the
+the forward and backward passes (`true`) and start simulation solves cold
+(`false`); HiGHS refactorizes before reporting a solve optimal, and every
+solve counts the rows its primal solution misses (`lp_row_violations`, end-of-run
+warning); a cold HiGHS solve uses neither the offered basis nor the one the
 previous solve left (`backends/highs/interface.rs` drops the basis, which keeps
 `basis_offered` at 0; HiGHS `run()` clears the solver), the dynamic method's
 inner re-solves included. A phase's `use_warm_start` override changes either
@@ -284,9 +286,10 @@ choice and every retry keeps it. CLP has no `use_warm_start`, rejects per-phase
 fields, and warm-starts every phase. The dynamic method neither reads nor writes
 the basis store (`training/forward/stage_solve.rs`,
 `training/backward/by_scenario.rs`); outside it captures happen whatever the
-profile. Under the HiGHS defaults a checkpoint's stored bases seed no training
-solve on a stage chain (the cold forward pass overwrites the slot before the
-backward pass reads it); on a branching graph a warm backward pass also starts
+profile. Under the HiGHS defaults a checkpoint's stored bases seed the first
+iteration's forward solves on a stage chain (with a cold forward pass they seed
+no training solve: the forward capture overwrites the slot before the backward
+pass reads it); on a branching graph a warm backward pass also starts
 from them at successor nodes the first forward path did not visit
 (`resolve_backward_basis`, `training/backward/lp_setup.rs`). Simulation-only
 uses them only with `simulation.solver.use_warm_start: true`.
@@ -315,7 +318,10 @@ was written by exactly this build (`SoftwareIdentity::THIS_BUILD`: the same
 `PolicySoftwareMismatch`; Python
 `write_policy_checkpoint` stamps `THIS_BUILD`. A full-FCF load never fails over
 a stored basis: one that does not fit its LP is left out with one warning
-(`build_basis_cache_from_checkpoint`, `admit_stored_basis`, `UnusedStoredBases`). Boundary
+(`build_basis_cache_from_checkpoint`, `admit_stored_basis`, `UnusedStoredBases`),
+and the reader takes a checkpoint without `basis/` (which archive tools drop
+when empty) as one with no stored bases, as it does for `states/`
+(`read_checkpoint_dir`, `crates/novomodelo-io/src/output/policy/checkpoint.rs`). Boundary
 injection reconciles a differing-state-shape source per slot by ENTITY IDENTITY:
 a target storage or inflow-lag slot with no source counterpart is rejected
 (`RebindOp::Reject`), only forward-dated families are relaxed by interval
@@ -475,6 +481,44 @@ only (`par/fitting/cycle_positions.rs`). The `historical_residuals` noise method
 opening-tree library and constructs `StudySetup` for every deck (`validate_study`,
 `crates/novomodelo-sddp/src/validate_phases.rs`), so it also builds the forward
 scheme's library and reports the refusals `run` reports for it.
+
+When **updating spatial correlation estimation or opening-tree moment matching**
+(`par-inflow-model.mdx` §6.1, `scenario-generation.mdx` §2.3,
+`multi-resolution-studies.md` §4, `_impl/_par.configure.mdx`,
+`_impl/_scenario.*`, `running/configuration.mdx`):
+
+→ `estimation.correlation_target` (`inflows` default | `residuals`,
+`crates/novomodelo-io/src/config/estimation.rs`) picks the series
+`compute_correlation_series` correlates
+(`crates/novomodelo-stochastic/src/par/fitting/correlation.rs`): the standardized
+inflow `(a − μ_m)/s_m` (population statistics, 0 when `s_m = 0`), or that minus
+the PAR lag terms (`ψ*` lag coefficients only, never the annual term). Both feed
+the same pairwise-complete Pearson estimates: a pooled `default` profile and a
+per-season `season_XX` profile where every pair has ≥ 30 periods
+(`MIN_CORRELATION_PAIRS`). Estimation runs only on `full_estimation`,
+`partial_estimation` and `user_ar_history_stats` without `correlation.json`;
+`correlation_source` is `user_file` whenever the file is present.
+→ `training.scenario_source.openings.moment_matching` (`per_coordinate` default |
+`none`; `generated` only, refused under `file`;
+`crates/novomodelo-io/src/config/scenario_source.rs`) runs `match_stage_moments`
+(`crates/novomodelo-stochastic/src/tree/moment_matching.rs`) after the
+correlation, per generated stage, on inflow coordinates only: population mean 0
+and variance `Σ_j D_cj²` (`implied_class_variances`, `correlation/resolve.rs`;
+1 unless an eigenvalue was clipped). It skips `historical_residuals` stages,
+`file` trees, one-opening stages and constant coordinates; load and NCS noise and
+out-of-sample draws are never matched; the exported tree is the matched one.
+→ **Noise groups** are adjacent study stages sharing `(season_id, start year)`.
+`reject_group_stage_larger_than_first` (`tree/generate.rs`) refuses a later stage
+with more openings, counted after the historical-window and external clamps,
+than the group's first stage (`StochasticError::InsufficientData`, exit 1;
+`validate` labels it `scenarios/inflow_history.parquet`); one with fewer copies
+the first openings, with a warning under moment matching.
+→ **MPI**: `novomodelo run` compares `OpeningTree::fingerprint` (FNV-1a) as
+min/max across ranks (`crates/novomodelo-cli/src/commands/run/setup.rs`) and
+exits 4 on a mismatch; non-root ranks drop every log event below ERROR
+(`keeps_event`, `crates/novomodelo-cli/src/main.rs`).
+→ Python `StochasticSummary` and `ProvenanceReport` carry `correlation_target`
+and `opening_tree_moment_matching` (`reference/python-api.mdx`).
 
 When **updating inflow non-negativity** (`inflow-nonnegativity.md`,
 `lp-formulation.md` §4/§10, `penalty-system.mdx`, the Tier 1 convexity bullet of

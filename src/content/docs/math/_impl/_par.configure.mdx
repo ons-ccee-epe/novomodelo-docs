@@ -16,7 +16,8 @@ The `estimation` block is a top-level key of `config.json` (a sibling of
     "max_order": 6,
     "order_selection": "pacf",
     "min_observations_per_season": 30,
-    "max_coefficient_magnitude": null
+    "max_coefficient_magnitude": null,
+    "correlation_target": "inflows"
   }
 }
 ```
@@ -24,6 +25,12 @@ The `estimation` block is a top-level key of `config.json` (a sibling of
 The [`estimation`](/running/configuration/#estimation) section of the
 configuration reference lists every field and its default, and states the
 `min_observations_per_season` behaviour.
+
+`correlation_target` selects the series of methodology §6.1 that an estimated
+correlation is computed from: `"inflows"`, the default, for the standardized
+inflows, or `"residuals"` for the residuals of the fitted autoregression. It has
+no effect on a path that estimates no correlation (rows 1–3 and 7 of the table
+below) or when `scenarios/correlation.json` is supplied.
 
 Setting `"order_selection": "pacf_annual"` activates the PAR(p)-A annual
 component (methodology §7): the periodic Yule-Walker system is extended with
@@ -47,7 +54,7 @@ of seven estimation paths Novomodelo executes:
 
 The other two files layer **orthogonally** on top of the resolved path:
 `scenarios/correlation.json` wins on every path when present (identity
-correlation otherwise, unless a path estimates it from residuals); and
+correlation otherwise, unless the path estimates it); and
 `scenarios/inflow_annual_component.parquet` is honored only on the
 pass-through paths (rows 2, 3, 7 below) — the estimation paths (4, 5, 6)
 always overwrite it with fitted values.
@@ -57,9 +64,9 @@ always overwrite it with fitted values.
 | 1 | 0 | 0 | 0 | `Deterministic` | no PAR model | none | identity, unless `correlation.json` provided |
 | 2 | 0 | 1 | 0 | `UserStatsWhiteNoise` | user file | order-0 (white noise) | identity, unless `correlation.json` provided |
 | 3 | 0 | 1 | 1 | `UserProvidedNoHistory` | user file | user file | identity, unless `correlation.json` provided |
-| 4 | 1 | 0 | 0 | `FullEstimation` | fitted from H | fitted from H (PACF + Yule-Walker + Maceira & Damázio) | estimated from H residuals, unless `correlation.json` provided |
-| 5 | 1 | 0 | 1 | `UserArHistoryStats` | fitted from H | user file | estimated from H residuals using user coefficients, unless `correlation.json` provided |
-| 6 | 1 | 1 | 0 | `PartialEstimation` | user file (the fit uses statistics estimated from H) | fitted from H | estimated from H residuals, unless `correlation.json` provided |
+| 4 | 1 | 0 | 0 | `FullEstimation` | fitted from H | fitted from H (PACF + Yule-Walker + Maceira & Damázio) | estimated from H, unless `correlation.json` provided |
+| 5 | 1 | 0 | 1 | `UserArHistoryStats` | fitted from H | user file | estimated from H (on `"residuals"`, the residuals of the user coefficients), unless `correlation.json` provided |
+| 6 | 1 | 1 | 0 | `PartialEstimation` | user file (the fit uses statistics estimated from H) | fitted from H | estimated from H, unless `correlation.json` provided |
 | 7 | 1 | 1 | 1 | `UserProvidedAll` | user file | user file | identity, unless `correlation.json` provided (history is not re-consumed) |
 
 Cases with `R = 1` but `H = 0` and `S = 0` collapse to row 1 — AR coefficients
@@ -68,7 +75,7 @@ alone cannot drive estimation.
 An estimated correlation (rows 4–6, when no `correlation.json` is provided)
 holds a pooled `"default"` profile. In a cycle of more than one season it also
 holds one `season_<id>` profile for each season whose every hydro pair has
-at least 30 residual pairs — the season `id` zero-padded to the width of the
+at least 30 periods with a value of both hydros — the season `id` zero-padded to the width of the
 largest id, as in `season_03` for a twelve-season cycle — and a schedule that
 maps each stage of such a season to its profile. Every other stage uses the
 pooled profile (methodology §6.1).

@@ -113,8 +113,11 @@ named by the node's 0-based position (`basis/NNN.bin`; the position is the
 `stage_id` field below), zero-padded to three digits, and exist only for nodes
 training captured a basis for; on a stage chain the position is the 0-based
 stage position, one file per stage. Bases are always written with the
-end-of-training checkpoint. Warm-start, resume, and simulation-only loads read
-them to warm-start the stage LP solves, using each basis that fits its stage LP
+end-of-training checkpoint, and the `basis/` directory is written even when
+no node holds a basis; a load reads a checkpoint without `basis/` as one with
+no stored bases, so a checkpoint unpacked from an archive that dropped the
+empty directory still loads. Warm-start, resume, and simulation-only loads read
+the bases to warm-start the stage LP solves, using each basis that fits its stage LP
 and leaving the others out (see the
 [stored-basis gate](/running/policy-management/#stored-basis-gate)); boundary
 loads read none.
