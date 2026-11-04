@@ -7,6 +7,7 @@ import { unified } from "@astrojs/markdown-remark";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { createKatexStrict } from "./scripts/rehype-katex-strict.mjs";
+import rehypeAsciiHeadingIds from "./scripts/rehype-ascii-heading-ids.mjs";
 
 // Wrap each astro-d2 inline SVG in a <div class="d2-fig"> (scroll box + native
 // sizing — see src/styles/diagrams.css and Footer.astro `sizeD2Figures`).
@@ -209,12 +210,14 @@ export default defineConfig({
   // rehype-katex runs with `strict: "error"`, and the katex-strict recorder
   // after it collects every KaTeX error rehype-katex records. Its
   // `astro:build:done` hook then fails the build listing them
-  // (scripts/rehype-katex-strict.mjs).
+  // (scripts/rehype-katex-strict.mjs). rehypeAsciiHeadingIds runs last: it
+  // assigns every heading its id, as Astro computes it, without diacritics
+  // (pt-BR `histórica` -> `historica`; scripts/rehype-ascii-heading-ids.mjs).
   markdown: {
     processor: unified({
       remarkPlugins: [remarkMath],
       // prettier-ignore
-      rehypePlugins: [[rehypeKatex, { strict: "error" }], katexStrict.rehypeKatexStrict, rehypeWrapD2],
+      rehypePlugins: [[rehypeKatex, { strict: "error" }], katexStrict.rehypeKatexStrict, rehypeWrapD2, rehypeAsciiHeadingIds],
     }),
   },
   integrations: [
