@@ -23,11 +23,11 @@ novomodelo init --template 1dtoy my_first_study
 Novomodelo writes 11 input files into a new `my_first_study/` directory and prints a
 summary to stderr:
 
-{/* capture: novomodelo init --template 1dtoy my_first_study 2>&1 | novomodelo   v0.19.1 | binary: novomodelo-cli sha256 e2a3b8cd | case: none; run from an empty working directory with a relative case path, so no absolute path appears */}
+{/* capture: novomodelo init --template 1dtoy my_first_study 2>&1 | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: none; run from an empty working directory with a relative case path, so no absolute path appears */}
 
 ```
  ╺━━━━━━━━━╻●
- ╺━━━━━━━━━╻●⚡  NOVOMODELO v0.19.1
+ ╺━━━━━━━━━╻●⚡  NOVOMODELO v0.20.0
  ╺━━━━━━━━━╻●   Power systems in Rust
 
 Created my_first_study case directory from template '1dtoy':
@@ -81,7 +81,7 @@ feasibility and stochastic consistency — then
 builds the study as `novomodelo run` does and checks any policy the run would load,
 without solving an LP, and prints a single line of entity counts on success:
 
-{/* capture: novomodelo validate my_first_study | novomodelo   v0.19.1 | binary: novomodelo-cli sha256 e2a3b8cd | case: 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: novomodelo validate my_first_study | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -110,29 +110,29 @@ are printed to stdout; warnings and errors go to stderr. On a terminal the progr
 bars draw on stderr. Each phase's summary follows its progress; this excerpt
 starts at the training summary and leaves out the simulation progress lines:
 
-{/* capture: novomodelo run my_first_study --output my_first_study/results 2>&1, post-run summary excerpt | novomodelo   v0.19.1 | binary: novomodelo-cli sha256 e2a3b8cd | case: 1dtoy (novomodelo init --template 1dtoy); timings vary run to run */}
+{/* capture: novomodelo run my_first_study --output my_first_study/results 2>&1, post-run summary excerpt | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy (novomodelo init --template 1dtoy); timings vary run to run */}
 
 ```
-Training complete in 0.6s (128 iterations, iteration_limit)
-  Lower bound:  1.55955e7 $/stage
+Training complete in 0.5s (128 iterations, iteration_limit)
+  Lower bound:  2.06161e7 $/stage
   Upper bound:  5.79592e5 +/- 0.00000e0 $/stage
-  Gap:          -96.28360% (started at 238.44361%)
+  Gap:          -97.18865% (started at 72.91002%)
   Policy rows:  384 active / 384 generated
   LP solves:    5632 (5632 first-try, 0 retried, 0 failed)
-  Avg iter:     5ms
-  Time split:   Forward  195ms (29%)   solve 195ms · wait 0ms (0% of phase)
-                Backward 205ms (31%)   solve 205ms · wait 0ms (0% of phase)
-                Serial   272ms (40%)   bound 71ms · selection 0ms · other 201ms
+  Avg iter:     4ms
+  Time split:   Forward  2ms (<1%)   solve 2ms · wait 0ms (0% of phase)
+                Backward 237ms (44%)   solve 237ms · wait 0ms (0% of phase)
+                Serial   298ms (55%)   bound 85ms · selection 0ms · other 213ms
 Writing training outputs...
 Output written to my_first_study/results/ (0.0s)
 Simulation starting... (100 scenarios across 1 ranks × 1 threads)
-Simulation complete in 0.3s (100 scenarios)
+Simulation complete in 0.5s (100 scenarios)
   Completed: 100  Failed: 0
-  Expected cost: 9.67939e6 +/- 4.64452e6 (std: 2.36965e7)
+  Expected cost: 1.28652e7 +/- 5.74102e6 (std: 2.92909e7)
   LP solves:    400 (400 first-try, 0 retried, 0 failed)
-  Avg/scenario: 0.003s
-  Time split:   Solver 278ms (89%)
-                Other  36ms (11%)
+  Avg/scenario: 0.006s
+  Time split:   Solver 328ms (59%)
+                Other  231ms (41%)
 Writing simulation outputs...
 Output written to my_first_study/results/ (0.0s)
 ```
@@ -218,14 +218,14 @@ reservoirs.
   The [optimality gap](/math/stopping-rules/#optimality-gap) is that cost minus the lower
   bound, relative to the lower bound, so a trajectory cheaper than the lower bound gives a
   negative gap. Most trajectories of this case cost about 6e5; the ones that run short of
-  water pay the deficit cost, up to about 1.5e8 across the 128 iterations. The last
+  water pay the deficit cost, up to about 2e8 across the 128 iterations. The last
   iteration drew a cheap one. With sampled forward passes the gap is an estimate, not a
   guarantee.
 - **Lower bound above the simulated mean.** The
   [lower bound](/math/upper-bound-evaluation/#lower-bound) is the first stage's expected
   value over its ten openings with the trained cuts. The expected cost is the mean of 100
   scenarios drawn from the same ten openings per stage. Their standard deviation
-  (2.36965e7) is more than twice the mean: most scenarios are cheap and a few are very
+  (2.92909e7) is more than twice the mean: most scenarios are cheap and a few are very
   expensive, so a 100-scenario mean often falls below the expected cost it estimates,
   and the lower bound never exceeds that expected cost. A larger
   `simulation.selection.num_scenarios` narrows the interval.
@@ -250,7 +250,7 @@ The convergence history and the simulation costs are plain Parquet files. Instal
 `training/convergence.parquet` and summarises the per-scenario costs in
 `simulation/costs/`:
 
-{/* capture: python read results (polars) | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: python read results (polars) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```python
 import polars as pl
@@ -276,9 +276,9 @@ shape: (3, 4)
 │ ---       ┆ ---         ┆ ---           ┆ ---         │
 │ i32       ┆ f64         ┆ f64           ┆ f64         │
 ╞═══════════╪═════════════╪═══════════════╪═════════════╡
-│ 126       ┆ 1.5596e7    ┆ 615923.497494 ┆ -96.050638  │
-│ 127       ┆ 1.5596e7    ┆ 615923.497494 ┆ -96.050638  │
-│ 128       ┆ 1.5596e7    ┆ 579592.198622 ┆ -96.283598  │
+│ 126       ┆ 2.0616e7    ┆ 615923.497494 ┆ -97.012421  │
+│ 127       ┆ 2.0616e7    ┆ 615923.497494 ┆ -97.012421  │
+│ 128       ┆ 2.0616e7    ┆ 579592.198622 ┆ -97.188649  │
 └───────────┴─────────────┴───────────────┴─────────────┘
 shape: (1, 3)
 ┌──────────┬───────────────┬──────────┐
@@ -286,7 +286,7 @@ shape: (1, 3)
 │ ---      ┆ ---           ┆ ---      │
 │ f64      ┆ f64           ┆ f64      │
 ╞══════════╪═══════════════╪══════════╡
-│ 9.6794e6 ┆ 615923.497494 ┆ 1.2349e8 │
+│ 1.2865e7 ┆ 615923.497494 ┆ 1.4053e8 │
 └──────────┴───────────────┴──────────┘
 ```
 
@@ -299,7 +299,7 @@ also carries the future-cost estimate, so summing it does not reproduce the expe
 The second snippet plots both bounds against the iteration number. It writes
 `convergence.png` to the working directory, so it runs without a display:
 
-{/* capture: python plot convergence (matplotlib) | novomodelo-python 0.19.1 (PyPI wheel sha256 fd7cc6df) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 e2a3b8cd) on 1dtoy (novomodelo init --template 1dtoy) */}
+{/* capture: python plot convergence (matplotlib) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on 1dtoy (novomodelo init --template 1dtoy) */}
 
 ```python
 import matplotlib
@@ -323,8 +323,8 @@ print("saved convergence.png")
 saved convergence.png
 ```
 
-In `convergence.png` the lower bound rises from 5.06e6 and flattens near 1.56e7, while the
-upper bound of a single forward pass sits near 6e5 in most iterations, with spikes up to 1.51e8, on the
+In `convergence.png` the lower bound rises from 1.23e7 and flattens near 2.06e7, while the
+upper bound of a single forward pass sits near 6e5 in most iterations, with spikes up to 1.99e8, on the
 logarithmic axis.
 
 [Convergence & Diagnostics](/running/interpreting-results/) describes every output file,
@@ -358,24 +358,24 @@ novomodelo run my_first_study --output my_first_study/results-more
 
 The post-run summary, as an excerpt (the timings vary with the machine):
 
-{/* capture: novomodelo run my_first_study --output my_first_study/results-more 2>&1, excerpt | novomodelo   v0.19.1 | binary: novomodelo-cli sha256 e2a3b8cd | case: 1dtoy (novomodelo init --template 1dtoy) + config.json training.selection.forward_passes 10, simulation.selection.num_scenarios 2000; timings vary */}
+{/* capture: novomodelo run my_first_study --output my_first_study/results-more 2>&1, excerpt | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy (novomodelo init --template 1dtoy) + config.json training.selection.forward_passes 10, simulation.selection.num_scenarios 2000; timings vary */}
 
 ```text
-Training complete in 17.8s (128 iterations, iteration_limit)
-  Lower bound:  1.56023e7 $/stage
-  Upper bound:  1.44899e7 +/- 1.88601e7 $/stage
-  Gap:          -7.12943% (started at 62.32309%)
+Training complete in 10.9s (128 iterations, iteration_limit)
+  Lower bound:  2.06178e7 $/stage
+  Upper bound:  1.73930e7 +/- 2.30248e7 $/stage
+  Gap:          -15.64066% (started at -13.72705%)
   Policy rows:  3840 active / 3840 generated
-Simulation complete in 27.6s (2000 scenarios)
+Simulation complete in 31.2s (2000 scenarios)
   Completed: 2000  Failed: 0
-  Expected cost: 1.64438e7 +/- 1.47887e6 (std: 3.37435e7)
+  Expected cost: 2.16935e7 +/- 1.92862e6 (std: 4.40053e7)
 ```
 
 With these values each iteration's upper bound is the mean of ten trajectory costs, printed
-with their standard deviation, and the gap (-7.12943 % at the last iteration) is still an
+with their standard deviation, and the gap (-15.64066 % at the last iteration) is still an
 estimate that moves from iteration to iteration. The expected cost of the 2000 scenarios is
-a 95 % confidence interval, `1.64438e7 +/- 1.47887e6`, that contains the lower bound, so the two agree
-within the sampling noise. The lower bound ends slightly higher than in Step 3, at `1.56023e7`,
+a 95 % confidence interval, `2.16935e7 +/- 1.92862e6`, that contains the lower bound, so the two agree
+within the sampling noise. The lower bound ends slightly higher than in Step 3, at `2.06178e7`,
 with ten
 cuts added per stage in each iteration (3840 policy rows: 128 iterations, ten cuts for each
 of the three stages that receive cuts). An exact gap, and the `gap`
