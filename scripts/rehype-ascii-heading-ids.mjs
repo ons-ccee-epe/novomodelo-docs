@@ -15,7 +15,7 @@
 // Starlight's own rehypeHeadingIds runs later and assigns an id only to a
 // heading without one, so the table of contents and the heading anchor links
 // use these ids. pt-BR link fragments in the sources are written the same way
-// (see the translation guide, pt-br/_GLOSSARIO-E-CRITERIOS-DA-TRADUCAO.md).
+// (see the translation guide, .claude/rules/glossario-traducao-ptbr.md).
 import { rehypeHeadingIds } from "@astrojs/markdown-remark";
 
 const HEADING = /^h[1-6]$/;

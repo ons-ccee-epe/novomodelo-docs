@@ -108,6 +108,7 @@ read; open them directly when working on the topic without reading a page first.
 | Rule | Loads on | Covers |
 | --- | --- | --- |
 | `translation-ptbr.md` | any page, `astro.config.mjs`, `src/components/**` | EN↔pt-BR sync contract, pre-commit procedure, the sync hook |
+| `glossario-traducao-ptbr.md` | any `pt-br/` page | Translation guide: form rules, approved terminology, EN→PT-BR glossary |
 | `authoring.md` | any page, `public/schemas/**` | Two-layer corpus, math-layer and software-layer standards, voice gates, vendored JSON schemas |
 | `sddp-lp.md` | LP / cut / warm-start / determinism pages, policy management, error codes | LP layout, state pinning, cut subgradient, block modes, scaling, warm start, cut pool, checkpoint format, policy-load gates |
 | `hydro.md` | FPHA, cascade, inflow non-negativity, generic constraints pages | FPHA fit, water travel time, inflow-slack methods, `hydro_inflow` term |
@@ -118,7 +119,7 @@ read; open them directly when working on the topic without reading a page first.
 | `quality-gates.md` | `scripts/**`, `package.json`, CI workflows | Gate prerequisites (d2, novomodelo binary, KaTeX strict) and CI wiring |
 
 The translation guide and glossary is
-`src/content/docs/pt-br/_GLOSSARIO-E-CRITERIOS-DA-TRADUCAO.md`.
+`.claude/rules/glossario-traducao-ptbr.md`.
 
 ---
 
@@ -148,4 +149,4 @@ Prerequisites and CI wiring: `.claude/rules/quality-gates.md`.
 | Crate READMEs + ARCHITECTURE | `https://github.com/ons-ccee-epe/novomodelo/` (`crates/*/README.md`, `ARCHITECTURE.md`) | Developer/crate-internal surface (not on the site) |
 | CHANGELOG                 | `https://github.com/ons-ccee-epe/novomodelo/CHANGELOG.md`               | Per-release feature list (sync source)                      |
 | Diagram authoring guide   | [`docs/design/diagram-authoring.md`](docs/design/diagram-authoring.md) | Tool selection + design system for diagrams        |
-| Translation guide (pt-BR) | [`src/content/docs/pt-br/_GLOSSARIO-E-CRITERIOS-DA-TRADUCAO.md`](src/content/docs/pt-br/_GLOSSARIO-E-CRITERIOS-DA-TRADUCAO.md) | Form rules, approved terminology, glossary |
+| Translation guide (pt-BR) | [`.claude/rules/glossario-traducao-ptbr.md`](.claude/rules/glossario-traducao-ptbr.md) | Form rules, approved terminology, glossary |

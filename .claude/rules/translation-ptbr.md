@@ -29,7 +29,7 @@ translation, never in a later "translation catch-up" commit.
 
 ## 2. How to translate
 
-The guide `src/content/docs/pt-br/_GLOSSARIO-E-CRITERIOS-DA-TRADUCAO.md` is
+The guide `.claude/rules/glossario-traducao-ptbr.md` is
 normative: read it before translating. It fixes the form rules (what is never
 translated, link and anchor rules, units, voice, "Novo Modelo" naming), the
 approved terminology (SDDP → PDDE, forward/backward pass → simulação

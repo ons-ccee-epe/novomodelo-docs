@@ -259,8 +259,8 @@ export default defineConfig({
       //     `getting-started/*`).
       // (b) `src/content/docs/pt-br/` mirrors the English pages with full
       //     translations, following the guide in
-      //     `pt-br/_GLOSSARIO-E-CRITERIOS-DA-TRADUCAO.md` (its leading `_` keeps
-      //     the `docsLoader` from publishing it). Starlight falls back to the
+      //     `.claude/rules/glossario-traducao-ptbr.md` (outside the content
+      //     tree, so it is never published). Starlight falls back to the
       //     English source for a page with no pt-br counterpart. Do not add
       //     empty/stub pt-br `.md`/`.mdx` files — they would render as broken
       //     pages and skew the dashboard's status.

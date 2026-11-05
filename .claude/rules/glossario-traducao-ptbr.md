@@ -1,3 +1,8 @@
+---
+paths:
+  - "src/content/docs/pt-br/**"
+---
+
 # Guia de tradução — Documentação do Novo Modelo (EN → PT-BR)
 
 Público: engenheiros e analistas do setor elétrico brasileiro (ONS, CCEE, EPE, agentes), familiarizados com NEWAVE/DECOMP/DESSEM.

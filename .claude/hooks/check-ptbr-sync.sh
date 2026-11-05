@@ -95,7 +95,7 @@ if not (missing or outdated or orphaned or labels):
 
 print("BLOCKED by .claude/hooks/check-ptbr-sync.sh — the English pages and their pt-BR")
 print("translations are out of sync in this commit. Follow .claude/rules/translation-ptbr.md:")
-print("translate the change into the pt-br file (guide: src/content/docs/pt-br/_GLOSSARIO-E-CRITERIOS-DA-TRADUCAO.md),")
+print("translate the change into the pt-br file (guide: .claude/rules/glossario-traducao-ptbr.md),")
 print("`git add` it, and run the same commit again.\n")
 if outdated:
     print("English page changed, pt-br counterpart not in this commit (diff the English file and mirror every prose change):")
