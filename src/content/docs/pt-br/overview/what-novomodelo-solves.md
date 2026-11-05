@@ -57,7 +57,7 @@ Os princípios a seguir orientam a construção do Novo Modelo.
 
 - **Invariância à ordem de declaração** — Os resultados da otimização são idênticos bit a bit independentemente da ordem em que as entidades são declaradas nos arquivos de entrada; o Novo Modelo ordena as entidades de cada tipo pela data de entrada em operação e, em seguida, pelo ID, antes de montar qualquer problema de estágio. Reordenar usinas hidrelétricas, usinas termelétricas ou linhas de transmissão na configuração do caso não altera a política nem os limites calculados. Essa propriedade é essencial em fluxos de trabalho automatizados, nos quais os arquivos de entrada são montados por ferramentas em vez de editados manualmente.
 
-- **Legibilidade por agentes** — Uma execução grava seus resultados como arquivos JSON e Parquet, cujos leiautes estão documentados nas páginas de Referência, junto com o acompanhamento do progresso legível por humanos, de modo que ferramentas automatizadas possam compor, monitorar e verificar fluxos de trabalho do Novo Modelo.
+- **Legibilidade por agentes** — Uma execução grava seus resultados como arquivos JSON e Parquet, cujos leiautes estão documentados nas páginas de [Formato de saída](/pt-br/reference/output/), junto com o acompanhamento do progresso legível por humanos, de modo que ferramentas automatizadas possam compor, monitorar e verificar fluxos de trabalho do Novo Modelo.
 
 ## 6. Vem de outro software?
 
@@ -70,6 +70,6 @@ O Novo Modelo lê seu próprio formato de caso: um diretório do caso com arquiv
 ## Referências Cruzadas
 
 - [A PDDE em uma página](/pt-br/overview/sddp-framework-overview) — apresentação algorítmica em uma página: simulação forward, geração de cortes na simulação backward e limites de convergência
-- [Como ler este site](/pt-br/overview/how-to-read) — guia de navegação pelos grupos da barra lateral e roteiros de leitura para diferentes perfis de leitor
+- [Como ler este site](/pt-br/overview/how-to-read) — guia de navegação pelas seções da barra lateral e roteiros de leitura para diferentes perfis de leitor
 - [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — tratamento algorítmico completo: PLs dos estágios, geração de cortes, teoria de convergência
 - [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) — escopo de identidade bit a bit por binário, mecanismos de coordenação e o que cada execução registra

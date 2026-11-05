@@ -265,26 +265,21 @@ export default defineConfig({
       //     empty/stub pt-br `.md`/`.mdx` files — they would render as broken
       //     pages and skew the dashboard's status.
       plugins: [lunaria({ configPath: "./lunaria.config.json", route: "/lunaria" })],
-      // Unified interleaved sidebar (ticket-005, docs-unification strategy §5
-      // sketch). NOT `autogenerate`: the curated TOC crosses content folders
-      // (System Modelling…Coupling & Boundary Conditions are all `math/…`
-      // chapters split across four groups) and the old Part-N-prefixed labels
-      // are retired in favour of named groups that autogeneration cannot
-      // reproduce. The leading Get-Started group is new (ticket-004 ported the
-      // three `getting-started/*` pages); it also reclaims
-      // `overview/what-novomodelo-solves` from the old first Part group, leaving the
-      // renamed Introduction group with the remaining three overview slugs.
-      // The System Modelling, Stochastic Modelling and SDDP Algorithm groups
-      // follow spec §6.3. The pure-software Running Novomodelo group (§5 sketch,
-      // ticket-013) lands between Coupling & Boundary Conditions and Worked
-      // Examples: these `running/*` pages have no methodology twin, so they are
-      // standalone MDX (no `<Tabs>`, no `_impl/` partials). The I/O reference
-      // entries (the Case Format and Output Format groups, error-codes,
-      // flatbuffers-schema) landed in the Reference group below (ticket-012);
-      // `reference/cli-reference` (ticket-013) is the resolved borderline
-      // decision — CLI reference lives in Reference, not Running Novomodelo. The
-      // landing page (index.mdx → `/`) is the site root and is intentionally
-      // NOT a sidebar entry.
+      // Curated sidebar, NOT `autogenerate`: the TOC crosses content folders
+      // (`overview/`, `entities/`, `math/`, `getting-started/`, `running/`,
+      // `reference/`) and groups pages by topic and by study step, which
+      // autogeneration cannot reproduce. Six sections, in this order: Get Started,
+      // Model entities, Methodology reference, Running studies, Execution
+      // reference and Worked Examples. Each reference section follows the section
+      // it complements and starts collapsed: Methodology reference (the five
+      // methodology blocks, the glossary and the bibliography) follows Model
+      // entities; Execution reference (the generic-constraint language, JSON
+      // schemas, error codes, FlatBuffers schema, CLI and Python API) follows
+      // Running studies. Running studies follows the steps of a study: the
+      // Case Format group sits under "Preparing the case" and the Output Format
+      // group under "Analysing results". Every section and subsection label
+      // carries its pt-BR translation. The landing page (index.mdx -> `/`) is the
+      // site root and is intentionally NOT a sidebar entry.
       sidebar: [
         {
           label: "Get Started", translations: { "pt-BR": "Comece aqui" },
@@ -297,142 +292,175 @@ export default defineConfig({
         {
           label: "Model entities", translations: { "pt-BR": "Entidades do modelo" },
           items: [
-            "entities/equipment/hydro-plants",
-            "entities/equipment/thermal-plants",
-            "entities/equipment/non-controllable-sources",
-            "entities/equipment/pumping-stations",
-            "entities/network/buses",
-            "entities/network/lines",
-            "entities/network/load",
-            "entities/network/deficit",
-            "entities/network/energy-contracts",
-            "entities/hydrology/inflows",
-            "entities/hydrology/scenarios",
+            {
+              label: "Inflows", translations: { "pt-BR": "Vazão" },
+              items: ["entities/hydrology/inflows", "entities/hydrology/scenarios"],
+            },
+            {
+              label: "Generation", translations: { "pt-BR": "Geração" },
+              items: [
+                "entities/equipment/hydro-plants",
+                "entities/equipment/thermal-plants",
+                "entities/equipment/non-controllable-sources",
+                "entities/equipment/pumping-stations",
+              ],
+            },
+            {
+              label: "Network", translations: { "pt-BR": "Rede" },
+              items: [
+                "entities/network/buses",
+                "entities/network/lines",
+                "entities/network/energy-contracts",
+              ],
+            },
+            {
+              label: "Consumption", translations: { "pt-BR": "Consumo" },
+              items: ["entities/network/load", "entities/network/deficit"],
+            },
             "entities/hydrology/time-structure",
+            "entities/rules/water-value",
             "entities/rules/generic-constraints",
             "entities/rules/penalties",
             "entities/rules/risk-aversion",
-            "entities/rules/water-value",
+          ],
+        },
+        {
+          label: "Methodology reference", translations: { "pt-BR": "Referência metodológica" },
+          collapsed: true,
+          items: [
+            {
+              label: "Introduction", translations: { "pt-BR": "Introdução" },
+              items: [
+                "overview/sddp-framework-overview",
+                "overview/notation-conventions",
+              ],
+            },
+            {
+              label: "System Modelling", translations: { "pt-BR": "Modelagem do sistema" },
+              items: [
+                "math/system-elements",
+                "math/equipment-formulations",
+                "math/lp-formulation",
+                "math/state-augmentation",
+                "math/block-formulations",
+                "math/hydro-production-models",
+                "math/penalty-system",
+              ],
+            },
+            {
+              label: "Stochastic Modelling", translations: { "pt-BR": "Modelagem estocástica" },
+              items: [
+                "math/policy-graphs",
+                "math/par-inflow-model",
+                "math/inflow-nonnegativity",
+                "math/scenario-generation",
+                "math/multi-resolution-studies",
+              ],
+            },
+            {
+              label: "The SDDP Algorithm", translations: { "pt-BR": "O algoritmo da PDDE" },
+              items: [
+                "math/sddp-algorithm",
+                "math/cut-management",
+                "math/lp-layout-and-scaling",
+                "math/lp-warm-start",
+                "math/risk-measures",
+                "math/stopping-rules",
+                "math/upper-bound-evaluation",
+                "math/determinism-guarantees",
+              ],
+            },
+            {
+              label: "Coupling & Boundary Conditions", translations: { "pt-BR": "Acoplamento e condições de contorno" },
+              items: [
+                "math/horizon-modes",
+                "math/post-study-boundary",
+                "math/discount-rate",
+              ],
+            },
+            "reference/glossary",
+            "reference/bibliography",
           ],
         },
         {
           label: "Running studies", translations: { "pt-BR": "Rodando estudos" },
           items: [
             "getting-started/installation",
-            "getting-started/quickstart",
-            "getting-started/python-quickstart",
-            "running/mcp-server",
-            "running/running-studies",
-            "running/configuration",
-            "running/policy-management",
-            "running/performance",
-            "running/hpc-deployment",
-            "running/case-conversion",
-            "running/interpreting-results",
+            {
+              label: "Execution modes", translations: { "pt-BR": "Modos de execução" },
+              items: [
+                "getting-started/quickstart",
+                "getting-started/python-quickstart",
+                "running/mcp-server",
+              ],
+            },
+            {
+              label: "Preparing the case", translations: { "pt-BR": "Preparando o caso" },
+              items: [
+                {
+                  label: "Case Format", translations: { "pt-BR": "Formato do caso" },
+                  collapsed: true,
+                  items: [
+                    { slug: "reference/case-format", label: "Overview", translations: { "pt-BR": "Visão geral" } },
+                    "reference/case-format/stages",
+                    "reference/case-format/system",
+                    "reference/case-format/hydros",
+                    "reference/case-format/production-models",
+                    "reference/case-format/scenarios",
+                    "reference/case-format/constraints",
+                    "reference/case-format/penalties",
+                    "reference/case-format/initial-conditions",
+                  ],
+                },
+                "running/configuration",
+                "running/case-conversion",
+              ],
+            },
+            {
+              label: "Running the study", translations: { "pt-BR": "Executando o estudo" },
+              items: ["running/running-studies", "running/policy-management"],
+            },
+            {
+              label: "Performance and scale", translations: { "pt-BR": "Desempenho e escala" },
+              items: ["running/performance", "running/hpc-deployment"],
+            },
+            {
+              label: "Analysing results", translations: { "pt-BR": "Analisando resultados" },
+              items: [
+                {
+                  label: "Output Format", translations: { "pt-BR": "Formato de saída" },
+                  collapsed: true,
+                  items: [
+                    { slug: "reference/output", label: "Overview", translations: { "pt-BR": "Visão geral" } },
+                    "reference/output/training",
+                    "reference/output/simulation",
+                    "reference/output/policy",
+                    "reference/output/metadata",
+                    "reference/output/stochastic",
+                    "reference/output/hydro-models",
+                  ],
+                },
+                "running/interpreting-results",
+              ],
+            },
             "running/troubleshooting",
           ],
         },
         {
-          label: "Worked Examples", translations: { "pt-BR": "Exemplos resolvidos" },
-          items: ["examples/toy-single-reservoir", "examples/toy-four-reservoir"],
-        },
-        {
-          label: "Technical reference", translations: { "pt-BR": "Referência técnica" },
+          label: "Execution reference", translations: { "pt-BR": "Referência de execução" },
           collapsed: true,
           items: [
-            {
-              label: "Methodology", translations: { "pt-BR": "Metodologia" },
-              collapsed: true,
-              items: [
-                  {
-                    label: "Introduction", translations: { "pt-BR": "Introdução" },
-                    items: [
-                      "overview/sddp-framework-overview",
-                      "overview/notation-conventions",
-                    ],
-                  },
-                  {
-                    label: "System Modelling", translations: { "pt-BR": "Modelagem do sistema" },
-                    items: [
-                      "math/system-elements",
-                      "math/equipment-formulations",
-                      "math/lp-formulation",
-                      "math/state-augmentation",
-                      "math/block-formulations",
-                      "math/hydro-production-models",
-                      "math/penalty-system",
-                    ],
-                  },
-                  {
-                    label: "Stochastic Modelling", translations: { "pt-BR": "Modelagem estocástica" },
-                    items: [
-                      "math/policy-graphs",
-                      "math/par-inflow-model",
-                      "math/inflow-nonnegativity",
-                      "math/scenario-generation",
-                      "math/multi-resolution-studies",
-                    ],
-                  },
-                  {
-                    label: "The SDDP Algorithm", translations: { "pt-BR": "O algoritmo da PDDE" },
-                    items: [
-                      "math/sddp-algorithm",
-                      "math/cut-management",
-                      "math/lp-layout-and-scaling",
-                      "math/lp-warm-start",
-                      "math/risk-measures",
-                      "math/stopping-rules",
-                      "math/upper-bound-evaluation",
-                      "math/determinism-guarantees",
-                    ],
-                  },
-                  {
-                    label: "Coupling & Boundary Conditions", translations: { "pt-BR": "Acoplamento e condições de contorno" },
-                    items: [
-                      "math/horizon-modes",
-                      "math/post-study-boundary",
-                      "math/discount-rate",
-                    ],
-                  },
-              ],
-            },
-            {
-              label: "Case Format", translations: { "pt-BR": "Formato do caso" },
-              collapsed: true,
-              items: [
-                { slug: "reference/case-format", label: "Overview", translations: { "pt-BR": "Visão geral" } },
-                "reference/case-format/stages",
-                "reference/case-format/system",
-                "reference/case-format/hydros",
-                "reference/case-format/production-models",
-                "reference/case-format/scenarios",
-                "reference/case-format/constraints",
-                "reference/case-format/penalties",
-                "reference/case-format/initial-conditions",
-              ],
-            },
             "reference/generic-constraints",
-            {
-              label: "Output Format", translations: { "pt-BR": "Formato de saída" },
-              collapsed: true,
-              items: [
-                { slug: "reference/output", label: "Overview", translations: { "pt-BR": "Visão geral" } },
-                "reference/output/training",
-                "reference/output/simulation",
-                "reference/output/policy",
-                "reference/output/metadata",
-                "reference/output/stochastic",
-                "reference/output/hydro-models",
-              ],
-            },
             "reference/json-schemas",
             "reference/error-codes",
             "reference/flatbuffers-schema",
             "reference/cli-reference",
             "reference/python-api",
-            "reference/glossary",
-            "reference/bibliography",
           ],
+        },
+        {
+          label: "Worked Examples", translations: { "pt-BR": "Exemplos resolvidos" },
+          items: ["examples/toy-single-reservoir", "examples/toy-four-reservoir"],
         },
       ],
       // Architecture B version picker mounts by overriding the `SocialIcons`

@@ -9,7 +9,7 @@ export const FAMILIES: { id: Family; title: Bi; subtitle?: Bi }[] = [
   { id: 'rules', title: { pt: 'Regras e custos', en: 'Rules and costs' } },
 ];
 
-// 16 entries in menu order. `slug` is the EN path; the pt-BR page lives under /pt-br/.
+// 16 entries. `slug` is the EN path; the pt-BR page lives under /pt-br/.
 export const ENTITIES: Entity[] = [
   { slug: 'entities/equipment/hydro-plants', family: 'equipment', icon: 'hydro', ready: true,
     title: { pt: 'Usinas hidrelétricas', en: 'Hydro plants' },

@@ -57,7 +57,7 @@ The following principles govern how Novomodelo is built.
 
 - **Declaration order invariance** — Optimisation results are bit-for-bit identical regardless of the order in which entities are declared in input files; Novomodelo orders the entities of each kind by operational start date, then by ID, before it builds any stage problem. Reordering hydro plants, thermal units, or transmission lines in the case configuration produces no change in the computed policy or bounds. This property is critical for programmatic workflows where input files are assembled by tools rather than edited by hand.
 
-- **Agent-readability** — A run writes its results as JSON and Parquet files whose layouts the Reference pages document, alongside human-readable progress output, so programmatic tools can compose, monitor and verify Novomodelo workflows.
+- **Agent-readability** — A run writes its results as JSON and Parquet files whose layouts the [Output Format](/reference/output/) pages document, alongside human-readable progress output, so programmatic tools can compose, monitor and verify Novomodelo workflows.
 
 ## 6. Coming from other software?
 
@@ -70,6 +70,6 @@ Novomodelo reads its own case format: a case directory of JSON and Parquet input
 ## Cross-References
 
 - [The SDDP Framework in One Page](/overview/sddp-framework-overview) — one-page algorithmic framing: forward simulation, backward cut generation, and convergence bounds
-- [How to Read This Site](/overview/how-to-read) — navigation guide for the site's sidebar groups and reading paths for different readers
+- [How to Read This Site](/overview/how-to-read) — navigation guide for the site's sidebar sections and reading paths for different readers
 - [SDDP Algorithm](/math/sddp-algorithm) — full algorithmic treatment: stage LPs, cut generation, convergence theory
 - [Determinism & Provenance](/math/determinism-guarantees) — per-binary bit-identical scope, coordinating mechanisms, and what each run records

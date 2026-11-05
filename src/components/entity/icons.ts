@@ -17,4 +17,5 @@ export const ICONS: Record<string, string> = {
   risk: '<path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/>',
   water: '<path d="M4 8c2 1 4 1 6 0s4-1 6 0 3 1 4 0"/><path d="M4 14c2 1 4 1 6 0s4-1 6 0 3 1 4 0"/><path d="M4 20c2 1 4 1 6 0s4-1 6 0 3 1 4 0"/>',
   deficit: '<path d="M13 2L5 14h6l-1 8 8-12h-6z"/><path d="M3 3l18 18"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/><path d="M8 7h7"/>',
 };
