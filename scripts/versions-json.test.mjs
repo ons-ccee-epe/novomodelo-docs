@@ -114,7 +114,7 @@ const committed = JSON.parse(
   readFileSync(new URL("../versions.json", import.meta.url), "utf8"),
 );
 
-test("latest is the working tree at /", () => {
+test(`latest is the working tree at ${DOCS_BASE}`, () => {
   assert.deepEqual(latestProblems(committed.latest), []);
 });
 
