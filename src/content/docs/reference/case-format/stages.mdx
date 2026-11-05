@@ -215,25 +215,24 @@ durations within 7 days of each other, so monthly and quarterly stages use disti
 
 **Methodology:** [Post-Study Boundary & Chained Studies](/math/post-study-boundary/)
 
-The post-study boundary calendar: a sequence of post-horizon stages plus a
-per-`(thermal, post-study stage)` cost and delivery-bound table. Its
-`thermal_bounds[]` table is the **sole surface** for declaring the bound and
-cost of a commitment an anticipated thermal decides **in-study** but delivers
-after the horizon (its decision column is charged at the cell's cost,
-discounted to the decision stage, and the loaded boundary prices the commitment
-it carries). Optional
-and inert when absent; **required** once any anticipated thermal's lead reaches
-a post-study stage — a missing cell for a reached stage is rejected at load,
-naming the plant and the post-study stage index. See
-[Post-Study Boundary & Chained Studies](/math/post-study-boundary) for the boundary formulation
-this file feeds.
+The post-study boundary file. It declares two post-horizon calendars, one per kind of
+commitment, plus a per-`(thermal, post-study stage)` cost and delivery-bound table:
+`thermal_stages[]` dates thermal deliveries, `water_bucket_stages[]` dates water-bucket
+slots, and `thermal_bounds[]` is the **sole surface** for declaring the bound and cost of a
+commitment an anticipated thermal decides **in-study** but delivers after the horizon (its
+decision column is charged at the cell's cost, discounted to the decision stage, and the
+loaded boundary prices the commitment it carries). The file is optional and inert when
+absent; it is **required** once any anticipated thermal's lead reaches a post-study stage —
+a missing cell for a reached stage is rejected at load, naming the plant and the post-study
+stage index. See [Post-Study Boundary & Chained Studies](/math/post-study-boundary) for the
+boundary formulation this file feeds.
 
-**`stages[]`** — the post-horizon calendar:
+**`thermal_stages[]`** — the post-horizon thermal calendar:
 
-| Name                      | Type   | Required | Default | Units | Description                                                                                                           |
-| ------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
-| `stages[].start_date`     | string | Yes      | —       | —     | Stage start date (inclusive), ISO 8601 YYYY-MM-DD                                                                     |
-| `stages[].duration_hours` | number | Yes      | —       | h     | Stage duration in hours; finite and `> 0.0`. `end_date` is derived from `start_date + duration_hours`, never declared |
+| Name                              | Type   | Required | Default | Units | Description                                                                                                           |
+| --------------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `thermal_stages[].start_date`     | string | Yes      | —       | —     | Stage start date (inclusive), ISO 8601 YYYY-MM-DD                                                                     |
+| `thermal_stages[].duration_hours` | number | Yes      | —       | h     | Stage duration in hours; finite and `> 0.0`. `end_date` is derived from `start_date + duration_hours`, never declared |
 
 Stages are **date-contiguous** (each stage's implicit `end_date` equals the
 next stage's `start_date`) and the **first `start_date` must equal the study
@@ -244,13 +243,27 @@ delivery a calendar position to be priced against. No two stages may share a
 `start_date`. Post-study stages declare no discount rate: the cumulative
 discount continues over them at `policy_graph.annual_discount_rate`.
 
+**`water_bucket_stages[]`** — the post-horizon water-bucket calendar:
+
+| Name                                   | Type   | Required | Default | Units | Description                                                                                                           |
+| -------------------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `water_bucket_stages[].start_date`     | string | Yes      | —       | —     | Stage start date (inclusive), ISO 8601 YYYY-MM-DD                                                                     |
+| `water_bucket_stages[].duration_hours` | number | Yes      | —       | h     | Stage duration in hours; finite and `> 0.0`. `end_date` is derived from `start_date + duration_hours`, never declared |
+
+The calendar is **required** when any hydro declares a travel time. It follows the same
+contiguity and no-shared-`start_date` rules as `thermal_stages[]`: the first `start_date`
+equals the study horizon end, and each stage starts where the previous one ends. Its total
+duration, summed over all stages, must cover the largest travel time of any hydro. The
+calendar is used exactly as declared: it is never padded and never digested into the thermal
+calendar, so declare every stage the travel times reach.
+
 **`thermal_bounds[]`** — per-`(thermal, post-study stage)` cost and delivery
 capability:
 
 | Name                                      | Type    | Required | Default | Units   | Description                                                                       |
 | ----------------------------------------- | ------- | -------- | ------- | ------- | --------------------------------------------------------------------------------- |
 | `thermal_bounds[].thermal_id`             | integer | Yes      | —       | —       | Thermal plant identifier; must reference a thermal declaring `anticipated_config` |
-| `thermal_bounds[].post_study_stage_index` | integer | Yes      | —       | —       | Zero-based index into `stages[]`; must be `< stages.len()`                        |
+| `thermal_bounds[].post_study_stage_index` | integer | Yes      | —       | —       | Zero-based index into `thermal_stages[]`; must be `< thermal_stages.len()`        |
 | `thermal_bounds[].cost_per_mwh`           | number  | Yes      | —       | USD/MWh | Fuel cost (`USD/MWh`) at this cell; finite                                        |
 | `thermal_bounds[].min_mw`                 | number  | Yes      | —       | MW      | Lower bound of the delivered MW rate at this cell; finite                         |
 | `thermal_bounds[].max_mw`                 | number  | Yes      | —       | MW      | Upper bound of the delivered MW rate at this cell; finite, `>= min_mw`            |
@@ -264,7 +277,11 @@ discounted from the post-study stage to the decision stage.
 ```json
 {
   "$schema": "https://docs.modelossetoreletrico.org.br/schemas/post_study_stages.schema.json",
-  "stages": [
+  "thermal_stages": [
+    { "start_date": "2026-11-01", "duration_hours": 720.0 },
+    { "start_date": "2026-12-01", "duration_hours": 744.0 }
+  ],
+  "water_bucket_stages": [
     { "start_date": "2026-11-01", "duration_hours": 720.0 },
     { "start_date": "2026-12-01", "duration_hours": 744.0 }
   ],
@@ -286,3 +303,20 @@ discounted from the post-study stage to the decision stage.
   ]
 }
 ```
+
+### Deprecated format
+
+The earlier `stages[]` key, with the same stage fields, is still read with a warning. It
+behaves as before: one calendar serves both kinds, and the water-bucket side is padded as it
+always was. A file cannot mix `stages[]` with `thermal_stages[]` or `water_bucket_stages[]`;
+a file that does is refused. `thermal_bounds[].post_study_stage_index` indexes `stages[]` in
+this format.
+
+| Name                      | Type   | Required | Default | Units | Description                                                                                                           |
+| ------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `stages`                  | array  | No       | —       | —     | Deprecated: replaced by `thermal_stages[]`; cannot be combined with `thermal_stages[]` or `water_bucket_stages[]`     |
+| `stages[].start_date`     | string | Yes      | —       | —     | Stage start date (inclusive), ISO 8601 YYYY-MM-DD                                                                     |
+| `stages[].duration_hours` | number | Yes      | —       | h     | Stage duration in hours; finite and `> 0.0`. `end_date` is derived from `start_date + duration_hours`, never declared |
+
+To migrate a deck, run `python3 scripts/migrate/post_study_stages.py` from the
+novomodelo repository.
