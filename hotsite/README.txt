@@ -41,7 +41,10 @@ assets/logos/ .......... ons-branca.png, ccee-branca.png, epe-branca.png
                          (arquivos ons-white, ccee-white e epe-white
                          fornecidos, apenas renomeados)
 assets/icons/ .......... favicon.svg
-assets/fonts/ .......... fonte Inter (woff2, local; licença SIL OFL)
+assets/fonts/ .......... fonte Inter 4.0 (woff2, subconjuntos latinos,
+                         local) e LICENSE-Inter.txt, o texto da SIL OFL
+                         1.1 que acompanha as fontes e que gen:notices
+                         copia para THIRD-PARTY-NOTICES.txt
 
 
 ---------------------------------------------------------------------

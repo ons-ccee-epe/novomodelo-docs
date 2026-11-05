@@ -2,7 +2,7 @@
 //
 // Asserts that the generated site/public/THIRD-PARTY-NOTICES.txt contains:
 //   - every npm package name from the inventory table;
-//   - every extra (d2, ELK, d3);
+//   - every extra (d2, ELK, d3, Inter);
 //   - all expected SPDX strings (MPL-2.0, EPL-2.0, OFL-1.1, ISC,
 //     Apache-2.0, MIT);
 //   - the JSXGraph election preamble note.
@@ -63,7 +63,7 @@ for (const pkg of NPM_PACKAGES) {
 }
 
 // ---- Non-npm extras --------------------------------------------------------
-const EXTRAS = ["d2", "ELK", "d3"];
+const EXTRAS = ["d2", "ELK", "d3", "Inter"];
 
 for (const extra of EXTRAS) {
   test(`contains extra: ${extra}`, () => {
