@@ -11,6 +11,8 @@ lives as per-crate `README.md` files + `ARCHITECTURE.md` in the `novomodelo` rep
 
 - **Dev**: `npm run dev` (Astro dev server)
 - **Build**: `npm run build`; `npm run build:versions` for multi-version assembly
+  (the only build that puts the hotsite at `/`); `npm run preview:site` runs
+  `build:versions` and serves `dist/`
 - **Build hygiene**: `npm run build` exits 1 when a page Lunaria tracks
   (`src/content/docs/**/*.{md,mdx}` outside `pt-br/`, per `lunaria.config.json`)
   has no commit history: Lunaria reads each tracked page's git history for the

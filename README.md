@@ -27,18 +27,23 @@ npm install            # or: npm ci
 npm run dev            # Astro dev server with live reload (latest docs at /)
 npm run build          # static build → dist/
 npm run build:versions # full site → dist/: hotsite at /, every docs version under /docs/
-python3 -m http.server -d dist 8080   # preview the assembled site
+npm run preview:site   # build:versions, then serve dist/ at http://localhost:4321/
 ```
+
+Only `build:versions` assembles the hotsite: `npm run dev` and `npm run build`
+serve or emit the latest docs at `/` with no hotsite, and `npm run build` empties
+`dist/` first. `npm run preview` serves whatever `dist/` holds, so after
+`build:versions` it shows the full site as deployed.
 
 ## Stack
 
-| Concern        | Tool                                                                                                                         |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Site framework | [Astro Starlight](https://starlight.astro.build/)                                                                            |
-| Math           | KaTeX via manual `remark-math` + `rehype-katex` (rendered at build time, zero client JS)                                     |
-| Diagrams       | inline [D2](https://d2lang.com/) (ELK engine) for every diagram — schematics, flowcharts, network one-lines (build-time SVG) |
-| Math plots     | [Observable Plot](https://observablehq.com/plot/) islands backed by a unit-tested TypeScript compute layer                   |
-| i18n           | Starlight-native (`en` + `pt-br`) + [Lunaria](https://lunaria.dev/) translation dashboard                                    |
+| Concern        | Tool                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Site framework | [Astro Starlight](https://starlight.astro.build/)                                                                                     |
+| Math           | KaTeX via manual `remark-math` + `rehype-katex` (rendered at build time, zero client JS)                                              |
+| Diagrams       | inline [D2](https://d2lang.com/) (ELK engine) for every diagram — schematics, flowcharts, network one-lines (build-time SVG)          |
+| Math plots     | [Observable Plot](https://observablehq.com/plot/) islands backed by a unit-tested TypeScript compute layer                            |
+| i18n           | Starlight-native (`en` + `pt-br`) + [Lunaria](https://lunaria.dev/) translation dashboard                                             |
 | Versioning     | latest at `/docs/`, one frozen snapshot per novomodelo minor at `/docs/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json` |
 
 ## Structure
