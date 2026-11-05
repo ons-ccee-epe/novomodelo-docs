@@ -240,7 +240,8 @@ horizon end** — the date immediately after the last in-study stage. Post-study
 stages are **boundary-only**: they are never dispatched, never a study stage,
 and never carry Benders cuts — they exist solely to give a post-horizon
 delivery a calendar position to be priced against. No two stages may share a
-`start_date`. Post-study stages declare no discount rate: the cumulative
+`start_date`. `thermal_stages[]` and `thermal_bounds[]` are declared together: a file
+that has one without the other is rejected at load. Post-study stages declare no discount rate: the cumulative
 discount continues over them at `policy_graph.annual_discount_rate`.
 
 **`water_bucket_stages[]`** — the post-horizon water-bucket calendar:
@@ -253,7 +254,7 @@ discount continues over them at `policy_graph.annual_discount_rate`.
 The calendar is **required** when any hydro declares a travel time. It follows the same
 contiguity and no-shared-`start_date` rules as `thermal_stages[]`: the first `start_date`
 equals the study horizon end, and each stage starts where the previous one ends. Its total
-duration, summed over all stages, must cover the largest travel time of any hydro. The
+duration must cover the largest travel time of any hydro. The
 calendar is used exactly as declared: it is never padded and never digested into the thermal
 calendar, so declare every stage the travel times reach.
 
