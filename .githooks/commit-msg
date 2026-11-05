@@ -1,0 +1,7 @@
+#!/bin/sh
+# Block a commit whose English pages and pt-BR translations are out of sync
+# (.claude/rules/translation-ptbr.md). Installed by `npm install` (the `prepare`
+# script sets core.hooksPath to .githooks). commit-msg rather than pre-commit so
+# the `PT-BR-Sync: skip` trailer in the message is visible; the index it sees is
+# the one being committed, including `git commit -a` and `git commit <path>`.
+exec node "$(git rev-parse --show-toplevel)/scripts/check-ptbr-sync.mjs" --staged --message-file "$1"

@@ -47,16 +47,24 @@ structure parallel to the English page.
 3. Run `npm run check:links` when a link or heading changed (pt-br anchors are
    ASCII-only).
 
-The `PreToolUse` hook `.claude/hooks/check-ptbr-sync.sh` enforces the file-level
-part of this: it blocks `git commit` when an English page is staged without its
-pt-br counterpart (or a pt-br counterpart is missing or orphaned), or a sidebar
-label lacks `pt-BR`, and prints the pairs to fix. The hook only checks that the
-pt-br file is in the commit; checking that its content covers the English diff
-is your job (§3.2).
+`scripts/check-ptbr-sync.mjs` enforces the file-level part of this: it fails a
+commit that changes an English page without its pt-br counterpart (or leaves a
+pt-br counterpart missing or orphaned), or adds a sidebar label without
+`pt-BR`, and prints the pairs to fix. It runs in three places:
 
-**Skipping**: prefix the commit with `PTBR_SYNC_SKIP=1` only when the user
-explicitly asks to commit without the translation. Never use it on your own
-judgement.
+| Where | When | Sees |
+| --- | --- | --- |
+| `.githooks/commit-msg` (installed by `npm install` via `core.hooksPath`) | every local commit, by anyone | the index being committed, including `git commit -a` and `git commit <path>` |
+| `PreToolUse` hook `.claude/hooks/check-ptbr-sync.sh` | before a Bash command with `git commit` | the index before the command runs, so not a `git add` in the same command — run `git add` and `git commit` as separate commands |
+| `Check pt-BR sync` step in `starlight-ci.yml` | every pull request | each PR commit on its own, so a later translation commit does not cover an earlier English-only one |
+
+The check only verifies that the pt-br file is in the commit; checking that its
+content covers the English diff is your job (§3.2).
+
+**Skipping**: end the commit message with the trailer `PT-BR-Sync: skip` only
+when the user explicitly asks to commit without the translation. Never use it on
+your own judgement. All three checks accept the trailer, and it stays in the
+history.
 
 ## 4. Lunaria
 

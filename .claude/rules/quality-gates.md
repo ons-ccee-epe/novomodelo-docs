@@ -22,8 +22,13 @@ prerequisites and CI wiring behind it.
   parse error (`scripts/rehype-katex-strict.mjs`); `npm run dev` does not run
   this check.
 
+- **pt-BR sync** (`scripts/check-ptbr-sync.mjs`): `npm install` sets
+  `core.hooksPath` to `.githooks`, whose `commit-msg` hook runs it on every
+  commit; `npm run check:ptbr-sync` checks each commit in `origin/main..HEAD`.
+  Contract: `.claude/rules/translation-ptbr.md`.
+
 `.github/workflows/starlight-ci.yml` runs every gate on pull requests to `main`
-(the build as `npm run build:versions`); `.github/workflows/starlight-deploy.yml`
+(the build as `npm run build:versions`; pt-BR sync over each PR commit); `.github/workflows/starlight-deploy.yml`
 runs only the build checks, on push to `main`. `README.md` describes each gate in
 one line (`## Quality gates`; `build:versions` under `## Local development`;
 the freeze runbook is `## Versioning`).

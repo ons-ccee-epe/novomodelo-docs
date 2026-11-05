@@ -96,7 +96,8 @@ is the freeze runbook.
   An English change (edit, new page, delete, rename, sidebar label) lands with
   its pt-BR counterpart in the same commit — read
   `.claude/rules/translation-ptbr.md` before any commit that touches English
-  pages. A `PreToolUse` hook blocks `git commit` when a counterpart is missing.
+  pages. `scripts/check-ptbr-sync.mjs` blocks a commit (git `commit-msg` hook,
+  Claude `PreToolUse` hook) and a PR (CI) when a counterpart is missing.
 
 ---
 
@@ -107,7 +108,7 @@ read; open them directly when working on the topic without reading a page first.
 
 | Rule | Loads on | Covers |
 | --- | --- | --- |
-| `translation-ptbr.md` | any page, `astro.config.mjs`, `src/components/**` | EN↔pt-BR sync contract, pre-commit procedure, the sync hook |
+| `translation-ptbr.md` | any page, `astro.config.mjs`, `src/components/**` | EN↔pt-BR sync contract, pre-commit procedure, the sync check (git hook, Claude hook, CI) |
 | `glossario-traducao-ptbr.md` | any `pt-br/` page | Translation guide: form rules, approved terminology, EN→PT-BR glossary |
 | `authoring.md` | any page, `public/schemas/**` | Two-layer corpus, math-layer and software-layer standards, voice gates, vendored JSON schemas |
 | `sddp-lp.md` | LP / cut / warm-start / determinism pages, policy management, error codes | LP layout, state pinning, cut subgradient, block modes, scaling, warm start, cut pool, checkpoint format, policy-load gates |

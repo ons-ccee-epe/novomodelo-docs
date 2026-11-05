@@ -156,6 +156,18 @@ jobs:
       - name: Check python-api coverage (vendored stubs vs reference/python-api)
         run: npm run check:python-api
 
+      # Every commit in the PR changes an English page together with its pt-BR
+      # translation (.claude/rules/translation-ptbr.md), checked commit by commit;
+      # a commit with the trailer `PT-BR-Sync: skip` is exempt. Needs the full
+      # history (fetch-depth: 0 above). The local commit-msg hook runs the same
+      # script, but `git commit --no-verify` or an uninstalled hook skips it.
+      - name: Check pt-BR sync (each PR commit)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-ptbr-sync.mjs --range "${BASE_SHA}..${HEAD_SHA}"
+
       # ticket-014 (strategy §6b): advisory vendored-JSON-schema validation.
       # Asserts the COMMITTED public/schemas/ copy is present, exactly 18
       # files, and every file is well-formed JSON. This needs NO `novomodelo`
