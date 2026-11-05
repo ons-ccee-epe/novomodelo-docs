@@ -21,12 +21,12 @@
 //
 // Assertions, IN ORDER (the gate exits non-zero naming the FIRST that fails):
 //   notices-source   public/THIRD-PARTY-NOTICES.txt exists and is non-empty.
-//   notices-in-dist  dist/THIRD-PARTY-NOTICES.txt exists and is BYTE-IDENTICAL to
-//                    the public/ source (proves it is URL-served at
-//                    /THIRD-PARTY-NOTICES.txt). Requires a build — if dist/ is
+//   notices-in-dist  dist/docs/THIRD-PARTY-NOTICES.txt exists and is BYTE-IDENTICAL
+//                    to the public/ source (proves it is URL-served at
+//                    /docs/THIRD-PARTY-NOTICES.txt). Requires a build — if dist/ is
 //                    absent the gate exits with a "run `npm run build:versions`
 //                    first" message (mirroring check-links.mjs), not a throw.
-//   footer-link      dist/index.html contains an href ending in
+//   footer-link      dist/docs/index.html contains an href ending in
 //                    THIRD-PARTY-NOTICES.txt AND the license text
 //                    (Apache-2.0 + the LICENSE link) — i.e. Footer.astro's notices
 //                    block rendered into the output. STABLE SUBSTRINGS are
@@ -51,6 +51,7 @@ import { readFileSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { join } from "node:path";
+import { latestDocsDist } from "./docs-dist.mjs";
 
 // ---------------------------------------------------------------------------
 // Paths. Post-promotion the Astro package IS the repo root (one level up from
@@ -64,10 +65,6 @@ const publicNotices = fileURLToPath(
   new URL("../public/THIRD-PARTY-NOTICES.txt", import.meta.url),
 );
 const distRoot = fileURLToPath(new URL("../dist/", import.meta.url));
-const distNotices = fileURLToPath(
-  new URL("../dist/THIRD-PARTY-NOTICES.txt", import.meta.url),
-);
-const distIndex = fileURLToPath(new URL("../dist/index.html", import.meta.url));
 // The Apache-2.0 LICENSE (code and documentation content) lives at the repo root.
 const licenseFile = join(repoRoot, "LICENSE");
 
@@ -164,9 +161,13 @@ function main() {
   if (!existsSync(distRoot)) {
     fail("dist/ not found — run `npm run build:versions` first.");
   }
+  // The latest docs: dist/docs/ after build:versions, dist/ after a plain build.
+  const docsRoot = latestDocsDist(distRoot);
+  const distNotices = join(docsRoot, "THIRD-PARTY-NOTICES.txt");
+  const distIndex = join(docsRoot, "index.html");
   if (!isNonEmptyFile(distNotices)) {
     fail(
-      "notices-in-dist: site/dist/THIRD-PARTY-NOTICES.txt not found or empty — " +
+      "notices-in-dist: dist/docs/THIRD-PARTY-NOTICES.txt not found or empty — " +
         "the notices are not shipping in the build; run `npm run build:versions` first.",
     );
   }
@@ -175,20 +176,20 @@ function main() {
   const distBytes = readFileSync(distNotices);
   if (!buffersIdentical(publicBytes, distBytes)) {
     fail(
-      "notices-in-dist: site/dist/THIRD-PARTY-NOTICES.txt is NOT byte-identical to " +
+      "notices-in-dist: dist/docs/THIRD-PARTY-NOTICES.txt is NOT byte-identical to " +
         "site/public/THIRD-PARTY-NOTICES.txt — the served copy differs from the source; " +
         "re-run `npm run build:versions`.",
     );
   }
   passed.push(
-    "notices-in-dist: site/dist/THIRD-PARTY-NOTICES.txt present and byte-identical " +
+    "notices-in-dist: dist/docs/THIRD-PARTY-NOTICES.txt present and byte-identical " +
       `to the public/ source (${distBytes.length} bytes)`,
   );
 
   // --- footer-link: rendered notices block in a built page ------------------
   if (!isNonEmptyFile(distIndex)) {
     fail(
-      "footer-link: site/dist/index.html not found or empty — " +
+      "footer-link: dist/docs/index.html not found or empty — " +
         "run `npm run build:versions` first.",
     );
   }
@@ -196,12 +197,12 @@ function main() {
   const footer = footerHasNotices(indexHtml);
   if (!footer.ok) {
     fail(
-      "footer-link: site/dist/index.html is missing the rendered footer notices block — " +
+      "footer-link: dist/docs/index.html is missing the rendered footer notices block — " +
         `not found: ${footer.missing.join("; ")}.`,
     );
   }
   passed.push(
-    "footer-link: dist/index.html renders the notices link + the Apache-2.0 LICENSE link",
+    "footer-link: dist/docs/index.html renders the notices link + the Apache-2.0 LICENSE link",
   );
 
   // --- license: LICENSE at repo root ----------------------------------------

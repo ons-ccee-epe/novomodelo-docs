@@ -13,6 +13,8 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SLUG = /^v(\d+)\.(\d+)$/;
 const SHA = /^[0-9a-f]{40}$/;
+// The hotsite is served at "/" and every documentation version under /docs/.
+const DOCS_BASE = "/docs/";
 
 function minorKey(slug) {
   const m = SLUG.exec(slug);
@@ -21,14 +23,14 @@ function minorKey(slug) {
 
 function latestProblems(latest) {
   const problems = [];
-  if (latest.base !== "/") {
-    problems.push(`latest: base ${JSON.stringify(latest.base)} is not "/"`);
+  if (latest.base !== DOCS_BASE) {
+    problems.push(`latest: base ${JSON.stringify(latest.base)} is not "${DOCS_BASE}"`);
   }
   if ("ref" in latest) {
     problems.push("latest: has a ref; latest builds from the working tree");
   }
   if ("slug" in latest) {
-    problems.push("latest: has a slug; latest is served at /");
+    problems.push(`latest: has a slug; latest is served at ${DOCS_BASE}`);
   }
   return problems;
 }
@@ -62,8 +64,8 @@ function entryProblems(v, i, isAncestor) {
       `${at}: label ${JSON.stringify(v.label)} does not equal the frozen release ${JSON.stringify(v.novomodelo)}`,
     );
   }
-  if (v.base !== `/${v.slug}/`) {
-    problems.push(`${at}: base ${JSON.stringify(v.base)} is not "/${v.slug}/"`);
+  if (v.base !== `${DOCS_BASE}${v.slug}/`) {
+    problems.push(`${at}: base ${JSON.stringify(v.base)} is not "${DOCS_BASE}${v.slug}/"`);
   }
   if (/^(v\d+\.\d+)\.\d+$/.exec(v.novomodelo)?.[1] !== v.slug) {
     problems.push(
@@ -176,13 +178,13 @@ const anyRefIsAncestor = () => true;
 const entry = (slug, ref) => ({
   slug,
   label: `${slug}.0`,
-  base: `/${slug}/`,
+  base: `${DOCS_BASE}${slug}/`,
   ref,
   novomodelo: `${slug}.0`,
 });
 
 const config = (...versions) => ({
-  latest: { label: "latest", base: "/", novomodelo: "v0.17.0" },
+  latest: { label: "latest", base: DOCS_BASE, novomodelo: "v0.17.0" },
   versions,
 });
 
@@ -257,7 +259,7 @@ test("rejects an entry missing base", () => {
   const { base: _base, ...noBase } = entry("v0.17", ABSENT_SHA);
   assertOneProblem(
     validateVersions(config(noBase), anyRefIsAncestor),
-    /base undefined is not "\/v0\.17\/"/,
+    /base undefined is not "\/docs\/v0\.17\/"/,
   );
 });
 

@@ -24,9 +24,10 @@ pinned install; without it, `npm run build` and `npm run dev` abort with
 
 ```bash
 npm install            # or: npm ci
-npm run dev            # Astro dev server with live reload
+npm run dev            # Astro dev server with live reload (latest docs at /)
 npm run build          # static build → dist/
-npm run build:versions # multi-version assembly (versions.json) → dist/
+npm run build:versions # full site → dist/: hotsite at /, every docs version under /docs/
+python3 -m http.server -d dist 8080   # preview the assembled site
 ```
 
 ## Stack
@@ -38,7 +39,7 @@ npm run build:versions # multi-version assembly (versions.json) → dist/
 | Diagrams       | inline [D2](https://d2lang.com/) (ELK engine) for every diagram — schematics, flowcharts, network one-lines (build-time SVG) |
 | Math plots     | [Observable Plot](https://observablehq.com/plot/) islands backed by a unit-tested TypeScript compute layer                   |
 | i18n           | Starlight-native (`en` + `pt-br`) + [Lunaria](https://lunaria.dev/) translation dashboard                                    |
-| Versioning     | latest at `/`, one frozen snapshot per novomodelo minor at `/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json`       |
+| Versioning     | latest at `/docs/`, one frozen snapshot per novomodelo minor at `/docs/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json` |
 
 ## Structure
 
@@ -62,7 +63,8 @@ src/
 ├── figures/              # tested TypeScript compute layer for the plots (*.ts + *.test.ts)
 └── styles/               # site palette, figure/KaTeX/font CSS
 astro.config.mjs          # integrations + the Starlight sidebar (groups and page order)
-build-versions.mjs        # multi-version build orchestrator
+build-versions.mjs        # multi-version build orchestrator; also assembles the hotsite at /
+hotsite/                  # landing page served at / (plain HTML/CSS/JS, not built by Astro; see hotsite/README.txt)
 scripts/                  # quality-gate and refresh scripts, with their tests and fixtures (see below)
 public/                   # static assets: vendored input schemas/, quickstart recordings, THIRD-PARTY-NOTICES.txt
 ```
@@ -96,7 +98,13 @@ npm run check:e10     # third-party-notices / content-licensing completeness
 
 A push to `main` triggers `.github/workflows/starlight-deploy.yml`, which builds the
 site, runs the build checks, and publishes it to GitHub Pages at
-`docs.modelossetoreletrico.org.br`. The repository's Pages source is GitHub Actions,
+`docs.modelossetoreletrico.org.br`. The site root `/` serves the hotsite
+(`hotsite/`, without its `README.txt`) and the documentation lives under `/docs/`.
+`build-versions.mjs` also gives the root the docs 404 page and the files of
+`public/` (so `/schemas/<name>.schema.json`, the schemas' `$id`, resolves), and
+writes a redirect stub at each docs page path without the `/docs` prefix
+(`/math/x/` → `/docs/math/x/`, `/vX.Y/…` → `/docs/vX.Y/…`), query and fragment
+included. The repository's Pages source is GitHub Actions,
 and its Pages settings hold the custom domain. The full gate suite, including the
 doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on pull requests to
 `main`.
@@ -104,9 +112,9 @@ doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on pull requests to
 ## Versioning
 
 `versions.json` lists the documentation versions. `latest` is built from the
-working tree and served at `/`. Each `versions` entry is a frozen snapshot of one
-novomodelo minor, built from its `ref` (a 40-hex commit SHA on `main`) and served
-at its `base` (`/vX.Y/`). The version picker lists `latest`, then `versions` in
+working tree and served at `/docs/`. Each `versions` entry is a frozen snapshot of
+one novomodelo minor, built from its `ref` (a 40-hex commit SHA on `main`) and
+served at its `base` (`/docs/vX.Y/`). The version picker lists `latest`, then `versions` in
 file order, newest first, each frozen entry under the release it documents
 (`vX.Y.z`). A novomodelo patch release updates `latest` in place. A frozen
 snapshot is never edited: a fix branches from its `ref`, and `ref` moves to the
@@ -119,7 +127,7 @@ novomodelo v1.0.0; from then on, only the last two or three minors.
    `git ls-remote origin refs/heads/main` (normally the merge commit of the last
    vX.Y sync PR).
 2. Insert the new entry at the top of `versions`:
-   `{ "slug": "vX.Y", "label": "vX.Y.z", "base": "/vX.Y/", "ref": "<40-hex SHA>", "novomodelo": "vX.Y.z" }`.
+   `{ "slug": "vX.Y", "label": "vX.Y.z", "base": "/docs/vX.Y/", "ref": "<40-hex SHA>", "novomodelo": "vX.Y.z" }`.
    `novomodelo` is the value `latest.novomodelo` holds before the bump, and `label`
    repeats it.
 3. Once the novomodelo vX.(Y+1).0 tag exists, make one commit that:
@@ -145,12 +153,13 @@ novomodelo v1.0.0; from then on, only the last two or three minors.
      record `scripts/recordings-provenance.json`, then checks it with
      `npm run refresh:recordings -- --check`.
 4. From novomodelo v1.0.0 on, delete every entry but those of the last two or three
-   minors; a deleted entry's `/vX.Y/` URLs then 404.
-5. Run `npm run build:versions` (it logs `=== building vX.Y.z  (base=/vX.Y/) ===`),
+   minors; a deleted entry's `/docs/vX.Y/` URLs and their `/vX.Y/` redirect stubs
+   then 404.
+5. Run `npm run build:versions` (it logs `=== building vX.Y.z  (base=/docs/vX.Y/) ===`),
    then `npm run check:links`, then `npm test`, and record `du -sh dist`.
 6. Serve `dist/` (`python3 -m http.server -d dist 8080`) and check the picker on
-   `/` and on `/vX.Y/`: it lists every version, `/vX.Y/` shows "documents novomodelo
-   vX.Y.z", and selecting `latest` returns to `/`.
+   `/docs/` and on `/docs/vX.Y/`: it lists every version, `/docs/vX.Y/` shows
+   "documents novomodelo vX.Y.z", and selecting `latest` returns to `/docs/`.
 7. Before merging, run `git fetch origin main`; then `git log <SHA>..origin/main`
    lists no commit outside the sync, and `git ls-remote origin refs/heads/main`
    names the same commit as `origin/main`. If another commit landed on `main`,
