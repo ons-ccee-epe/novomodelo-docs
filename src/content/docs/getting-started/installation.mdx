@@ -46,12 +46,14 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/ons-ccee-epe/novom
 | Linux (ARM64)          | `aarch64-unknown-linux-gnu`   |
 | Windows (x86-64)       | `x86_64-pc-windows-msvc`      |
 
+The Linux archives, which the installer also downloads, are built on Ubuntu
+24.04 and need glibc 2.38 or newer; `ldd --version` prints your glibc version.
+They do not run on an older system such as Ubuntu 22.04, Debian 12 or RHEL 9;
+there, install [from crates.io](#from-cratesio) instead, which builds against
+the system's own glibc.
+
 You can also download individual archives directly from the
 [GitHub Releases page](https://github.com/ons-ccee-epe/novomodelo/releases/latest).
-
-The x86-64 Linux MPI build `novomodelo-mpi` (see
-[HPC & Cluster Deployment](/running/hpc-deployment/)) uses AVX2 and FMA instructions and
-needs a processor that supports them.
 
 ### Verify the Installation
 
@@ -61,10 +63,10 @@ novomodelo version
 
 Expected output (exact versions and arch will vary):
 
-{/* capture: novomodelo version | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: none */}
+{/* capture: novomodelo version | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: none */}
 
 ```
-novomodelo   v0.18.1
+novomodelo   v0.20.0
 solver: HiGHS 1.13.1
 comm:   local
 zstd:   enabled
@@ -84,13 +86,11 @@ and depend on no other Python package.
 pip install novomodelo-python
 ```
 
-The package requires CPython 3.12 or newer. Each wheel is built for the CPython
-stable ABI (`abi3`), so one wheel per platform serves every supported Python
-version; the release smoke-tests the Linux x86-64 (glibc), macOS Apple Silicon
-and Windows wheels on Python 3.12, 3.13 and 3.14. PyPI publishes wheels for the
-platforms below and no source distribution, so on any other platform, or on
-Python 3.11 or older, `pip` reports
-`No matching distribution found for novomodelo-python`:
+The package requires CPython 3.12 or newer; on Python 3.11 or older, `pip`
+reports `No matching distribution found for novomodelo-python`. Each wheel is
+built for the CPython stable ABI (`abi3`), so one wheel per platform serves every
+supported Python version, and the release tests every wheel on its own platform
+on Python 3.12, 3.13 and 3.14. PyPI publishes wheels for these platforms:
 
 | Platform              | Wheel platform tag       |
 | --------------------- | ------------------------ |
@@ -103,9 +103,15 @@ Python 3.11 or older, `pip` reports
 
 `pip` selects the wheel that matches your system, so you do not choose a tag
 yourself. On Linux with glibc (the C library most distributions use), the x86-64
-wheel needs glibc 2.34 or newer and the ARM64 wheel glibc 2.28 or newer;
+wheel needs glibc 2.34 or newer (RHEL and Rocky Linux 9 or newer, Ubuntu 22.04
+or newer, Debian 12 or newer) and the ARM64 wheel glibc 2.28 or newer;
 `ldd --version` prints your glibc version. Alpine Linux and other musl systems
 use the `musllinux` wheel.
+
+Where no wheel fits, such as on Linux x86-64 with a glibc older than 2.34
+(RHEL 8, Ubuntu 20.04), `pip` builds the package from the source distribution
+(sdist) that PyPI publishes beside the wheels. The build needs a Rust toolchain
+(1.88 or newer), CMake and a C++ compiler.
 
 ### Verify the Python Package
 
@@ -113,11 +119,11 @@ use the `musllinux` wheel.
 python -c "import novomodelo; print(novomodelo.__version__); print(novomodelo.version_info())"
 ```
 
-{/* capture: python -c "import novomodelo; print(novomodelo.__version__); print(novomodelo.version_info())" | novomodelo-python 0.18.1 (PyPI wheel sha256 21206834) | python 3.12.3 | case: none */}
+{/* capture: python -c "import novomodelo; print(novomodelo.__version__); print(novomodelo.version_info())" | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: none */}
 
 ```text
-0.18.1
-{'version': '0.18.1', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
+0.20.0
+{'version': '0.20.0', 'solver': 'HiGHS 1.13.1', 'comm': 'local', 'zstd': 'enabled', 'arch': 'x86_64-linux', 'build': 'release'}
 ```
 
 If the first line shows the installed version and the second a dictionary, the
@@ -178,6 +184,15 @@ Verify:
 ./target/release/novomodelo version
 ```
 
+The build sets no target features or target CPU, so on x86-64 a binary built from
+source, `cargo install` included, uses the same floating-point kernel as the
+pre-built archives of the same version and selects the same cuts. The bundled
+HiGHS, CLP and qhull C and C++ sources compile without fused multiply-adds on
+every target, so a C compiler whose default target has FMA changes neither the
+LP solutions nor the fitted production planes. Setting `-C target-feature` or
+`-C target-cpu` through `RUSTFLAGS` can change the kernel, and the run can then
+select different, equally valid cuts.
+
 :::note[Contributors]
 To run the test suite, use `cargo test --workspace` (default HiGHS backend);
 [CONTRIBUTING.md](https://github.com/ons-ccee-epe/novomodelo/blob/main/CONTRIBUTING.md)
@@ -234,10 +249,10 @@ explicitly. The default build (no extra flags) uses HiGHS.
 
 The `novomodelo version` banner shows which backend is compiled in:
 
-{/* capture: novomodelo version | novomodelo   v0.18.1 | binary: novomodelo-cli sha256 d873ca8e | case: excerpt; CLP line verified at crates/novomodelo-solver/vendor/coin-build/include/ClpConfig.h:21 at novomodelo v0.18.1, solver line not capturable from the HiGHS release asset */}
+{/* capture: novomodelo version | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: excerpt; CLP line verified at crates/novomodelo-solver/vendor/coin-build/include/ClpConfig.h:21 at novomodelo v0.20.0, solver line not capturable from the HiGHS release asset */}
 
 ```
-novomodelo   v0.18.1
+novomodelo   v0.20.0
 solver: CLP 1.17.11
 comm:   local
 ...

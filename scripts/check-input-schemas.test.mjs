@@ -481,7 +481,10 @@ test("the vendored hydros schema: tags are required with their union, a variant-
     [true, ['"piecewise"', '"polynomial"']],
   );
   assert.equal(paths.get("hydros[].tailrace.coefficients").required, false);
-  assert.equal(paths.get("hydros[].generation.model").values.length, 3);
+  assert.deepEqual(paths.get("hydros[].generation.model").values, [
+    '"constant_productivity"',
+    '"fpha"',
+  ]);
   assert.ok(paths.has("hydros[].evaporation.coefficients_mm"));
   assert.ok(![...paths.keys()].some((path) => path.endsWith("[]")));
 });

@@ -15,7 +15,10 @@ There is no case-directory input file for cuts. Two input paths re-read a
 - **Warm-start, resume, and simulation-only** — when the run's policy mode is
   `"warm_start"` or `"resume"`, or training is disabled for a simulation-only
   run, Novomodelo loads `policy/cuts/NNN.bin` from the checkpoint at `policy.path`
-  and repopulates the cut pool before training or simulation begins. The load
+  and repopulates the cut pool before training or simulation begins, together
+  with the stored bases (`policy/basis/NNN.bin`) and, where the run selects or
+  the checkpoint holds them, the stored trial states (`policy/states/NNN.bin`).
+  The load
   applies the
   [Policy Load Contract](/running/policy-management/#policy-load-contract),
   which requires the running novomodelo version to have written the checkpoint
@@ -38,9 +41,11 @@ There is no case-directory input file for cuts. Two input paths re-read a
 
 | File                          | Role |
 | ----------------------------- | ---- |
-| `policy/cuts/NNN.bin`   | One FlatBuffers binary per **pool** (`NNN` is the pool id — on a plain stage chain the 0-based stage position, which is not the declared stage id; on a branching graph the pool id differs from the stage position), root table `StageCuts`: every cut's intercept, coefficient vector, and active flag. The coefficient vector is a bare `float64[]`; each position maps to a state variable via the per-slot entity manifest embedded in the same file (see the [Output Format](/reference/output/) reference). Written every training run and re-read on the next warm-start, resume, or simulation-only run (see Inputs above). |
+| `policy/cuts/NNN.bin`   | One FlatBuffers binary per **pool** (`NNN` is the pool id — on a plain stage chain the 0-based stage position, which is not the declared stage id; on a branching graph the pool id differs from the stage position), root table `StageCuts`: every cut's slot, intercept, coefficient vector, active flag, whether its trial state was stored, and its binding counters, with the pool's cost-scale factor. The coefficient vector is a bare `float64[]`; each position maps to a state variable via the per-slot entity manifest embedded in the same file (see the [Output Format](/reference/output/) reference). Written every training run and re-read on the next warm-start, resume, or simulation-only run (see Inputs above). |
+| `policy/basis/NNN.bin`  | One per node (`NNN` is the node position), root table `StageBasis`: one stored LP basis per forward-pass scenario, each with its column and row statuses and the pool slot of every cut row it holds. Re-read on the next warm-start, resume, or simulation-only run, behind the [stored-basis gate](/running/policy-management/#stored-basis-gate). |
+| `policy/states/NNN.bin` | One per pool that stores trial states (`NNN` is the pool id), keyed by the slot of the cut written at each state. Written when the run selects with `level1` or sets [`exports.states`](/running/configuration/#exports); read on resume and warm start. |
 
-For the complete field-by-field record layout (`AffinePiece`, `StageCuts`) and the
+For the complete field-by-field record layout (`AffinePiece`, `StageCuts`, `StageBasis`, `StageStates`) and the
 checkpoint-wide `policy/manifest.bin` summary, see the
 [Output Format](/reference/output/) reference page in the Reference
 corpus. For the schema file itself and per-language `flatc` codegen

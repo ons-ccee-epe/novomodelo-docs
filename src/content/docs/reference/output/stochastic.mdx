@@ -29,7 +29,7 @@ estimated it from `inflow_history.parquet` or read it from `scenarios/`.
 inflow model (its seasonal statistics, its AR coefficients or both) from
 `inflow_history.parquet`.
 
-If a file cannot be written, Novomodelo prints a warning such as `warning: stochastic export failed (noise_openings: <error>)` and the run continues with the remaining files and training. `--quiet` suppresses the warning.
+If a file cannot be written, Novomodelo prints a warning on stderr such as `warning: stochastic export failed (noise_openings: <error>)` and the run continues with the remaining files and training. `--quiet` suppresses the warning.
 
 To reuse an exported model as input on a later run, follow [Exporting Stochastic Artifacts → Round-trip workflow](/running/running-studies/#round-trip-workflow).
 
@@ -41,6 +41,9 @@ The opening tree used during the training run, written in the same schema as
 the input file `scenarios/noise_openings.parquet`. See the
 [Scenario Files](/reference/case-format/scenarios/#scenariosnoise_openingsparquet)
 for the 4-column schema (`stage_id`, `opening_index`, `entity_index`, `value`).
+For a generated tree the values are the openings after moment matching
+([`training.scenario_source.openings`](/running/configuration/#trainingscenario_sourceopenings)),
+so a run that reads the copy uses them as supplied.
 The exported `stage_id` is the 0-based stage position, while the input file
 requires the declared stage id, so a copy loads only when the declared stage
 ids are 0, 1, 2, ….

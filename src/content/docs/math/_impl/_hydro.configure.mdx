@@ -1,7 +1,7 @@
 Novomodelo's `system/hydro_production_models.json` file authors the production-model
 selection the methodology above describes, and the `generation` block of
 `system/hydros.json` supplies each plant's default model and its turbine and
-generation bounds. The equations these fields feed are in the sections above ([Hydro Production Function Models §1](/math/hydro-production-models#1-constant-productivity-model)–[§5](/math/hydro-production-models#5-energy-conversion-quantities)).
+generation bounds. The equations these fields feed are in the sections above ([Hydro Production Function Models §1](/math/hydro-production-models#1-constant-productivity-model)–[§4](/math/hydro-production-models#4-energy-conversion-quantities)).
 The rest of the plant registry is on
 [System Element Modeling Overview — Configure](/math/system-elements#implementation-in-novomodelo).
 
@@ -38,9 +38,8 @@ production function.
 | --------------------- | ------------------------- | ----------- |
 | Constant productivity | `"constant_productivity"` | `power = productivity * turbined_flow`. Independent of reservoir head. Productivity is supplied per stage range or season in `system/hydro_production_models.json`. |
 | FPHA                  | `"fpha"`                  | Piecewise-linear envelope of the nonlinear production function. Head-dependent. Configured via `hydro_production_models.json` — see below. |
-| Linearized head       | `"linearized_head"`       | Reserved model name; it resolves to the same constant-productivity source as `constant_productivity` (see methodology §3). Requires the plant's productivity input. |
 
-Every model applies in training and in simulation.
+Every model applies in training and in simulation. Any other `model` value is rejected at load.
 
 For most initial studies, `constant_productivity` is the natural choice. The
 productivity coefficient encodes the plant's average efficiency and net head:
@@ -156,8 +155,12 @@ synthetic closing point and no spillage axis in the cloud — takes the 3-D
 convex hull of the resulting cloud with vendored qhull, applies a
 least-squares $k_{FPHA}$ correction that scales the **whole affine plane**
 (intercept and slopes together, not just the intercept), and fits a per-plane
-lateral-flow secant. Fits are resolved independently per stage range or
-season. Run-of-river plants (a single fitting volume) are supported: the
+lateral-flow secant. Planes are fit only on the stages whose entry selects
+`"fpha"`, independently per stage range or season, so the plant's other stages
+may use constant productivity; each FPHA stage needs an entry that carries an
+`fpha_config` (see
+[Production Model Files](/reference/case-format/production-models/#systemhydro_production_modelsjson)).
+Run-of-river plants (a single fitting volume) are supported: the
 fitter synthesizes two nearby volume samples to keep the hull non-degenerate,
 then snaps the resulting `gamma_v` to exactly `0`. See Implementation notes
 for the full fitting-pipeline summary and methodology §2.6–§2.7 for the
@@ -166,10 +169,7 @@ derivation.
 This source requires `tailrace`, `hydraulic_losses`, and `efficiency` models
 in `hydros.json`, plus geometry rows in `system/hydro_geometry.parquet` for the
 plant. An FPHA-configured plant needs at least 1 row — a single row is valid for
-run-of-river plants (a constant forebay, so `gamma_v = 0`). A plant configured
-with `linearized_head` needs at least 2 rows when the file holds any row; that higher minimum is a load-time
-validation rule keyed on the configured model name, not a runtime head fit —
-`linearized_head` resolves to constant productivity (methodology §3).
+run-of-river plants (a constant forebay, so `gamma_v = 0`).
 
 ```json
 "fpha_config": {
@@ -178,7 +178,9 @@ validation rule keyed on the configured model name, not a runtime head fit —
   "turbine_discretization_points": 5,
   "spillage_discretization_points": 5,
   "max_planes_per_hydro": 10,
-  "fitting_window": null
+  "fitting_window": null,
+  "turbined_fit_max_m3s": null,
+  "spillage_fit_max_m3s": null
 }
 ```
 
@@ -191,6 +193,8 @@ All fields except `source` are optional:
 | `spillage_discretization_points` | 5       | Validated (must be `>= 2`) but does **not** add a spillage axis to the fitting grid — the cloud and the $k_{FPHA}$ regression fix spillage at `0`, and the lateral-flow secant sweeps its own sample range independently (§2.7). The field is retained for input round-tripping. |
 | `max_planes_per_hydro`           | 10      | Accepted and validated (`>= 1`) but does not trim the plane set — the hull fitter emits exactly the upper-envelope facets. |
 | `fitting_window`                 | null    | Optional volume range for fitting; absent uses the full forebay range of the plant's `system/hydro_geometry.parquet` volume-height curve. |
+| `turbined_fit_max_m3s`           | null    | Upper end (m³/s) of the turbined-flow axis of the fitting grid, $q^{fit}_{max}$ in §2.6.1; the axis starts at `0`. Finite and `> 0`, else rejected at load. Absent uses the plant's `max_turbined_m3s`. It may lie below or above `max_turbined_m3s`; the LP turbined-flow bounds stay the plant's own. |
+| `spillage_fit_max_m3s`           | null    | Upper end (m³/s) of the lateral-flow sample of the secant, $\bar{S}^{fit}$ in §2.7. Finite and `> 0`, else rejected at load. Absent uses twice the mean of the plant's `scenarios/inflow_history.parquet` values, or twice its `max_turbined_m3s` when that mean is not positive. |
 
 `fitting_window` restricts which portion of the operating range builds the
 grid — useful when the plant rarely operates near one extreme:
@@ -246,7 +250,7 @@ across input ordering and rank count.
 
 #### Per-Range and Per-Season Productivity
 
-For `constant_productivity` and `linearized_head` hydros, the equivalent
+For `constant_productivity` hydros, the equivalent
 productivity for each `(hydro, stage)` pair is supplied by exactly one of two
 sources:
 
@@ -277,15 +281,23 @@ files.
 
 A hydro whose `generation.model` is `fpha` is outside both checks: its
 equivalent productivity is derived from the VHA geometry and the specific
-productivity (methodology §5.1). An `equivalent_productivity_mw_per_m3s` row
+productivity (methodology §4.1). An `equivalent_productivity_mw_per_m3s` row
 for such a hydro (stage-specific, else the per-hydro default) is an override that
-replaces the derived value for both evaluators — the reference-point value
-(§5.1) and the useful-range mean value (§5.3).
+replaces the derived reference-point value (§4.1) only. The useful-range mean
+value (§4.3) is set outright, for any hydro and generation model, by an
+`integrated_equivalent_productivity_mw_per_m3s` value on the same row; without
+one it follows the resolution order of §4.3, so a plant with VHA geometry and a
+specific productivity integrates its mean even when it carries an
+`equivalent_productivity_mw_per_m3s` override. A non-positive mean head is
+rejected at setup with a message that names
+`integrated_equivalent_productivity_mw_per_m3s` as the way to supply the
+value.
 
 In `system/hydro_energy_productivity.parquet`,
-`equivalent_productivity_mw_per_m3s` and
-`specific_productivity_mw_per_m3s_per_m` must each be finite and non-negative
-when set: `0` is accepted and a negative value is rejected at load. A `0`
+`equivalent_productivity_mw_per_m3s`,
+`specific_productivity_mw_per_m3s_per_m` and
+`integrated_equivalent_productivity_mw_per_m3s` must each be finite and
+non-negative when set; NULL means no override: `0` is accepted and a negative value is rejected at load. A `0`
 equivalent productivity at a stage that does not use the `"fpha"` model marks a
 planned-outage stage, as
 `0.0` does in the JSON field below. A `0` specific productivity zeroes the head-derived equivalent productivity and does not stop generation.
@@ -307,7 +319,9 @@ planned-outage stage, as
 
 | Rule                            | Error Class          | Description |
 | -------------------------------- | --------------------- | ----------- |
-| FPHA geometry coverage            | Dimensional error      | When `system/hydro_geometry.parquet` holds any row, every `fpha` plant must have at least 1 row of its own (a single row is valid for run-of-river plants) and every `linearized_head` plant at least 2 rows; with no row in the file this rule does not run. |
-| FPHA plane coverage               | Dimensional error      | Every `(hydro_id, stage_id)` group in `system/fpha_hyperplanes.parquet` must have at least 1 plane. |
+| FPHA geometry coverage            | Dimensional error      | When `system/hydro_geometry.parquet` holds any row, every `fpha` plant must have at least 1 row of its own (a single row is valid for run-of-river plants); with no row in the file this rule does not run. |
+| FPHA hyperplane coverage          | Dimensional error      | When `system/fpha_hyperplanes.parquet` holds any row, every `fpha` plant with turbine capacity must have rows of its own, whatever its `source`; with no row in the file this rule does not run. |
+| FPHA fit ranges                   | Schema error           | `turbined_fit_max_m3s` and `spillage_fit_max_m3s`, when set, must be finite and `> 0`. |
+| FPHA stage coverage (computed)    | Setup error            | On a plant with any `source: "computed"` entry, every stage whose entry selects `"fpha"` must resolve to an entry with an `fpha_config`; an uncovered stage or a `default_model` of `"fpha"` is rejected when the study is set up. |
 | FPHA coefficient signs            | Semantic error         | `gamma_v` must be non-negative (`>= 0`; run-of-river plants have `gamma_v = 0`); `gamma_s` must be non-positive. |
 | Geometry monotonicity             | Semantic error         | `volume_hm3` must be strictly increasing; `height_m` and `area_km2` must be non-decreasing. |

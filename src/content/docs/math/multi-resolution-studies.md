@@ -161,7 +161,9 @@ there the accumulation runs at the coarse resolution.
 
 In the opening tree, consecutive stages that share a season and the calendar
 year of their start form one **noise group** and share one innovation per
-opening, as when several weekly stages fall inside one monthly season. Within
+opening, as when several weekly stages fall inside one monthly season. A later
+stage of a group holds no more openings than the group's first stage, and one
+with fewer shares the first of them. Within
 the opening tree, a season's innovation $\varepsilon_t$ is therefore not
 resampled for every stage the season is subdivided into. A stage without a
 season forms its own group, and in a uniform single-resolution study every

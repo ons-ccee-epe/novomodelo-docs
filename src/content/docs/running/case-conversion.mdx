@@ -27,14 +27,14 @@ and is needed only to run `novomodelo validate` and `novomodelo run` on the conv
 case.
 
 `novomodelo-python` is a **required** runtime dependency, not an optional extra —
-it provides the Python bindings that `convert --validate`, `dashboard`, and
-`convert decomp`'s boundary-FCF import need, so installing novomodelo-bridge pulls
-it in automatically. (`compare` does not use the bindings: it reads Novomodelo's
-simulation-output parquet files directly.)
+it provides the Python bindings that `convert --validate`, `dashboard`,
+`convert decomp`'s boundary-FCF import and `export dessem` need, so installing
+novomodelo-bridge pulls it in automatically. (`compare` does not use the bindings: it
+reads Novomodelo's simulation-output parquet files directly.)
 
 A novomodelo-bridge release `X.Y.Z` targets novomodelo `X.Y.Z`: the converted case
 follows that release's input contract. The bridge records its minimum novomodelo
-version (`0.18.1`) in the conversion manifest and uses it to decide whether the
+version (`0.20.0`) in the conversion manifest and uses it to decide whether the
 installed `novomodelo-python` can run `convert --validate`.
 The [Dependencies](#dependencies) section lists the pin that tracks that
 minimum. If the
@@ -83,6 +83,7 @@ novomodelo-bridge convert newave /path/to/source/case /path/to/output/case
 | `--diagnostics-json PATH` | Also write the conversion diagnostics (counts + findings) as JSON.                                                     |
 | `--json`                  | Emit a single machine-readable JSON verdict to stdout and suppress the human-readable (Rich) output.                   |
 | `--dry-run`               | Run the full conversion in memory and report what would be written, without creating or modifying the destination.     |
+| `--json-float-digits N`   | Write every float in the case's JSON files with `N` significant digits, `1` to `17`. Default: `15`; `17` keeps full precision. Parquet files are unaffected. Below `10` digits novomodelo can reject the case, since it cross-checks JSON values against Parquet tables and unit-group sums to a `1e-9` relative tolerance. |
 | `-v, --verbose INTEGER`   | Increase console log verbosity (`-v` INFO, `-vv` DEBUG). Default: `0`.                                                  |
 | `--log-file PATH`         | Write the full DEBUG log to `PATH` (the console verbosity is unaffected). Missing parent directories are created; a path that cannot be opened is reported as a `--log-file` option error and the command exits `2`. |
 | `--no-color`              | Disable coloured output (also honoured via the `NO_COLOR` env var).                                                     |
@@ -98,10 +99,14 @@ novomodelo-bridge convert newave /path/to/source/case /path/to/output/case
 | `1`  | Conversion error.                       |
 | `2`  | `--validate` reported a load failure.   |
 
+A conversion that fails with exit `1` still reports the warnings found before
+the failure, in the console notes and in the `--json` diagnostics.
+
 `convert decomp` uses the same `0`/`1`/`2` exit-code set. On every novomodelo-bridge
 command, a usage error (an unknown option, a missing argument, or an invalid
 option value such as an unwritable `--log-file` path) also exits `2`, with a
-usage message.
+usage message on stderr. Under `--json` it prints the verdict envelope to
+stdout instead, with status `error` and one `usage-error` diagnostic.
 
 #### `--json` output
 
@@ -115,7 +120,7 @@ found before the failure next to the error, in the conversion notes and in
 the `--json` `diagnostics`.
 
 For the complete flag reference for every command, see the
-[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/cli.md).
+[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/cli.md).
 
 ### Converting a DECOMP Deck
 
@@ -141,7 +146,7 @@ refused at read by the format check.
 To run the case under another novomodelo release, install the novomodelo-bridge release
 paired with that novomodelo release, which pins its `novomodelo-python`, and convert the
 deck again. The novomodelo-bridge DECOMP guide covers
-[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/decomp.md#running-a-case-with-an-imported-boundary).
+[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/decomp.md#running-a-case-with-an-imported-boundary).
 :::
 
 ### What Gets Converted
@@ -150,8 +155,8 @@ The conversion pipeline transforms the source case's input files into a
 complete Novomodelo case directory, organised by output sub-directory:
 
 - **`system/`** -- plant and network configuration: hydros, thermals, buses,
-  lines, non-controllable sources, hydro production models, and hydro
-  geometry.
+  lines, pumping stations, non-controllable sources, hydro production models,
+  and hydro geometry.
 - **`scenarios/`** -- stochastic inputs: inflow, load, and non-controllable
   seasonal statistics and factors.
 - **`constraints/`** -- per-stage bounds, penalty overrides, and generic
@@ -159,18 +164,14 @@ complete Novomodelo case directory, organised by output sub-directory:
 - **Top level** -- study configuration, stage definitions, penalties, and
   initial conditions.
 
-Both tracks set
-[`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity)
-`method` to `"truncation_with_penalty"` in `config.json`.
-
 For the authoritative, field-level source-to-Novomodelo lineage -- which deck
 file, record, and column feeds which output field, and what transformation
 is applied -- see the bridge's own generated data maps. They are produced by
 `scripts/gen-lineage-docs.py`, verified by tests against a real conversion,
 marked "Do not edit by hand," and written in Portuguese:
-[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/newave-data-map.md)
+[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/newave-data-map.md)
 and
-[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/decomp-data-map.md).
+[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/decomp-data-map.md).
 
 ### Output Directory Structure
 
@@ -188,6 +189,7 @@ output/
     thermals.json
     buses.json
     lines.json
+    pumping_stations.json
     non_controllable_sources.json
     hydro_production_models.json
     hydro_geometry.parquet
@@ -205,6 +207,7 @@ output/
     line_bounds.parquet
     hydro_bounds.parquet                (conditional)
     thermal_bounds.parquet              (conditional)
+    pumping_bounds.parquet              (conditional)
     penalty_overrides_bus.parquet       (conditional)
     penalty_overrides_hydro.parquet     (conditional)
     generic_constraints.json            (conditional: deck has generic constraints)
@@ -220,13 +223,12 @@ A case written by `convert decomp` does not write `scenarios/inflow_history.parq
 `constraints/penalty_overrides_hydro.parquet`, and it also writes files that
 `convert newave` never writes:
 
-- `system/energy_contracts.json` and `system/pumping_stations.json`
+- `system/energy_contracts.json`
 - `scenarios/external_inflow_scenarios.parquet`,
   `scenarios/external_load_scenarios.parquet` and
   `scenarios/external_ncs_scenarios.parquet`
-- `constraints/contract_bounds.parquet`,
-  `constraints/hydro_unit_group_bounds.parquet` and
-  `constraints/pumping_bounds.parquet`
+- `constraints/contract_bounds.parquet` and
+  `constraints/hydro_unit_group_bounds.parquet`
 - `post_study_stages.json` at the top level
 - the imported boundary under `boundary/` (see
   [Converting a DECOMP Deck](#converting-a-decomp-deck))
@@ -246,9 +248,13 @@ novomodelo-bridge compare newave /path/to/source/case /path/to/novomodelo/output
 `compare newave <NEWAVE_DIR> <NOVOMODELO_OUTPUT_DIR>` compares NEWAVE's published
 results (`MEDIAS-*.CSV`, `pmo.dat`) against Novomodelo simulation output.
 `compare decomp <DECOMP_DIR> <NOVOMODELO_OUTPUT_DIR>` compares a DECOMP run's
-published operation (`dec_oper_*.csv`) the same way. Both source directories
+published operation (`dec_oper_*.csv`) the same way, reading each file in the
+layout of the DECOMP release its header names. Both source directories
 must hold the case/deck and its result files directly (not nested in a
-subdirectory).
+subdirectory). The Productivity tab of `compare newave` places both models at
+their operating points only when the NEWAVE run has its per-plant `nwlistop`
+tables, which the `nwlistop.dat` plant list set to `999` produces; without them
+it leaves the operating points out, with a note.
 
 `compare newave` compares the inflows Novomodelo reports. Those carry the raw
 PAR draw, which can be negative; the correction that lifts a negative draw in
@@ -256,6 +262,10 @@ the water balance is reported apart, as `inflow_nonnegativity_slack_m3s`
 ([`simulation/hydros/`](/reference/output/simulation/#simulationhydros)). Where
 that correction acts, the Novomodelo incremental inflow, total inflow and
 natural inflow energy sit below the inflow the water balance uses.
+
+`compare` and `dashboard` read each generic constraint's term coefficients and
+row bounds from Novomodelo's `generic_constraints/resolved_echo.parquet` output,
+as the LP received them.
 
 | Flag                | Description                                                                                                                    |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -285,8 +295,8 @@ tolerance or not, but a divergence never fails the run. On both the `newave` and
 | Exit code | Meaning                                                                  |
 | --------- | ------------------------------------------------------------------------ |
 | `0`       | The comparison ran (whether or not any divergence was found).            |
-| `1`       | `compare newave` only: the NEWAVE case directory is missing. (On `compare decomp` a missing deck directory exits `2`.) |
-| `2`       | An invalid `--format` token, or a source deck or Novomodelo output file that cannot be read (missing or malformed data). |
+| `1`       | The source case or deck is not found: its directory is missing or holds no NEWAVE case or DECOMP deck. |
+| `2`       | An invalid `--format` token; a Novomodelo output file that cannot be read (missing or malformed data); or, on `compare decomp`, a DECOMP result file that cannot be read, including a `dec_oper_*.csv` written by a DECOMP release older than every layout the bridge reads. |
 
 A NEWAVE case whose `dger.dat` requests training without a final simulation
 (`tipo_execucao` 1 with `tipo_simulacao_final` 0) converts with
@@ -348,7 +358,8 @@ novomodelo-bridge check decomp /path/to/deck
 
 `check decomp` also reports what the conversion will leave behind (deck
 features `convert decomp` does not carry over), so a limitation is never a
-silent omission.
+silent omission. `check` and `convert` warn when a fixed-column input file holds
+a tab character, which shifts every field after it on its line.
 
 The text files `arquivos.dat` names on the NEWAVE track, and `dadger` and
 `dadgnl` on the DECOMP track, are read by fixed columns, so a tab where the
@@ -387,11 +398,48 @@ novomodelo-bridge dashboard /path/to/novomodelo/case
 `dashboard` also shares `convert`'s `-v/--verbose`, `--log-file`,
 `--no-color`, and `--quiet` flags. Exit codes: `0` written, `1` error.
 
-For a case that ran one phase, `dashboard` leaves the other phase out. A simulation-only case
-(training disabled, simulating from a stored policy) has no Training tab and
-no training sections in its Performance tab, and its Overview takes the
-version, run date and duration from the simulation metadata. A training-only
-case has no simulation sections in its Performance tab.
+`dashboard` also builds for a case run with training or simulation disabled,
+and leaves out the tabs and sections of the phase that did not run. Its
+Constraints tab, like those of `compare`, shows each generic constraint as Novomodelo
+resolved it, read from the run's `generic_constraints/resolved_echo.parquet`
+([the resolved echo](/reference/generic-constraints/#the-resolved-echo)).
+
+### Exporting a DESSEM Cost Function
+
+`export dessem` writes the policy of a solved case converted from a DECOMP deck
+as the future cost function DESSEM reads:
+
+```bash
+novomodelo-bridge export dessem /path/to/deck /path/to/novomodelo/case
+```
+
+`export dessem <DECOMP_DIR> <CASE_DIR>` reads the policy checkpoint under
+`<CASE_DIR>/output/policy/` through `novomodelo-python` and writes `mapcut.<rev>`,
+`cortdeco.<rev>` and `export_manifest.json`. `DECOMP_DIR` is the deck the case
+was converted from: its `caso.dat` names the revision `<rev>`, its `hidr.dat`
+codes label the plants, and the order of its `VI` records numbers the plants
+with a water travel time, whose in-transit water the cuts carry. A plant with a
+travel time but no `VI` record in the deck, a travel time that is not a whole
+number of hours, and a plant with a travel time but no downstream plant are
+refused. The cuts of the first cut-building node carry each anticipated-thermal
+(GNL) plant's coefficient for the delivery of the case's second stage, the same
+on every load block, and `mapcut` record 9 carries that stage's load-block
+hours; the policy's other GNL coefficients are left out. A plant with no
+coefficient for that delivery, or a coefficient of exactly zero, is written as
+`0.0` with a warning. Each stage's `mapcut` record 10 carries the cost of the
+GNL generation committed before the study, priced from the commitment windows
+in the case's `initial_conditions.json`.
+
+| Flag                 | Description                                                       |
+| -------------------- | ----------------------------------------------------------------- |
+| `--output, -o PATH`  | Output directory. Default `<case_dir>/dessem_fcf/`.               |
+| `--force`            | Overwrite the outputs if the output directory already holds them. |
+| `--audit-csv`        | Also write the cuts as audit CSV files.                           |
+| `--include-terminal` | Include the terminal pool in the audit CSV files.                 |
+| `--json`             | Emit a single machine-readable JSON verdict to stdout.            |
+
+`export dessem` also shares `convert`'s `-v/--verbose`, `--log-file`,
+`--no-color`, and `--quiet` flags. Exit codes: `0` written, `1` error.
 
 ---
 
@@ -418,14 +466,40 @@ An `EE` plant operates from the first stage at the machine configuration
 exist yet are left out, except a future plant whose `exph.dat` schedule fills
 its dead volume. Fictitious accounting plants are removed; they are identified
 structurally, as a plant with zero productivity that shares its inflow gauge
-with a generating plant, and a cascade link through a removed plant is rewired
-to the next real plant downstream.
+with a generating plant and that no pumping station uses, and a cascade link
+through a removed plant is rewired to the next real plant downstream.
 
 `convert decomp` converts the deck's operated hydros, with the deck's registry
 overrides applied, and its small plants as must-run non-controllable sources.
+The renewable parks of its `renovaveis` file, with their generation on the
+`PEE-GER-PER-PAT-CEN` or the `PEE-GER-PER-PAT` card, also become
+non-controllable sources. A park whose `PEE-CONFIG-PER` operating state is
+`centralizado` can be curtailed below its declared generation; a park in any
+other state is must-run, and so is a park with no state, with a warning.
+`convert decomp` writes a `non_controllable_source.curtailment_cost` of
+`0.0001` per MWh to `penalties.json`, below the bridge's other fixed
+micro-penalties, so curtailing a park is the cheapest way to absorb a surplus.
+A park declared on both generation cards, or with more than one operating
+state, stops the conversion.
 
 For the full list of conversion rules, see the novomodelo-bridge
-[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.18.1/docs/newave.md).
+[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.20.0/docs/newave.md).
+
+### Study Settings
+
+Both tracks set [`simulation.cut_set`](/running/configuration/#simulation-cut-set)
+to `"active"`, so the simulation loads the cuts active when training ended;
+where a conversion turns on no cut selection every cut stays active and the two
+sets coincide. When `dger.dat` turns cut selection on for either pass,
+`convert newave` sets the `selection` of
+[`training.cut_selection`](/running/configuration/#trainingcut_selection) to the
+`level1` method with `check_frequency` `1` and `lookback_iterations` `2`, and
+when `dger.dat` turns the cut window on, it warns that Novomodelo has no cut window
+and keeps every cut. `convert newave` sets
+[`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity)
+to `truncation_with_penalty` and `convert decomp` sets it to `penalty`, whose
+unbounded correction keeps the boundary-FCF import's one-iteration pass feasible
+when a volume target becomes a hard storage floor. `convert decomp` trains and simulates under the `enumerated` selection.
 
 ### Risk Measure Support
 
@@ -440,32 +514,74 @@ in `stages.json`. Three modes are supported:
 
 ### Generic Constraints
 
-Three families of source constraints are converted into Novomodelo's
+`convert newave` converts three families of source constraints into Novomodelo's
 generic-constraint authoring format: one definition per constraint in
 `generic_constraints.json` (a `name`, an `expression`, and an optional `slack`),
 merged with sequential integer IDs, and per-stage right-hand-side bounds in
 `generic_constraint_bounds.parquet`.
 
-- **VminOP** -- minimum stored-energy constraints. Each is a weighted sum of the
-  participating reservoirs' end-of-stage storage, where the weight is that
-  reservoir's accumulated productivity, referenced as a named parameter
-  (`@rho_acum_h<id>`) declared in `constraints/generic_parameters.json` and
-  resolved by Novomodelo to its own ρ at solve time. This keeps the constraint's
-  coefficients aligned with the study's productivities rather than freezing a
-  converted value.
-- **Electric** -- operational constraints on hydro generation and line flows.
-- **AGRINT** -- group dispatch constraints for thermal and hydro plants.
+- **VminOP** -- minimum stored-energy constraints, one per REE. Each bounds
+  the useful stored energy, in MWh, of the REE's participating reservoirs at
+  the end of the stage from below by the curve's fraction of their maximum
+  useful stored energy. Each reservoir's weight and maximum are named
+  parameters (`@rho_acum_mwh_h<id>`, `@earm_max_mwh_h<id>`) declared in
+  `constraints/generic_parameters.json` as computed parameters
+  (`integrated_accumulated_productivity_mwh_per_hm3`, `max_stored_energy_mwh`),
+  which Novomodelo resolves from the study's own productivities (see the
+  [security-curve example](/reference/generic-constraints/#worked-example-a-security-curve)).
+  The slack's [penalty basis](/reference/generic-constraints/#penalty-basis) is
+  `per_unit`, a price per MWh of violation.
+- **Electric** -- operational constraints on hydro generation and line flows,
+  with a `per_hour` slack priced at the `penalid.dat` electric-constraint
+  penalty, or at 10 times the largest deficit cost when the case declares none.
+- **AGRINT** -- exchange-group limits, each a cap on a weighted sum of
+  directional line flows, with no slack.
+
+`convert decomp` converts the deck's `RE`, `RHQ`, `RHV` and LIBS electrical
+constraints with a `per_hour` slack and its `RHE` stored-energy constraints with
+a `per_unit` slack. An `FE` term of an `RE` constraint becomes a term on the
+`CI` import or `CE` export contract with that number in its submarket; a term
+that matches no single such contract drops its constraint, with a
+`decomp-fe-no-contract` warning.
+
+A LIBS restriction keeps its decision terms in the expression and folds its
+data terms into the bound at each stage and block: the load, the aliases, the
+available power, a `peq_<name>_<subsystem>` term (the generation of that
+subsystem's `PQ` small-plant series) and the `ger_usit` of a `dadgnl` GNL plant
+(the generation its `GL` record commands). A `peq_` term that names no `PQ`
+series drops its restriction, with a warning, and a GNL term stops the
+conversion when the restriction is active at a stage in which no `GL` week
+starts. A restriction declared only by
+`RESTRICAO-ELETRICA-INEQUACAO-PERIODO-PATAMAR` rows applies in the stages and
+blocks those rows cover, and a limit written as `1E+31` leaves that side
+unbounded. On both tracks a record name in the electrical-constraint file is
+read only in full and in upper case, as the manual writes it, and every line
+that is not a record the conversion reads, other than blank and `&` comment
+lines, is listed in a `libs-unread-lines` warning.
+
+Each soft constraint's slack declares its `penalty_basis`: VminOP is
+`per_unit`, so its penalty is charged per MWh of violation, and the electric
+constraints are `per_hour`. On the DECOMP track, RHE bounds useful stored energy
+the same way as VminOP, one constraint per record, and is `per_unit`; the `RE`,
+`HQ`, `HV` and LIBS constraints are `per_hour`.
 
 ---
 
 ## Dependencies
 
-novomodelo-bridge 0.18.1 installs its runtime dependencies with the package. Two
+novomodelo-bridge 0.20.0 installs its runtime dependencies with the package. Four
 pins matter:
 
-- `novomodelo-python==0.18.1`: the pinned version is the bridge's `MIN_NOVOMODELO_VERSION`
-  (`0.18.1`), and a packaging test keeps the pin and that constant in lockstep.
-- `inewave>=1.16.1`: the NEWAVE file reader.
+- `novomodelo-python==0.20.0`: the pinned version is the bridge's `MIN_NOVOMODELO_VERSION`
+  (`0.20.0`), and a packaging test keeps the pin and that constant in lockstep.
+- `inewave>=1.17.1`: the NEWAVE file reader.
+- `idecomp>=1.18.3`: the DECOMP file reader.
+- `cfinterface>=1.10.3`: the file-format library both readers are built on,
+  which the bridge also imports directly.
+
+The bridge also requires pandas 3.1, plotly 7.1, polars 2.1, pyarrow 26, rich 15
+and typer 0.27.3 or newer, so installing it into an existing environment
+upgrades them.
 
 The minimum novomodelo version does not make versions interchangeable: an imported boundary
 needs an exact version match (see the caution under

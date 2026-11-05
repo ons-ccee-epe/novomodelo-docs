@@ -104,7 +104,7 @@ will not produce `simulation/pumping_stations/`.
     hydro_models.json                (always)
     model_provenance.json            (always)
     cut_selection/
-      iterations.parquet         (when cut_selection is enabled)
+      iterations.parquet           (when a selection method or max_active_per_stage is set)
     _SUCCESS                         # after training/metadata.json
   policy/                            # at policy.path (default ./policy), resolved against the output directory
     manifest.bin                     # study-global; FlatBuffers, written last
@@ -118,7 +118,7 @@ will not produce `simulation/pumping_stations/`.
       001.bin
       ...
       NNN.bin
-    states/                          # stage-keyed; when exports.states = true
+    states/                          # pool-keyed; under exports.states or level1
       000.bin
       001.bin
       ...
@@ -244,7 +244,8 @@ earlier `simulation/` tree, its `_SUCCESS` included.
 A `_SUCCESS` marker therefore signals that its phase finished writing;
 `stochastic/` files are covered by neither marker. It is not a verdict on the
 run: when training stops on a failure, `novomodelo run` writes the policy
-checkpoint, every training output (`convergence.termination_reason` is
+checkpoint to `<policy.path>.partial`, leaving `policy.path` untouched (see
+[A failed run](/running/policy-management/#a-failed-run)), every training output (`convergence.termination_reason` is
 `"error"`) and `training/_SUCCESS`, then exits with the code of the error (see
 [Exit Codes](/reference/cli-reference/#exit-codes)). A run that fails before a
 phase's last write leaves that phase without a marker.

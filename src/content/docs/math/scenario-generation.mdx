@@ -132,11 +132,33 @@ the validity of the lower bound.
    and MPI configurations (see section 2.2)
 3. Correlation is applied per the active profile for each stage (see section
    2.4)
-4. In the opening tree, consecutive stages sharing a **noise group** — keyed by
+4. Optionally, the inflow noise of each stage is **moment-matched** over the
+   stage's openings. For hydro $i$, let $\bar{\varepsilon}_i$ and $s_i$ be the
+   mean and the standard deviation, with divisor $N_t$, of its correlated noise
+   values $\varepsilon_{i,1}, \ldots, \varepsilon_{i,N_t}$ at the stage. Each
+   value is replaced by
+
+   $$
+   \varepsilon'_{i,j} = \left(\varepsilon_{i,j} - \bar{\varepsilon}_i\right) \frac{\sigma_i}{s_i},
+   \qquad
+   \sigma_i^2 = \bigl(U \tilde{\Lambda} U^\top\bigr)_{ii}
+   $$
+
+   so the stage's openings have, for every hydro, mean zero and the variance
+   $\sigma_i^2$ that the spectral transform of section 2.1 gives its noise:
+   one, or more where a negative eigenvalue was clipped, and one for a hydro in
+   no correlation group. The step is affine in each hydro's values, so it
+   leaves the sample correlation between hydros unchanged. It leaves as drawn a
+   stage with a single opening and a hydro whose values at the stage are all
+   equal, and it does not apply to the historical-residual stages of section
+   2.5 or to load and non-controllable-source noise.
+5. In the opening tree, consecutive stages sharing a **noise group** — keyed by
    season and year, as when several weekly stages fall inside one monthly
    season — receive one shared noise draw per opening: the group's first stage
-   draws its noise as in step 2 and each later stage in the
-   group copies that stage's already-correlated noise. A stage without a
+   draws its noise as in steps 2 to 4 and each later stage in the
+   group copies that stage's noise. A later stage can hold no more openings
+   than the group's first stage; one with fewer copies the first $N_t$ of them
+   unchanged, so its openings are not moment-matched as a set. A stage without a
    season gets its own group; in a uniform monthly study every group is
    unique and every stage draws independently. See
    [Multi-Resolution Studies](/math/multi-resolution-studies) for the
@@ -171,10 +193,11 @@ memory, enabling linear access during the backward pass. The noise vector for
 a given (stage, opening) pair is read directly without iteration over
 the tree structure.
 
-The same tree is generated bit-identically on every MPI rank because both the
+The same tree is generated bit-identically on every MPI rank because the
 seed derivation of step 2 and the noise-group assignment
 are pure functions of globally known inputs — the base seed and the stage
-calendar of the broadcast system. For the determinism guarantees that follow
+calendar of the broadcast system — and the moment matching of step 4 sums over
+the openings in a fixed order. For the determinism guarantees that follow
 from this property, see [Determinism & Provenance](/math/determinism-guarantees).
 
 ### 2.3a Sampling Method and Opening Tree Generation
