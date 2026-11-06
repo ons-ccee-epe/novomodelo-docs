@@ -170,11 +170,16 @@ study does not model has nowhere to land and is **dropped** — counted, per
 family, in the reconciliation summary below rather than silently discarded —
 and the load still succeeds **by default**. In the other direction, a storage
 or AR-lag coordinate of the current study that the source does not price
-refuses the load (§5.2), and only a commitment-ring slot or in-transit bucket
-with no overlapping source interval takes a zero coefficient. A stricter
-admission is available that instead **rejects** a superset source — one
-pricing state the current study does not model — rather than dropping and
-reporting it; see
+refuses the load (§5.2). A commitment-ring slot with no overlapping source
+interval takes a zero coefficient. A live in-transit bucket whose receiving
+hydro the source prices no in-transit water for takes the receiver's storage
+coefficient instead, from the same cut and undiscounted, whatever the
+receiver's operating status. This is a boundary approximation: it ignores the
+arrival delay. The bucket stays at zero when the source does not price the
+receiver's storage, and when the source has buckets for that hydro on other
+dates. A stricter admission is available that instead **rejects** a superset
+source — one pricing state the current study does not model — rather than
+dropping and reporting it; see
 [Compatibility requirements](/running/policy-management/#compatibility-requirements)
 for how the software layer requires it.
 
@@ -185,10 +190,10 @@ commitments, how many target coordinates were copied identically from a source
 coordinate matched by entity identity, how many were resolved by the dated
 fan-out (a window inside a single source month counts here, as a one-term
 blend, and those renormalized for reaching into a stretch the source never
-priced are also counted separately as straddling), how many had no
-corresponding source information and took a zero coefficient rather than a
-guessed value, and how many source coordinates the current study does not
-model and dropped. For storage and inflow lags the fanned-out and zero counts
+priced are also counted separately as straddling), how many in-transit
+buckets were filled from the receiving hydro's storage coefficient, how many
+had no corresponding source information and took a zero coefficient, and how
+many source coordinates the current study does not model and dropped. For storage and inflow lags the fanned-out and zero counts
 are always zero on a load that succeeds, because an unpriced coordinate of
 either family refuses the load (§5.2). The
 summary is a load-time diagnostic, not a state variable — it exists so an

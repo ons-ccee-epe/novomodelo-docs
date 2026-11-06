@@ -820,7 +820,9 @@ With `strict: false` (the default) the drop is recorded in the reconciliation
 report and the load proceeds; with `strict: true` the same condition rejects the
 load: `boundary policy at {path} is a superset: {summary}; see the reconciliation report or set policy.boundary.strict = false`, where `{summary}` names every
 dropping family and its count. `strict` governs **only** this superset case — it
-does not relax the subset rejects or loosen the date-selection rejects.
+does not relax the subset rejects or loosen the date-selection rejects. A source
+storage slot used to fill an in-transit bucket is not dropped, so it does not
+trigger the rejection.
 
 **Where the reconciliation report appears.** When the load proceeds (a `strict` rejection shows only the superset message's summary), the
 per-family reconciliation is surfaced on three
@@ -828,13 +830,13 @@ paths:
 
 - **`novomodelo run`** prints a **Boundary policy** block to stdout while it loads the case, before training —
   `Cuts loaded: N (priced at {date})`, `Source: {path}`, and a `Reconciliation:`
-  line `N copied, N fanned out, N defaulted to 0.0, N dropped`.
+  line `N copied, N fanned out, N filled from storage, N defaulted to 0.0, N dropped`.
 - **`novomodelo validate --json`** emits a boundary object with `configured`,
   `boundary_date`, and `report` fields carrying the full per-family report
   (worked example under [Configuration — boundary](/running/configuration/#policyboundary)).
 - **`novomodelo validate`** (human mode) prints `boundary policy priced at {date}`
   followed by the one-line summary
-  `boundary reconciliation: N copied, N fanned out, N defaulted to 0.0, N source slots dropped`.
+  `boundary reconciliation: N copied, N fanned out, N filled from storage, N defaulted to 0.0, N source slots dropped`.
 
 `novomodelo validate` reconciles `policy.boundary` only when the run trains, as
 `novomodelo run` applies it only then; with `training.enabled` set to `false`, the
