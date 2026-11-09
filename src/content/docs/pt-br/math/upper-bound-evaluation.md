@@ -118,7 +118,7 @@ Para os critérios de parada que usam o gap, veja [Critérios de parada](/pt-br/
 
 ### Convergência
 
-Quando $k \to \infty$, $\text{gap}^k \to 0$ para problemas convexos com número finito de cenários, desde que o limite superior seja exato. Com uma simulação forward amostrada, $\bar{z}^k$ carrega erro amostral, de modo que um gap reportado pequeno reflete esse ruído além da convergência genuína.
+Quando $k \to \infty$, $\text{gap}^k \to 0$ quando o limite superior é exato e valem as hipóteses da [Camada 2](/pt-br/math/cut-management#camada-2-convergencia), entre elas uma medida de valor esperado em todos os estágios e uma seleção de cortes que preserve a aproximação suposta pelo teorema de convergência; em outras configurações, o Novo Modelo não afirma nenhuma convergência do gap. Com uma simulação forward amostrada, $\bar{z}^k$ carrega erro amostral, de modo que um gap reportado pequeno reflete esse ruído além da convergência genuína.
 
 ## 4 Estimadores por esquema
 
@@ -232,7 +232,7 @@ Este capítulo é responsável pela metodologia tanto do limite da simulação f
 
 ## Apêndice: aproximação interna (reservada)
 
-Este apêndice descreve um projeto reservado que o Novo Modelo não calcula: uma aproximação interna da função de custo futuro baseada em vértices (SIDP), que avaliaria o limite superior independentemente do modo de amostragem da simulação forward.
+Este apêndice descreve um projeto reservado que o Novo Modelo não calcula: uma aproximação interna da função de custo futuro baseada em vértices (SIDP), que avaliaria o limite superior independentemente do modo de amostragem da simulação forward. A aproximação interna da função de custo futuro por combinações convexas de pares estado-valor visitados, e o limite superior determinístico avaliado a partir dela, devem-se a [Philpott, de Matos & Finardi (2013)](/pt-br/reference/bibliography/#medidas-de-risco); [Costa & Leclère (2023)](/pt-br/reference/bibliography/#avaliacao-do-limite-superior) dão o arcabouço de dualidade para esses limites.
 
 ### Aproximação interna baseada em vértices
 

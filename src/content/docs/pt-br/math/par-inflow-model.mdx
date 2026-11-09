@@ -311,7 +311,7 @@ $$
 \hat{s}_m = \sqrt{\frac{1}{N_m} \sum_{t: m(t) = m} (a_{h,t} - \bar{a}_m)^2}
 $$
 
-O estimador usa o **divisor populacional** $1/N_m$, e não o divisor com correção de Bessel $1/(N_m - 1)$. Isso segue a convenção de [Maceira & Damázio (2006)](/pt-br/reference/bibliography/#modelagem-de-afluencias) e é compartilhado pelos caminhos do PAR(p) clássico e do PAR(p)-A. O divisor populacional é necessário para que os valores da FACP condicional e as ordens selecionadas no caminho do PAR(p)-A sejam autoconsistentes — com a correção de Bessel, o fator de escala amostral vs. populacional se propaga para todas as correlações cruzadas Z⊗A. Usar o mesmo divisor no caminho clássico mantém a saída de estatísticas sazonais dos dois caminhos reutilizável entre configurações.
+O estimador usa o **divisor populacional** $1/N_m$, e não o divisor com correção de Bessel $1/(N_m - 1)$. Esse é o divisor do estimador da autocovariância amostral de [Box & Jenkins (1976)](/pt-br/reference/bibliography/#modelagem-de-afluencias) e é compartilhado pelos caminhos do PAR(p) clássico e do PAR(p)-A. O divisor populacional é necessário para que os valores da FACP condicional e as ordens selecionadas no caminho do PAR(p)-A sejam autoconsistentes — com a correção de Bessel, o fator de escala amostral vs. populacional se propaga para todas as correlações cruzadas Z⊗A. Usar o mesmo divisor no caminho clássico mantém a saída de estatísticas sazonais dos dois caminhos reutilizável entre configurações.
 
 ### 3.3 Classificação dos grupos históricos
 
@@ -613,12 +613,12 @@ Os estágios do período sazonal $m$ usam $\hat{C}_m$ quando todo par de usinas 
 
 ### 6.2 O problema da fatoração de Cholesky
 
-A abordagem clássica aplica a fatoração de Cholesky: dada $C = L L^\top$, com $L$ triangular inferior, o ruído correlacionado é obtido como $L z$, em que $z \sim \mathcal{N}(0, I)$. A fatoração de Cholesky exige que $C$ seja **estritamente definida positiva**. Na prática, as matrizes de correlação estimadas a partir de séries de afluências são frequentemente quase singulares ou de posto deficiente, por dois motivos:
+A abordagem clássica aplica a fatoração de Cholesky: dada $C = L L^\top$, com $L$ triangular inferior, o ruído correlacionado é obtido como $L z$, em que $z \sim \mathcal{N}(0, I)$. A fatoração sem pivotamento exige que $C$ seja **estritamente definida positiva**; uma $C$ semidefinida positiva de posto deficiente requer uma variante com pivotamento, e uma $C$ **indefinida**, que a estimativa por pares completos da §6.1 pode produzir, não tem nenhum fator de Cholesky. Na prática, as matrizes de correlação estimadas a partir de séries de afluências são frequentemente quase singulares ou de posto deficiente, por dois motivos:
 
 - **Séries amostrais curtas**: os históricos de vazões frequentemente abrangem apenas algumas décadas, resultando em um comprimento de histórico $N^{\text{hist}}$ comparável ao número de usinas hidrelétricas em alguns subsistemas. Quando $N^{\text{hist}}$ é próximo da dimensão da matriz, os autovalores amostrais de $C$ se concentram perto de zero.
 - **Séries heterogêneas**: usinas com regimes hidrológicos quase idênticos (pares montante–jusante, mesma bacia hidrográfica) produzem colunas quase linearmente dependentes, reduzindo o posto efetivo de $C$ abaixo de sua dimensão nominal.
 
-Uma matriz $C$ quase singular faz a fatoração de Cholesky falhar ou produzir fatores triangulares inferiores numericamente degenerados. Seria necessária uma etapa de filtragem separada, para remover as usinas "degeneradas" antes da fatoração, descartando informação e introduzindo uma decisão de pré-processamento pouco transparente.
+Uma matriz $C$ quase singular faz a fatoração de Cholesky sem pivotamento falhar ou produzir fatores triangulares inferiores numericamente degenerados. Seria necessária uma etapa de filtragem separada, para remover as usinas "degeneradas" antes da fatoração, descartando informação e introduzindo uma decisão de pré-processamento pouco transparente.
 
 ### 6.3 Autodecomposição com raiz quadrada truncada
 
@@ -640,7 +640,7 @@ $$
 \tilde{\Lambda}^{1/2} = \mathrm{diag}\!\left(\sqrt{\max(\lambda_1, 0)},\, \ldots,\, \sqrt{\max(\lambda_n, 0)}\right)
 $$
 
-Truncar em zero os autovalores negativos é a projeção espectral da matriz amostral sobre o cone das matrizes semidefinidas positivas — a matriz semidefinida positiva mais próxima na norma de Frobenius; veja [Higham (2002)](/pt-br/reference/bibliography/#metodos-numericos) para o problema relacionado da matriz de correlação mais próxima.
+Truncar em zero os autovalores negativos é a projeção espectral da matriz amostral sobre o cone das matrizes semidefinidas positivas — a matriz semidefinida positiva mais próxima na norma de Frobenius ([Higham, 1988](/pt-br/reference/bibliography/#metodos-numericos)); veja [Higham (2002)](/pt-br/reference/bibliography/#metodos-numericos) para o problema relacionado da matriz de correlação mais próxima, que também mantém a diagonal unitária.
 
 O ruído correlacionado é então gerado como $C^{1/2} z$, em que $z \sim \mathcal{N}(0, I)$.
 
@@ -662,9 +662,10 @@ A regra de truncamento é fixa e transparente — exatamente os autovalores estr
 
 | Propriedade                     | Autodecomposição (Novo Modelo)    | Cholesky                            |
 | ------------------------------- | -------------------------------- | ----------------------------------- |
-| Trata $C$ de posto deficiente   | Sim — o truncamento a torna robusta | Não — exige definição positiva   |
+| Trata $C$ de posto deficiente   | Sim — o truncamento a torna robusta | Só com pivotamento               |
+| Trata $C$ indefinida            | Sim — o truncamento a projeta sobre o cone das matrizes semidefinidas positivas | Não — requer um reparo prévio |
 | Custo computacional             | Maior (autodecomposição completa) | Menor em matrizes bem condicionadas |
-| Etapa de filtragem de usinas degeneradas | Não necessária          | Necessária para $C$ quase singular  |
+| Etapa de filtragem de usinas degeneradas | Não necessária          | Necessária para $C$ quase singular sem pivotamento |
 | Transparência da aproximação    | Trunca exatamente os autovalores negativos; a variância gerada pode exceder um | Falha numérica ou pivô pouco transparentes |
 
 O custo computacional maior é aceitável porque a fatoração é feita uma vez por configuração de estudo, e não no caminho crítico da simulação forward.

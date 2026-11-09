@@ -300,16 +300,24 @@ algorithm within which finite mode operates, and within which the reserved
 cyclic design is specified to operate, is described in
 [SDDP Algorithm](/math/sddp-algorithm).
 
-## 6. Reference
+## 6. References
 
+- [Birge & Zhao (2007)](/reference/bibliography/#boundary-conditions-and-horizon-modes)
+- [Shapiro & Ding (2020)](/reference/bibliography/#boundary-conditions-and-horizon-modes)
+- [Dowson (2020)](/reference/bibliography/#sddp-foundations)
 - [Costa et al. (2025)](/reference/bibliography/#boundary-conditions-and-horizon-modes)
 
-The cyclic-mode formal structure in section 3 — the season function,
-the cycle convergence inequality, the season-indexed cut pool with its
-cut-sharing equation, and the fixed-point Bellman operator — follows
-this paper; the stationarity assumption and the contraction of the
-operator chain are the standard discounted periodic dynamic-programming
-argument.
+Infinite-horizon discounted stochastic programs solved by cutting planes on
+a stationary value function are treated by Birge & Zhao (2007); periodic
+multistage programs, whose value functions repeat with the period and whose
+SDDP shares cuts across the stages of one period, by Shapiro & Ding (2020);
+and a cyclic policy graph with a back-edge by Dowson (2020). The cyclic-mode
+formal structure in section 3 — the season function, the cycle convergence
+inequality, the season-indexed cut pool with its cut-sharing equation, and
+the fixed-point Bellman operator — follows the presentation of Costa et al.
+(2025) for hydrothermal operation planning; the stationarity assumption and
+the contraction of the operator chain are the standard discounted periodic
+dynamic-programming argument.
 
 ## Cross-References
 

@@ -87,7 +87,7 @@ Each incoming-state coordinate is pinned on its own LP column — the incoming s
 
 ## 2. LP Scaling
 
-The stage LP is numerically conditioned via a three-step scaling procedure applied once at template construction time. Scaling improves solver convergence by reducing the condition number of the constraint matrix without changing the optimization argmin.
+The stage LP is numerically conditioned via a three-step scaling procedure applied once at template construction time. Scaling narrows the spread of coefficient magnitudes in the constraint matrix, which usually improves the numerical behaviour of the simplex method, without changing the optimization argmin; it carries no guarantee on the matrix's condition number.
 
 ### 2.1 Cost Scaling
 
@@ -101,7 +101,7 @@ The $\theta$ variable keeps an unscaled coefficient, the one-step discount facto
 
 ### 2.2 Column Scaling (Geometric Mean)
 
-After cost scaling, each column $j$ is assigned a scale factor by one-pass geometric-mean matrix equilibration (cf. [Curtis & Reid, 1972](/reference/bibliography/#numerical-methods)):
+After cost scaling, each column $j$ is assigned a scale factor by one pass of geometric-mean scaling ([Tomlin, 1975](/reference/bibliography/#numerical-methods); [Elble & Sahinidis, 2012](/reference/bibliography/#numerical-methods)), which makes the largest and smallest nonzero magnitudes of the column reciprocals of each other:
 
 $$
 d_j^{col} = \frac{1}{\sqrt{\max_i |A_{ij}| \cdot \min_i |A_{ij}|}}
