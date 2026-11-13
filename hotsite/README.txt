@@ -16,7 +16,11 @@ ATENÇÃO — PENDÊNCIAS ANTES DA PUBLICAÇÃO
 ---------------------------------------------------------------------
 1. FOTOGRAFIA E MARCAS: foram instaladas a fotografia oficial
    (hero-setor-eletrico.png) e as marcas brancas fornecidas
-   (ons-white.png, ccee-white.png, epe-white.png), sem edição.
+   (ons-white.png, ccee-white.png) sem edição. O logo EPE 20+
+   (Logo_Novo_EPE.jpeg, 300×117, sem transparência) foi tratado:
+   fundo removido, ruído JPEG limpo e ampliado para 1094×430 PNG,
+   sem redesenho. Um PNG transparente ou SVG oficial deixaria o
+   resultado ainda melhor.
    Observação: nos arquivos fornecidos, ONS e EPE têm opacidade de
    ~80% nos traços, enquanto a CCEE é branco pleno; por isso ONS e EPE
    aparecem levemente acinzentadas. Se houver versões em branco 100%,
@@ -24,7 +28,12 @@ ATENÇÃO — PENDÊNCIAS ANTES DA PUBLICAÇÃO
 2. CONTATO: o Position Paper registra que o canal de atendimento ainda
    estava pendente. Confirme os e-mails ctpmopld@ons.org.br e
    ctpmopld@ccee.org.br antes de publicar (seção 6).
-3. Duas notas internas de revisão do documento NÃO foram publicadas:
+3. Informações fornecidas pela equipe, não presentes no Position
+   Paper: período e objetivo da Consulta Externa CE-005/2026
+   (24/08 a 08/10/2026), o "ciclo seguinte (Janeiro/2029)" no quadro
+   de Janeiro/2028 e o papel do MME como "Recebe e avalia a
+   proposição da alternativa".
+4. Duas notas internas de revisão do documento NÃO foram publicadas:
    a observação sobre "formulação ambígua" na pergunta "Quem é o
    fornecedor?" e a nota sobre canal de atendimento pendente.
 
@@ -98,9 +107,10 @@ As marcas aparecem no header e no footer (procure por "inst-logos" no
 index.html). Se as proporções mudarem, atualize width/height das <img>.
 
 Equalização óptica (style.css, seção 6. HEADER):
-  .logo-ons  { height: var(--logo-ons-h, 26px) }
   .logo-ccee { height: var(--logo-ccee-h, 16px) }  ← mais baixa de
-  .logo-epe  { height: var(--logo-epe-h, 30px) }      propósito
+  .logo-epe  { height: var(--logo-epe-h, 28px) }      propósito
+  .logo-ons  { height: var(--logo-ons-h, 26px) }
+As marcas seguem a ordem alfabética: CCEE, EPE, ONS.
 No footer: .inst-logos--footer { --logo-ons-h: 30px; ... }
 A CCEE é renderizada mais baixa porque o desenho é horizontal e
 denso; com a mesma altura pareceria maior que ONS e EPE.
