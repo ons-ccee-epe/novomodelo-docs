@@ -32,7 +32,9 @@ ATENÇÃO — PENDÊNCIAS ANTES DA PUBLICAÇÃO
    Paper: período e objetivo da Consulta Externa CE-005/2026
    (24/08 a 08/10/2026), o "ciclo seguinte (Janeiro/2029)" no quadro
    de Janeiro/2028 e o papel do MME como "Recebe e avalia a
-   proposição da alternativa".
+   proposição da alternativa", a nova resposta da FAQ sobre o módulo
+   de expansão e o parecer independente sobre o software (três
+   pilares), que substitui a menção a dois pareceres do documento.
 4. Duas notas internas de revisão do documento NÃO foram publicadas:
    a observação sobre "formulação ambígua" na pergunta "Quem é o
    fornecedor?" e a nota sobre canal de atendimento pendente.
