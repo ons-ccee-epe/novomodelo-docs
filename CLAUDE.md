@@ -11,6 +11,8 @@ lives as per-crate `README.md` files + `ARCHITECTURE.md` in the `novomodelo` rep
 
 - **Dev**: `npm run dev` (Astro dev server)
 - **Build**: `npm run build`; `npm run build:versions` for multi-version assembly
+  (the only build that puts the hotsite at `/`); `npm run preview:site` runs
+  `build:versions` and serves `dist/`
 - **Build hygiene**: `npm run build` exits 1 when a page Lunaria tracks
   (`src/content/docs/**/*.{md,mdx}` outside `pt-br/`, per `lunaria.config.json`)
   has no commit history: Lunaria reads each tracked page's git history for the
@@ -39,10 +41,12 @@ Running Novomodelo), organised into the interleaved sidebar configured in
 `astro.config.mjs`. Only crate-internal/developer architecture lives outside this
 site, as `novomodelo` per-crate READMEs + `ARCHITECTURE.md` (see "Unified corpus & the
 developer surface" below). Versioning is **build-per-version**
-(`versions.json`): `latest` is built from the working tree and served at `/`,
-and each `versions[]` entry is a frozen snapshot of one earlier novomodelo minor,
-built from its `ref` (a 40-hex commit SHA on `main`, never a tag) and served at
-`/vX.Y/`. A novomodelo patch release updates `latest` in place; a frozen snapshot is
+(`versions.json`): `latest` is built from the working tree and served at
+`/docs/`, and each `versions[]` entry is a frozen snapshot of one earlier novomodelo
+minor, built from its `ref` (a 40-hex commit SHA on `main`, never a tag) and
+served at `/docs/vX.Y/`. The site root `/` serves the hotsite (`hotsite/`, plain
+HTML/CSS/JS outside Astro), which `build-versions.mjs` copies into `dist/` with
+a redirect stub at each docs page path without the `/docs` prefix. A novomodelo patch release updates `latest` in place; a frozen snapshot is
 never edited (a fix branches from its SHA and moves `ref`). Every frozen minor
 is kept until novomodelo v1.0.0, then the last two or three. README `## Versioning`
 is the freeze runbook.
@@ -57,7 +61,7 @@ is the freeze runbook.
   "added in", "earlier releases", migration notes) — the math is always-true and
   instance-agnostic. The **software layer** (`_impl/*` partials, `reference/*`,
   `running/*`) may carry version-scoped config/I·O/CLI detail: each documentation
-  version (`latest` at `/` or a frozen `/vX.Y/` snapshot) describes the novomodelo
+  version (`latest` at `/docs/` or a frozen `/docs/vX.Y/` snapshot) describes the novomodelo
   release its `versions.json` `novomodelo` field names. This is the two-layer expression
   of the T1 versioning tension.
 - **Batched edits**: a change that touches multiple chapters must land as a single

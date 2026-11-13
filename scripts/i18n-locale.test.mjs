@@ -1,13 +1,13 @@
 // i18n locale-structure regression test (E5 ticket-021).
 //
 // The Starlight i18n scaffolding is confirm-and-reserve: root → English is
-// served at `/`, the pt-br locale is reserved (routes under /pt-br/, lang
+// served at the docs base, the pt-br locale is reserved (routes under pt-br/, lang
 // pt-BR), and Starlight's language switcher (<starlight-lang-select>) renders
 // in the header. The config in astro.config.mjs already works; this test pins
 // the four built-HTML invariants so the locale wiring cannot silently regress.
 //
-// Built-dist gate, run AFTER `npm run build`: it reads dist/index.html and
-// dist/pt-br/index.html. If dist/ is absent it fails fast with a clear
+// Built-dist gate, run AFTER `npm run build` or `npm run build:versions`: it
+// reads index.html and pt-br/index.html of the latest docs (docs-dist.mjs). If dist/ is absent it fails fast with a clear
 // "run `npm run build` first" message (mirroring check-math-parity.mjs) rather
 // than an opaque ENOENT. node:test + node:assert/strict, mirroring
 // check-figures.test.mjs.
@@ -15,13 +15,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { latestDocsDist } from "./docs-dist.mjs";
 
-const distRoot = fileURLToPath(new URL("../dist/", import.meta.url));
+const distDir = fileURLToPath(new URL("../dist/", import.meta.url));
 
-if (!existsSync(distRoot)) {
+if (!existsSync(distDir)) {
   console.error("i18n-locale: dist/ not found — run `npm run build` first.");
   process.exit(1);
 }
+
+// The latest docs: dist/docs/ after build:versions, dist/ after a plain build.
+const distRoot = latestDocsDist(distDir);
 
 // Guard each landing page individually (mirrors check-math-parity.mjs): a locale
 // regression that drops dist/pt-br/ should fail with a named message, not an

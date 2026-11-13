@@ -1,8 +1,8 @@
 // Third-party notices generator (E10 ticket-031).
 //
 // Generates site/public/THIRD-PARTY-NOTICES.txt — a deterministic, byte-stable
-// attribution file covering every npm dependency in site/package.json plus three
-// hard-coded non-npm / transitive extras (d2, ELK, d3). Sorted
+// attribution file covering every npm dependency in site/package.json plus four
+// hard-coded non-npm / transitive extras (d2, ELK, d3, Inter). Sorted
 // alphabetically by package name so the CI drift check is stable across runs.
 //
 // Usage (from the site/ package root):
@@ -80,6 +80,17 @@ Full text: https://www.eclipse.org/legal/epl-2.0/`,
     spdx: "ISC",
     role: "data visualisation library (transitive via @observablehq/plot, as d3-* ISC submodules)",
     licenseText: readNpmLicenseText("d3", "ISC"),
+  },
+  {
+    name: "Inter",
+    version: "4.0",
+    spdx: "OFL-1.1",
+    role: "web font of the hotsite at / (Latin woff2 subsets in hotsite/assets/fonts/)",
+    // The same file ships beside the fonts, as OFL-1.1 condition 2 requires.
+    licenseText: readFileSync(
+      join(siteRoot, "hotsite", "assets", "fonts", "LICENSE-Inter.txt"),
+      "utf8",
+    ),
   },
 ];
 
