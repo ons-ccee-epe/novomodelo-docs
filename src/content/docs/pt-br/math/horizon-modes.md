@@ -26,6 +26,8 @@ compara os modos suportado e reservado, como referência. O fator de desconto
 por transição é definido em [Formulação da taxa de desconto](/pt-br/math/discount-rate);
 seu papel na convergência do ciclo é exposto na seção 3.
 
+Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamares](/pt-br/entities/time-structure/).
+
 ## 1. Modo Finito (Acíclico)
 
 **Ideia.** O grafo de estágios é uma cadeia linear: o estágio 1 leva ao estágio 2, que

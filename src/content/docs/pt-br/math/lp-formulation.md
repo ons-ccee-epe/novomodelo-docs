@@ -11,6 +11,8 @@ Este capítulo apresenta o PL completo do subproblema do estágio do solver de P
 
 Para o que cada elemento físico representa e suas variáveis de decisão, veja [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements). Para as convenções de nomenclatura das variáveis e os conjuntos de índices, veja [Convenções de notação](/pt-br/overview/notation-conventions).
 
+Para a visão por entidade deste capítulo, veja [Usinas hidrelétricas](/pt-br/entities/generation/hydro-plants/), [Barramentos e subsistemas](/pt-br/entities/network/buses/), [Carga](/pt-br/entities/consumption/load/) e [Restrições genéricas](/pt-br/entities/generic-constraints/).
+
 ## O PL do Estágio em Resumo
 
 Dado o seu estado de entrada, o PL do estágio minimiza a função objetivo abaixo sujeito às linhas de todas as famílias que contém, cada uma escrita na sua forma de estágio paralelo com os símbolos da seção responsável, em que $\cdots$ representa termos que essa seção escreve por extenso; as famílias do in-transit bucket e do commitment ring são citadas em uma única linha.

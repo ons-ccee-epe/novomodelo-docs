@@ -41,6 +41,8 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | hydrothermal dispatch | despacho hidrotérmico |
 | cut / Benders cut | corte / corte de Benders |
 | cut pool | conjunto de cortes |
+| terminal pool | conjunto final |
+| terminal condition | condição final |
 | cut selection / cut removal | seleção de cortes / eliminação de cortes |
 | dominated cut | corte dominado |
 | cut intercept / cut coefficient (slope) | termo independente (intercepto) do corte / coeficiente do corte |

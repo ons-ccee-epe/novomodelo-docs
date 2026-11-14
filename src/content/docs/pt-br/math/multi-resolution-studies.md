@@ -24,6 +24,8 @@ necessariamente o conjunto do último estágio do primeiro estudo (veja
 [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)). Este
 capítulo é responsável pela acumulação das defasagens em subperíodos (§2).
 
+Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamares](/pt-br/entities/time-structure/).
+
 ## 1. Mapa de Períodos Sazonais
 
 O modelo PAR(p) associa cada estágio $t$ a um período sazonal $m(t)$, e os estágios de

@@ -9,6 +9,8 @@ Este capítulo define o estado que o PL do estágio transporta de um estágio pa
 
 **Ordem de leitura**: [Formulação do PL](/pt-br/math/lp-formulation) → **este capítulo** → [Variantes de formulação dos patamares](/pt-br/math/block-formulations)
 
+Para a visão por entidade deste capítulo, veja [Usinas hidrelétricas](/pt-br/entities/generation/hydro-plants/) e [Usinas termelétricas](/pt-br/entities/generation/thermal-plants/).
+
 ## 1. Vetor de Estado
 
 O estado do estágio $t$ é o vetor que o estágio $t$ passa ao estágio $t + 1$ e sobre o qual os cortes do estágio $t$ são escritos. Ele tem quatro famílias:

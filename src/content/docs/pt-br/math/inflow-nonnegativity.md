@@ -7,6 +7,8 @@ description: Quatro métodos para tratar realizações negativas de afluência d
 
 Este capítulo define os quatro métodos disponíveis para tratar as realizações negativas de afluência produzidas pelo modelo PAR(p): suas formulações de PL, seus termos na função objetivo, seu efeito sobre a validade do limite inferior e seus compromissos.
 
+Para a visão por entidade deste capítulo, veja [Afluências e modelo PAR(p)](/pt-br/entities/inflows/inflows/).
+
 ## 1. Formulação do Problema
 
 A equação de afluência do modelo PAR(p) — que usa o coeficiente AR [$\psi_{m,\ell}$](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias) — pode produzir uma realização negativa:
