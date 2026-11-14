@@ -47,13 +47,23 @@ test("overview/* is strict", () => {
   assert.equal(zoneOf("overview/what-novomodelo-solves.md"), ZONE_STRICT);
 });
 
+test("entities/* is strict", () => {
+  assert.equal(zoneOf("entities/time-structure.mdx"), ZONE_STRICT);
+  assert.equal(zoneOf("entities/generation/hydro-plants.mdx"), ZONE_STRICT);
+  assert.equal(zoneOf("entities/inflows/inflows.mdx"), ZONE_STRICT);
+});
+
 test("index.mdx is lenient", () => {
   assert.equal(zoneOf("index.mdx"), ZONE_LENIENT);
 });
 
-test("pt-br/* is excluded", () => {
-  assert.equal(zoneOf("pt-br/index.mdx"), ZONE_EXCLUDED);
-  assert.equal(zoneOf("pt-br/math/lp-formulation.mdx"), ZONE_EXCLUDED);
+test("pt-br/<p> takes the zone of <p>", () => {
+  assert.equal(zoneOf("pt-br/math/lp-formulation.mdx"), ZONE_STRICT);
+  assert.equal(zoneOf("pt-br/math/_impl/_hydro.io.mdx"), ZONE_LENIENT);
+  assert.equal(zoneOf("pt-br/entities/generation/hydro-plants.mdx"), ZONE_STRICT);
+  assert.equal(zoneOf("pt-br/index.mdx"), ZONE_LENIENT);
+  assert.equal(zoneOf("pt-br/reference/glossary.md"), ZONE_STRICT);
+  assert.equal(zoneOf("pt-br/some-future-dir/page.mdx"), ZONE_EXCLUDED);
 });
 
 test("normalises backslash path separators (platform independence)", () => {

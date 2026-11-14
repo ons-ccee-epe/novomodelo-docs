@@ -2,10 +2,11 @@
 //
 // novomodelo-docs is two-voiced: methodology math (`math/*.mdx`, excluding the
 // `_impl/` software-layer partials) plus the conceptual `overview/*` chapters
-// describe CURRENT novomodelo as instance-agnostic fact — no novomodelo-version
-// annotations, no hedged "typical"/"about N" magnitudes (per the Methodology
-// Authoring Standards + the "No version numbers in the corpus" hard rule in
-// CLAUDE.md). `reference/glossary.md` is the one strict page under
+// and the `entities/*` pages (conceptual, instance-agnostic entity
+// descriptions) describe CURRENT novomodelo as instance-agnostic fact — no
+// novomodelo-version annotations, no hedged "typical"/"about N" magnitudes (per
+// the Methodology Authoring Standards + the "No version numbers in the corpus"
+// hard rule in CLAUDE.md). `reference/glossary.md` is the one strict page under
 // `reference/` (math zone, R97). Everything else that documents the SOFTWARE
 // layer — the `math/_impl/_*.mdx` interleave partials, `reference/*`,
 // `running/*`, `getting-started/*`, and `examples/*` (worked examples
@@ -20,8 +21,10 @@
 //
 // `relPath` is expected relative to `src/content/docs/` (e.g.
 // "math/lp-formulation.mdx", "math/_impl/_hydro.io.mdx",
-// "reference/error-codes.mdx"). Backslashes are normalised to forward
-// slashes so the predicate is platform-independent.
+// "reference/error-codes.mdx"). A `pt-br/` prefix is stripped and the rest is
+// classified as the English page would be, so a translation sits in the same
+// zone as its original. Backslashes are normalised to forward slashes so the
+// predicate is platform-independent.
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -40,7 +43,7 @@ const LENIENT_TOP_LEVEL_DIRS = [
 ];
 
 // Strict top-level directories (the methodology layer).
-const STRICT_TOP_LEVEL_DIRS = ["overview/"];
+const STRICT_TOP_LEVEL_DIRS = ["overview/", "entities/"];
 
 // Strict single pages inside an otherwise-lenient directory (R97): the
 // glossary is math-zone text although it sits under reference/.
@@ -55,8 +58,12 @@ const STRICT_FILES = ["reference/glossary.md"];
 export function zoneOf(relPath) {
   const normalized = relPath.replace(/\\/g, "/").replace(/^\/+/, "");
 
-  // Excluded: the pt-br/ subtree (a future locale, not yet gated).
-  if (normalized.startsWith("pt-br/")) return ZONE_EXCLUDED;
+  // pt-BR mirrors the zone of its English twin. Rules that match English
+  // phrases do not fire on Portuguese text; the language-neutral rules
+  // (version tokens, hedged magnitudes) do.
+  if (normalized.startsWith("pt-br/")) {
+    return zoneOf(normalized.slice("pt-br/".length));
+  }
 
   // The root landing page is software-layer content (CTAs, cards, links).
   if (normalized === "index.mdx") return ZONE_LENIENT;
@@ -84,7 +91,7 @@ export function zoneOf(relPath) {
 /**
  * Recursively collect every `.md`/`.mdx` file under `contentRoot`, returning
  * paths RELATIVE to `contentRoot` (forward-slash separated), skipping any
- * file whose `zoneOf()` result is "excluded" (pt-br/ ...).
+ * file whose `zoneOf()` result is "excluded" (paths outside the known tree).
  *
  * Shared by check-doc-voice.mjs and check-doc-version.mjs so the two gates
  * can never walk different file sets. UNLIKE check-figures.mjs /
