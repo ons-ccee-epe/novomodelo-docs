@@ -40,10 +40,12 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | stochastic dual dynamic programming | programação dinâmica dual estocástica |
 | hydrothermal dispatch | despacho hidrotérmico |
 | cut / Benders cut | corte / corte de Benders |
+| pool | conjunto |
 | cut pool | conjunto de cortes |
 | terminal pool | conjunto final |
 | terminal condition | condição final |
 | cut selection / cut removal | seleção de cortes / eliminação de cortes |
+| binding (corte/restrição na solução do PL) | ativo na solução; distinto de "ativo no conjunto" (o indicador de atividade do conjunto, `is_active`: corte não desativado) e de "detentor" (posse no Nível 1) |
 | dominated cut | corte dominado |
 | cut intercept / cut coefficient (slope) | termo independente (intercepto) do corte / coeficiente do corte |
 | single-cut / multi-cut | corte único (single-cut) / multicorte (multi-cut) |
@@ -93,7 +95,8 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | useful volume / dead volume | volume útil / volume morto |
 | reference volume | volume de referência |
 | flood-control volume | volume de espera |
-| filling | enchimento de volume morto |
+| filling | fase de enchimento (fase do ciclo de vida da usina; ver "dead-volume filling") |
+| dead-volume filling | enchimento de volume morto |
 | security curve | curva de segurança |
 | stored energy (EARM) | energia armazenada (EARM) |
 | equivalent reservoir (REE) | reservatório equivalente de energia (REE) |
@@ -118,6 +121,8 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | commitment | compromisso de despacho |
 | commissioning / decommissioning | entrada em operação / desativação |
 | state variable / state augmentation | variável de estado / aumento do espaço de estados |
+| incoming state | estado de entrada ($x_{t-1}$, o estado que chega ao estágio) |
+| initial state | estado inicial ($x_0$, o estado no início do horizonte) |
 | node / transition (edge) | nó / transição (aresta) |
 | stage subproblem / stage LP | subproblema do estágio / PL do estágio |
 | LP | problema de programação linear (PL) |

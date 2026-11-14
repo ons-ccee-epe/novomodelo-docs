@@ -166,7 +166,7 @@ O número de cortes cresce como $\mathcal{O}(\text{iterations} \times N_{\text{f
 
 Há dois métodos de seleção disponíveis. A **seleção Nível 1** (§7) executa uma passagem de posse a cada $n_{\text{sel}}$ iterações: mantém os cortes que detêm a posse de um estado visitado armazenado e desativa os demais. O **método dinâmico** (§8) mantém o conjunto inteiramente somente de acréscimo — nunca desativa nenhum corte — e, em vez disso, controla quais cortes estão residentes em cada resolução individual do PL do estágio.
 
-**Limite de cortes ativos**: um limite $B$ no número de cortes ativos gerados pela execução corrente no conjunto de cada nó estritamente entre o primeiro e o último estágio. Ele se aplica em toda iteração, depois que os cortes da iteração são adicionados e depois da passagem Nível 1, quando houver, com ou sem método de seleção. Quando a contagem excede $B$, o excedente é removido dentre os cortes de iterações anteriores, em ordem crescente da iteração em que o corte esteve ativo na solução pela última vez (um corte que nunca esteve ativo conta a partir da iteração que o gerou), depois do número de resoluções em que esteve ativo e, por fim, da posição. Os cortes da iteração corrente contam para $B$ e nunca são removidos, e os cortes carregados não contam nem são removidos, de modo que um conjunto pode conter mais de $B$ cortes ativos. A remoção desativa o corte e o mantém no conjunto; uma passagem Nível 1 posterior reativa um corte removido que detém a posse de um estado visitado armazenado, e o limite é então aplicado novamente na mesma iteração. O limite não é admitido com o método dinâmico, que nunca reativa um corte, nem com uma simulação forward enumerada, que não registra atividade das restrições.
+**Limite de cortes ativos**: um limite $B$ no número de cortes ativos gerados pela execução corrente no conjunto de cada nó estritamente entre o primeiro e o último estágio. Ele se aplica em toda iteração, depois que os cortes da iteração são adicionados e depois da passagem Nível 1, quando houver, com ou sem método de seleção. Quando a contagem excede $B$, o excedente é removido dentre os cortes de iterações anteriores, em ordem crescente da iteração em que o corte esteve ativo na solução pela última vez (um corte que nunca esteve ativo na solução conta a partir da iteração que o gerou), depois do número de resoluções em que esteve ativo na solução e, por fim, da posição. Os cortes da iteração corrente contam para $B$ e nunca são removidos, e os cortes carregados não contam nem são removidos, de modo que um conjunto pode conter mais de $B$ cortes ativos. A remoção desativa o corte e o mantém no conjunto; uma passagem Nível 1 posterior reativa um corte removido que detém a posse de um estado visitado armazenado, e o limite é então aplicado novamente na mesma iteração. O limite não é admitido com o método dinâmico, que nunca reativa um corte, nem com uma simulação forward enumerada, que não registra atividade na solução.
 
 ## 6. Atividade dos Cortes
 
@@ -182,9 +182,9 @@ $$
 \text{owner}(\hat{x}) = \min \left\{ i \in \mathcal{L} : \beta_{0,i} + \beta_i^\top \hat{x} = V^*(\hat{x}) \right\}
 $$
 
-Um corte no máximo por estado é aquele sobre o qual a variável de custo futuro $\theta$ repousa em $\hat{x}$, de modo que um corte que detém a posse de um estado é a contrapartida, na avaliação de valor, de um corte ativo nesse ponto. Como a ordem das posições segue a ordem de geração, a posição mais baixa é a do mais antigo dos cortes empatados.
+Um corte no máximo por estado é aquele sobre o qual a variável de custo futuro $\theta$ repousa em $\hat{x}$, de modo que um corte que detém a posse de um estado é a contrapartida, na avaliação de valor, de um corte ativo na solução nesse ponto. Como a ordem das posições segue a ordem de geração, a posição mais baixa é a do mais antigo dos cortes empatados.
 
-Estar ativo em uma solução do PL é uma grandeza diferente: uma linha de corte **está ativa** em uma resolução quando seu multiplicador dual excede um limiar (§10). Esse registro é lido apenas pelo limite de cortes ativos (§5) e pela janela de semeadura do método dinâmico (§8.1); não tem papel algum na posse.
+Estar ativo em uma solução do PL é uma grandeza diferente: uma linha de corte **está ativa na solução** de uma resolução quando seu multiplicador dual excede um limiar (§10). Esse registro é lido apenas pelo limite de cortes ativos (§5) e pela janela de semeadura do método dinâmico (§8.1); não tem papel algum na posse.
 
 ## 7. Seleção Nível 1
 
@@ -221,7 +221,7 @@ O método dinâmico é a geração preguiçosa de linhas própria do Novo Modelo
 
 A partir da iteração em que o laço preguiçoso começa, cada resolução do treinamento para um (estágio, cenário) executa este laço; antes dela, as resoluções contêm todos os cortes ativos.
 
-1. **Semear o conjunto residente** com os cortes ativos cuja última ativação ocorreu há no máximo $k_2$ iterações (a _janela de semeadura_; um corte que ainda não esteve ativo conta a partir da iteração que o gerou), mais todo corte gerado na iteração corrente. A semente é derivada apenas de metadados sincronizados do conjunto, por posição — a iteração em que cada corte esteve ativo pela última vez e a iteração em que foi gerado —, nunca de um registro de resolução por worker. Isso torna a semente idêntica bit a bit para qualquer número de threads e de processos MPI.
+1. **Semear o conjunto residente** com os cortes ativos cuja última atividade na solução ocorreu há no máximo $k_2$ iterações (a _janela de semeadura_; um corte que ainda não esteve ativo na solução conta a partir da iteração que o gerou), mais todo corte gerado na iteração corrente. A semente é derivada apenas de metadados sincronizados do conjunto, por posição — a iteração em que cada corte esteve ativo na solução pela última vez e a iteração em que foi gerado —, nunca de um registro de resolução por worker. Isso torna a semente idêntica bit a bit para qualquer número de threads e de processos MPI.
 
 2. **Resolver** o PL do estágio com o conjunto residente corrente. Sejam $x^*$ o vetor de estado ótimo e $\theta^*$ o valor ótimo do custo futuro.
 
@@ -259,13 +259,13 @@ Em uma fase com aproveitamento de base, cada nova resolução interna acrescenta
 
 ### 8.5 Janela de semeadura nula
 
-Uma janela de semeadura $k_2 = 0$ é válida e significativa: o conjunto residente é semeado com os cortes gerados na iteração corrente e com os que estiveram ativos nela, e o laço preguiçoso então amplia o conjunto residente a partir daí em cada resolução. Um $k_2$ maior troca um PL inicial um pouco maior por menos iterações internas.
+Uma janela de semeadura $k_2 = 0$ é válida e significativa: o conjunto residente é semeado com os cortes gerados na iteração corrente e com os que estiveram ativos na solução nela, e o laço preguiçoso então amplia o conjunto residente a partir daí em cada resolução. Um $k_2$ maior troca um PL inicial um pouco maior por menos iterações internas.
 
 ### 8.6 Determinismo
 
 A seleção do conjunto residente é idêntica bit a bit para qualquer número de threads e de processos MPI:
 
-- A semente vem de metadados sincronizados do conjunto (a iteração em que cada corte esteve ativo pela última vez e a iteração em que foi gerado), e não de registros por worker.
+- A semente vem de metadados sincronizados do conjunto (a iteração em que cada corte esteve ativo na solução pela última vez e a iteração em que foi gerado), e não de registros por worker.
 - O estado ótimo $x^*$ é determinístico por cenário (função do PL, não do processo).
 - A avaliação dos candidatos usa um produto de matrizes em lote determinístico bit a bit.
 - A ordenação das violações usa uma ordem total com desempate por posição crescente, tornando estável a seleção dos $n_{\text{adic}}$ primeiros.
