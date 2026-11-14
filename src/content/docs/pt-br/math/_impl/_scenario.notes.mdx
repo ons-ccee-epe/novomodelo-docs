@@ -71,7 +71,7 @@ O Novo Modelo registra estes oito avisos no log e prossegue. Cada texto abaixo �
   ```text
   moment matching left {coordinates} inflow coordinate(s) in {stages} stage(s) as drawn: every opening is equal there
   ```
-- **Cópias menores de grupo de ruído no casamento de momentos.** Um estágio de um grupo de ruído tem menos aberturas que o primeiro estágio ajustado do seu grupo, de modo que as aberturas que ele copia não passam, como conjunto, pelo casamento de momentos:
+- **Cópias menores de grupo de ruído no casamento de momentos.** Um estágio de um grupo de ruído tem menos aberturas que o primeiro estágio do seu grupo, já com casamento de momentos, de modo que as aberturas que ele copia não passam, como conjunto, pelo casamento de momentos:
   {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:172-178 at novomodelo v0.20.0 */}
   ```text
   {stages} stage(s) copy a noise-group stage with a different opening count; their copied openings are not moment-matched
@@ -91,7 +91,7 @@ Os números de direção de Sobol cobrem `SOBOL_MAX_DIM: usize = 21201` dimensõ
 
 {/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-401 and crates/novomodelo-stochastic/src/tree/opening_tree.rs:258-275 at novomodelo v0.20.0 */}
 
-Com dois ou mais processos MPI, o `novomodelo run` verifica, depois da montagem, que todos os ranks construíram a mesma árvore de aberturas. Cada rank calcula o hash da sua árvore com FNV-1a de 64 bits sobre o número de estágios, a dimensão do ruído, o número de aberturas de cada estágio, o padrão de bits de cada valor de ruído e a ordem de solução, e os ranks trocam o menor e o maior resumo (digest). Quando os dois diferem, a execução para com código `4` antes do treinamento ([Falhas de comunicação](/pt-br/reference/error-codes/#falhas-de-comunicacao)):
+Com dois ou mais processos MPI, o `novomodelo run` verifica, depois da montagem, que todos os ranks construíram a mesma árvore de aberturas. Cada rank calcula o hash da sua árvore com FNV-1a de 64 bits sobre o número de estágios, a dimensão do ruído, o número de aberturas de cada estágio, o padrão de bits de cada valor de ruído e a ordem de resolução, e os ranks trocam o menor e o maior resumo (digest). Quando os dois diferem, a execução para com código `4` antes do treinamento ([Falhas de comunicação](/pt-br/reference/error-codes/#falhas-de-comunicacao)):
 
 ```text
 opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same tree from the broadcast inputs

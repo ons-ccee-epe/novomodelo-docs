@@ -263,7 +263,7 @@ Os coeficientes de custo usam $c$ com um sobrescrito que identifica o tipo de cu
 | $t_i(m)$ | - | Estágio de decisão da entrega da térmica com antecipação de despacho $i$ no estágio $m$: $m - K_i$ no caso de antecedência em número de estágios e, no caso de antecedência física, o estágio que contém o instante situado uma antecedência antes do final do estágio $m$ (um instante sobre a fronteira entre estágios pertence ao estágio anterior); uma entrega decidida antes do estudo não tem estágio de decisão |
 | $r_i(m)$ | - | Posição no ring da entrega da térmica com antecipação de despacho $i$ no estágio $m$; a entrega ocupa o slot $r_i(m) \bmod k_{max}$ |
 | $\bar{F}^+_n$, $\bar{F}^-_n$  | MW    | Capacidade da linha (sentido direto/reverso)                                           |
-| $\eta_n = 1 - \text{losses}/100$ | -     | Rendimento informado da linha: escala as perdas de transmissão informadas após a solução, $(1-\eta_n)(f^+ + f^-)$; não entra no PL de despacho, cujos fluxos nas linhas têm coeficiente ±1. Distinto do ruído PAR $\varepsilon_t$ (§3.5). |
+| $\eta_n = 1 - \text{losses}/100$ | -     | Rendimento informado da linha: escala as perdas de transmissão informadas após a resolução, $(1-\eta_n)(f^+ + f^-)$; não entra no PL de despacho, cujos fluxos nas linhas têm coeficiente ±1. Distinto do ruído PAR $\varepsilon_t$ (§3.5). |
 | $\text{loss}_{n,k}$ | MW | Perda de transmissão informada da linha $n$ no patamar $k$, $(1-\eta_n)(f^+_{n,k} + f^-_{n,k})$ |
 | $\bar{C}_c$, $\underline{C}_c$      | MW    | Limites de capacidade do contrato                                                 |
 | $\rho^{pump}_y$ | MW/(m³/s) | Taxa de consumo de potência da usina elevatória $y$ |

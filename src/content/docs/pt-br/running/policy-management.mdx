@@ -105,7 +105,7 @@ A retomada restaura os cortes, cada um na posição do conjunto que ocupava, com
 ou gerado), indicador de atividade e contadores de atividade na solução; os estados visitados armazenados; as
 bases do PL por cenário que se ajustam; a contagem de iterações; e o limite inferior de
 cada iteração concluída. Um cenário cuja base o checkpoint não contém
-inicia sua primeira solução a frio. Todo o resto vem da execução atual: o
+inicia sua primeira resolução a frio. Todo o resto vem da execução atual: o
 modelo de afluências e a árvore de aberturas, que ela constrói a partir do caso e do
 `config.json` como uma execução nova faz, a semente, os critérios de parada, seu `check_frequency`, o valor de `max_active_per_stage`
 e `modeling.cost_scale_factor`, e o cronômetro de tempo de relógio lido por `time_limit`,
@@ -508,9 +508,9 @@ a stored basis is used only when its column count equals the LP's, its row count
 A partida a quente e a retomada verificam as bases que o checkpoint contém, a execução somente de simulação
 sempre as verifica, e uma [carga de fronteira](#cortes-de-fronteira) não verifica nenhuma.
 
-Uma base armazenada que se ajusta inicializa uma solução apenas em uma fase que usa aproveitamento de base
+Uma base armazenada que se ajusta inicializa uma resolução apenas em uma fase que usa aproveitamento de base
 ([`use_warm_start`](/pt-br/running/configuration/#campos-do-perfil-do-solver)). Nos
-perfis embutidos do HiGHS, as soluções da simulação começam a frio, de modo que uma
+perfis embutidos do HiGHS, as resoluções da simulação começam a frio, de modo que uma
 execução somente de simulação parte das bases de seu checkpoint apenas com
 `simulation.solver.use_warm_start: true`. Em uma cadeia de estágios, uma execução com partida a quente ou
 retomada parte delas por meio da simulação forward, que aproveita a base por padrão,
@@ -526,7 +526,7 @@ Todo checkpoint contém as bases do PL dos cenários da simulação forward da e
 `policy.checkpointing.store_basis` não tem efeito sobre isso. Qualquer
 alteração que mude o número de colunas do PL de um estágio descarta, portanto, as
 bases armazenadas dos estágios que ela altera: no treinamento, esses nós iniciam sua primeira
-solução a frio e depois reutilizam as bases que capturam, e em uma execução somente de simulação
+resolução a frio e depois reutilizam as bases que capturam, e em uma execução somente de simulação
 são resolvidos sem base armazenada.
 Exemplos são um número diferente de patamares, um conjunto diferente de entidades e um modo de
 patamares diferente em um estágio com usinas hidrelétricas e mais de um patamar.
@@ -638,7 +638,7 @@ origem com limite removeu) não está em nenhum dos dois conjuntos. Veja
 [Conjunto de cortes da simulação](/pt-br/running/configuration/#conjunto-de-cortes-da-simulacao) para as regras
 das demais linhas carregadas.
 
-A solução preguiçosa (lazy) do método `dynamic` lê apenas linhas ativas. Uma execução `dynamic` que
+A resolução preguiçosa (lazy) do método `dynamic` lê apenas linhas ativas. Uma execução `dynamic` que
 simula com `simulation.cut_set = "all"` é, portanto, recusada quando o
 conjunto de fronteira contém uma linha inativa que `"all"` inclui, isto é, uma linha inativa
 pontuada. A mensagem indica o método e `simulation.cut_set`, o conjunto

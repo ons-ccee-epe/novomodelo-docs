@@ -60,6 +60,7 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | convergence / stopping rule | convergência / critério de parada |
 | simulation (final) | simulação final |
 | opening / opening tree | abertura / árvore de aberturas (árvore de cenários) |
+| moment matching / matched (opening tree, openings) | casamento de momentos (moment matching) / com casamento de momentos; não "ajuste", que traduz fit |
 | sampling scheme | esquema de amostragem |
 | sample average approximation (SAA) | aproximação por média amostral (SAA) |
 | synthetic series / scenario | séries sintéticas / cenário |
@@ -141,6 +142,7 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | simplex method | método simplex |
 | scaling (LP) | escalonamento (scaling) |
 | solver | solver |
+| solve (LP solve: uma execução do solver sobre um PL) | resolução (de PL); "solução" fica para solution, o ponto que a resolução devolve |
 | relatively complete recourse | recurso relativamente completo |
 | outer approximation | aproximação externa |
 | trajectory | trajetória |
