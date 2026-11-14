@@ -251,6 +251,15 @@ theme-flips via the keystone, keeping label contrast safe. d2 drops the
 survives the keystone's `!important`. **Do not** name a node the same as a class
 (`hydro`/`thermal`/`deficit` collide) — rename the node id (e.g. `gen_h`).
 
+The `classes` block above is kept byte for byte in `src/figures/semantic-classes.d2`,
+and that file must stay identical to the snippet. New fences (entity pages and the
+home page) import it rather than copy it: their first line is the root-level spread
+import `...@<relative path>/figures/semantic-classes`, where the path climbs from the
+page's directory to `src/` (astro-d2 runs d2 with the page's directory as cwd).
+Example: `...@../../../../figures/semantic-classes` in
+`src/content/docs/entities/generation/hydro-plants.mdx`, and one more `../` in its
+pt-BR twin. The fences under `math/` and `examples/` keep their own inline copy.
+
 **Never introduce ad-hoc hex colors** beyond this semantic vocabulary in a D2
 fence. If a diagram genuinely needs a new semantic colour, add it to the table
 above.

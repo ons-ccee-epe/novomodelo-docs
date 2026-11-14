@@ -8,7 +8,6 @@ import WhyCards from '../../../../../components/entity/WhyCards.astro';
 import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
 import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
 import FileList from '../../../../../components/entity/FileList.astro';
-import Bus from '../../../../../components/entity/illustrations/Bus.astro';
 
 <EntityHero family="network" icon="bus" lead="Um barramento é um nó da rede no qual o balanço de energia deve ser mantido. A granularidade é definida pelo usuário: um grande subsistema regional, uma única subestação ou qualquer nível intermediário." />
 
@@ -22,7 +21,43 @@ import Bus from '../../../../../components/entity/illustrations/Bus.astro';
 
 ## O balanço em um barramento
 
-<Bus lang="pt-BR" />
+<div role="img" aria-label="Um barramento em balanço. O que entra: geração das hidrelétricas, termelétricas e fontes não despacháveis, importação por contratos, chegada pelas linhas e o déficit, que completa o que falta. O que sai: a carga, a exportação por contratos, a saída pelas linhas, o consumo das usinas elevatórias e o excesso de geração. O custo marginal de operação (CMO) é o custo de atender um MWh adicional de demanda no barramento.">
+
+```d2 title="Um barramento em balanço. O que entra: geração das hidrelétricas, termelétricas e fontes não despacháveis, importação por contratos, chegada pelas linhas e o déficit, que completa o que falta. O que sai: a carga, a exportação por contratos, a saída pelas linhas, o consumo das usinas elevatórias e o excesso de geração. O custo marginal de operação (CMO) é o custo de atender um MWh adicional de demanda no barramento."
+...@../../../../../figures/semantic-classes
+direction: down
+bus: "Barramento"
+cmo: "CMO: o custo de atender 1\nMWh adicional de demanda\nneste barramento (R\$/MWh)"
+in_side: "Entra" {
+  grid-columns: 1
+  gen: "Geração (UHE,\nUTE, fontes não\ndespacháveis)"
+  imp: "Importação\n(contratos)"
+  arr: "Chegada pelas\nlinhas"
+  def: "Déficit:\ncompleta o que\nfalta" {class: deficit}
+}
+out_side: "Sai" {
+  grid-columns: 1
+  load: "Carga"
+  exp: "Exportação\n(contratos)"
+  leave: "Saída pelas\nlinhas"
+  pump: "Consumo das\nusinas\nelevatórias"
+  excess: "Excesso de\ngeração"
+}
+in_side.gen -> bus
+in_side.imp -> bus
+in_side.arr -> bus
+in_side.def -> bus
+bus -> out_side.load
+bus -> out_side.exp
+bus -> out_side.leave
+bus -> out_side.pump
+bus -> out_side.excess
+bus -- cmo
+```
+
+</div>
+
+Figura: o balanço de carga de um barramento. Ilustração esquemática, sem escala.
 
 ## O que o modelo decide
 

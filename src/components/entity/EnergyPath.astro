@@ -5,7 +5,6 @@ interface Props { lang?: 'en' | 'pt-BR' }
 const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
 const k = key(lang);
 const pt = k === 'pt';
-const soon = pt ? 'em breve' : 'coming soon';
 const L = pt
   ? {
       title: 'O caminho da energia, da chuva à cidade',
@@ -48,10 +47,7 @@ const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/
           <div class={`ep-col entity-${c.fam}`}>
             {c.slugs.map((s) => {
               const e = bySlug(s);
-              const inner = (<><strong>{e.title[k]}</strong><span>{e.blurb[k]}</span>{!e.ready && <em class="ep-soon">{soon}</em>}</>);
-              return e.ready
-                ? <a class="ep-card" href={entityHref(e.slug, lang)}>{inner}</a>
-                : <div class="ep-card ep-card--soon">{inner}</div>;
+              return <a class="ep-card" href={entityHref(e.slug, lang)}><strong>{e.title[k]}</strong><span>{e.blurb[k]}</span></a>;
             })}
           </div>
         ))}
@@ -62,22 +58,17 @@ const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/
           <span class="ep-label">{L.time}</span>
           <slot name="timeline" />
           <div class="ep-pills">
-            {timeLinks.map((e) => e.ready
-              ? <a class="ep-pill" href={entityHref(e.slug, lang)}>{e.title[k]}</a>
-              : <span class="ep-pill ep-pill--soon">{e.title[k]}<em class="ep-soon">{soon}</em></span>)}
+            {timeLinks.map((e) => <a class="ep-pill" href={entityHref(e.slug, lang)}>{e.title[k]}</a>)}
           </div>
         </div>
         <div class="ep-box entity-rules">
           <span class="ep-label">{L.rules}</span>
-          {rules.map((e) => {
-            const inner = (<>
+          {rules.map((e) => (
+            <a class="ep-rule" href={entityHref(e.slug, lang)}>
               <svg aria-hidden="true" focusable="false" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icon(e.icon)} />
-              <span><strong>{e.title[k]}</strong>{!noBlurb.has(e.slug.split('/').pop()!) && <> · {e.blurb[k]}</>}{!e.ready && <em class="ep-soon">{soon}</em>}</span>
-            </>);
-            return e.ready
-              ? <a class="ep-rule" href={entityHref(e.slug, lang)}>{inner}</a>
-              : <div class="ep-rule ep-rule--soon">{inner}</div>;
-          })}
+              <span><strong>{e.title[k]}</strong>{!noBlurb.has(e.slug.split('/').pop()!) && <> · {e.blurb[k]}</>}</span>
+            </a>
+          ))}
           <a class="ep-rule ep-rule--method" href={methodHref}>
             <svg aria-hidden="true" focusable="false" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icon('book')} />
             <span><strong>{L.method.title}</strong> · {L.method.blurb}</span>
@@ -96,37 +87,6 @@ const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/
   .energy-path__scroll { overflow-x: auto; }
   .energy-path__inner { min-width: 720px; display: flex; flex-direction: column; gap: 1rem; }
   .energy-path__inner > *, .ep-cols > *, .ep-col > *, .ep-foot > *, .ep-box > *, .ep-pills > * { margin-top: 0 !important; }
-  .ep-scene { display: block; width: 100%; height: auto; font-family: var(--sl-font); }
-  .ep-scene .bg { fill: var(--ep-scene-bg); }
-  .ep-scene .sep { stroke: var(--ep-sep); }
-  .ep-scene .hill { fill: var(--ep-hill); }
-  .ep-scene .cloud { fill: var(--ep-cloud); }
-  .ep-scene .rain { stroke: var(--ent-hydrology); }
-  .ep-scene .river { stroke: var(--ep-water); }
-  .ep-scene .lake { fill: var(--ep-water); }
-  .ep-scene .dam { fill: var(--ep-dam); }
-  .ep-scene .turbine { fill: var(--ep-cloud); stroke: var(--ent-hydrology); }
-  .ep-scene .plant { fill: var(--ep-plant); stroke: var(--ep-copper); }
-  .ep-scene .chimney { fill: var(--ep-copper); }
-  .ep-scene .smoke { fill: var(--ep-smoke); }
-  .ep-scene .wind { stroke: var(--ep-copper); }
-  .ep-scene .panel { fill: var(--ep-panel); stroke: var(--ep-copper); }
-  .ep-scene .sun { stroke: var(--ent-equipment); }
-  .ep-scene .tower { stroke: var(--ep-tower); }
-  .ep-scene .wire { stroke: var(--ent-network); }
-  .ep-scene .busbar { fill: var(--ent-network); }
-  .ep-scene .buslabel { fill: var(--ent-network-fg); }
-  .ep-scene .bld { fill: var(--ep-bld); stroke: var(--ent-network); }
-  .ep-scene .window { fill: var(--ep-window); }
-  .ep-scene .stage.hyd { fill: var(--ent-hydrology-fg); }
-  .ep-scene .stage.eqp { fill: var(--ent-equipment-fg); }
-  .ep-scene .stage.net { fill: var(--ent-network-fg); }
-  .ep-scene .stage.rul { fill: var(--ent-rules-fg); }
-  .ep-scene .band.hyd { fill: var(--ep-band-hyd); }
-  .ep-scene .band.eqp { fill: var(--ep-band-eqp); }
-  .ep-scene .band.net { fill: var(--ep-band-net); }
-  .ep-scene .band.rul { fill: var(--ep-band-rul); }
-  .ep-scene .bandtext { fill: #fff; }
 
   .ep-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
   .ep-col { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
@@ -135,27 +95,16 @@ const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/
   a.ep-card:focus-visible, a.ep-pill:focus-visible, a.ep-rule:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 2px; }
   .ep-card strong { font-size: 14px; color: var(--sl-color-white); line-height: 1.3; }
   .ep-card > span { font-size: 12.5px; color: var(--sl-color-gray-2); line-height: 1.4; }
-  .ep-soon { align-self: flex-start; font-style: normal; font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--sl-color-gray-3); border: 1px solid var(--sl-color-hairline); border-radius: 999px; padding: 0 .5rem; margin-top: .3rem; }
-  .ep-card--soon { opacity: .9; }
 
   .ep-foot { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
   .ep-box { background: var(--sl-color-bg-nav); border: 1px solid var(--sl-color-hairline); border-radius: 14px; padding: .9rem 1.1rem; display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
   .ep-label { font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--sl-color-gray-2); }
-  .ep-time { display: block; width: 100%; height: auto; font-family: var(--sl-font); }
-  .ep-time .slot rect { fill: var(--ep-slot); }
-  .ep-time .blk rect { fill: var(--ep-blk); }
-  .ep-time .tlabel { fill: var(--sl-color-gray-2); }
-  .ep-time .tnote { fill: var(--sl-color-gray-3); }
-  .ep-time .tcarry { fill: var(--ent-hydrology-fg); }
-  .ep-time .carry { stroke: var(--ent-hydrology); }
   .ep-pills { display: flex; flex-wrap: wrap; gap: .5rem; }
   .ep-pill { text-decoration: none; font-size: 13.5px; background: var(--ep-scene-bg); color: var(--sl-color-text); border-radius: 999px; padding: .35rem .75rem; display: inline-flex; align-items: center; gap: .5rem; }
   a.ep-pill:hover { outline: 1px solid var(--sl-color-accent); }
-  .ep-pill .ep-soon { margin-top: 0; }
   .ep-rule { display: flex; gap: .65rem; align-items: center; text-decoration: none; color: var(--sl-color-text); font-size: 14px; }
   .ep-rule svg { flex: none; color: var(--ent); }
   .ep-rule strong { color: var(--sl-color-white); }
-  .ep-rule .ep-soon { margin: 0 0 0 .5rem; display: inline-block; }
   a.ep-rule:hover strong { text-decoration: underline; }
   .ep-box > .ep-rule--method { margin-top: .25rem !important; padding-top: .6rem; border-top: 1px solid var(--sl-color-hairline); }
   .ep-rule--method svg { color: var(--sl-color-accent); }
