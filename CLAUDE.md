@@ -134,7 +134,7 @@ The translation guide and glossary is
 # export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.20.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
-  && npm run check:input-schemas && npm run check:glossary && npm run check:python-api \
+  && npm run check:input-schemas && npm run check:glossary && npm run check:ptbr-case && npm run check:python-api \
   && npm run check:gc-examples && npm run check:type-spelling && npm run check:d2 \
   && npm run check:spdx && npm run refresh:recordings -- --check \
   && npm run build && npm run check && npm run check:math \

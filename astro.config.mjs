@@ -293,7 +293,7 @@ export default defineConfig({
           label: "Model entities", translations: { "pt-BR": "Entidades do modelo" },
           items: [
             {
-              label: "Inflows", translations: { "pt-BR": "Vazão" },
+              label: "Inflows", translations: { "pt-BR": "Afluências" },
               items: ["entities/inflows/inflows", "entities/inflows/scenarios"],
             },
             {
@@ -383,7 +383,7 @@ export default defineConfig({
           ],
         },
         {
-          label: "Running studies", translations: { "pt-BR": "Rodando estudos" },
+          label: "Running studies", translations: { "pt-BR": "Execução de estudos" },
           items: [
             "getting-started/installation",
             {

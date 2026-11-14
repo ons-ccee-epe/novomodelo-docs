@@ -88,6 +88,7 @@ npm run check:counts  # stated counts match their tables and files: column/field
 npm run check:version # novomodelo-version references vs the Synced-to anchor
 npm run check:narration # change narration, both zones (ratchet: scripts/doc-lint-allow.txt)
 npm run check:glossary # glossary: no file/path/config tokens, A–Z index complete (ratchet: scripts/doc-lint-allow.txt)
+npm run check:ptbr-case # pt-BR headings, frontmatter titles and sidebar labels in sentence case; exemptions in EXEMPT_TERMS (ratchet: scripts/doc-lint-allow.txt)
 npm run check:error-coverage # every emitted ErrorKind/LoadError variant has an error-codes section; unemitted ones are reserved
 npm run check:input-schemas # vendored input schemas match the case-format tables: names both ways, required flags, enums
 npm run check:python-api # every public novomodelo-python stub symbol has an anchor in reference/python-api (stubs: scripts/pystubs/)

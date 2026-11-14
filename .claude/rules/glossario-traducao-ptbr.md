@@ -10,13 +10,14 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 
 ## Regras de forma (obrigatórias)
 
-1. NÃO alterar: fórmulas LaTeX (`$...$`, `$$...$$`) — copie exatamente; blocos de código, comandos, chaves JSON/TOML/YAML, nomes de campos/colunas, flags de CLI, nomes de arquivos e caminhos (ex.: `hydros.json`, `training/convergence.parquet`), identificadores em `código`, nomes de tipos/enums, URLs, sintaxe MDX/JSX (`<Tabs>`, `<TabItem label="...">` → traduza apenas o valor de `label`), `import`s (copie como estão), atributos `id`, mensagens literais emitidas pelo programa (texto que o software imprime) e títulos de obras na bibliografia.
+1. NÃO alterar: fórmulas LaTeX (`$...$`, `$$...$$`) — copie exatamente; blocos de código, comandos, chaves JSON/TOML/YAML, nomes de campos/colunas, flags de CLI, nomes de arquivos e caminhos (ex.: `hydros.json`, `training/convergence.parquet`), identificadores em `código`, nomes de tipos/enums, URLs, sintaxe MDX/JSX (`<Tabs>`, `<TabItem label="...">` → traduza apenas o valor de `label`), `import`s (copie como estão), atributos `id`, mensagens literais emitidas pelo programa (texto que o software imprime) e títulos de obras na bibliografia. Nada dentro de código inline é traduzido, nem mesmo placeholders (ex.: `@name`, `(plant, stage)`).
 2. Traduzir: texto corrido, títulos/cabeçalhos, tabelas (exceto células que são identificadores/código), `title` e `description` do frontmatter (mantenha as demais chaves do frontmatter, e não traduza valores de `slug`, `template` etc.), textos de admonitions (`:::note[Título]` → traduza o título), textos alternativos, comentários dentro de blocos de código (`# ...`, `// ...`) e rótulos de diagramas D2 (apenas os textos exibidos; mantenha sintaxe, setas, `shape`, `style`, classes e chaves de nó — se a chave do nó for o próprio texto exibido, adicione um rótulo: `forward: "simulação forward"` e mantenha todas as referências ao nó coerentes no bloco).
 3. Links: traduza apenas o texto do link. O destino aponta para a página em português, com o prefixo `/pt-br/` (ex.: `(/math/cut-management)` → `(/pt-br/math/cut-management)`), e a âncora é o id do título traduzido, escrito **sem acentos, til ou cedilha**: o site gera os ids assim (`scripts/rehype-ascii-heading-ids.mjs`). Ex.: o título "Recusas da biblioteca histórica" tem a âncora `#recusas-da-biblioteca-historica`. O `npm run check:links` acusa uma âncora que não existe. Links externos e `/schemas/` ficam como no original.
 4. Unidades: use vírgula decimal apenas no texto corrido em português quando não for código nem fórmula (ex.: "0,5 hm³"); não altere números dentro de código/fórmulas/tabelas de configuração. Mantenha MW, MWh, hm³, m³/s, R$.
 5. Formato: preserve a estrutura Markdown (níveis de cabeçalho, listas, tabelas, negrito/itálico, notas de rodapé). Não adicione nem remova seções. Não adicione notas do tradutor.
 6. Voz: presente, impessoal, técnico ("o modelo calcula", "define-se"). Use "você" com parcimônia apenas onde o original instrui o usuário (guias práticos), preferindo imperativo ("execute", "configure").
 7. Nome do produto: "Novomodelo" (nome do produto, em texto exibido ao leitor) → **Novo Modelo** (PT e EN: "o Novo Modelo", "do Novo Modelo", "Novo Modelo's"). Minúsculas `novomodelo` (comando, pacotes `novomodelo-cli`/`novomodelo-python`/…, caminhos, URLs, slugs, chaves) permanecem inalteradas, assim como qualquer ocorrência dentro de código, código inline, fórmulas e destinos de link.
+8. Caixa dos títulos: cabeçalhos, `title` do frontmatter e rótulos da barra lateral (valores `"pt-BR"` em `astro.config.mjs`) usam maiúscula só na primeira palavra (ex.: "Fases do ciclo de vida"). Mantêm as maiúsculas: siglas e palavras com duas ou mais maiúsculas (PDDE, PL, CVaR, PAR(p), PreFilling), mas numa palavra com hífen cada parte conta sozinha ("pós-estudo", não "Pós-Estudo") e os nomes próprios e termos nomeados listados em `EXEMPT_TERMS` de `scripts/check-ptbr-case.mjs` (ex.: Novo Modelo, Nível 1, Benders, Python). A primeira palavra depois de " — " pode ser maiúscula; a palavra depois de ":" não. O texto de um link que cita um cabeçalho segue a caixa do cabeçalho. O `npm run check:ptbr-case` verifica a regra.
 
 ## Decisões terminológicas (aprovadas pela cliente)
 
@@ -46,6 +47,10 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | terminal condition | condição final |
 | cut selection / cut removal | seleção de cortes / eliminação de cortes |
 | binding (corte/restrição na solução do PL) | ativo na solução; distinto de "ativo no conjunto" (o indicador de atividade do conjunto, `is_active`: corte não desativado) e de "detentor" (posse no Nível 1) |
+| reconciliation / reconcile | reconciliação / reconciliar |
+| append-only | somente de acréscimo ("(append-only)" na primeira ocorrência da página) |
+| owner (of a stored state, Level 1) | detentor / detentora |
+| ownership record | registro de detentores |
 | dominated cut | corte dominado |
 | cut intercept / cut coefficient (slope) | termo independente (intercepto) do corte / coeficiente do corte |
 | single-cut / multi-cut | corte único (single-cut) / multicorte (multi-cut) |
@@ -101,6 +106,7 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | stored energy (EARM) | energia armazenada (EARM) |
 | equivalent reservoir (REE) | reservatório equivalente de energia (REE) |
 | cascade / upstream / downstream | cascata / montante / jusante |
+| upstream study / model / policy / run / checkpoint (estudo encadeado, não a cascata) | estudo / modelo / política / execução / checkpoint de origem; um conjunto ou estágio desse estudo: "… do estudo de origem" |
 | diversion | desvio |
 | pumping station | usina elevatória (estação de bombeamento) |
 | evaporation | evaporação |
@@ -119,6 +125,9 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | operating cost (thermal) | custo variável unitário (CVU) |
 | anticipated dispatch / lead | antecipação de despacho / antecedência |
 | commitment | compromisso de despacho |
+| shortfall (abaixo de um mínimo da usina, de um piso de armazenamento ou de uma meta; não é déficit de carga) | insuficiência |
+| leading state columns | colunas de estado do início do layout |
+| in-transit bucket | in-transit bucket (termo mantido em inglês) |
 | commissioning / decommissioning | entrada em operação / desativação |
 | state variable / state augmentation | variável de estado / aumento do espaço de estados |
 | incoming state | estado de entrada ($x_{t-1}$, o estado que chega ao estágio) |

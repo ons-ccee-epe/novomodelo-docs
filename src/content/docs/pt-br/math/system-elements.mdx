@@ -18,7 +18,7 @@ Para as convenções de nomenclatura de variáveis e os conjuntos de índices, v
 
 Para a visão por entidade deste capítulo, veja [Usinas hidrelétricas](/pt-br/entities/generation/hydro-plants/), [Usinas termelétricas](/pt-br/entities/generation/thermal-plants/), [Fontes não despacháveis](/pt-br/entities/generation/non-controllable-sources/), [Usinas elevatórias](/pt-br/entities/generation/pumping-stations/), [Barramentos e subsistemas](/pt-br/entities/network/buses/), [Linhas e intercâmbios](/pt-br/entities/network/lines/), [Contratos de energia](/pt-br/entities/network/energy-contracts/) e [Valor da água e custo futuro](/pt-br/entities/water-value/).
 
-## Convenção de Unidades das Variáveis
+## Convenção de unidades das variáveis
 
 Todas as variáveis de decisão do Novo Modelo usam **unidades de taxa**: grandezas elétricas em MW, vazões em m³/s. O armazenamento (hm³) é intrinsecamente uma grandeza absoluta. A duração do patamar $\tau_k$ [horas] entra no PL como um **multiplicador externo** — aparece nos coeficientes da função objetivo e nos coeficientes que convertem uma taxa em volume ou energia, como o fator de conversão do balanço hídrico.
 
@@ -38,7 +38,7 @@ A linha da função objetivo pode ter coeficientes grandes: o produto de uma dur
 Todos os relatórios de saída e os custos marginais apresentados ao usuário devem aplicar a conversão $\div \tau_k$.
 :::
 
-## 1. Visão Geral da Arquitetura do Sistema
+## 1. Visão geral da arquitetura do sistema
 
 Um sistema hidrotérmico no Novo Modelo é composto por elementos físicos interligados que atuam em conjunto para atender a demanda de energia elétrica ao menor custo sob incerteza de afluências:
 
@@ -87,18 +87,18 @@ shed -> bus2: "δ (não atendida)" {style.stroke-dash: 4}
 
 O otimizador determina as decisões de geração e de fluxo em cada estágio para minimizar o custo total esperado (geração térmica + penalidades de déficit + custos de regularização), respeitando as restrições físicas e preparando-se para as afluências futuras incertas.
 
-### Janelas de Operação das Entidades
+### Janelas de operação das entidades
 
 A maioria dos tipos de entidade pode entrar em operação ou ser desativada ao longo do horizonte, de modo que os estudos de planejamento possam representar a entrada de novas usinas e a desativação de unidades antigas. Uma entidade tem uma **janela de operação** opcional definida por dois estágios, seu **estágio de entrada** e seu **estágio de saída**. A janela é **semiaberta**: a entidade está ativa desde seu estágio de entrada até seu estágio de saída, exclusive — o estágio de entrada é **inclusive** e o estágio de saída é **exclusive**, de modo que a entidade deixa de existir _a partir_ de seu estágio de saída. Uma entidade sem estágio de entrada está ativa desde o primeiro estágio, uma sem estágio de saída nunca é desativada, e uma que não declara nenhum dos dois está ativa em todos os estágios.
 
-Essa janela se aplica uniformemente a **linhas de transmissão, usinas termelétricas, fontes não despacháveis, usinas elevatórias e contratos** (e, para a geração, às usinas hidrelétricas). Fora de sua janela, uma entidade não contribui em nada para o despacho: suas colunas de decisão estão presentes no PL, mas fixadas em zero, de modo que ela não injeta potência, não retira potência e não consome recurso algum. A usina hidrelétrica é a exceção a essa simples fixação em zero: fora de sua janela de operação, uma hidrelétrica sem fase de enchimento entra no estado de **pré-enchimento (PreFilling)** (§5), que fixa em zero a vazão turbinada, o vertimento e o desvio, mas congela seu armazenamento e faz a vazão natural afluente passar pelo local ainda fora de operação, em vez de reter ou injetar água. A desativação é simétrica à entrada em operação — ambas são expressas pela mesma janela. O tratamento no PL de cada fase das hidrelétricas e as fixações fora da janela das demais entidades estão tabelados em [Formulação do PL — Fases do Ciclo de Vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida).
+Essa janela se aplica uniformemente a **linhas de transmissão, usinas termelétricas, fontes não despacháveis, usinas elevatórias e contratos** (e, para a geração, às usinas hidrelétricas). Fora de sua janela, uma entidade não contribui em nada para o despacho: suas colunas de decisão estão presentes no PL, mas fixadas em zero, de modo que ela não injeta potência, não retira potência e não consome recurso algum. A usina hidrelétrica é a exceção a essa simples fixação em zero: fora de sua janela de operação, uma hidrelétrica sem fase de enchimento entra no estado de **pré-enchimento (PreFilling)** (§5), que fixa em zero a vazão turbinada, o vertimento e o desvio, mas congela seu armazenamento e faz a vazão natural afluente passar pelo local ainda fora de operação, em vez de reter ou injetar água. A desativação é simétrica à entrada em operação — ambas são expressas pela mesma janela. O tratamento no PL de cada fase das hidrelétricas e as fixações fora da janela das demais entidades estão tabelados em [Formulação do PL — Fases do ciclo de vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida).
 
 Dois mecanismos de ciclo de vida específicos de elementos se sobrepõem a essa janela genérica:
 
 - **Enchimento de volume morto das hidrelétricas** (§5) — uma usina hidrelétrica pode _existir_, mas estar impossibilitada de gerar enquanto seu reservatório ainda está enchendo até o volume morto; trata-se de um estado de entrada em operação distinto, com seus próprios pisos de armazenamento por estágio, e não apenas de um controle de presença.
 - **Termelétricas com antecipação de despacho** (§4) — uma coluna de compromisso só é aberta quando seu estágio de entrega está dentro do estudo ou em um estágio pós-estudo declarado e a usina está em operação nesse estágio de entrega, qualquer que seja sua situação no estágio de decisão.
 
-### Data de Início de Operação
+### Data de início de operação
 
 Independentemente da janela de operação, toda entidade também tem uma
 data de início obrigatória, a data de calendário em que entra em operação. A data
@@ -111,9 +111,9 @@ calcula nem condiciona a entrada em operação. A presença no despacho é decid
 exclusivamente pelos estágios de entrada e de saída da janela acima: a janela e a
 data de início são independentes, e nenhuma é derivada da outra.
 
-## 2. Barramentos (Subsistemas Regionais)
+## 2. Barramentos (subsistemas regionais)
 
-### Significado Físico
+### Significado físico
 
 Um **barramento** representa um nó da rede elétrica no qual o balanço de energia elétrica deve ser mantido. A granularidade é definida pelo usuário: um barramento pode representar um grande subsistema regional, uma única subestação ou qualquer nível de agregação intermediário. O modelo escala de poucos barramentos a centenas ou milhares sem mudanças estruturais.
 
@@ -121,21 +121,21 @@ Um **barramento** representa um nó da rede elétrica no qual o balanço de ener
 Estudos de despacho reais frequentemente modelam os barramentos na escala das grandes regiões de interligação, mas decomposições mais finas são igualmente válidas.
 :::
 
-### Variáveis de Decisão
+### Variáveis de decisão
 
 | Variável         | Unidade | Descrição                                                         |
 | ---------------- | ----- | ----------------------------------------------------------------- |
 | $\delta_{b,k,s}$ | MW    | Déficit de carga (energia não suprida) no barramento $b$, patamar $k$, segmento $s$ |
 | $\epsilon_{b,k}$ | MW    | Excesso de geração no barramento $b$, patamar $k$                 |
 
-### Conexões com Outros Elementos
+### Conexões com outros elementos
 
 Cada barramento funciona como nó de balanço de energia, onde:
 
 - **Entradas**: geração das usinas hidrelétricas, das usinas termelétricas e dos contratos de importação conectados ao barramento
 - **Saídas**: demanda, contratos de exportação, consumo das usinas elevatórias e transmissão para outros barramentos
 
-### Parâmetros Principais
+### Parâmetros principais
 
 | Parâmetro       | Unidade | Descrição                                            |
 | --------------- | ------ | ---------------------------------------------------- |
@@ -144,24 +144,24 @@ Cada barramento funciona como nó de balanço de energia, onde:
 | $c^{exc}_b$     | R\$/MWh | Penalidade de excesso de geração (regularização)     |
 | $\bar{d}_{b,s}$ | MW     | Profundidade do segmento de déficit                  |
 
-### Papel na Função Objetivo
+### Papel na função objetivo
 
 Cada barramento contribui com o custo de seu déficit, por partes ao longo de seus segmentos de déficit $s \in \mathcal{S}_b$, e com o custo de seu excesso de geração, ambos ponderados pelas durações dos patamares ([Formulação do PL §2](/pt-br/math/lp-formulation#2-funcao-objetivo)).
 
 - **Custo de déficit**: penalidade muito alta, que representa o valor da carga perdida
 - **Custo de excesso**: pequeno termo de regularização para eliminar geração espúria de folga
 
-### Prévia das Restrições do PL
+### Prévia das restrições do PL
 
 Para cada barramento $b \in \mathcal{B}$ e patamar $k$, a **restrição de balanço de carga** iguala à demanda $D_{b,k}$ a geração injetada no barramento, a potência que entra pelas linhas e pelos contratos de importação e o déficit, descontada a potência que sai pelas linhas e pelos contratos de exportação, o consumo de bombeamento e o excesso ([Formulação do PL §3](/pt-br/math/lp-formulation#3-restricao-de-atendimento-a-carga)).
 
-## 3. Linhas de Transmissão
+## 3. Linhas de transmissão
 
-### Significado Físico
+### Significado físico
 
 Uma **linha de transmissão** representa a interligação entre dois barramentos, permitindo a transferência de potência sujeita a limites de capacidade. As linhas são bidirecionais e **sem perdas no PL de despacho** — as perdas de transmissão são calculadas e informadas como grandeza de saída, e não modeladas como redução da potência entregue (ver as abas Configurar/E·S).
 
-### Variáveis de Decisão
+### Variáveis de decisão
 
 | Variável    | Unidade | Descrição                                             |
 | ----------- | ----- | ----------------------------------------------------- |
@@ -172,14 +172,14 @@ Uma **linha de transmissão** representa a interligação entre dois barramentos
 O Novo Modelo usa duas variáveis não negativas ($f^+$, $f^-$) em vez de uma única variável com sinal. Isso simplifica o tratamento dos limites e, por meio dos custos de regularização, evita naturalmente o fluxo simultâneo nos dois sentidos.
 :::
 
-### Conexões com Outros Elementos
+### Conexões com outros elementos
 
 Cada linha conecta exatamente dois barramentos:
 
 - **Barramento de origem**: exporta $f^+_{n,k}$, recebe $f^-_{n,k}$
 - **Barramento de destino**: recebe $f^+_{n,k}$, exporta $f^-_{n,k}$
 
-### Parâmetros Principais
+### Parâmetros principais
 
 | Parâmetro     | Unidade | Descrição                                                                  |
 | ------------- | ------ | -------------------------------------------------------------------------- |
@@ -187,47 +187,47 @@ Cada linha conecta exatamente dois barramentos:
 | $\bar{F}^-_n$ | MW     | Limite de capacidade (sentido reverso); pode variar por estágio e, opcionalmente, por patamar |
 | $c^{exch}_n$  | R\$/MWh | Custo de intercâmbio (regularização)                                       |
 
-### Papel na Função Objetivo
+### Papel na função objetivo
 
 O custo de intercâmbio é um **termo de regularização** — um pequeno custo unitário sobre o fluxo de intercâmbio — que evita soluções degeneradas com circulação desnecessária de potência e orienta o solver para padrões de fluxo fisicamente significativos ([Formulações específicas por equipamento §2](/pt-br/math/equipment-formulations#2-linhas-de-transmissao)).
 
-### Prévia das Restrições do PL
+### Prévia das restrições do PL
 
 Cada sentido de fluxo é limitado por sua capacidade; o fluxo direto sai do barramento de origem e entra no barramento de destino, e o fluxo reverso faz o oposto ([Formulações específicas por equipamento §2](/pt-br/math/equipment-formulations#2-linhas-de-transmissao)).
 
-## 4. Usinas Termelétricas
+## 4. Usinas termelétricas
 
-### Significado Físico
+### Significado físico
 
 Uma **usina termelétrica** representa geração despachável a partir de combustível (gás natural, carvão, óleo, biomassa, nuclear). Cada usina tem um único custo marginal por MWh gerado.
 
-### Variáveis de Decisão
+### Variáveis de decisão
 
 | Variável    | Unidade | Descrição                                                    |
 | ----------- | ----- | ------------------------------------------------------------ |
 | $g_{j,k}$ | MW | Geração da usina termelétrica $j$, patamar $k$ |
 
-### Conexões com Outros Elementos
+### Conexões com outros elementos
 
 - **Conexão ao barramento**: cada usina termelétrica se conecta a exatamente um barramento, contribuindo para seu balanço de energia
 - **Sem acoplamento em cascata**: diferentemente das usinas hidrelétricas, as termelétricas são independentes entre si
 
-### Parâmetros Principais
+### Parâmetros principais
 
 | Parâmetro                      | Unidade | Descrição                                         |
 | ------------------------------ | ------ | ------------------------------------------------- |
 | $\bar{G}_j$, $\underline{G}_j$ | MW     | Limites de geração (capacidade, geração mínima)   |
 | $c^{th}_j$                     | R\$/MWh | Custo variável unitário (CVU) de geração (combustível + O&M) |
 
-### Papel na Função Objetivo
+### Papel na função objetivo
 
 Os custos térmicos representam despesas operacionais efetivas, que variam conforme o tipo de combustível, e constituem o principal custo controlável da função objetivo ([Formulações específicas por equipamento §1.1](/pt-br/math/equipment-formulations#11-termeletricas-convencionais)).
 
-### Prévia das Restrições do PL
+### Prévia das restrições do PL
 
 A geração de cada patamar fica entre a geração mínima da usina e sua capacidade ([Formulações específicas por equipamento §1.1](/pt-br/math/equipment-formulations#11-termeletricas-convencionais)).
 
-### Usinas Termelétricas com Antecipação de Despacho
+### Usinas termelétricas com antecipação de despacho
 
 Uma usina termelétrica pode ser marcada como de **despacho antecipado**. A motivação física é a antecedência necessária para a encomenda de combustível: terminais de GNL, contratos de carvão de longa distância e arranjos semelhantes exigem que a quantidade despachada seja comprometida antes de a energia ser fisicamente entregue. Uma usina com antecipação, portanto, decide o **compromisso** de cada entrega em um estágio anterior ao seu **estágio de entrega** $m$, e a geração da usina no estágio $m$ deve corresponder a esse compromisso.
 
@@ -235,7 +235,7 @@ A antecedência é um número de estágios ou um tempo físico de antecedência,
 
 #### Commitment ring
 
-Todo compromisso que a usina decidiu, mas ainda não entregou, é estado: a usina o mantém em seu **commitment ring**, transportado pela recursão de Bellman junto com o armazenamento das hidrelétricas e as defasagens de afluência. Um compromisso ocupa um slot do ring desde seu estágio de decisão até seu estágio de entrega $m$; os slots e a profundidade do ring $K_i$ (a própria antecedência, quando dada em número de estágios) são definidas em [Aumento do espaço de estados — Hold Ring](/pt-br/math/state-augmentation#hold-ring). As termelétricas com antecipação são os únicos elementos não hidrelétricos com variáveis de estado na formulação da PDDE (SDDP).
+Todo compromisso que a usina decidiu, mas ainda não entregou, é estado: a usina o mantém em seu **commitment ring**, transportado pela recursão de Bellman junto com o armazenamento das hidrelétricas e as defasagens de afluência. Um compromisso ocupa um slot do ring desde seu estágio de decisão até seu estágio de entrega $m$; os slots e a profundidade do ring $K_i$ (a própria antecedência, quando dada em número de estágios) são definidas em [Aumento do espaço de estados — Hold ring](/pt-br/math/state-augmentation#hold-ring). As termelétricas com antecipação são os únicos elementos não hidrelétricos com variáveis de estado na formulação da PDDE (SDDP).
 
 A figura acompanha uma entrega pelo ring com antecedência em número de estágios. O compromisso $g^{\mathrm{a}}_{i,t}$ decidido no estágio $t = m - K_i$ é depositado no ring slot de seu estágio de entrega $m$, transportado inalterado nos estágios $t + 1, \ldots, m - 1$ e entregue no estágio $m$, onde a geração da usina deve corresponder a ele. Uma entrega decidida antes do estudo inicializa seu slot no primeiro estágio (o caminho tracejado) e é então transportada e entregue da mesma forma. Uma antecedência física muda qual estágio decide cada entrega, e não como o ring a mantém.
 
@@ -258,7 +258,7 @@ carry -> deliver
 
 #### Decisão e entrega
 
-Cada estágio $t$ tem uma **coluna de compromisso** $g^{\mathrm{a}}_{i,t}$ para a entrega que decide, fixada em zero quando não decide nenhuma. Seus limites são os limites de geração da usina no estágio de entrega $m$, e não no estágio de decisão, e ela é nula quando a usina está fora de operação no estágio $m$, de modo que nunca se assume um compromisso para uma entrega que a usina não possa honrar. No estágio de entrega, a energia da geração por patamar da usina é igual à potência comprometida vezes as horas do estágio $H_m$ ([Aumento do espaço de estados — Linhas do Ring](/pt-br/math/state-augmentation#linhas-do-ring)). Uma antecedência física grosseira o bastante para que um estágio de decisão decida mais de uma entrega é rejeitada na preparação do estudo, e uma antecedência maior que todo o horizonte do estudo só é aceita quando alcança um estágio pós-estudo declarado.
+Cada estágio $t$ tem uma **coluna de compromisso** $g^{\mathrm{a}}_{i,t}$ para a entrega que decide, fixada em zero quando não decide nenhuma. Seus limites são os limites de geração da usina no estágio de entrega $m$, e não no estágio de decisão, e ela é nula quando a usina está fora de operação no estágio $m$, de modo que nunca se assume um compromisso para uma entrega que a usina não possa honrar. No estágio de entrega, a energia da geração por patamar da usina é igual à potência comprometida vezes as horas do estágio $H_m$ ([Aumento do espaço de estados — Linhas do ring](/pt-br/math/state-augmentation#linhas-do-ring)). Uma antecedência física grosseira o bastante para que um estágio de decisão decida mais de uma entrega é rejeitada na preparação do estudo, e uma antecedência maior que todo o horizonte do estudo só é aceita quando alcança um estágio pós-estudo declarado.
 
 #### Entregas além do horizonte
 
@@ -274,9 +274,9 @@ Um compromisso é **cobrado em seu estágio de decisão** $t$ e **descontado a p
 
 #### Mecanismo de cortes
 
-Cada ring slot é uma coordenada de estado com seu próprio coeficiente de corte, por meio do qual o valor marginal de um compromisso chega diretamente à sua decisão, qualquer que seja a antecedência ([Aumento do espaço de estados — Coeficiente de Corte dos Ring Slots](/pt-br/math/state-augmentation#coeficiente-de-corte-dos-ring-slots)).
+Cada ring slot é uma coordenada de estado com seu próprio coeficiente de corte, por meio do qual o valor marginal de um compromisso chega diretamente à sua decisão, qualquer que seja a antecedência ([Aumento do espaço de estados — Coeficiente de corte dos ring slots](/pt-br/math/state-augmentation#coeficiente-de-corte-dos-ring-slots)).
 
-## 5. Usinas Hidrelétricas
+## 5. Usinas hidrelétricas
 
 As usinas hidrelétricas são os elementos centrais da formulação da PDDE porque:
 
@@ -284,17 +284,17 @@ As usinas hidrelétricas são os elementos centrais da formulação da PDDE porq
 2. As afluências são **estocásticas** (chuva/degelo futuros incertos)
 3. O **valor da água** (custo de oportunidade de usar a água agora em vez de guardá-la) emerge da otimização
 
-### Significado Físico
+### Significado físico
 
 Uma **usina hidrelétrica** converte a energia potencial da água armazenada em eletricidade. Cada usina tem um reservatório (armazenamento), turbinas (conversão) e vertedouros (liberação do excesso de água). As usinas hidrelétricas são tipicamente dispostas em **cascatas**, nas quais as defluências de montante se tornam afluências de jusante.
 
-### Grupos de Unidades e Células por Barramento
+### Grupos de unidades e células por barramento
 
 As turbinas de uma usina hidrelétrica são organizadas em um ou mais **grupos de unidades geradoras**, cada um declarando sua própria conexão a barramento e seus próprios limites de vazão turbinada e de geração. Os grupos que compartilham um barramento formam uma **célula (usina, barramento)**; uma usina é particionada em tantas células quantos forem os barramentos distintos de seus grupos, e toda usina declara pelo menos um grupo. Armazenamento, vertimento, desvio e afluência continuam sendo grandezas únicas no nível do reservatório, contabilizadas uma vez por usina, independentemente do número de células — somente a vazão turbinada e a geração são contabilizadas **por célula**, e cada célula injeta sua geração em seu próprio barramento, e não em um único barramento da usina.
 
-Uma usina cujos grupos compartilham todos o mesmo barramento tem exatamente uma célula e se reduz ao modelo de barramento único usado no restante deste capítulo. Uma usina cujos grupos abrangem vários barramentos tem uma variável de vazão turbinada e uma variável de geração por célula, em vez de por usina; ver [Formulação do PL §3](/pt-br/math/lp-formulation#3-restricao-de-atendimento-a-carga)–[§4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas) para como a geração de uma célula entra no balanço de carga do barramento e as células de uma usina se somam em seu balanço hídrico, e [Formulação do PL §6](/pt-br/math/lp-formulation#6-restricoes-de-geracao-hidreletrica), [§8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo) para como os limites de uma célula se compõem a partir dos grupos que a formam. Os próprios mínimo e máximo da usina também se aplicam ao total de suas células onde são mais restritivos que os limites das próprias células ([Formulação do PL — Mínimo e Máximo da Usina](/pt-br/math/lp-formulation#minimo-e-maximo-da-usina)).
+Uma usina cujos grupos compartilham todos o mesmo barramento tem exatamente uma célula e se reduz ao modelo de barramento único usado no restante deste capítulo. Uma usina cujos grupos abrangem vários barramentos tem uma variável de vazão turbinada e uma variável de geração por célula, em vez de por usina; ver [Formulação do PL §3](/pt-br/math/lp-formulation#3-restricao-de-atendimento-a-carga)–[§4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas) para como a geração de uma célula entra no balanço de carga do barramento e as células de uma usina se somam em seu balanço hídrico, e [Formulação do PL §6](/pt-br/math/lp-formulation#6-restricoes-de-geracao-hidreletrica), [§8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo) para como os limites de uma célula se compõem a partir dos grupos que a formam. Os próprios mínimo e máximo da usina também se aplicam ao total de suas células onde são mais restritivos que os limites das próprias células ([Formulação do PL — Mínimo e máximo da usina](/pt-br/math/lp-formulation#minimo-e-maximo-da-usina)).
 
-### Situação Operativa
+### Situação operativa
 
 O Novo Modelo nomeia dois subconjuntos de usinas hidrelétricas conforme sua fase do ciclo de vida em um estágio; uma hidrelétrica em pré-enchimento não pertence a nenhum deles:
 
@@ -303,7 +303,7 @@ O Novo Modelo nomeia dois subconjuntos de usinas hidrelétricas conforme sua fas
 | **Em operação (Operating)** | $\mathcal{H}^{op}$   | Usinas que podem gerar eletricidade; sujeitas às restrições de geração  |
 | **Fase de enchimento (Filling)** | $\mathcal{H}^{fill}$ | Usinas novas em entrada em operação, enchendo o volume morto; sem geração |
 
-A maioria das usinas está em $\mathcal{H}^{op}$. As hidrelétricas com fase de enchimento têm pisos de armazenamento-alvo por estágio em vez de restrições de geração. Algumas usinas têm capacidade de armazenamento desprezível (**fio d'água**) e precisam passar todas as afluências pelas turbinas e vertedouros dentro do mesmo estágio. Em cada estágio, uma hidrelétrica está em pré-enchimento, em fase de enchimento ou em operação, e [Formulação do PL — Fases do Ciclo de Vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida) tabela o que cada fase fixa.
+A maioria das usinas está em $\mathcal{H}^{op}$. As hidrelétricas com fase de enchimento têm pisos de armazenamento-alvo por estágio em vez de restrições de geração. Algumas usinas têm capacidade de armazenamento desprezível (**fio d'água**) e precisam passar todas as afluências pelas turbinas e vertedouros dentro do mesmo estágio. Em cada estágio, uma hidrelétrica está em pré-enchimento, em fase de enchimento ou em operação, e [Formulação do PL — Fases do ciclo de vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida) tabela o que cada fase fixa.
 
 A figura acompanha a fase de uma hidrelétrica ao longo do estudo, a partir do primeiro estágio (o oval de início). Uma hidrelétrica sem fase de enchimento está em operação dentro de sua janela de operação e em pré-enchimento fora dela, antes de seu estágio de entrada e a partir de seu estágio de saída, de modo que uma hidrelétrica que sai de operação permanece em pré-enchimento pelo resto do estudo. Uma hidrelétrica sem fase de enchimento e sem janela está em operação em todos os estágios. Uma hidrelétrica com fase de enchimento está em pré-enchimento antes de seu estágio de início do enchimento, em fase de enchimento desse estágio até seu estágio de entrada, e em operação a partir de seu estágio de entrada. Uma hidrelétrica com fase de enchimento não tem estágio de saída e, portanto, nunca retorna ao pré-enchimento.
 
@@ -328,7 +328,7 @@ filling -> op: "estágio de entrada"
 op -> pre: "estágio de saída,\nsem fase de\nenchimento"
 ```
 
-### Variáveis de Decisão
+### Variáveis de decisão
 
 | Variável     | Unidade | Descrição                                                              |
 | ------------ | ----- | ---------------------------------------------------------------------- |
@@ -347,14 +347,14 @@ As **variáveis de estado** ($v_h$ e $a_{h,\ell}$) ligam os estágios por meio d
 A evaporação é uma coluna limitada do PL, vinculada ao armazenamento por uma linha de evaporação que lineariza o fluxo na superfície do reservatório. A retirada é a meta $r_h$ no nível do estágio, no lado direito do balanço hídrico; as folgas no nível do estágio $\sigma^{w-}_h$ e $\sigma^{w+}_h$ relaxam a meta quando o reservatório não consegue sustentá-la (por exemplo, em uma seca). Ver [Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas).
 :::
 
-### Conexões com Outros Elementos
+### Conexões com outros elementos
 
 - **Conexão ao barramento**: cada célula de uma usina se conecta ao seu próprio barramento para entrega de energia; uma usina de célula única se conecta a exatamente um barramento (§ Grupos de Unidades acima)
 - **Topologia da cascata**: a vazão turbinada e vertida das usinas de montante ($q + s$, sendo $q$ a vazão turbinada total da usina somada sobre suas células) torna-se afluência da usina de jusante, dentro do estágio da defluência ou, em um trecho com tempo de viagem declarado, parcialmente em estágios posteriores (ver _Tempo de Viagem na Cascata_ abaixo)
 - **Destinos de desvio**: algumas usinas podem desviar água para uma usina de destino declarada, limitada por $\bar{U}_h$; a vazão desviada de uma usina só chega ao seu destino de desvio e nunca faz parte de sua defluência para a usina de jusante
 - **Usinas elevatórias**: podem receber água bombeada (aumentando o armazenamento) ou fornecer água para bombeamento (reduzindo o armazenamento)
 
-A figura desenha os caminhos da água que se encontram em uma usina. A vazão incremental $a_h$ entra no reservatório. A defluência $q + s$ da usina de montante chega dentro do estágio da defluência na parcela $\nu_{h',t,0}$; o restante entra no in-transit bucket e chega ao reservatório em estágios posteriores, à medida que vence (a aresta tracejada). O bucket só existe em um trecho principal da cascata com tempo de viagem não nulo; em qualquer outro trecho, a parcela é $1$ e toda a defluência chega dentro do estágio da defluência. Esta usina libera seu próprio $q + s$ para a usina de jusante e desvia $u_h$ para seu destino de desvio. Uma usina elevatória move $p_y$ de seu reservatório de origem para o de destino; a figura desenha um bombeamento da usina de jusante para este reservatório. Esta usina também recebe o desvio de qualquer usina que a tenha como destino e abastece qualquer usina elevatória que bombeie a partir dela; essas são as mesmas arestas vistas a partir da outra usina. A evaporação $e_h$ e a retirada $r_h$ deixam o sistema modelado, cada uma com sinal, de modo que um valor negativo acrescenta água. [Tempo de Viagem na Cascata](#tempo-de-viagem-na-cascata) define a parcela e o bucket, e [Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas) escreve a linha de balanço que soma esses caminhos.
+A figura desenha os caminhos da água que se encontram em uma usina. A vazão incremental $a_h$ entra no reservatório. A defluência $q + s$ da usina de montante chega dentro do estágio da defluência na parcela $\nu_{h',t,0}$; o restante entra no in-transit bucket e chega ao reservatório em estágios posteriores, à medida que vence (a aresta tracejada). O bucket só existe em um trecho principal da cascata com tempo de viagem não nulo; em qualquer outro trecho, a parcela é $1$ e toda a defluência chega dentro do estágio da defluência. Esta usina libera seu próprio $q + s$ para a usina de jusante e desvia $u_h$ para seu destino de desvio. Uma usina elevatória move $p_y$ de seu reservatório de origem para o de destino; a figura desenha um bombeamento da usina de jusante para este reservatório. Esta usina também recebe o desvio de qualquer usina que a tenha como destino e abastece qualquer usina elevatória que bombeie a partir dela; essas são as mesmas arestas vistas a partir da outra usina. A evaporação $e_h$ e a retirada $r_h$ deixam o sistema modelado, cada uma com sinal, de modo que um valor negativo acrescenta água. [Tempo de viagem na cascata](#tempo-de-viagem-na-cascata) define a parcela e o bucket, e [Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas) escreve a linha de balanço que soma esses caminhos.
 
 ```d2
 direction: down
@@ -385,7 +385,7 @@ evap <- res: "e"
 res -> wd: "r"
 ```
 
-### Parâmetros Principais
+### Parâmetros principais
 
 | Parâmetro                                        | Unidade   | Descrição                                               |
 | ------------------------------------------------ | --------- | ------------------------------------------------------- |
@@ -400,7 +400,7 @@ res -> wd: "r"
 | $r_h$                                            | m³/s      | Meta de retirada de água do estágio, com sinal (negativa = retorno entre bacias), relaxada pelas folgas no nível do estágio $\sigma^{w-}_h$, $\sigma^{w+}_h$ |
 | $\hat{v}_h$, $\hat{a}_{h,\ell}$                  | hm³, m³/s | Estado de entrada (do estágio anterior)                 |
 
-### Fenômenos do Balanço Hídrico
+### Fenômenos do balanço hídrico
 
 A dinâmica do reservatório contabiliza todos os fluxos de água que entram na usina e saem dela:
 
@@ -424,7 +424,7 @@ Toda linha, exceto o armazenamento de entrada e a chegada de água em trânsito,
 A vazão defluente $o_h = q_h + s_h$ é a água liberada para o canal de jusante (afeta o nível de jusante). A retirada $r_h$ e o desvio $u_h$ saem por caminhos diferentes e não afetam o canal de fuga principal.
 :::
 
-### Tempo de Viagem na Cascata
+### Tempo de viagem na cascata
 
 Em uma cascata, a vazão defluente de uma usina de montante ($q + s$) torna-se afluência de uma usina de jusante. Por padrão, essa transferência é **instantânea** — a água liberada neste estágio chega ao reservatório de jusante dentro do mesmo estágio. Quando o trecho entre duas usinas é longo o bastante para que o deslocamento não seja desprezível, uma usina $h'$ pode declarar um **tempo de viagem da água** em seu trecho principal da cascata: uma defluência ocorrida durante o estágio $t$ entrega a parcela $\nu_{h',t,0} = (H_t - \Delta^{tt}_{h'})^+ / H_t$ ao reservatório de jusante dentro do estágio, sendo $\Delta^{tt}_{h'}$ o tempo de viagem e $H_t$ a duração do estágio, ambos em horas, e o restante chega em estágios posteriores.
 
@@ -436,7 +436,7 @@ O Novo Modelo transporta a água em trânsito nesse trecho como **estado de águ
 
 **Limitação de horizonte.** Sem fronteira terminal carregada, a água em trânsito que venceria após o último estágio é descartada; com fronteira, ela é transportada até o estágio terminal e precificada ali ([Aumento do espaço de estados — Limitação de horizonte](/pt-br/math/state-augmentation#limitacao-de-horizonte), [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)).
 
-### Função de Produção (Água em Potência)
+### Função de produção (água em potência)
 
 O Novo Modelo suporta dois modelos de produção para converter vazão turbinada em geração elétrica:
 
@@ -450,7 +450,7 @@ Cada modelo de produção pode ser usado no treinamento (training) (construção
 
 O modelo de produção pode variar por estágio ou por período sazonal para cada hidrelétrica.
 
-### Restrições Operativas (Flexíveis)
+### Restrições operativas (flexíveis)
 
 Diversas restrições das hidrelétricas são impostas como **restrições flexíveis**, com variáveis de folga e penalidades:
 
@@ -469,7 +469,7 @@ Diversas restrições das hidrelétricas são impostas como **restrições flex�
 
 As restrições flexíveis permitem que o otimizador viole limites quando fisicamente necessário (por exemplo, condições de seca que impedem a vazão defluente mínima), com custos de penalidade elevados sinalizando operação indesejável. O armazenamento máximo ($\bar{V}_h$) é um limite físico **rígido** — o excesso de água é tratado pelo vertimento, e não por uma variável de folga. A vazão turbinada máxima e a geração máxima de uma usina também são rígidas, em cada célula e no total da usina. O volume morto também é um limite rígido, exceto para uma hidrelétrica com fase de enchimento depois que entra em operação e para uma usina fora de operação (ver [Formulação do PL §8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo)). Para a ordem de prioridade das penalidades e as magnitudes dos custos, ver [Sistema de penalidades](/pt-br/math/penalty-system). Para as formulações completas das restrições das hidrelétricas, ver [Formulação do PL](/pt-br/math/lp-formulation).
 
-### Hidrelétricas Ainda Não em Operação (Pré-enchimento)
+### Hidrelétricas ainda não em operação (pré-enchimento)
 
 Uma hidrelétrica está em **pré-enchimento** sempre que ainda não existe no despacho — uma hidrelétrica com fase de enchimento antes de seu estágio de início do enchimento, ou uma hidrelétrica **sem fase de enchimento** em qualquer estágio fora de sua janela de operação (antes de seu estágio de entrada, ou a partir de seu estágio de saída). Diferentemente dos demais tipos de entidade, isso não é uma simples fixação das colunas em zero: como o aproveitamento físico não existe, a usina é reformulada para que o rio passe por ela. Nesse estado,
 
@@ -477,9 +477,9 @@ Uma hidrelétrica está em **pré-enchimento** sempre que ainda não existe no d
 - **O armazenamento é desacoplado** por uma identidade congelada $v_h = v^{in}_h$: o volume do reservatório é mantido constante, sem injetar armazenamento fictício nem reter água. Uma usina inativa no início do estudo mantém, portanto, seu armazenamento inicial em todos os estágios inativos; para uma usina sem fase de enchimento, esse armazenamento está em sua faixa $[\underline{V}_h, \bar{V}_h]$. O piso do volume morto não se aplica no pré-enchimento, e o teto de armazenamento nunca fica abaixo de $\bar{V}_h$, de modo que um teto de armazenamento por estágio mais restritivo não pode tornar inviável um estágio inativo.
 - **A vazão natural afluente é repassada** à primeira usina a jusante que não esteja em pré-enchimento (ou deixa o sistema modelado, se não houver nenhuma), de modo que a vazão incremental, com sua folga de [não negatividade das afluências](/pt-br/math/inflow-nonnegativity), as defluências de montante, as vazões desviadas para a usina e a água em trânsito que vence nela chegam à cascata abaixo sem se perder no local ainda não construído; a meta de retirada da usina é transferida junto para essa usina.
 
-O contraste que define a diferença em relação à fase de enchimento, abaixo, é o **vertimento**: ele fica congelado em zero no pré-enchimento (não há reservatório do qual verter) e passa a ser uma decisão livre quando o enchimento começa. [Formulação do PL — Fases do Ciclo de Vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida) apresenta o tratamento no PL de todas as fases.
+O contraste que define a diferença em relação à fase de enchimento, abaixo, é o **vertimento**: ele fica congelado em zero no pré-enchimento (não há reservatório do qual verter) e passa a ser uma decisão livre quando o enchimento começa. [Formulação do PL — Fases do ciclo de vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida) apresenta o tratamento no PL de todas as fases.
 
-### Enchimento de Volume Morto
+### Enchimento de volume morto
 
 O Novo Modelo modela a entrada em operação de novas usinas hidrelétricas com um **período de enchimento** (do estágio de início do enchimento da usina até seu estágio de entrada, exclusive), durante o qual o reservatório acumula água até atingir o volume morto ($\underline{V}_h$). Durante esse período:
 
@@ -491,7 +491,7 @@ O Novo Modelo modela a entrada em operação de novas usinas hidrelétricas com 
 
 Quando a usina entra em operação em seu estágio de entrada, seu volume morto volta a valer como piso flexível com folga $\sigma^{v-}_h$. Para a trajetória do piso por estágio e a ordem das penalidades, ver [Sistema de penalidades](/pt-br/math/penalty-system).
 
-### Papel na Função Objetivo
+### Papel na função objetivo
 
 Cada hidrelétrica contribui com os custos de regularização de seu vertimento, de sua vazão turbinada e de seu desvio, cada um ponderado pela duração do patamar, e com as penalidades de suas folgas ([Formulação do PL §2](/pt-br/math/lp-formulation#2-funcao-objetivo)).
 
@@ -501,32 +501,32 @@ Cada hidrelétrica contribui com os custos de regularização de seu vertimento,
 - **Penalidades das folgas**: custos elevados para violações de restrições — armazenamento abaixo do volume morto de uma usina já cheia, violações de vazão defluente, violações de geração, violações de evaporação, retirada de água abaixo ou acima da meta. Ver [Sistema de penalidades](/pt-br/math/penalty-system) para a taxonomia completa das penalidades e a ordem de prioridade.
 - **Sem custo de geração**: a geração hidrelétrica tem custo marginal de combustível nulo — seu "custo" é o custo de oportunidade de deplecionar o armazenamento, capturado pela função de valor $V_{t+1}(v_h)$
 
-### Prévia das Restrições do PL
+### Prévia das restrições do PL
 
 O **balanço hídrico** de cada hidrelétrica leva seu armazenamento do valor de entrada ao valor de saída por meio das entradas e saídas acima ([Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas)). As defasagens de afluência de cada hidrelétrica são fixadas em seus valores de entrada ([Aumento do espaço de estados §4](/pt-br/math/state-augmentation#4-defasagens-de-afluencia)). A **restrição de geração** de cada célula segue o modelo de produção da usina ([Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models)).
 
-## 6. Fontes de Geração Não Despacháveis
+## 6. Fontes de geração não despacháveis
 
-### Significado Físico
+### Significado físico
 
 Uma **fonte não despachável** representa geração intermitente (parques eólicos, usinas solares, pequenas hidrelétricas a fio d'água etc.) cuja produção disponível depende de condições externas (clima, vazão do rio), e não de decisões de despacho. O solver recebe a disponibilidade como dado — uma realização, por cenário, do modelo de disponibilidade da fonte ([Geração de cenários §5.4](/pt-br/math/scenario-generation#54-disponibilidade-das-fontes-nao-despachaveis)), quando ela tem um, e, caso contrário, a geração disponível de seu estágio — e só pode cortar a geração abaixo dessa disponibilidade — não pode despachar acima do que a natureza fornece.
 
 As fontes não despacháveis têm custo marginal próximo de zero. O custo de cortar geração disponível é uma **penalidade de regularização** (Categoria 3 do [Sistema de penalidades](/pt-br/math/penalty-system)), análoga ao custo de vertimento de uma hidrelétrica — o corte de geração descarta energia "gratuita" disponível.
 
-### Sujeita a Corte vs. Geração Compulsória
+### Sujeita a corte vs. geração compulsória
 
 Um indicador por fonte $\chi^{curt}_r \in \{\text{curtailable}, \text{must-run}\}$ seleciona entre dois comportamentos do PL para a disponibilidade realizada $A_{r,k}$:
 
 - **Sujeita a corte de geração (curtailment)** (padrão): a coluna de geração tem limites $[0, A_{r,k}]$, o PL é livre para cortar qualquer montante abaixo de $A_{r,k}$, e o corte é regularizado pelo custo de corte $c^{curt}_r$. Este é o modelo padrão para usinas eólicas e solares isoladas, nas quais a redução de geração é fisicamente viável e economicamente justificada pelo custo de regularização.
-- **Geração compulsória (must-run)**: a coluna de geração é fixada na disponibilidade realizada, $g^{nc}_{r,k} = A_{r,k}$, atribuindo-se $A_{r,k}$ aos limites inferior e superior em todos os cenários. Nada é cortado, e a função objetivo contém o termo constante de corte de [Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis). Este modelo é necessário quando o processo de geração de cenários alimenta o PL com um agregado que já foi previamente abatido da demanda por um modelo anterior — por exemplo, um total de geração não simulada (pequenas hidrelétricas, térmicas distribuídas, eólica, solar, micro e minigeração distribuída) que o modelo anterior já subtraiu da série de demanda bruta. Permitir que o PL corte tal agregado desconta duas vezes a contribuição compulsória e subestima o custo hidrotérmico; fixá-lo como geração compulsória evita a dupla contagem e mantém a observabilidade por fonte nas saídas da simulação.
+- **Geração compulsória (must-run)**: a coluna de geração é fixada na disponibilidade realizada, $g^{nc}_{r,k} = A_{r,k}$, atribuindo-se $A_{r,k}$ aos limites inferior e superior em todos os cenários. Nada é cortado, e a função objetivo contém o termo constante de corte de [Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis). Este modelo é necessário quando o processo de geração de cenários alimenta o PL com um agregado que já foi previamente abatido da demanda por um modelo de origem — por exemplo, um total de geração não simulada (pequenas hidrelétricas, térmicas distribuídas, eólica, solar, micro e minigeração distribuída) que o modelo de origem já subtraiu da série de demanda bruta. Permitir que o PL corte tal agregado desconta duas vezes a contribuição compulsória e subestima o custo hidrotérmico; fixá-lo como geração compulsória evita a dupla contagem e mantém a observabilidade por fonte nas saídas da simulação.
 
 Para uma fonte com disponibilidade estocástica, a razão de disponibilidade $\xi_r = \mathrm{clamp}(\mu^{nc}_r + s^{nc}_r \cdot \varepsilon^{nc}_r,\,0,\,1)$ e o fator de patamar $f_{r,k}$ multiplicam a capacidade instalada exatamente como no caso sujeito a corte, $A_{r,k} = \bar{G}_r \, \xi_r \, f_{r,k}$; qualquer outra fonte usa a geração disponível de seu estágio no lugar de $\bar{G}_r \, \xi_r$, vezes $f_{r,k}$. Apenas o limite inferior difere.
 
-### Estados Operativos
+### Estados operativos
 
-As fontes não despacháveis seguem a janela de operação genérica (§1, _Janelas de Operação das Entidades_): fora dela, a coluna de geração de todos os patamares é fixada em zero, seja a fonte de geração compulsória ou não ([Formulação do PL — Fases do Ciclo de Vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida)).
+As fontes não despacháveis seguem a janela de operação genérica (§1, _Janelas de Operação das Entidades_): fora dela, a coluna de geração de todos os patamares é fixada em zero, seja a fonte de geração compulsória ou não ([Formulação do PL — Fases do ciclo de vida](/pt-br/math/lp-formulation#fases-do-ciclo-de-vida)).
 
-### Variáveis de Decisão
+### Variáveis de decisão
 
 | Variável       | Unidade | Descrição                                            |
 | -------------- | ----- | ---------------------------------------------------- |
@@ -534,11 +534,11 @@ As fontes não despacháveis seguem a janela de operação genérica (§1, _Jane
 
 O **corte de geração** **não** é uma variável de decisão separada do PL — ele é derivado como $\kappa_{r,k} = A_{r,k} - g^{nc}_{r,k}$, sendo $A_{r,k}$ a geração disponível do patamar para o estágio e o cenário correntes; o PL o precifica por meio de um custo negativo sobre $g^{nc}_{r,k}$ ([Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis)). Para uma fonte de geração compulsória, $\kappa_{r,k} = 0$ por construção, e seu termo é a constante $-\tau_k c^{curt}_r A_{r,k}$.
 
-### Conexões com Outros Elementos
+### Conexões com outros elementos
 
 - **Conexão ao barramento**: cada fonte se conecta a exatamente um barramento, contribuindo com geração para seu balanço de energia
 
-### Parâmetros Principais
+### Parâmetros principais
 
 | Parâmetro    | Unidade | Descrição                                                                                               |
 | ------------ | ------ | ------------------------------------------------------------------------------------------------------- |
@@ -547,33 +547,33 @@ O **corte de geração** **não** é uma variável de decisão separada do PL �
 | $f_{r,k}$ | — | Fator do patamar $k$ ($1$ quando nenhum é informado) |
 | $c^{curt}_r$ | R\$/MWh | Custo de corte de geração (penalidade de regularização)                                                 |
 
-### Papel na Função Objetivo
+### Papel na função objetivo
 
 O custo de corte de geração é um pequeno termo de regularização que favorece o despacho da geração disponível; [Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis) o relaciona à penalidade de corte de geração.
 
-### Prévia das Restrições do PL
+### Prévia das restrições do PL
 
 A geração de cada patamar fica entre zero e a geração disponível $A_{r,k}$ para uma fonte sujeita a corte, é igual a $A_{r,k}$ para uma fonte de geração compulsória, e é injetada no barramento conectado ([Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis)).
 
-## 7. Usinas Elevatórias
+## 7. Usinas elevatórias
 
-### Significado Físico
+### Significado físico
 
 Uma **usina elevatória** (estação de bombeamento) transfere água de um reservatório (origem) para outro (destino), consumindo potência elétrica no processo. O bombeamento permite transferência de cota, transferência entre bacias e arbitragem de armazenamento (bombear em períodos de baixa demanda, gerar em períodos de alta demanda).
 
-### Variáveis de Decisão
+### Variáveis de decisão
 
 | Variável  | Unidade | Descrição                                   |
 | --------- | ----- | ------------------------------------------- |
 | $p_{y,k}$ | m³/s  | Vazão bombeada na usina elevatória $y$, patamar $k$ |
 
-### Conexões com Outros Elementos
+### Conexões com outros elementos
 
 - **Hidrelétrica de origem**: a água é retirada deste reservatório
 - **Hidrelétrica de destino**: a água é acrescentada a este reservatório
 - **Conexão ao barramento**: o bombeamento consome potência no barramento conectado
 
-### Parâmetros Principais
+### Parâmetros principais
 
 | Parâmetro         | Unidade   | Descrição              |
 | ----------------- | --------- | ---------------------- |
@@ -581,51 +581,51 @@ Uma **usina elevatória** (estação de bombeamento) transfere água de um reser
 | $\bar{P}_y$       | m³/s      | Vazão bombeada máxima  |
 | $\rho^{pump}_y$        | MW/(m³/s) | Taxa de consumo de potência |
 
-### Papel na Função Objetivo
+### Papel na função objetivo
 
 As usinas elevatórias não têm termo de custo na função objetivo: a energia que consomem é carga no barramento conectado e é precificada ali ([Formulações específicas por equipamento §4](/pt-br/math/equipment-formulations#4-usinas-elevatorias)).
 
-### Prévia das Restrições do PL
+### Prévia das restrições do PL
 
 A vazão bombeada de cada patamar fica entre seu mínimo e seu máximo, sai do balanço hídrico da usina de origem e entra no da usina de destino, e consome potência no barramento conectado ([Formulações específicas por equipamento §4](/pt-br/math/equipment-formulations#4-usinas-elevatorias)).
 
 ## 8. Contratos de Importação/Exportação
 
-### Significado Físico
+### Significado físico
 
 Os **contratos** representam acordos de compra (importação) ou venda (exportação) de energia elétrica com sistemas externos à região modelada, proporcionando flexibilidade em situações de escassez e oportunidade de receita com excedentes.
 
 Cada contrato é **unidirecional**: é um contrato de importação ou um contrato de exportação.
 
-### Variáveis de Decisão
+### Variáveis de decisão
 
 | Variável     | Unidade | Descrição                                    |
 | ------------ | ----- | -------------------------------------------- |
 | $\chi_{c,k}$ | MW    | Potência despachada no contrato $c$, patamar $k$ |
 
-### Conexões com Outros Elementos
+### Conexões com outros elementos
 
 Cada contrato se conecta a exatamente um barramento, contribuindo para seu balanço de energia:
 
 - **Contratos de importação** ($c \in \mathcal{C}^{imp}$): acrescentam $\chi_{c,k}$ ao barramento (potência que entra no sistema)
 - **Contratos de exportação** ($c \in \mathcal{C}^{exp}$): retiram $\chi_{c,k}$ do barramento (potência que sai do sistema)
 
-### Parâmetros Principais
+### Parâmetros principais
 
 | Parâmetro                      | Unidade | Descrição                                                                   |
 | ------------------------------ | ------ | --------------------------------------------------------------------------- |
 | $\underline{C}_c$, $\bar{C}_c$ | MW     | Limites mínimo e máximo de despacho do contrato                             |
 | $c^{ctr}_c$                    | R\$/MWh | Preço do contrato: positivo para importações (custo), negativo para exportações (receita) |
 
-### Papel na Função Objetivo
+### Papel na função objetivo
 
 Um contrato de importação acrescenta seu custo à função objetivo, e um contrato de exportação subtrai sua receita ([Formulações específicas por equipamento §3](/pt-br/math/equipment-formulations#3-contratos-de-importacaoexportacao)).
 
-### Prévia das Restrições do PL
+### Prévia das restrições do PL
 
 A potência despachada de cada patamar fica entre o mínimo e o máximo do contrato, sendo um mínimo não nulo um piso take-or-pay ([Formulações específicas por equipamento §3](/pt-br/math/equipment-formulations#3-contratos-de-importacaoexportacao)).
 
-## 9. Resumo: Elementos Físicos e Componentes do PL
+## 9. Resumo: elementos físicos e componentes do PL
 
 A tabela a seguir associa cada elemento físico do sistema à sua representação no PL:
 
@@ -654,7 +654,7 @@ A metodologia acima define todos os elementos do sistema; as abas abaixo tratam 
   <TabItem label="Entradas e saídas"><NetworkIO /></TabItem>
 </Tabs>
 
-## Referências Cruzadas
+## Referências cruzadas
 
 - [Convenções de notação](/pt-br/overview/notation-conventions) — convenções de nomenclatura de variáveis e conjuntos de índices usados em todo o texto
 - [Formulação do PL](/pt-br/math/lp-formulation) — restrições do PL totalmente montadas, combinando todos os elementos

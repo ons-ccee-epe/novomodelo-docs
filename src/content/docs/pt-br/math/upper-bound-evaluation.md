@@ -105,7 +105,7 @@ em que $Q_1^k(x_0, \omega)$ é o valor ótimo do problema do primeiro estágio n
 O limite superior é o do mecanismo de simulação forward que estiver ativo (seção 1): com uma simulação forward amostrada, $\bar{z}^k$ é a média amostral do estimador estatístico; com uma simulação forward enumerada, $\bar{z}^k = \bar{z}_{\text{exact}}$ (seção 2).
 
 :::note[Mecanismo reservado]
-Com a aproximação interna reservada baseada em vértices ([Apêndice: Aproximação interna (reservada)](#apendice-aproximacao-interna-reservada)), o limite superior do estágio 1 seria, em vez disso, o valor ajustado ao risco do primeiro estágio sobre suas aberturas no estado inicial $x_0$, com a aproximação interna $\bar{V}_2$ no lugar dos cortes. O gap independe de qual mecanismo fornece $\bar{z}^k$.
+Com a aproximação interna reservada baseada em vértices ([Apêndice: aproximação interna (reservada)](#apendice-aproximacao-interna-reservada)), o limite superior do estágio 1 seria, em vez disso, o valor ajustado ao risco do primeiro estágio sobre suas aberturas no estado inicial $x_0$, com a aproximação interna $\bar{V}_2$ no lugar dos cortes. O gap independe de qual mecanismo fornece $\bar{z}^k$.
 :::
 
 ### Gap
@@ -230,7 +230,7 @@ O estimador desta seção, por sua vez, reporta a distribuição de custos simul
 Este capítulo é responsável pela metodologia tanto do limite da simulação forward da fase de treinamento (seções 1–2) quanto do estimador da simulação pós-treinamento (esta seção); a derivação das sementes dos cenários e a distribuição dos cenários entre os recursos computacionais são detalhes de implementação fora do escopo deste capítulo.
 :::
 
-## Apêndice: Aproximação interna (reservada)
+## Apêndice: aproximação interna (reservada)
 
 Este apêndice descreve um projeto reservado que o Novo Modelo não calcula: uma aproximação interna da função de custo futuro baseada em vértices (SIDP), que avaliaria o limite superior independentemente do modo de amostragem da simulação forward.
 

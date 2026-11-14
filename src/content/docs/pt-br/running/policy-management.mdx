@@ -122,7 +122,7 @@ interrupção. São idênticos bit a bit:
 
 - em todo conjunto, os valores dos cortes, os indicadores de atividade, a iteração e a simulação
   forward que geraram cada corte, os contadores de atividade na solução, o papel de cada posição,
-  os estados visitados armazenados e o registro de dominância construído a partir deles;
+  os estados visitados armazenados e o registro de detentores construído a partir deles;
 - o limite superior final, as contagens do simplex nas simulações forward e backward das
   iterações posteriores ao checkpoint e as contagens de linhas dos conjuntos informadas por essas
   iterações;
@@ -595,19 +595,19 @@ diferença fica abaixo da tolerância do solver.
 Os cortes de fronteira permitem que um estudo do Novo Modelo carregue aproximações da função de custo futuro
 (FCF) do estágio terminal a partir de outro checkpoint de política do Novo Modelo. Este é o
 mecanismo dos **estudos encadeados**: um estudo a jusante importa um conjunto de cortes da
-política de um estudo a montante como sua condição de fronteira terminal, de modo que suas
-decisões de final de horizonte levem em conta o custo futuro da água do estudo a montante.
+política de um estudo de origem como sua condição de fronteira terminal, de modo que suas
+decisões de final de horizonte levem em conta o custo futuro da água do estudo de origem.
 O estudo a jusante pode ter um horizonte mais curto ou estágios mais finos que o
-estudo a montante. Para o método, veja
+estudo de origem. Para o método, veja
 [Fronteira pós-estudo e estudos encadeados §5](/pt-br/math/post-study-boundary#5-estudos-encadeados).
 
 ### Como funciona
 
-1. **Execute o estudo a montante** para produzir um checkpoint de política, ou crie o
+1. **Execute o estudo de origem** para produzir um checkpoint de política, ou crie o
    checkpoint em Python
    ([Ler e gravar checkpoints a partir do Python](#ler-e-gravar-checkpoints-a-partir-do-python)).
 2. **Execute o estudo a jusante** com `policy.boundary` apontando para o
-   checkpoint a montante. O Novo Modelo seleciona o conjunto de origem precificado na
+   checkpoint de origem. O Novo Modelo seleciona o conjunto de origem precificado na
    **data de fronteira terminal** do estudo a jusante — o `end_date` do último estágio
    não negativo — e injeta seus cortes no conjunto de linhas do estágio terminal como
    condições de fronteira fixas. Não há parâmetro de índice de estágio: o conjunto é escolhido
@@ -684,7 +684,7 @@ associado à posição do estudo atual para a mesma entidade. Uma coordenada da 
 que acopla uma posição de estado que o estudo atual não modela não pode ser transportada; ela
 é informada em um **resumo de reconciliação por família** e descartada, e a carga
 ainda é **bem-sucedida** por padrão. Veja
-[Fronteira pós-estudo e estudos encadeados §4](/pt-br/math/post-study-boundary#4-conciliacao-de-calendarios-distribuicao) para o
+[Fronteira pós-estudo e estudos encadeados §4](/pt-br/math/post-study-boundary#4-reconciliacao-de-calendarios-distribuicao) para o
 mecanismo de reconciliação.
 
 Essa tolerância é o caminho padrão de reconciliação, mas a carga ainda impõe requisitos
@@ -700,7 +700,7 @@ falha interrompe a execução:
    número finito e positivo (veja
    [Canonicalização da escala de custo](#canonicalizacao-da-escala-de-custo)); um conjunto sem
    ele é recusado com `boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
-4. **Origem de nó único.** O conjunto resolvido é um conjunto terminal de nó único, não
+4. **Origem de nó único.** O conjunto resolvido é um conjunto final de nó único, não
    um compartilhado por vários nós do estudo. Um conjunto compartilhado é recusado com
    `boundary policy at {path}: a boundary source must be a single-node terminal pool; the resolved pool is shared by multiple nodes`.
 5. **Profundidade das defasagens de afluência.** Antes de construir o estudo, o Novo Modelo lê a posição de
@@ -790,20 +790,20 @@ Quando ambos são datados e as datas diferem, a carga é rejeitada independentem
 `boundary policy's inflow-lag coefficient for hydro {id} at lag depth {depth} references a different past than the current study: boundary {date}, current {date}`.
 
 **Cobertura e datação das defasagens.** Um conjunto de origem intermediário, qualquer conjunto que não seja o
-conjunto terminal do estudo a montante, contém coeficientes de defasagem de afluência apenas quando a seleção
+conjunto final do estudo de origem, contém coeficientes de defasagem de afluência apenas quando a seleção
 [`stages[].state_variables`](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes)
-do estágio sucessor inclui `inflow_lags`, cujo padrão é `false`. O conjunto terminal
-de um estudo a montante treinado é dimensionado pelo estado completo desse estudo, com todas as
+do estágio sucessor inclui `inflow_lags`, cujo padrão é `false`. O conjunto final
+de um estudo de origem treinado é dimensionado pelo estado completo desse estudo, com todas as
 posições de defasagem de afluência desse estado, qualquer que seja a seleção; o treinamento nunca acrescenta
 corte a ele, de modo que contém apenas os cortes nele carregados, como os próprios
 cortes de fronteira desse estudo. O estado terminal do estudo atual (a jusante) tem posições de
 defasagem de afluência quando seu próprio modelo de afluências é autorregressivo ou quando algum conjunto da
 origem referencia uma defasagem (a extensão do item 5 da lista), e um conjunto de origem que
 não tem coeficiente para alguma dessas posições é rejeitado com a mensagem de
-**Defasagem de afluência ausente**. Um estudo a montante autorregressivo sempre
-dispara essa extensão, porque seu conjunto terminal referencia todas as defasagens de seu
+**Defasagem de afluência ausente**. Um estudo de origem autorregressivo sempre
+dispara essa extensão, porque seu conjunto final referencia todas as defasagens de seu
 estado mesmo quando não contém cortes. Para encadear a partir de um conjunto intermediário, defina
-`inflow_lags: true` no estágio a montante que segue o estágio do conjunto de origem.
+`inflow_lags: true` no estágio do estudo de origem que segue o estágio do conjunto de origem.
 Cada estudo data suas próprias defasagens: a defasagem 1 pela data de início do próprio estágio do conjunto,
 e cada defasagem mais profunda pela data de início de um estágio mais atrás na lista
 completa de estágios desse estudo, incluindo os estágios pré-estudo. O estágio do conjunto de origem e
@@ -842,7 +842,7 @@ campo JSON `configured` é `false`.
 ### Retomada com fronteira
 
 Uma execução que declarou `policy.boundary` treina contra as linhas de fronteira de seu
-conjunto terminal, e seu checkpoint contém essas linhas junto com os contadores de
+conjunto final, e seu checkpoint contém essas linhas junto com os contadores de
 atividade que a execução registrou para elas. Uma retomada dessa execução deve declarar a mesma
 fronteira novamente. O Novo Modelo compara as linhas de fronteira declaradas com as linhas terminais
 do checkpoint: a dimensão do estado, o número de posições e então, posição a posição,
@@ -874,16 +874,16 @@ Um encadeamento de estudos usa cortes de fronteira da seguinte forma:
 ```d2
 direction: down
 
-upstream: "Estudo a montante\ncheckpoint da política: conjuntos de cortes precificados por data" {shape: rectangle}
+upstream: "Estudo de origem\ncheckpoint da política: conjuntos de cortes precificados por data" {shape: rectangle}
 downstream: "Estudo a jusante (encadeado)" {shape: rectangle}
 
 upstream -> downstream: "policy.boundary.path = ../upstream_study/output/policy\nconjunto de origem precificado na data terminal do estudo a jusante → FCF terminal"
 ```
 
-O estudo a montante grava um checkpoint de política cujos conjuntos de cortes são, cada um, precificados em
+O estudo de origem grava um checkpoint de política cujos conjuntos de cortes são, cada um, precificados em
 uma data. O estudo a jusante indica esse checkpoint em `policy.boundary.path`,
 e o conjunto precificado na data de fronteira terminal do estudo a jusante torna-se sua
-função de custo futuro terminal. A dependência é unidirecional: o estudo a montante
+função de custo futuro terminal. A dependência é unidirecional: o estudo de origem
 nunca lê o estudo a jusante. As condições sob as quais os cortes importados
 se aplicam ao estado do estudo a jusante estão em
 [Fronteira pós-estudo e estudos encadeados §5.2](/pt-br/math/post-study-boundary#52-condicoes-de-compatibilidade).
@@ -905,7 +905,7 @@ Cortes de fronteira e partida a quente são recursos independentes e podem ser c
 ```
 
 Isso carrega os próprios cortes do estudo a jusante, de sua execução anterior, via
-partida a quente E carrega os cortes de fronteira da política a montante no estágio terminal.
+partida a quente E carrega os cortes de fronteira da política de origem no estágio terminal.
 Ambos os conjuntos de cortes contribuem para o limite inferior.
 
 ---

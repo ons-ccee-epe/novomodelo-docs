@@ -379,7 +379,7 @@ Agrupa os parâmetros de escalonamento dos trabalhadores, que preservam o result
   { "method": "by_scenario" }
   ```
 
-- `"by_node"` — cada unidade de trabalho paralela é um par `(estado visitado, bloco de aberturas)`, assumido dinamicamente a partir de um contador compartilhado.
+- `"by_node"` — cada unidade de trabalho paralela é um par `(trial point, opening block)`, assumido dinamicamente a partir de um contador compartilhado.
 
   | Campo        | Tipo               | Padrão  | Descrição                                                                                                                                                                                  |
   | ------------ | ------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -461,12 +461,12 @@ um `selection` fornecido como array é erro de análise. Um parâmetro de contag
 
 - `"level1"` — seleção de cortes Nível 1 (Level-1) sobre o conjunto de cada estágio estritamente entre
   o primeiro e o último. Cada um desses conjuntos armazena o estado visitado de cada linha
-  que a execução acrescenta. Em cada estado armazenado, a linha de maior valor é a dona do
+  que a execução acrescenta. Em cada estado armazenado, a linha de maior valor é a detentora do
   estado, dentre as linhas pontuadas do conjunto, ativas ou não, e as demais linhas carregadas
   que estejam ativas; entre linhas com valores exatamente iguais, a que estiver na
-  menor posição do conjunto é a dona. A cada `check_frequency` iterações, uma linha pontuada
-  é desativada quando não é dona de nenhum estado armazenado e reativada quando está
-  inativa e é dona de algum. Os valores são comparados exatamente, e uma linha da iteração
+  menor posição do conjunto é a detentora. A cada `check_frequency` iterações, uma linha pontuada
+  é desativada quando não é detentora de nenhum estado armazenado e reativada quando está
+  inativa e é detentora de algum. Os valores são comparados exatamente, e uma linha da iteração
   corrente é julgada como qualquer outra. Uma linha carregada é pontuada quando a política
   a registra assim (a execução que a gravou armazenou seu estado visitado, com `level1` ou
   `exports.states`); uma linha carregada que não é pontuada mantém a atividade com que foi
@@ -938,7 +938,7 @@ checkpoint de origem e os injeta como condições de contorno fixas no
 estágio terminal do estudo atual. Os cortes importados não são atualizados pelo
 treinamento — permanecem fixos durante toda a execução.
 
-Isso permite o acoplamento de modelos Novo Modelo com Novo Modelo: um estudo a montante produz um
+Isso permite o acoplamento de modelos Novo Modelo com Novo Modelo: um estudo de origem produz um
 checkpoint de política, e um estudo encadeado importa um conjunto de cortes desse checkpoint como
 sua função terminal fixa
 ([Fronteira pós-estudo e estudos encadeados §5](/pt-br/math/post-study-boundary#5-estudos-encadeados)).
@@ -951,9 +951,9 @@ modela.
 | Campo    | Tipo    | Padrão  | Descrição                                                                                                                                                          |
 | -------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `path`   | string  | —       | Caminho do diretório do checkpoint de origem, resolvido em relação a este diretório do caso (um caminho absoluto é usado como está), de modo que o checkpoint de um estudo vizinho é `../<study>/output/policy`. |
-| `strict` | boolean | `false` | Rejeita a carga quando a origem precifica uma entidade ou um compromisso que este estudo não modela. `false` descarta o excedente (registrado no relatório de conciliação) e carrega. |
+| `strict` | boolean | `false` | Rejeita a carga quando a origem precifica uma entidade ou um compromisso que este estudo não modela. `false` descarta o excedente (registrado no relatório de reconciliação) e carrega. |
 
-Exemplo — carregar a política de um estudo a montante como fronteira terminal:
+Exemplo — carregar a política de um estudo de origem como fronteira terminal:
 
 ```json
 {
@@ -968,9 +968,9 @@ Exemplo — carregar a política de um estudo a montante como fronteira terminal
 ```
 
 Executar `novomodelo validate --json` em um caso que configura uma fronteira e treina
-emite a data selecionada e o relatório de conciliação por família como um único objeto —
+emite a data selecionada e o relatório de reconciliação por família como um único objeto —
 o formato de sucesso contém `configured`, `boundary_date` e `report`. A fronteira
-só é conciliada quando a execução treina, de modo que um caso com o treinamento desabilitado informa
+só é reconciliada quando a execução treina, de modo que um caso com o treinamento desabilitado informa
 `configured: false`:
 
 ```json

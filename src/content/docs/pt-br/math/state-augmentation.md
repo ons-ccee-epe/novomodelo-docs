@@ -11,7 +11,7 @@ Este capítulo define o estado que o PL do estágio transporta de um estágio pa
 
 Para a visão por entidade deste capítulo, veja [Usinas hidrelétricas](/pt-br/entities/generation/hydro-plants/) e [Usinas termelétricas](/pt-br/entities/generation/thermal-plants/).
 
-## 1. Vetor de Estado
+## 1. Vetor de estado
 
 O estado do estágio $t$ é o vetor que o estágio $t$ passa ao estágio $t + 1$ e sobre o qual os cortes do estágio $t$ são escritos. Ele tem quatro famílias:
 
@@ -28,9 +28,9 @@ $$
 
 O estado é ordenado canonicamente: armazenamento, defasagens de afluência, in-transit buckets, slots do commitment ring e, dentro de cada família, as usinas hidrelétricas, usinas receptoras ou termelétricas com antecipação na ordem canônica de entidades de [Convenções de notação](/pt-br/overview/notation-conventions) (defasagem como índice externo para as defasagens, slot como índice externo para os ring slots). Cada estágio fixa sua cópia de entrada do estado por limites de coluna (§2), e cada corte de um estágio é uma linha sobre o estado de saída do estágio (§3).
 
-## 2. Fixação por Limites de Coluna
+## 2. Fixação por limites de coluna
 
-O balanço hídrico ([Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas)), os hiperplanos da FPHA ([Formulação do PL §6](/pt-br/math/lp-formulation#6-restricoes-de-geracao-hidreletrica)), a linha de evaporação ([Formulação do PL — Linha de Evaporação](/pt-br/math/lp-formulation#linha-de-evaporacao)) e as restrições genéricas ([Formulação do PL §10](/pt-br/math/lp-formulation#10-restricoes-genericas)) envolvem o valor de armazenamento de entrada $\hat{v}_h$. Em vez de incorporar $\hat{v}_h$ como constante no lado direito de cada uma dessas restrições (o que exigiria coletar as variáveis duais de todas elas para calcular os coeficientes do corte), o Novo Modelo introduz uma **variável de PL explícita de armazenamento de entrada** $v^{in}_h$, referenciada por todas essas restrições, e a **fixa** no valor do estado visitado.
+O balanço hídrico ([Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas)), os hiperplanos da FPHA ([Formulação do PL §6](/pt-br/math/lp-formulation#6-restricoes-de-geracao-hidreletrica)), a linha de evaporação ([Formulação do PL — Linha de evaporação](/pt-br/math/lp-formulation#linha-de-evaporacao)) e as restrições genéricas ([Formulação do PL §10](/pt-br/math/lp-formulation#10-restricoes-genericas)) envolvem o valor de armazenamento de entrada $\hat{v}_h$. Em vez de incorporar $\hat{v}_h$ como constante no lado direito de cada uma dessas restrições (o que exigiria coletar as variáveis duais de todas elas para calcular os coeficientes do corte), o Novo Modelo introduz uma **variável de PL explícita de armazenamento de entrada** $v^{in}_h$, referenciada por todas essas restrições, e a **fixa** no valor do estado visitado.
 
 Para cada usina hidrelétrica $h \in \mathcal{H}$, a coluna de armazenamento de entrada ([Estrutura e escalonamento do PL §1](/pt-br/math/lp-layout-and-scaling#1-estrutura-de-colunas-e-linhas)) é fixada atribuindo-se **limites de coluna** inferior e superior iguais:
 
@@ -53,7 +53,7 @@ O estado de entrada é fixado por **limites de coluna**, e não por uma _linha d
 
 **Número de colunas**: $N$ colunas fixadas de armazenamento de entrada, onde $N = |\mathcal{H}|$ é o número de usinas hidrelétricas, qualquer que seja a fase do ciclo de vida. Não há linhas de fixação de estado: toda coluna de estado de entrada é fixada por seus limites.
 
-## 3. Estado de Saída e a Linha de Corte
+## 3. Estado de saída e a linha de corte
 
 Em um estágio que completa um período de defasagem próprio — como ocorre com todo estágio de um estudo uniforme de resolução única com [mapa de períodos sazonais](/pt-br/math/multi-resolution-studies#1-mapa-de-periodos-sazonais), exceto as 52ª e 53ª semanas de um ano de 53 semanas sob ciclo semanal —, o estado de saída do estágio $t$ é o vetor que o estágio $t+1$ fixa como seu estado de entrada. Um estágio que compartilha um período de defasagem repassa suas defasagens inalteradas até que o período se complete ([Estudos com múltiplas resoluções §2](/pt-br/math/multi-resolution-studies#2-acumulacao-das-defasagens)) e, em uma mudança de resolução, o estado de defasagens é reconstruído a partir dos períodos grossos completados ([Estudos com múltiplas resoluções §3](/pt-br/math/multi-resolution-studies#3-mudanca-de-resolucao)).
 
@@ -74,7 +74,7 @@ $$
 
 onde $\cdots$ representa os termos dos buckets e dos ring slots, cada coeficiente sobre sua coluna de saída por identidade. Cada coeficiente é o custo reduzido da coluna de entrada fixada correspondente do estágio $t+1$, desescalonado ([Estrutura e escalonamento do PL §2](/pt-br/math/lp-layout-and-scaling#2-escalonamento-do-pl)): o coeficiente de defasagem $\beta^{lag}_{h,\ell}$ precifica a defasagem $\ell$ do estado de entrada do estágio seguinte, de modo que, em relação às colunas de defasagem do estágio $t$, os termos de defasagem são reindexados em um estágio. Uma componente de armazenamento ou de defasagem descartada pela projeção de estado do corte não tem termo ([§7](#7-projecao-de-estado-do-corte)).
 
-## 4. Defasagens de Afluência
+## 4. Defasagens de afluência
 
 A equação da dinâmica AR ([Formulação do PL §5](/pt-br/math/lp-formulation#5-linhas-de-definicao-da-afluencia-realizada)) usa as afluências defasadas $a_{h,\ell}$ como variáveis do PL. Para manter a propriedade de Markov na decomposição da PDDE, cada variável de defasagem é fixada em seu valor de estado de entrada por meio de **limites de coluna** inferior e superior iguais em sua coluna de defasagem. Isso vincula as variáveis de defasagem ao estado de entrada conhecido, e o **custo reduzido** de cada coluna fixada fornece o coeficiente do corte $\beta^{lag}_{h,\ell}$ para a dimensão de defasagem de afluência correspondente dos cortes de Benders ([Formulação do PL §11](/pt-br/math/lp-formulation#11-cortes-de-benders)). Se essas dimensões de defasagem entram ou não no corte é definido pela projeção de estado do corte, configurada pelo estágio sucessor: quando ele projeta fora as defasagens de afluência, as colunas de defasagem continuam fixadas para a dinâmica AR, mas seus custos reduzidos não fornecem coeficiente de corte, resultando em um corte somente de armazenamento mesmo com um ajuste PAR($p$) — ver [§7](#7-projecao-de-estado-do-corte).
 
@@ -96,11 +96,11 @@ Os slots de defasagem que uma usina não lê são estruturalmente nulos e ficam 
 
 **Coeficiente do corte**: $\beta^{lag}_{h,\ell}$ (valor marginal do histórico de afluências na defasagem $\ell$ da usina $h$) é o custo reduzido da coluna de defasagem fixada, desescalonado pelo fator de coluna do pré-escalonador ([Estrutura e escalonamento do PL §2](/pt-br/math/lp-layout-and-scaling#2-escalonamento-do-pl)) — ver [Gerenciamento de cortes](/pt-br/math/cut-management).
 
-## 5. Compromissos de Despacho das Termelétricas com Antecipação
+## 5. Compromissos de despacho das termelétricas com antecipação
 
 Uma usina termelétrica com antecipação de despacho decide o compromisso de cada entrega antes de seu estágio de entrega e mantém todo compromisso decidido e ainda não entregue como estado em um commitment ring por usina (ver [Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho)). Sua antecedência é um número de estágios ou um tempo físico de antecedência. O estágio de decisão da entrega no estágio $m$ é $t_i(m) = m - K_i$ para antecedência em número de estágios; para antecedência física, é o estágio que contém o instante situado uma antecedência antes do fim do estágio $m$, onde um instante sobre a fronteira entre estágios pertence ao estágio anterior. Uma entrega cuja decisão cai antes do estudo ($m \leq K_i$ com antecedência em número de estágios; um instante igual ou anterior ao início do estudo com antecedência física) é decidida antes do estudo e não tem estágio de decisão. Uma entrega com $t_i(m) = m$ não é antecipada: nesse estágio, a usina é despachada como uma termelétrica comum. Todo compromisso é limitado, custeado e condicionado à entrada em operação no seu estágio de entrega, e não no seu estágio de decisão.
 
-### Hold Ring
+### Hold ring
 
 A profundidade do ring $K_i$ da usina $i$ é a antecedência, quando esta é dada em número de estágios; para antecedência física, é o maior número de compromissos que o ring da usina retém no início de qualquer estágio, incluído o primeiro estágio após o estudo, contando as entregas nesse estágio ou depois dele cujo compromisso foi decidido em um estágio anterior, sendo as entregas decididas antes do estudo retidas a partir do primeiro estágio. Todo ring tem $k_{max} = \max_i K_i$ slots, rotuladas pelos resíduos $s \in \{0, \ldots, k_{max} - 1\}$.
 
@@ -114,7 +114,7 @@ $$
 
 O valor do estado visitado é o slot de saída do estágio anterior. No primeiro estágio, é a potência comprometida da entrega, decidida antes do estudo, que o slot contém (ver [Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho)), e $0$ em um slot que não contém nenhuma.
 
-### Linhas do Ring
+### Linhas do ring
 
 No estágio $t$, três famílias de linhas de igualdade acoplam o ring da usina $i$ à sua decisão e à sua geração. A linha de **depósito** grava o compromisso decidido no estágio $t$ no slot de sua entrega:
 
@@ -150,11 +150,11 @@ para o compromisso que a usina decide no estágio $t$ para seu estágio de entre
 
 A geração por patamar da usina não tem custo em um estágio em que sua entrega é retirada, de modo que a energia de um compromisso é precificada uma única vez, em sua coluna de decisão; em um estágio em que a usina é despachada como termelétrica comum, sua geração é precificada por patamar como a de qualquer termelétrica. As colunas do ring não têm custo.
 
-### Coeficiente de Corte dos Ring Slots
+### Coeficiente de corte dos ring slots
 
 O coeficiente do slot $(s, i)$ em um corte do estágio $t$ é o custo reduzido do slot de entrada fixado $x^{\mathrm{a,in}}_{s,i}$ do estágio $t + 1$, desescalonado como todo coeficiente de estado ([Estrutura e escalonamento do PL §2.3](/pt-br/math/lp-layout-and-scaling#23-escalonamento-de-linhas-media-geometrica)). A linha de corte o multiplica pelo slot de saída $x^{\mathrm{a}}_{s,i}$ do estágio $t$, com o mesmo resíduo e a mesma usina: a coluna que a linha de depósito vincula à decisão $g^{\mathrm{a}}_{i,t}$, ou que a linha de transporte vincula ao slot de entrada $x^{\mathrm{a,in}}_{s,i}$. Um compromisso ocupa um único slot desde sua linha de depósito até sua entrega, de modo que o corte precifica esse slot por identidade em cada estágio da retenção, e o valor marginal de um compromisso decidido pelo estudo chega à sua coluna de decisão por meio da linha de depósito de seu estágio de decisão. Os ring slots sempre fazem parte da projeção de estado do corte; quais deles têm coeficientes estruturalmente nulos é indicado em [§7](#7-projecao-de-estado-do-corte).
 
-## 6. Tempo de Viagem da Água
+## 6. Tempo de viagem da água
 
 Quando uma defluência a montante leva um tempo apreciável para percorrer a cascata, apenas a parcela $\nu_{h',t,0}$ de uma defluência ([Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas)) chega à usina vizinha a jusante no estágio da defluência, e o restante chega em estágios posteriores. O Novo Modelo modela isso como um **estado aumentado de água em trânsito**: o volume ainda em trânsito em um trecho da cascata é transportado pela recursão de Bellman como coordenadas adicionais de estado, exatamente como o armazenamento (§2) e as defasagens AR (§4).
 
@@ -174,7 +174,7 @@ $$
 \underline{b}^{\,\mathrm{in}}_{h,d} = \bar{b}^{\,\mathrm{in}}_{h,d} = \hat{b}_{h,d}
 $$
 
-onde $\hat{b}_{h,d}$ é o volume de água em trânsito de entrada, o bucket de saída do estágio anterior (ou, no primeiro estágio, o valor inicial derivado das defluências em trânsito declaradas antes do estudo — ver [Visão geral da modelagem dos elementos do sistema — Tempo de Viagem na Cascata](/pt-br/math/system-elements#tempo-de-viagem-na-cascata) e [Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo)). O **custo reduzido** da coluna fixada do bucket é o coeficiente do corte para essa dimensão de água em trânsito (ver abaixo) — o mesmo regime usado para o armazenamento (§2) e as defasagens AR (§4).
+onde $\hat{b}_{h,d}$ é o volume de água em trânsito de entrada, o bucket de saída do estágio anterior (ou, no primeiro estágio, o valor inicial derivado das defluências em trânsito declaradas antes do estudo — ver [Visão geral da modelagem dos elementos do sistema — Tempo de viagem na cascata](/pt-br/math/system-elements#tempo-de-viagem-na-cascata) e [Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo)). O **custo reduzido** da coluna fixada do bucket é o coeficiente do corte para essa dimensão de água em trânsito (ver abaixo) — o mesmo regime usado para o armazenamento (§2) e as defasagens AR (§4).
 
 ### Entrada de chegada defasada no balanço hídrico
 
@@ -218,7 +218,7 @@ Os in-transit buckets estão sempre na projeção do corte, qualquer que seja a 
 
 O volume em trânsito que venceria **após o último estágio do estudo** é descartado e não é creditado ao armazenamento terminal — mas somente **quando nenhuma função de custo futuro de fronteira terminal é carregada**. Na ausência de fronteira, uma defluência no final do horizonte cujo tempo de viagem a leva além do estágio final $T$ deixa o sistema modelado sem chegar: a defasagem de maturação mais profunda ativa no estágio $t$ é limitada a $T - t$, de modo que nenhum bucket aponta além do horizonte e a parcela é descartada, em vez de ser desviada para uma defasagem anterior. Quando, em vez disso, uma [fronteira terminal](/pt-br/math/post-study-boundary) é carregada, esse limite é suprimido: os slots terminais de água em trânsito de defasagem profunda são mantidos ativos em vez de eliminados, transportados no estado de saída do estágio terminal, e alcançam a projeção de estado do corte precificada pela fronteira. A água ainda em trânsito é valorada na fronteira em vez de descartada, precificada pelo mesmo mecanismo de corte por custos reduzidos que os buckets já usam (ver Coeficiente do corte, acima).
 
-## 7. Projeção de Estado do Corte
+## 7. Projeção de estado do corte
 
 Um estágio não precisa projetar os cortes que gera sobre o estado completo da §1. Cada estágio seleciona se os cortes que gera contêm as componentes de armazenamento e se contêm as componentes de defasagem de afluência; a seleção define a dimensão desses cortes, e não o estado que o estágio fixa e repassa (§2, §3). Uma componente deixada de fora é **projetada fora** do subgradiente: seu custo reduzido não é lido no corte, e o corte não tem coeficiente para ela. O termo independente $\beta_0$ é o valor ótimo no estado visitado menos os produtos dos coeficientes mantidos pelos respectivos valores no estado visitado, de modo que o termo linear de uma componente projetada fora, em seu valor no estado visitado, é absorvido em $\beta_0$: o corte é um hiperplano suporte de dimensão reduzida da fatia da função de custo futuro que passa pelo estado visitado, e não um corte completo com as coordenadas omitidas preenchidas com zero.
 
@@ -226,13 +226,13 @@ Um estágio não precisa projetar os cortes que gera sobre o estado completo da 
 - Com o armazenamento projetado fora, os $N$ coeficientes de armazenamento são omitidos da mesma forma, e o corte abrange as componentes que mantém: as defasagens de afluência, quando mantidas, e os buckets e ring slots, quando o estudo os possui.
 - Os in-transit buckets (§6) e os slots do commitment ring (§5) são **sempre** projetados, qualquer que seja a seleção, que alterna apenas as componentes de armazenamento e de defasagem de afluência. Todo slot do ring de toda usina com antecipação tem um coeficiente; um slot que nenhum estágio ocupa tem coeficiente estruturalmente nulo, de modo que a linha de corte só contém entradas para os slots ocupados por algum estágio.
 
-A dimensão do conjunto de cortes de um estágio é definida pela seleção de seu estágio **sucessor**, já que o conjunto contém os cortes gerados pelo sucessor; o conjunto terminal, que não tem sucessor, contém o estado completo, qualquer que seja a seleção.
+A dimensão do conjunto de cortes de um estágio é definida pela seleção de seu estágio **sucessor**, já que o conjunto contém os cortes gerados pelo sucessor; o conjunto final, que não tem sucessor, contém o estado completo, qualquer que seja a seleção.
 
-Como uma fronteira é carregada no conjunto terminal, a seleção de um estudo não altera o que sua fronteira deve conter: uma contrapartida para cada componente de armazenamento e de defasagem de afluência do estado terminal do estudo ([Fronteira pós-estudo e estudos encadeados §5.2](/pt-br/math/post-study-boundary#52-condicoes-de-compatibilidade), condição (c)), em que o estado de defasagens do estudo se estende até a defasagem mais profunda referenciada por algum conjunto da política de fronteira (condição (d)). Um conjunto cujos cortes projetam fora as defasagens de afluência, como em uma projeção somente de armazenamento, não precifica nenhuma componente de defasagem de afluência e, portanto, só é admitido como fonte de fronteira por um estudo cujo estado terminal não contenha defasagem de afluência. O conjunto terminal de uma política produzida pelo treinamento (training) contém todas as defasagens de afluência do estado da política, o que estende o estado de defasagens do estudo que a carrega pela condição (d); os conjuntos dessa política que projetam fora as defasagens de afluência são, portanto, recusados como fontes de fronteira sempre que seu estado contém defasagens de afluência.
+Como uma fronteira é carregada no conjunto final, a seleção de um estudo não altera o que sua fronteira deve conter: uma contrapartida para cada componente de armazenamento e de defasagem de afluência do estado terminal do estudo ([Fronteira pós-estudo e estudos encadeados §5.2](/pt-br/math/post-study-boundary#52-condicoes-de-compatibilidade), condição (c)), em que o estado de defasagens do estudo se estende até a defasagem mais profunda referenciada por algum conjunto da política de fronteira (condição (d)). Um conjunto cujos cortes projetam fora as defasagens de afluência, como em uma projeção somente de armazenamento, não precifica nenhuma componente de defasagem de afluência e, portanto, só é admitido como fonte de fronteira por um estudo cujo estado terminal não contenha defasagem de afluência. O conjunto final de uma política produzida pelo treinamento (training) contém todas as defasagens de afluência do estado da política, o que estende o estado de defasagens do estudo que a carrega pela condição (d); os conjuntos dessa política que projetam fora as defasagens de afluência são, portanto, recusados como fontes de fronteira sempre que seu estado contém defasagens de afluência.
 
 Um corte que projeta fora uma componente da qual a função de custo futuro depende só tem garantia de ficar abaixo da função de custo futuro na fatia que passa por seu estado visitado; a consequência para o limite inferior está em [Gerenciamento de cortes — condição 4](/pt-br/math/cut-management#4-validade-dos-cortes), e o caso das defasagens de afluência com um modelo PAR(p) está na nota sobre [projeção de corte somente de armazenamento](/pt-br/math/cut-management#projecao-dos-cortes-apenas-no-armazenamento). A seleção de cada estágio é definida na [aba Configurar de Gerenciamento de cortes](/pt-br/math/cut-management#stagesstate_variables--projecao-dos-cortes).
 
-## Referências Cruzadas
+## Referências cruzadas
 
 - [Formulação do PL](/pt-br/math/lp-formulation) — o PL do estágio que fixa o estado de entrada e cuja linha de corte lê o estado de saída
 - [Variantes de formulação dos patamares](/pt-br/math/block-formulations) — estágios cronológicos e a distribuição de um bucket que vence pelos seus patamares

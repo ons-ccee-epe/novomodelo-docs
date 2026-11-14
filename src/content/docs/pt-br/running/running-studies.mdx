@@ -8,7 +8,7 @@ execute-o com `novomodelo run` e leia o que a execução gravou.
 
 ---
 
-## Preparando um Diretório do Caso
+## Preparando um diretório do caso
 
 Para partir de um exemplo funcional, gere o modelo (template) `1dtoy`:
 
@@ -93,7 +93,7 @@ antes de comparar execuções. As execuções com partida a quente (warm-start),
 checkpoint da política em `policy.path` dentro do diretório de saída; portanto, preserve esse
 checkpoint quando planejar uma dessas execuções ([Gerenciamento da política](/pt-br/running/policy-management/)).
 
-### Etapas do Ciclo de Vida
+### Etapas do ciclo de vida
 
 A figura acompanha um estudo desde o diretório do caso até as saídas; as três setas que saem do checkpoint da política são as formas de reaproveitá-lo.
 
@@ -127,13 +127,13 @@ O `novomodelo run` carrega o caso, executa o treinamento (training), a menos que
 da política em `policy.path` ao final do treinamento, executa a simulação quando ela está habilitada
 e grava suas saídas. O `novomodelo validate` verifica o caso previamente, sem resolver.
 Uma execução posterior do mesmo estudo pode partir a quente do checkpoint ou retomá-lo, ou simulá-lo
-sem treinamento ([Reaproveitando uma Política Salva](#reaproveitando-uma-politica-salva)), e outro
+sem treinamento ([Reaproveitando uma política salva](#reaproveitando-uma-politica-salva)), e outro
 estudo pode importá-lo como sua fronteira terminal
-([Gerenciamento da política — Cortes de Fronteira](/pt-br/running/policy-management/#cortes-de-fronteira)).
+([Gerenciamento da política — Cortes de fronteira](/pt-br/running/policy-management/#cortes-de-fronteira)).
 
 ---
 
-## Saída no Terminal
+## Saída no terminal
 
 ### Cabeçalho
 
@@ -146,7 +146,7 @@ Use `--quiet` para suprimir o cabeçalho, as barras de progresso e os resumos.
 O cabeçalho, o bloco `Execution` e os resumos vão para a stdout; os avisos vão para a
 stderr, e os erros são sempre gravados na stderr, independentemente de `--quiet`.
 
-### Barras de Progresso
+### Barras de progresso
 
 Quando a stderr é um terminal, o treinamento mostra uma barra de progresso ao vivo na stderr com a
 iteração corrente, os limites, o gap (em percentual, com cinco casas decimais) e os
@@ -224,7 +224,7 @@ uma única trajetória amostrada, e o gap pode ficar abaixo de zero.
 
 ---
 
-## Verificando os Resultados
+## Verificando os resultados
 
 Junto com as tabelas de resultados, o `novomodelo run` grava um registro legível por máquina de
 cada fase executada: `training/metadata.json` quando o treinamento foi executado e
@@ -237,7 +237,7 @@ jq '{status, bounds}' /path/to/my_study/output/training/metadata.json
 `status` vale `"partial"` quando uma solicitação de encerramento terminou a fase antecipadamente e
 `"complete"` nos demais casos, inclusive após um
 treinamento que falhou; por isso, um script deve verificar o código de saída do `novomodelo run` para saber
-se a execução foi bem-sucedida ([Verificando os Códigos de Saída](#verificando-os-codigos-de-saida)). `bounds` contém os limites inferior e superior finais. O
+se a execução foi bem-sucedida ([Verificando os códigos de saída](#verificando-os-codigos-de-saida)). `bounds` contém os limites inferior e superior finais. O
 gap de convergência fica em `convergence`:
 
 ```bash
@@ -266,33 +266,33 @@ de [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadata
 
 ---
 
-## Reaproveitando uma Política Salva
+## Reaproveitando uma política salva
 
 Uma execução grava o checkpoint de sua política em `policy.path`; uma execução posterior pode simulá-la,
 iniciar o treinamento a partir dela ou retomá-la, e outro estudo pode usá-la como sua fronteira
 terminal ([Gerenciamento da política](/pt-br/running/policy-management/)).
 
-### Simulação com uma Política Salva
+### Simulação com uma política salva
 
 Defina `training.enabled` como `false` para simular uma política salva sem
 treinar novamente. `training.selection` e `training.stopping_rules` continuam
 obrigatórios. A configuração completa e as verificações de carga da política estão em
 [Gerenciamento da política — Modo Somente Simulação](/pt-br/running/policy-management/#modo-somente-de-simulacao).
 
-### Partida a Quente a partir de uma Política Salva
+### Partida a quente a partir de uma política salva
 
 Defina `policy.mode` como `"warm_start"` para iniciar o treinamento a partir de uma política salva; o treinamento
 acrescenta novos cortes aos já salvos. Veja
 [Gerenciamento da política — Partida a quente](/pt-br/running/policy-management/#partida-a-quente).
 
-### Retomando um Treinamento Interrompido
+### Retomando um treinamento interrompido
 
 Defina `policy.mode` como `"resume"` para continuar um treinamento interrompido a partir do seu checkpoint.
 O maior `iteration_limit` é um total que inclui as iterações já concluídas; portanto,
 defina-o acima desse número. Veja
 [Gerenciamento da política — Retomada](/pt-br/running/policy-management/#retomada).
 
-### Treinamento em Etapas
+### Treinamento em etapas
 
 Quando o limite de tempo de relógio de um escalonador de tarefas é menor do que o treinamento exige, treine em
 etapas: cada etapa posterior define `policy.mode` como `"resume"` e aumenta o
@@ -301,9 +301,9 @@ Veja [Gerenciamento da política — Treinar em Etapas](/pt-br/running/policy-ma
 
 ---
 
-## Fluxos de Trabalho Comuns
+## Fluxos de trabalho comuns
 
-### Somente Treinamento
+### Somente treinamento
 
 Para executar o treinamento sem simulação, defina `simulation.enabled` como `false` no
 `config.json`:
@@ -347,7 +347,7 @@ trabalho paralelo disponível: as simulações forward por iteração, os estado
 simulação backward e os cenários de simulação. No trecho, o treinamento roda cerca de duas vezes mais rápido com quatro threads e a simulação, cerca de duas vezes e meia: neste caso, as resoluções dos PLs ocupam a maior parte do tempo de relógio de cada fase, e elas são executadas em paralelo. Veja
 [Aceleradores de desempenho](/pt-br/running/performance/) para o modelo de execução.
 
-### Backend de Comunicação
+### Backend de comunicação
 
 Um único `novomodelo run` usa o backend local (processo único); a execução sob um
 lançador MPI (`mpiexec`, `mpirun` ou `srun`) distribui o trabalho entre os processos quando o binário é compilado com suporte a MPI (o binário `novomodelo-mpi` de [Implantação em HPC e clusters](/pt-br/running/hpc-deployment/)); o binário padrão `novomodelo` oferece apenas o backend local, de modo que, sob um lançador, `auto` executa cada processo como um estudo independente de processo único.
@@ -357,7 +357,7 @@ backend de acordo, de modo que nenhuma flag é necessária em nenhum dos casos. 
 binário compilado sem suporte a MPI — ou `--comm-backend local` para forçar um único
 processo mesmo sob um lançador.
 
-### Modo Silencioso para Scripts
+### Modo silencioso para scripts
 
 ```bash
 novomodelo run /path/to/my_study --quiet
@@ -369,16 +369,16 @@ fi
 
 Suprime o cabeçalho e a saída de progresso, adequado para scripts em lote.
 
-### Verificando os Códigos de Saída
+### Verificando os códigos de saída
 
 O `novomodelo run` sai com `0` em caso de sucesso e com valor diferente de zero nos demais casos. O significado de cada código
-está em [Referência da CLI — Códigos de Saída](/pt-br/reference/cli-reference/#codigos-de-saida).
+está em [Referência da CLI — Códigos de saída](/pt-br/reference/cli-reference/#codigos-de-saida).
 [Solução de problemas](/pt-br/running/troubleshooting/) lista as mensagens de erro com sua causa
 e correção.
 
 ---
 
-## Exportando os Artefatos Estocásticos
+## Exportando os artefatos estocásticos
 
 Defina `exports.stochastic` como `true` no `config.json` para gravar os artefatos do
 pré-processamento estocástico em `output/stochastic/` antes do início do treinamento:
@@ -453,7 +453,7 @@ demais condições sobre o arquivo estão em
 
 ---
 
-## Veja Também
+## Veja também
 
 - **Teoria:** [Algoritmo da PDDE](/pt-br/math/sddp-algorithm/) — o algoritmo de simulações forward/backward que este fluxo de trabalho treina e executa.
 - **Solução de problemas:** [Solução de problemas](/pt-br/running/troubleshooting/) — mensagens de erro, sua causa e a correção
