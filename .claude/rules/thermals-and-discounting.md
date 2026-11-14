@@ -6,8 +6,8 @@ paths:
   - "src/content/docs/**/math/discount-rate.mdx"
   - "src/content/docs/**/math/_impl/_discount.*"
   - "src/content/docs/**/math/post-study-boundary.md"
-  - "src/content/docs/**/entities/equipment/thermal-plants.mdx"
-  - "src/content/docs/**/entities/rules/water-value.mdx"
+  - "src/content/docs/**/entities/generation/thermal-plants.mdx"
+  - "src/content/docs/**/entities/water-value.mdx"
 ---
 
 # Spec Patterns — Anticipated Thermals & Discounting

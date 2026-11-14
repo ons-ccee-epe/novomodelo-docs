@@ -5,8 +5,9 @@ paths:
   - "src/content/docs/**/math/lp-formulation.md"
   - "src/content/docs/**/math/_impl/_equipment.*"
   - "src/content/docs/**/math/_impl/_hydro*"
-  - "src/content/docs/**/entities/equipment/*"
+  - "src/content/docs/**/entities/generation/*"
   - "src/content/docs/**/entities/network/*"
+  - "src/content/docs/**/entities/consumption/*"
   - "src/content/docs/**/reference/case-format/system.mdx"
   - "src/content/docs/**/reference/case-format/initial-conditions.mdx"
 ---
