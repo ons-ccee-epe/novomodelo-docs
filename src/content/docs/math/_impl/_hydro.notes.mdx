@@ -37,19 +37,16 @@ id and the boundary.
 
 ### Run-of-river support
 
-A plant whose fitting volume range collapses to a single point (constant
-forebay) is fit by synthesizing two nearby volume samples so the 3-D hull
-stays non-degenerate, then snapping the resulting `gamma_v` residual to
-exactly `0` when its magnitude is at most `1e-6` MW per hm³. This enforces the correct
-run-of-river semantics — generation on
-these planes does not vary with storage — and is why run-of-river plants are
-supported on the computed path rather than rejected.
-
-The two samples sit either side of that single volume, each offset by the
-larger of half a percent of the plant's useful storage and `1` hm³, so a
-plant with no useful storage still gets two distinct samples; when the
-volume-height curve spans a range of volumes, both samples are clamped into
-it.
+A plant whose fitting window collapses to a single volume (constant
+forebay) is fit by placing two samples around the window's lower bound, each
+offset by the larger of half a percent of the plant's useful storage and `1`
+hm³, so a plant with no useful storage still gets two distinct samples. The
+samples are not clamped into the volume-height curve. Both samples use the
+forebay height of that single volume, so `gamma_v` is `0` by construction,
+and a residual of at most `1e-6` MW per hm³ from rounding is set to exactly
+`0`. This enforces the run-of-river semantics (generation on these planes does
+not vary with storage) and is why run-of-river plants are supported on the
+computed path rather than rejected.
 
 ### FPHA without turbine capacity
 
