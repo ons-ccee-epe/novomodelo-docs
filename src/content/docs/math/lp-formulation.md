@@ -457,7 +457,7 @@ $$
 \Big]
 $$
 
-The FPHA plane slack $\sigma^{fpha}_{h,b,k}$ is per cell, like the generation-minimum slack, and is priced at the plant's $c^{fpha}_h$ at full magnitude on every cell; it exists wherever the FPHA plane rows of §6 exist and is absent for every other hydro. [Penalty System](/en/math/penalty-system) lists it with the recourse slacks because it keeps the stage LP feasible when a generation floor or a constraint forces generation above the planes; the objective carries it in this sum.
+The FPHA plane slack $\sigma^{fpha}_{h,b,k}$ is per cell, like the generation-minimum slack, and is priced at the plant's $c^{fpha}_h$ at full magnitude on every cell; it exists wherever the FPHA plane rows of §6 exist and is absent for every other hydro. [Penalty System](/en/math/penalty-system) lists it with the recourse slacks because it keeps the stage LP feasible when a generation floor or a constraint forces generation above the planes.
 
 The turbined- and generation-minimum slacks are **per cell** — each of a split plant's cells carries its own slack column and its own row, priced at the plant's penalty at full magnitude, never divided across cells. The residual slacks $\sigma^{Q-}_{h,k}$ and $\sigma^{G-}_{h,k}$ exist only for a plant with a residual row ([§8 Plant Minimum and Maximum](#plant-minimum-and-maximum)) and are $0$ for every other plant. The outflow slacks stay per plant: outflow has no per-cell column to attribute a floor to. The evaporation slacks are per plant too, stage-level on a parallel stage and per block on a chronological stage ([Evaporation Row](#evaporation-row)).
 

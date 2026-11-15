@@ -457,7 +457,7 @@ $$
 \Big]
 $$
 
-A folga do plano da FPHA $\sigma^{fpha}_{h,b,k}$ é por célula, como a folga de geração mínima, e é valorada pelo $c^{fpha}_h$ da usina com magnitude integral em cada célula; ela existe onde existem as linhas de plano da FPHA da §6 e não existe para nenhuma outra UHE. O [Sistema de penalidades](/math/penalty-system) a lista com as folgas de recurso, porque ela mantém viável o PL do estágio quando um piso de geração ou uma restrição força a geração acima dos planos; a função objetivo a inclui nesta soma.
+A folga do plano da FPHA $\sigma^{fpha}_{h,b,k}$ é por célula, como a folga de geração mínima, e é valorada pelo $c^{fpha}_h$ da usina com magnitude integral em cada célula; ela existe onde existem as linhas de plano da FPHA da §6 e não existe para nenhuma outra UHE. O [Sistema de penalidades](/math/penalty-system) a lista com as folgas de recurso, porque ela mantém viável o PL do estágio quando um piso de geração ou uma restrição força a geração acima dos planos.
 
 As folgas de mínimo de turbinamento e de geração são **por célula** — cada célula de uma usina dividida tem sua própria coluna de folga e sua própria linha, valoradas pela penalidade da usina com magnitude integral, nunca divididas entre as células. As folgas residuais $\sigma^{Q-}_{h,k}$ e $\sigma^{G-}_{h,k}$ existem apenas para uma usina com linha residual ([§8 Mínimo e máximo da usina](#minimo-e-maximo-da-usina)) e são $0$ para todas as demais usinas. As folgas de vazão defluente permanecem por usina: a vazão defluente não tem coluna por célula à qual atribuir um piso. As folgas de evaporação também são por usina, no nível do estágio em um estágio paralelo e por patamar em um estágio cronológico ([Linha de evaporação](#linha-de-evaporacao)).
 
