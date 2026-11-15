@@ -56,7 +56,7 @@ Resumo por cenário, de nível da execução: uma linha por cenário. 3 colunas.
 
 ## `simulation/costs/`
 
-Decomposição do custo por estágio. Uma linha por estágio. 29 colunas.
+Decomposição do custo por estágio. Uma linha por estágio. 30 colunas.
 
 **Metodologia:** [Formulação do PL](/math/lp-formulation) · [Formulação da taxa de desconto](/math/discount-rate)
 
@@ -77,13 +77,14 @@ Decomposição do custo por estágio. Uma linha por estágio. 29 colunas.
 | `excess_cost`                  | Float64 | Não      | R\$      | Custo do excesso de geração (penalidade de excesso). |
 | `storage_violation_cost`       | Float64 | Não      | R\$      | Custo da folga do piso flexível de armazenamento mínimo das usinas em fase de enchimento, contabilizado na categoria de violação: a folga do piso (hm³) vezes `storage_violation_below_cost`, sem horas. |
 | `filling_target_cost`          | Float64 | Não      | R\$      | Custo da folga da meta de enchimento das usinas em fase de enchimento, contabilizado na categoria de violação: a folga da meta (hm³) vezes `filling_target_violation_cost`, sem horas. |
-| `hydro_violation_cost`         | Float64 | Não      | R\$      | Soma dos custos de violação de vazão defluente, vazão turbinada, geração, evaporação e retirada. |
+| `hydro_violation_cost`         | Float64 | Não      | R\$      | Soma dos custos de violação de vazão defluente, vazão turbinada, geração, evaporação, retirada e FPHA. |
 | `outflow_violation_below_cost` | Float64 | Não      | R\$      | Custo das violações da vazão defluente total abaixo do mínimo. |
 | `outflow_violation_above_cost` | Float64 | Não      | R\$      | Custo das violações da vazão defluente total acima do máximo. |
 | `turbined_violation_cost`      | Float64 | Não      | R\$      | Custo da folga de vazão turbinada abaixo do mínimo. |
 | `generation_violation_cost`    | Float64 | Não      | R\$      | Custo da folga de geração abaixo do mínimo. |
 | `evaporation_violation_cost`   | Float64 | Não      | R\$      | Custo das violações de evaporação. |
 | `withdrawal_violation_cost`    | Float64 | Não      | R\$      | Custo das violações de retirada de água. |
+| `fpha_violation_cost`          | Float64 | Não      | R\$      | Custo das violações dos planos da FPHA, contabilizado em `hydro_violation_cost`. |
 | `inflow_penalty_cost`          | Float64 | Não      | R\$      | Custo da folga de não negatividade da afluência (`inflow_nonnegativity_slack_m3s`), valorada a `inflow_nonnegativity_cost` nos métodos `penalty` e `truncation_with_penalty` e `0` em `truncation` e `none`; veja [`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity). |
 | `generic_violation_cost`       | Float64 | Não      | R\$      | Custo das violações de restrições genéricas. |
 | `spillage_cost`                | Float64 | Não      | R\$      | Custo do vertimento e da vazão desviada. |
@@ -96,7 +97,7 @@ Decomposição do custo por estágio. Uma linha por estágio. 29 colunas.
 
 ## `simulation/hydros/`
 
-Resultados do despacho das usinas hidrelétricas. Uma linha por trinca (estágio, patamar, usina hidrelétrica). 41 colunas.
+Resultados do despacho das usinas hidrelétricas. Uma linha por trinca (estágio, patamar, usina hidrelétrica). 42 colunas.
 
 **Metodologia:** [Formulação do PL](/math/lp-formulation) · [Modelos de função de produção hidrelétrica](/math/hydro-production-models)
 
@@ -138,6 +139,7 @@ o par no ponto de referência e o par da média na faixa útil (`integrated_*`).
 | `outflow_slack_below_m3s`                        | Float64 | Não      | m³/s      | Folga do limite inferior da vazão defluente, em m³/s. |
 | `outflow_slack_above_m3s`                        | Float64 | Não      | m³/s      | Folga do limite superior da vazão defluente, em m³/s. |
 | `generation_slack_mw`                            | Float64 | Não      | MW        | Insuficiência em relação à geração mínima da usina, em MW: as folgas de suas células (usina, barramento) mais, quando o mínimo da usina é superior à soma dos mínimos de seus grupos de unidades geradoras, a folga de sua linha no nível da usina, de modo que uma insuficiência é contada uma única vez. Zero quando o mínimo é atendido. |
+| `fpha_violation_mw`                              | Float64 | Não      | MW        | Folga de violação dos planos da FPHA, somada sobre as células da usina, em MW. |
 | `storage_violation_below_hm3`                    | Float64 | Não      | hm³       | Armazenamento abaixo do volume morto de uma usina com fase de enchimento nos seus estágios em operação (Operating), em hm³ (o piso flexível de [Sistema de penalidades](/math/penalty-system)); `0` em todas as demais usinas e estágios: uma usina sem fase de enchimento, em operação, mantém seu volume morto como limite rígido, o piso de uma usina durante a fase de enchimento é sua meta de enchimento (cujo não atendimento é `filling_target_violation_hm3`), e qualquer outra usina fora de sua janela de entrada em operação não tem piso de armazenamento. Valor do estágio, repetido em todas as linhas de patamar. |
 | `filling_target_violation_hm3`                   | Float64 | Não      | hm³       | Não atendimento da meta de enchimento, em hm³. Zero quando a meta é atendida. Valor do estágio, repetido em todas as linhas de patamar. |
 | `evaporation_violation_pos_m3s`                  | Float64 | Não      | m³/s      | Folga da linha de evaporação acima de sua meta linearizada (a evaporação excede a meta), em m³/s; em um estágio paralelo, o valor do estágio, repetido em todas as linhas de patamar; em um estágio cronológico, o valor do próprio patamar. Zero em operação normal. |
