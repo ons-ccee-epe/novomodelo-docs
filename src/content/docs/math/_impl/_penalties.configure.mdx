@@ -190,9 +190,11 @@ Relationship: `outflow = turbined_flow + spillage`,
 
 ### Load-time penalty checks
 
-Novomodelo checks the configured costs when the case loads. The checks read each
-hydro's entity-level costs: the `penalties.json` defaults with the plant's
-`penalties` block applied. Stage overrides are not checked. The deficit side of
+Novomodelo checks the configured costs when the case loads. The three cost-ordering
+checks read each hydro's entity-level costs: the `penalties.json` defaults with the
+plant's `penalties` block applied. The stage overrides do not enter them. The FPHA
+price check reads the costs each stage resolves, stage overrides included, at the
+stages where the hydro's production model selects FPHA. The deficit side of
 the first comparison is the largest deficit-segment cost of any bus, and 0 when the
 case has no bus. The comparisons use the configured values as given, without
 converting them to energy, so a case that passes them can still invert the
@@ -207,12 +209,13 @@ and a worst-case hydro.
 | Deficit above generation violation | a hydro's `generation_violation_below_cost` is at least the largest deficit cost | every hydro that meets the condition; the worst case has the largest generation-violation cost |
 | Flow violations above resource costs | a hydro's smallest flow-violation cost is at most the largest resource cost over all hydros | every hydro that meets the condition; the worst case has the smallest flow-violation cost |
 | Resource costs positive                    | a hydro's smaller resource cost is at most 0                                                                          | every hydro that meets the condition; the worst case has the smallest of those costs     |
+| FPHA price above deficit plus generation violation | at an FPHA stage, a hydro's `fpha_violation_cost` is at most the largest deficit cost plus its `generation_violation_below_cost` | every (hydro, stage) pair that meets the condition; the named pair has the smallest margin |
 
 The flow-violation costs of a hydro are `turbined_violation_below_cost`,
 `outflow_violation_below_cost`, `outflow_violation_above_cost` and the four
 directional evaporation and withdrawal costs. "Resource costs" means the hydro
 `spillage_cost` and `diversion_cost`. Each check compares only costs of one unit.
-These three checks read no thermal, contract, excess, exchange or curtailment
+The checks read no thermal, contract, excess, exchange or curtailment
 cost, and neither `turbined_cost` nor `inflow_nonnegativity_cost`.
 
 {/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:58-63, 102-108 and 132-138 at novomodelo v0.21.0 */}
@@ -226,6 +229,22 @@ here, and begins `Penalty ordering violation:`:
   `Penalty ordering violation: min(flow_violation_costs) ({…}) should be > max(resource_costs) ({…}) (both $/(m³/s·h)) -- {…} hydro(s) affected, worst case: Hydro {…}`
 - Resource costs positive:
   `Penalty ordering violation: min(resource_costs) ({…}) should be > 0 (regularization costs must be positive to prevent LP degeneracy) -- {…} hydro(s) affected, worst case: Hydro {…}`
+
+The fourth check begins its warning with `FPHA price ordering violation:`. The
+named pair has the smallest margin `fpha_violation_cost - (largest deficit cost +
+generation_violation_below_cost)`; ties go to the lower hydro id, then the lower
+stage id. A hydro with no production-model entry is never checked. The check
+leaves out the generic-constraint term of the plane dual, so a case that passes it
+can still have an active FPHA slack: see
+[Penalty Priority Ordering](/en/math/penalty-system#penalty-priority-ordering). One
+such case is a lower-bounded generic constraint on FPHA generation whose slack
+price is at or above the FPHA price.
+
+{/* quoted from source: check_fpha_price_dominance in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo commit f6f87dfe4cc339c0e51467c5ea076f04aea86207 */}
+
+```text
+FPHA price ordering violation: fpha_violation_cost ({…}) should be > max(deficit_segment_costs) ({…}) + generation_violation_below_cost ({…}) (all $/MWh) -- {…} (hydro, stage) pair(s) at FPHA stages, {…} hydro(s) affected, smallest margin: Hydro {…} at stage {…}
+```
 
 To clear a warning, change the costs in `penalties.json` or in the plant's
 `penalties` block until the comparison in the message holds: for `should be >`,

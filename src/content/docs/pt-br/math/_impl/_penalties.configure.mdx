@@ -202,9 +202,12 @@ Relação: `outflow = turbined_flow + spillage`,
 ### Verificações de penalidades na carga
 
 O Novo Modelo verifica os custos configurados quando o caso é carregado. As
-verificações leem os custos de cada usina no nível da entidade: os padrões de
-`penalties.json` com o bloco `penalties` da usina aplicado. As sobrescritas
-por estágio não são verificadas. O lado do déficit da primeira comparação é o
+três verificações de ordenação de custos leem os custos de cada usina no nível
+da entidade: os padrões de `penalties.json` com o bloco `penalties` da usina
+aplicado. As sobrescritas por estágio não entram nelas. A verificação do preço
+da FPHA lê os custos que cada estágio resolve, sobrescritas por estágio
+incluídas, nos estágios em que o modelo de produção da usina seleciona a FPHA.
+O lado do déficit da primeira comparação é o
 maior custo de segmento de déficit entre todos os barramentos, ou 0 quando o
 caso não tem barramentos. As comparações usam os valores configurados tal como
 foram informados, sem convertê-los em energia; portanto, um caso que passa
@@ -220,12 +223,13 @@ de usinas afetadas e a usina de pior caso.
 | Déficit acima da violação de geração | o `generation_violation_below_cost` de uma usina é maior ou igual ao maior custo de déficit | todas as usinas que atendem à condição; o pior caso tem o maior custo de violação de geração |
 | Violações de vazão acima dos custos de recurso | o menor custo de violação de vazão de uma usina é menor ou igual ao maior custo de recurso entre todas as usinas | todas as usinas que atendem à condição; o pior caso tem o menor custo de violação de vazão |
 | Custos de recurso positivos | o menor custo de recurso de uma usina é menor ou igual a 0 | todas as usinas que atendem à condição; o pior caso tem o menor desses custos |
+| Preço da FPHA acima do déficit mais a violação de geração | em um estágio com FPHA, o `fpha_violation_cost` de uma usina é menor ou igual ao maior custo de déficit mais o seu `generation_violation_below_cost` | todos os pares (usina, estágio) que atendem à condição; o par informado tem a menor margem |
 
 Os custos de violação de vazão de uma usina são `turbined_violation_below_cost`,
 `outflow_violation_below_cost`, `outflow_violation_above_cost` e os quatro
 custos direcionais de evaporação e de retirada. "Custos de recurso" designa os
 custos `spillage_cost` e `diversion_cost` da usina. Cada verificação compara
-apenas custos de mesma unidade. Essas três verificações não leem nenhum custo
+apenas custos de mesma unidade. As verificações não leem nenhum custo
 de térmica, de contrato, de excesso, de intercâmbio ou de corte de geração, nem
 `turbined_cost` ou `inflow_nonnegativity_cost`.
 
@@ -240,6 +244,23 @@ representados por `{…}`, e começa com `Penalty ordering violation:`:
   `Penalty ordering violation: min(flow_violation_costs) ({…}) should be > max(resource_costs) ({…}) (both $/(m³/s·h)) -- {…} hydro(s) affected, worst case: Hydro {…}`
 - Custos de recurso positivos:
   `Penalty ordering violation: min(resource_costs) ({…}) should be > 0 (regularization costs must be positive to prevent LP degeneracy) -- {…} hydro(s) affected, worst case: Hydro {…}`
+
+A quarta verificação começa o seu aviso com `FPHA price ordering violation:`. O
+par informado tem a menor margem `fpha_violation_cost - (maior custo de déficit +
+generation_violation_below_cost)`; empates vão para o menor id de usina e, depois,
+para o menor id de estágio. Uma usina sem entrada de modelo de produção nunca é
+verificada. A verificação deixa de fora o termo de restrição genérica da variável
+dual do plano, de modo que um caso aprovado nela ainda pode ter uma folga da FPHA
+ativa: veja a
+[Ordem de prioridade das penalidades](/math/penalty-system#ordem-de-prioridade-das-penalidades). Um
+desses casos é uma restrição genérica com limite inferior sobre a geração da FPHA
+cujo preço de folga é igual ou superior ao preço da FPHA.
+
+{/* quoted from source: check_fpha_price_dominance in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo commit f6f87dfe4cc339c0e51467c5ea076f04aea86207 */}
+
+```text
+FPHA price ordering violation: fpha_violation_cost ({…}) should be > max(deficit_segment_costs) ({…}) + generation_violation_below_cost ({…}) (all $/MWh) -- {…} (hydro, stage) pair(s) at FPHA stages, {…} hydro(s) affected, smallest margin: Hydro {…} at stage {…}
+```
 
 Para eliminar um aviso, altere os custos em `penalties.json` ou no bloco
 `penalties` da usina até que a comparação da mensagem seja satisfeita: para
