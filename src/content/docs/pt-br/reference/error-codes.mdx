@@ -1074,7 +1074,7 @@ ser expressa como uma simples restrição de intervalo. Exemplos: um `turbined_c
 em uma hidrelétrica cujo modelo de geração é `fpha`, um cronograma de enchimento de volume morto que não consegue
 atingir o volume morto antes da entrada em operação da hidrelétrica, as regras de térmica antecipada
 e de fronteira pós-estudo, uma linha de sobrescrita de limites que nomeia um
-`stage_id` não declarado, uma usina elevatória em serviço em um estágio em que sua hidrelétrica de origem ou de destino não está em operação (Operating), ou uma referência por patamar de restrição genérica que os patamares do estágio
+`stage_id` não declarado, uma usina elevatória em serviço em um estágio em que sua hidrelétrica de origem ou de destino não está em operação (Operating), uma hidrelétrica com FPHA calculada cujos volumes em `system/hydro_geometry.parquet` não cobrem sua faixa de armazenamento, ou uma referência por patamar de restrição genérica que os patamares do estágio
 não conseguem satisfazer. Uma verificação reporta um `BusinessRuleViolation` como aviso: quando o modelo de afluências é estimado a partir de `scenarios/inflow_history.parquet` e uma hidrelétrica tem mais de uma observação em um mesmo período sazonal de um ano, `novomodelo validate` imprime uma linha `warning:` (código de saída `0`) informando que as observações são agregadas na resolução do período sazonal.
 
 **Exemplo:**
@@ -1100,6 +1100,8 @@ as referências por patamar de restrição genérica
 ([Referências por patamar de restrição genérica](#referencias-por-patamar-de-restricao-generica)).
 A regra da usina elevatória está em
 [Usina elevatória fora das janelas de operação de suas extremidades](#usina-elevatoria-fora-das-janelas-de-operacao-de-suas-extremidades).
+A regra da geometria da FPHA calculada está em
+[Geometria da FPHA calculada que não cobre a faixa de armazenamento](#geometria-da-fpha-calculada-que-nao-cobre-a-faixa-de-armazenamento).
 A regra do horizonte de [Antecedência inválida de térmica antecipada](#antecedencia-invalida-de-termica-antecipada) também imprime uma
 linha `[BusinessRuleViolation]`; essa entrada fica sob `SchemaViolation`, onde são impressas duas de suas quatro linhas.
 
@@ -1437,6 +1439,20 @@ PumpingStation {id}: active at stage {stage_id} while its {side} hydro {hid} is 
 `{side}` é `source` ou `destination`. A linha é impressa como `[BusinessRuleViolation] system/pumping_stations.json (PumpingStation {id}): <message>`.
 
 **Solução:** Mantenha a usina elevatória em serviço apenas nos estágios em que ambas as hidrelétricas estejam em operação: ajuste o `entry_stage_id` e o `exit_stage_id` da usina elevatória ou os das hidrelétricas.
+
+#### Geometria da FPHA calculada que não cobre a faixa de armazenamento
+
+**Quando ocorre:** Uma hidrelétrica cuja configuração de modelo de produção tem uma entrada `source: "computed"` tem linhas em `system/hydro_geometry.parquet`, e a faixa de volumes dessas linhas não cobre a faixa de armazenamento da hidrelétrica, de `min_storage_hm3` a `max_storage_hm3`. Os planos da FPHA calculada são ajustados sobre essa faixa de armazenamento. Uma hidrelétrica sem nenhuma linha no arquivo fica a cargo da regra de cobertura de geometria da tabela de validação.
+
+{/* quoted from source: check_fpha_geometry_coverage in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit f6f87dfe4cc339c0e51467c5ea076f04aea86207 */}
+
+```text
+{entity}: the hydro_geometry.parquet volume range [{geometry_min}, {geometry_max}] hm³ does not cover its storage range [{min}, {max}] hm³, over which its computed FPHA planes are fitted; extend the geometry to cover it
+```
+
+`{entity}` é `Hydro {name} (id={id})`. A linha é impressa como `[BusinessRuleViolation] system/hydro_geometry.parquet ({entity}): <message>`.
+
+**Solução:** Estenda a geometria em `system/hydro_geometry.parquet` para cobrir de `min_storage_hm3` a `max_storage_hm3` ou corrija a faixa de armazenamento da hidrelétrica.
 
 ---
 

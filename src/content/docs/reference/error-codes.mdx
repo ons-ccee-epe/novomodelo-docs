@@ -1075,7 +1075,7 @@ be expressed as a simple range constraint. Examples: a negative `turbined_cost`
 on a hydro whose generation model is `fpha`, a filling schedule that cannot
 reach the dead volume before the hydro enters operation, the anticipated-thermal
 and post-study-boundary rules, a bound-override row that names an undeclared
-`stage_id`, a pumping station in service at a stage where its source or destination hydro is not Operating, or a per-block generic-constraint reference that the stage's blocks
+`stage_id`, a pumping station in service at a stage where its source or destination hydro is not Operating, a computed-FPHA hydro whose `system/hydro_geometry.parquet` volumes do not cover its storage range, or a per-block generic-constraint reference that the stage's blocks
 cannot satisfy. One check reports a `BusinessRuleViolation` as a warning: when the inflow model is estimated from `scenarios/inflow_history.parquet` and a hydro has more than one observation in one season of a year, `novomodelo validate` prints a `warning:` line (exit `0`) saying the observations are aggregated to season resolution.
 
 **Example:**
@@ -1101,6 +1101,8 @@ the per-block generic-constraint references
 ([Per-block generic-constraint references](#per-block-generic-constraint-references)).
 The pumping-station rule is under
 [Pumping station outside its endpoints' Operating windows](#pumping-station-outside-its-endpoints-operating-windows).
+The computed-FPHA geometry rule is under
+[Computed-FPHA geometry short of the storage range](#computed-fpha-geometry-short-of-the-storage-range).
 The horizon rule of [Invalid anticipated-thermal lead](#invalid-anticipated-thermal-lead) also prints a
 `[BusinessRuleViolation]` line; that entry sits under `SchemaViolation`, where two of its four lines print.
 
@@ -1438,6 +1440,20 @@ PumpingStation {id}: active at stage {stage_id} while its {side} hydro {hid} is 
 `{side}` is `source` or `destination`. The line prints as `[BusinessRuleViolation] system/pumping_stations.json (PumpingStation {id}): <message>`.
 
 **Resolution:** Keep the station in service only at stages where both hydros are Operating: adjust the `entry_stage_id` and `exit_stage_id` of the station, or those of the hydros.
+
+#### Computed-FPHA geometry short of the storage range
+
+**When it occurs:** A hydro whose production-model configuration has a `source: "computed"` entry has rows in `system/hydro_geometry.parquet`, and the volume range of those rows does not cover the hydro's storage range, `min_storage_hm3` to `max_storage_hm3`. The computed FPHA planes are fitted over that storage range. A hydro with no row in the file is left to the geometry-coverage rule of the validation table.
+
+{/* quoted from source: check_fpha_geometry_coverage in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit f6f87dfe4cc339c0e51467c5ea076f04aea86207 */}
+
+```text
+{entity}: the hydro_geometry.parquet volume range [{geometry_min}, {geometry_max}] hm³ does not cover its storage range [{min}, {max}] hm³, over which its computed FPHA planes are fitted; extend the geometry to cover it
+```
+
+`{entity}` is `Hydro {name} (id={id})`. The line prints as `[BusinessRuleViolation] system/hydro_geometry.parquet ({entity}): <message>`.
+
+**Resolution:** Extend the geometry in `system/hydro_geometry.parquet` to cover `min_storage_hm3` to `max_storage_hm3`, or correct the storage range of the hydro.
 
 ---
 
