@@ -21,7 +21,7 @@ $$
 \begin{aligned}
 & \min\; C^{resource} + C^{recourse} + C^{violation} + C^{regularization} + d_{t \to t+1}\,\theta \\
 & z_h = b_{h,m(t)} + \sum_{\ell=1}^{P_h} \psi_{m(t),\ell} \, a_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t \quad (1) \\
-& v_h - v^{in}_h - \zeta \, z_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = -\zeta \, r_h \quad (2) \\
+& v_h - v^{in}_h - \zeta \, z_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = -\zeta \, T^{eff}_h \quad (2) \\
 & \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (4) \\
 & g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (5) \\
 & e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (6) \\
@@ -178,7 +178,7 @@ $$
 & \quad + \sum_{k \in \mathcal{K}} \zeta_k \Big( q_{h,k} + s_{h,k} + u_{h,k}
   - \sum_{h' \in \mathcal{U}_h} \nu_{h',t,0} \, (q_{h',k} + s_{h',k})
   - \sum_{h':\,\text{div}=h} u_{h',k} \\
-& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta \, r_h
+& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta \, T^{eff}_h
 \end{aligned}
 $$
 
@@ -193,7 +193,7 @@ $$
   + \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) \\
 & \quad - \sum_{h' \in \mathcal{U}_h} \sum_{k' \le k} \nu^{k' \to k}_{h',t} \, \zeta_{k'} \, (q_{h',k'} + s_{h',k'})
   - \zeta_k \sum_{h':\,\text{div}=h} u_{h',k}
-  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta_k \, r_h
+  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta_k \, T^{eff}_h
 \end{aligned}
 $$
 
@@ -203,7 +203,9 @@ $$
 - $b^{\mathrm{in}}_{h,1}$ = in-transit volume maturing at this stage on the travel-time arcs into $h$, in hm³ and therefore outside the conversion ([State Augmentation §6](/en/math/state-augmentation#6-water-travel-time)); a chronological stage spreads it over its blocks by the arrival density $\phi_{h,k}$, $\sum_k \phi_{h,k} = 1$. Absent when no travel-time arc enters $h$
 - $z_h = a_h$ = realized incremental inflow (§5), so block $k$ of a chronological stage receives the share $w_k\,\zeta\,\sigma_{m(t)}\,\varepsilon_t$ of the innovation
 - $\sigma^{inf}_h$ = inflow non-negativity slack, present under every inflow method except `none`, which adds water: unbounded under `penalty`, capped at the truncation amount $a^-_h$, a constant of the solve computed from the realization at its pinned lags, under `truncation_with_penalty`, and fixed at it under `truncation` (see [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity))
-- $r_h$, $\sigma^{w-}_h$, $\sigma^{w+}_h$ = signed stage-level withdrawal target ($r_h < 0$ adds water) and its stage-level under- and over-delivery slacks; the realized withdrawal is $R_h = r_h - \sigma^{w-}_h + \sigma^{w+}_h$, with the slack caps in §9
+- $r_h$ = the plant's own declared withdrawal target, signed and stage-level ($r_h < 0$ adds water)
+- $T^{eff}_h$ = effective withdrawal, the quantity on the right-hand side. For a non-PreFilling plant, $T^{eff}_h = r_h + \sum_{h' \in \mathcal{P}_h} r_{h'}$, where $\mathcal{P}_h$ is the set of PreFilling plants whose first non-PreFilling downstream plant is $h$; for a PreFilling plant, $T^{eff}_h = 0$ ([PreFilling Pass-Through](#prefilling-pass-through))
+- $\sigma^{w-}_h$, $\sigma^{w+}_h$ = stage-level under- and over-delivery slacks of the effective withdrawal; the realized withdrawal is $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$, with the slack caps in §9
 - $e_h$ / $e_{h,k}$ = signed net evaporation of a hydro with an evaporation model (a negative value is net rainfall on the lake and adds water): one stage-level column on a parallel stage of any block count, one per block on a chronological stage, each a bounded column tied to storage by its evaporation row (see [Evaporation Row](#evaporation-row))
 - $q_{h,k} = \sum_{b \in \mathcal{B}_h} q_{h,b,k}$, $s_{h,k}$, $u_{h,k}$ = the plant's own turbined, spilled and diverted flow in block $k$; every (hydro, bus) cell's turbined column carries the same coefficient, and spillage and diversion are single per-plant columns
 - Upstream release: only the turbined and spilled flow of each $h' \in \mathcal{U}_h$ reaches $h$; a plant's diverted flow reaches only its diversion target (the $\text{div}$ sum)
@@ -214,7 +216,7 @@ $$
 
 ### PreFilling Pass-Through
 
-A PreFilling hydro (see [Lifecycle Phases](#lifecycle-phases) for the phase) has the frozen identity row $v_h - v^{in}_h = 0$, and on a chronological stage $v_{h,k} - v_{h,k-1} = 0$ per block, with right-hand side $0$. Its local inflow $z_h$ with its inflow non-negativity slack $\sigma^{inf}_h$, the releases of its upstream plants and the flows diverted into it enter the row of the first non-PreFilling plant downstream with the coefficients they would carry on the PreFilling plant's own row ($-\zeta$ on $z_h$ and $\sigma^{inf}_h$ on a parallel stage and $-\zeta_k$ on each block row of a chronological stage, $-\zeta_k$ on every block-$k$ flow) and no travel-time share, and its withdrawal target moves to that plant's right-hand side. Its maturing in-transit volume $b^{\mathrm{in}}_{h,1}$ enters the same row, with coefficient $-1$ on a parallel stage and $-\phi_{h,k}$ on block $k$'s row of a chronological stage, $\phi_{h,k}$ being the PreFilling plant's own arrival density. With no such plant downstream the water leaves the system.
+A PreFilling hydro (see [Lifecycle Phases](#lifecycle-phases) for the phase) has the frozen identity row $v_h - v^{in}_h = 0$, and on a chronological stage $v_{h,k} - v_{h,k-1} = 0$ per block, with right-hand side $0$. Its local inflow $z_h$ with its inflow non-negativity slack $\sigma^{inf}_h$, the releases of its upstream plants and the flows diverted into it enter the row of the first non-PreFilling plant downstream with the coefficients they would carry on the PreFilling plant's own row ($-\zeta$ on $z_h$ and $\sigma^{inf}_h$ on a parallel stage and $-\zeta_k$ on each block row of a chronological stage, $-\zeta_k$ on every block-$k$ flow) and no travel-time share, and its withdrawal target joins that plant's effective withdrawal $T^{eff}_h$, so the receiving plant's slacks $\sigma^{w-}_h$ and $\sigma^{w+}_h$ relax it at that plant's withdrawal-slack prices. Its maturing in-transit volume $b^{\mathrm{in}}_{h,1}$ enters the same row, with coefficient $-1$ on a parallel stage and $-\phi_{h,k}$ on block $k$'s row of a chronological stage, $\phi_{h,k}$ being the PreFilling plant's own arrival density. With no such plant downstream the water leaves the system and the withdrawal enters no row.
 
 ### Summing the Block Rows
 
@@ -225,7 +227,7 @@ Summing a chronological stage's block rows over $k \in \mathcal{K}$ telescopes t
 
 - Storage ($v_h$, $v^{in}_h$, $v_{h,k}$) and $b^{\mathrm{in}}_{h,1}$ are in hm³
 - $\zeta$ and $\zeta_k$ are in hm³/(m³/s)
-- Every flow, every slack and $r_h$ are in m³/s
+- Every flow, every slack, $r_h$ and $T^{eff}_h$ are in m³/s
 - The conversion to volume happens only through $\zeta$ and $\zeta_k$
 :::
 
@@ -338,7 +340,7 @@ Outflow $o$ represents water released to the downstream channel (affecting tailr
 - **Withdrawal** $r_h$: A signed consumptive-use parameter (positive = removal from system for irrigation/water supply; negative = inter-basin return/addition). This is a fixed parameter (not a decision variable) — see §4 for the signed-target semantics and §9 for the slack bounds
 - **Diversion** $u_{h,k}$: Water bypassed to a separate channel (not affecting main tailrace)
 
-The water balance (§4) accounts for all flows: inflow $-$ $(q + s + u)$ $-$ evaporation $-$ withdrawal = storage change. Withdrawal $r_h$ enters as a signed fixed RHS parameter; bidirectional violation slacks ($\sigma^{w-}_h$, $\sigma^{w+}_h$) allow the LP to relax the withdrawal commitment when necessary (see §9).
+The water balance (§4) accounts for all flows: inflow $-$ $(q + s + u)$ $-$ evaporation $-$ withdrawal = storage change. The effective withdrawal $T^{eff}_h$, derived from the declared $r_h$ (§4), enters as a signed fixed RHS parameter; bidirectional violation slacks ($\sigma^{w-}_h$, $\sigma^{w+}_h$) allow the LP to relax the withdrawal commitment when necessary (see §9).
 :::
 
 **Outflow Bounds** (with slacks for soft enforcement):
@@ -455,13 +457,13 @@ $$
 + \sum_{h \in \mathcal{H}} H_t \cdot \bigl(c^{ev+}_h \sigma^{e+}_h + c^{ev-}_h \sigma^{e-}_h\bigr) \;\; \text{(parallel stage)}, \qquad + \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \bigl(c^{ev+}_h \sigma^{e+}_{h,k} + c^{ev-}_h \sigma^{e-}_{h,k}\bigr) \;\; \text{(chronological stage)}
 $$
 
-where $H_t = \sum_k \tau_k$ is the total stage duration in hours, and the evaporation sums run over the hydros that model evaporation. Withdrawal violation slacks ($\sigma^{w-}_h$, $\sigma^{w+}_h$) are stage-level (not per-block) and bidirectional: $\sigma^{w-}_h$ penalizes under-delivery (the realized withdrawal $R_h = r_h - \sigma^{w-}_h + \sigma^{w+}_h$ falls short of the target), and $\sigma^{w+}_h$ penalizes over-delivery. The **withdrawal target $r_h$ is signed** (§4), and the slack bounds ensure the realized withdrawal cannot flip sign relative to the target:
+where $H_t = \sum_k \tau_k$ is the total stage duration in hours, and the evaporation sums run over the hydros that model evaporation. Withdrawal violation slacks ($\sigma^{w-}_h$, $\sigma^{w+}_h$) are stage-level (not per-block) and bidirectional: $\sigma^{w-}_h$ penalizes under-delivery (the realized withdrawal $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$ falls short of the effective withdrawal), and $\sigma^{w+}_h$ penalizes over-delivery. The **effective withdrawal $T^{eff}_h$ is signed** (§4), and the slack bounds ensure the realized withdrawal cannot flip sign relative to it:
 
-- $r_h > 0$ (scheduled removal): $\sigma^{w-}_h \leq r_h$ (under-delivery slack capped at the target magnitude; floors $R_h \geq 0$), $\sigma^{w+}_h$ unbounded.
-- $r_h < 0$ (scheduled inter-basin return/addition): $\sigma^{w+}_h \leq |r_h|$ (over-delivery slack capped at $|r_h|$; caps $R_h \leq 0$), $\sigma^{w-}_h$ unbounded.
-- $r_h = 0$: both slacks are pinned to zero.
+- $T^{eff}_h > 0$ (scheduled removal): $\sigma^{w-}_h \leq T^{eff}_h$ (under-delivery slack capped at the effective withdrawal; floors $R_h \geq 0$), $\sigma^{w+}_h$ unbounded.
+- $T^{eff}_h < 0$ (scheduled inter-basin return/addition): $\sigma^{w+}_h \leq |T^{eff}_h|$ (over-delivery slack capped at $|T^{eff}_h|$; caps $R_h \leq 0$), $\sigma^{w-}_h = 0$.
+- $T^{eff}_h = 0$: both slacks are pinned to zero.
 
-This cap guards a degenerate case: an unbounded under-delivery slack would let a run-of-river plant "un-withdraw" past its target and inject phantom water into the reservoir.
+This cap guards a degenerate case: an unbounded under-delivery slack would let a run-of-river plant "un-withdraw" past its effective withdrawal and inject phantom water into the reservoir.
 
 ## 10. Generic Constraints
 

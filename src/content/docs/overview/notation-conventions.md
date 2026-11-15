@@ -231,6 +231,7 @@ Cost coefficients use $c$ with a superscript naming the cost type.
 | $\bar{O}_h$, $\underline{O}_h$                   | m³/s      | Outflow bounds                                                                                                                                                                                                          |
 | $\bar{U}_h$ | m³/s | Maximum diversion flow |
 | $r_h$                                            | m³/s      | Water withdrawal target — stage-level, signed fixed RHS parameter (not a per-block LP decision variable); negative = inter-basin return/addition. See [LP Formulation](/en/math/lp-formulation).                           |
+| $T^{eff}_h$ | m³/s | Effective withdrawal — the plant's $r_h$ plus the targets of the PreFilling plants routed onto it; 0 for a PreFilling plant. It is the water-balance right-hand side the slacks $\sigma^{w\pm}_h$ relax. See [LP Formulation](/en/math/lp-formulation#row-terms). |
 | $\rho_h$                                         | MW/(m³/s) | Productivity (constant model)                                                                                                                                                                                           |
 | $V^{min}_h$, $V^{max}_h$ | hm³ | Physical storage range — stage-invariant plant property (dead-volume floor, full-reservoir ceiling); distinct from the operative storage-variable bounds $\underline{V}_h$, $\bar{V}_h$. See [Hydro Production Function Models](/en/math/hydro-production-models). |
 | $\rho_{eq,h,t}$ | MW/(m³/s) | Equivalent productivity at the reference operating point. See [Hydro Production Function Models](/en/math/hydro-production-models). |
@@ -381,7 +382,7 @@ Slack variables for soft constraints:
 | $\sigma^{g-}_{h,b,k}$                    | $\geq 0$ | MW    | Generation below minimum — one per (hydro, bus) cell $b \in \mathcal{B}_h$ of a split plant                                                       |
 | $\sigma^{G-}_{h,k}$                      | $\geq 0$ | MW    | Plant generation below the plant minimum, beyond what the cell slacks cover (a plant with several cells whose minimum binds) |
 | $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Evaporation above-target and below-target violation (per plant): one stage-level pair $\sigma^{e\pm}_h$ on a parallel stage, priced over the stage hours $H_t$; one pair per block on a chronological stage, priced over $\tau_k$ |
-| $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Water withdrawal under-/over-delivery relative to the target $r_h$ (stage-level, not per-block); priced by $c^{wv-}_h$ / $c^{wv+}_h$ respectively |
+| $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Water withdrawal under-/over-delivery relative to the effective withdrawal $T^{eff}_h$ (stage-level, not per-block); priced by $c^{wv-}_h$ / $c^{wv+}_h$ respectively |
 | $\sigma^{inf}_h$                         | $\geq 0$ | m³/s  | Inflow non-negativity, every inflow method except `none`; its bounds follow the method                                                            |
 
 ## 5. Duals and Cut Slopes

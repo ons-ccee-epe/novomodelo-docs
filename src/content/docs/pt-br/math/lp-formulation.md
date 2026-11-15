@@ -21,7 +21,7 @@ $$
 \begin{aligned}
 & \min\; C^{resource} + C^{recourse} + C^{violation} + C^{regularization} + d_{t \to t+1}\,\theta \\
 & z_h = b_{h,m(t)} + \sum_{\ell=1}^{P_h} \psi_{m(t),\ell} \, a_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t \quad (1) \\
-& v_h - v^{in}_h - \zeta \, z_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = -\zeta \, r_h \quad (2) \\
+& v_h - v^{in}_h - \zeta \, z_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = -\zeta \, T^{eff}_h \quad (2) \\
 & \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (4) \\
 & g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (5) \\
 & e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (6) \\
@@ -178,7 +178,7 @@ $$
 & \quad + \sum_{k \in \mathcal{K}} \zeta_k \Big( q_{h,k} + s_{h,k} + u_{h,k}
   - \sum_{h' \in \mathcal{U}_h} \nu_{h',t,0} \, (q_{h',k} + s_{h',k})
   - \sum_{h':\,\text{div}=h} u_{h',k} \\
-& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta \, r_h
+& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta \, T^{eff}_h
 \end{aligned}
 $$
 
@@ -193,7 +193,7 @@ $$
   + \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) \\
 & \quad - \sum_{h' \in \mathcal{U}_h} \sum_{k' \le k} \nu^{k' \to k}_{h',t} \, \zeta_{k'} \, (q_{h',k'} + s_{h',k'})
   - \zeta_k \sum_{h':\,\text{div}=h} u_{h',k}
-  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta_k \, r_h
+  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta_k \, T^{eff}_h
 \end{aligned}
 $$
 
@@ -203,7 +203,9 @@ $$
 - $b^{\mathrm{in}}_{h,1}$ = volume em trânsito que chega à maturação neste estágio nos arcos com tempo de viagem que chegam a $h$, em hm³ e, portanto, fora da conversão ([Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua)); um estágio cronológico o distribui entre seus patamares pela densidade de chegada $\phi_{h,k}$, $\sum_k \phi_{h,k} = 1$. Ausente quando nenhum arco com tempo de viagem chega a $h$
 - $z_h = a_h$ = vazão incremental realizada (§5), de modo que o patamar $k$ de um estágio cronológico recebe a parcela $w_k\,\zeta\,\sigma_{m(t)}\,\varepsilon_t$ do ruído
 - $\sigma^{inf}_h$ = folga de não negatividade da afluência, presente em todos os métodos de afluência exceto `none`, que acrescenta água: ilimitada em `penalty`; limitada ao montante de truncamento $a^-_h$ — uma constante da resolução, calculada a partir da realização com as defasagens fixadas — em `truncation_with_penalty`; e fixada nesse montante em `truncation` (veja [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity))
-- $r_h$, $\sigma^{w-}_h$, $\sigma^{w+}_h$ = meta de retirada com sinal, no nível do estágio ($r_h < 0$ acrescenta água), e suas folgas de entrega a menor e a maior, no nível do estágio; a retirada realizada é $R_h = r_h - \sigma^{w-}_h + \sigma^{w+}_h$, com os tetos das folgas na §9
+- $r_h$ = meta de retirada declarada da própria usina, com sinal, no nível do estágio ($r_h < 0$ acrescenta água)
+- $T^{eff}_h$ = retirada efetiva, a grandeza do lado direito. Para uma usina que não está em pré-enchimento, $T^{eff}_h = r_h + \sum_{h' \in \mathcal{P}_h} r_{h'}$, em que $\mathcal{P}_h$ é o conjunto das usinas em pré-enchimento cuja primeira usina a jusante fora do pré-enchimento é $h$; para uma usina em pré-enchimento, $T^{eff}_h = 0$ ([Repasse em pré-enchimento](#repasse-em-pre-enchimento))
+- $\sigma^{w-}_h$, $\sigma^{w+}_h$ = folgas de entrega a menor e a maior da retirada efetiva, no nível do estágio; a retirada realizada é $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$, com os tetos das folgas na §9
 - $e_h$ / $e_{h,k}$ = evaporação líquida com sinal de uma usina com modelo de evaporação (um valor negativo é precipitação líquida sobre o lago e acrescenta água): uma coluna no nível do estágio em um estágio paralelo com qualquer número de patamares, uma por patamar em um estágio cronológico, cada uma delas uma coluna limitada, vinculada ao armazenamento pela sua linha de evaporação (veja [Linha de evaporação](#linha-de-evaporacao))
 - $q_{h,k} = \sum_{b \in \mathcal{B}_h} q_{h,b,k}$, $s_{h,k}$, $u_{h,k}$ = vazões turbinada, vertida e desviada da própria usina no patamar $k$; a coluna de turbinamento de cada célula (usina, barramento) tem o mesmo coeficiente, e o vertimento e o desvio são colunas únicas por usina
 - Defluência de montante: apenas as vazões turbinada e vertida de cada $h' \in \mathcal{U}_h$ chegam a $h$; a vazão desviada de uma usina chega apenas ao destino do seu desvio (a soma em $\text{div}$)
@@ -214,7 +216,7 @@ $$
 
 ### Repasse em pré-enchimento
 
-Uma usina em pré-enchimento (veja [Fases do ciclo de vida](#fases-do-ciclo-de-vida) para a fase) tem a linha de identidade congelada $v_h - v^{in}_h = 0$ e, em um estágio cronológico, $v_{h,k} - v_{h,k-1} = 0$ por patamar, com lado direito $0$. Sua afluência local $z_h$, com sua folga de não negatividade da afluência $\sigma^{inf}_h$, as defluências das suas usinas de montante e as vazões desviadas para ela entram na linha da primeira usina a jusante que não esteja em pré-enchimento com os coeficientes que teriam na linha da própria usina em pré-enchimento ($-\zeta$ sobre $z_h$ e $\sigma^{inf}_h$ em um estágio paralelo e $-\zeta_k$ em cada linha de patamar de um estágio cronológico, $-\zeta_k$ sobre toda vazão do patamar $k$) e sem parcela de tempo de viagem, e sua meta de retirada passa para o lado direito dessa usina. Seu volume em trânsito que chega à maturação, $b^{\mathrm{in}}_{h,1}$, entra na mesma linha, com coeficiente $-1$ em um estágio paralelo e $-\phi_{h,k}$ na linha do patamar $k$ de um estágio cronológico, sendo $\phi_{h,k}$ a densidade de chegada da própria usina em pré-enchimento. Se não houver tal usina a jusante, a água deixa o sistema.
+Uma usina em pré-enchimento (veja [Fases do ciclo de vida](#fases-do-ciclo-de-vida) para a fase) tem a linha de identidade congelada $v_h - v^{in}_h = 0$ e, em um estágio cronológico, $v_{h,k} - v_{h,k-1} = 0$ por patamar, com lado direito $0$. Sua afluência local $z_h$, com sua folga de não negatividade da afluência $\sigma^{inf}_h$, as defluências das suas usinas de montante e as vazões desviadas para ela entram na linha da primeira usina a jusante que não esteja em pré-enchimento com os coeficientes que teriam na linha da própria usina em pré-enchimento ($-\zeta$ sobre $z_h$ e $\sigma^{inf}_h$ em um estágio paralelo e $-\zeta_k$ em cada linha de patamar de um estágio cronológico, $-\zeta_k$ sobre toda vazão do patamar $k$) e sem parcela de tempo de viagem, e sua meta de retirada entra na retirada efetiva $T^{eff}_h$ dessa usina, de modo que as folgas $\sigma^{w-}_h$ e $\sigma^{w+}_h$ da usina receptora a relaxam aos preços de folga de retirada dessa usina. Seu volume em trânsito que chega à maturação, $b^{\mathrm{in}}_{h,1}$, entra na mesma linha, com coeficiente $-1$ em um estágio paralelo e $-\phi_{h,k}$ na linha do patamar $k$ de um estágio cronológico, sendo $\phi_{h,k}$ a densidade de chegada da própria usina em pré-enchimento. Se não houver tal usina a jusante, a água deixa o sistema e a retirada não entra em nenhuma linha.
 
 ### Soma das linhas dos patamares
 
@@ -225,7 +227,7 @@ Somar as linhas dos patamares de um estágio cronológico sobre $k \in \mathcal{
 
 - O armazenamento ($v_h$, $v^{in}_h$, $v_{h,k}$) e $b^{\mathrm{in}}_{h,1}$ estão em hm³
 - $\zeta$ e $\zeta_k$ estão em hm³/(m³/s)
-- Toda vazão, toda folga e $r_h$ estão em m³/s
+- Toda vazão, toda folga, $r_h$ e $T^{eff}_h$ estão em m³/s
 - A conversão em volume ocorre apenas por meio de $\zeta$ e $\zeta_k$
 :::
 
@@ -338,7 +340,7 @@ A vazão defluente $o$ representa a água liberada para o canal de jusante (que 
 - **Retirada** $r_h$: um parâmetro de uso consuntivo com sinal (positivo = retirada do sistema para irrigação/abastecimento; negativo = retorno/acréscimo entre bacias). É um parâmetro fixo (não uma variável de decisão) — veja a §4 para a semântica da meta com sinal e a §9 para os limites das folgas
 - **Desvio** $u_{h,k}$: água desviada para um canal separado (que não afeta o canal de fuga principal)
 
-O balanço hídrico (§4) contabiliza todas as vazões: afluência $-$ $(q + s + u)$ $-$ evaporação $-$ retirada = variação do armazenamento. A retirada $r_h$ entra como parâmetro fixo com sinal no lado direito; folgas de violação bidirecionais ($\sigma^{w-}_h$, $\sigma^{w+}_h$) permitem ao PL relaxar o compromisso de retirada quando necessário (veja a §9).
+O balanço hídrico (§4) contabiliza todas as vazões: afluência $-$ $(q + s + u)$ $-$ evaporação $-$ retirada = variação do armazenamento. A retirada efetiva $T^{eff}_h$, derivada da meta declarada $r_h$ (§4), entra como parâmetro fixo com sinal no lado direito; folgas de violação bidirecionais ($\sigma^{w-}_h$, $\sigma^{w+}_h$) permitem ao PL relaxar o compromisso de retirada quando necessário (veja a §9).
 :::
 
 **Limites da Vazão Defluente** (com folgas para imposição flexível):
@@ -455,13 +457,13 @@ $$
 + \sum_{h \in \mathcal{H}} H_t \cdot \bigl(c^{ev+}_h \sigma^{e+}_h + c^{ev-}_h \sigma^{e-}_h\bigr) \;\; \text{(parallel stage)}, \qquad + \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \bigl(c^{ev+}_h \sigma^{e+}_{h,k} + c^{ev-}_h \sigma^{e-}_{h,k}\bigr) \;\; \text{(chronological stage)}
 $$
 
-em que $H_t = \sum_k \tau_k$ é a duração total do estágio em horas, e as somas de evaporação percorrem as usinas que modelam evaporação. As folgas de violação da retirada ($\sigma^{w-}_h$, $\sigma^{w+}_h$) são no nível do estágio (não por patamar) e bidirecionais: $\sigma^{w-}_h$ penaliza a entrega a menor (a retirada realizada $R_h = r_h - \sigma^{w-}_h + \sigma^{w+}_h$ fica aquém da meta) e $\sigma^{w+}_h$ penaliza a entrega a maior. A **meta de retirada $r_h$ tem sinal** (§4), e os limites das folgas garantem que a retirada realizada não possa inverter o sinal em relação à meta:
+em que $H_t = \sum_k \tau_k$ é a duração total do estágio em horas, e as somas de evaporação percorrem as usinas que modelam evaporação. As folgas de violação da retirada ($\sigma^{w-}_h$, $\sigma^{w+}_h$) são no nível do estágio (não por patamar) e bidirecionais: $\sigma^{w-}_h$ penaliza a entrega a menor (a retirada realizada $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$ fica aquém da retirada efetiva) e $\sigma^{w+}_h$ penaliza a entrega a maior. A **retirada efetiva $T^{eff}_h$ tem sinal** (§4), e os limites das folgas garantem que a retirada realizada não possa inverter o sinal em relação a ela:
 
-- $r_h > 0$ (retirada programada): $\sigma^{w-}_h \leq r_h$ (folga de entrega a menor limitada à magnitude da meta; garante $R_h \geq 0$), $\sigma^{w+}_h$ ilimitada.
-- $r_h < 0$ (retorno/acréscimo programado entre bacias): $\sigma^{w+}_h \leq |r_h|$ (folga de entrega a maior limitada a $|r_h|$; garante $R_h \leq 0$), $\sigma^{w-}_h$ ilimitada.
-- $r_h = 0$: ambas as folgas são fixadas em zero.
+- $T^{eff}_h > 0$ (retirada programada): $\sigma^{w-}_h \leq T^{eff}_h$ (folga de entrega a menor limitada à retirada efetiva; garante $R_h \geq 0$), $\sigma^{w+}_h$ ilimitada.
+- $T^{eff}_h < 0$ (retorno/acréscimo programado entre bacias): $\sigma^{w+}_h \leq |T^{eff}_h|$ (folga de entrega a maior limitada a $|T^{eff}_h|$; garante $R_h \leq 0$), $\sigma^{w-}_h = 0$.
+- $T^{eff}_h = 0$: ambas as folgas são fixadas em zero.
 
-Esse teto evita um caso degenerado: uma folga de entrega a menor ilimitada permitiria que uma usina a fio d'água "desfizesse a retirada" além da sua meta e injetasse água fictícia no reservatório.
+Esse teto evita um caso degenerado: uma folga de entrega a menor ilimitada permitiria que uma usina a fio d'água "desfizesse a retirada" além da sua retirada efetiva e injetasse água fictícia no reservatório.
 
 ## 10. Restrições genéricas
 
