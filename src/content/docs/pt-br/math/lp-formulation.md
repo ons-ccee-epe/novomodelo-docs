@@ -116,7 +116,7 @@ $$
 $$
 
 $$
-  + \underbrace{\text{Constraint violation penalties}}_{\text{See }\S 9}
+  + \underbrace{\text{Constraint violation penalties}}_{\text{See }\S 9\text{, including the FPHA plane slack } c^{fpha}_h \sigma^{fpha}_{h,b,k}}
 \Bigg]
 $$
 
@@ -292,16 +292,18 @@ As usinas de produtibilidade constante não têm coluna de geração separada: $
 **Modelo FPHA** (para cada plano $m \in \mathcal{M}_h$, célula $(h, b)$ da usina $h \in \mathcal{H}^{fpha}$, patamar $k$):
 
 $$
-g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
 $$
 
-em que $v^{avg}_h = (v^{in}_h + v_h)/2$ é o armazenamento médio durante o estágio, sendo $v^{in}_h$ a variável do PL de armazenamento de entrada ([Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna)) e $v_h$ o armazenamento ao fim do estágio em um estágio paralelo; em um estágio cronológico, a linha do patamar $k$ lê a média do próprio patamar, $(v_{h,k-1} + v_{h,k})/2$ ([Variantes de formulação dos patamares §2.4](/math/block-formulations#24-producao-e-evaporacao-por-patamar)) — uma única grandeza da usina compartilhada por todas as células, pois o armazenamento não é particionado. $\lambda_{h,b}$ é a **parcela de rateio** da célula $(h,b)$ na capacidade de turbinamento declarada da usina $h$,
+em que $\sigma^{fpha}_{h,b,k} \geq 0$ (MW) é a **folga do plano da FPHA**, uma por célula $(h, b)$ e patamar $k$, e $v^{avg}_h = (v^{in}_h + v_h)/2$ é o armazenamento médio durante o estágio, sendo $v^{in}_h$ a variável do PL de armazenamento de entrada ([Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna)) e $v_h$ o armazenamento ao fim do estágio em um estágio paralelo; em um estágio cronológico, a linha do patamar $k$ lê a média do próprio patamar, $(v_{h,k-1} + v_{h,k})/2$ ([Variantes de formulação dos patamares §2.4](/math/block-formulations#24-producao-e-evaporacao-por-patamar)) — uma única grandeza da usina compartilhada por todas as células, pois o armazenamento não é particionado. $\lambda_{h,b}$ é a **parcela de rateio** da célula $(h,b)$ na capacidade de turbinamento declarada da usina $h$,
 
 $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
 (a razão entre a vazão turbinada máxima declarada dos grupos de unidades geradoras da própria célula e o total da usina, $0$ quando o total da usina é $0$), de modo que $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ para toda usina com capacidade de turbinamento declarada positiva. Apenas a parte do plano independente da vazão — o intercepto $\gamma^m_0$, o termo de armazenamento e o termo de vertimento — é rateada por $\lambda_{h,b}$; o coeficiente de vazão $\gamma^m_q$ permanece sobre o $q_{h,b,k}$ da própria célula, sem escala, porque só ele é homogêneo na partição em células (somar as linhas por célula com $v^{avg}_h$, $s_{h,k}$ e $\sum_b q_{h,b,k}$ fixos recupera o limite da usina que isto substitui). Uma usina de célula única com capacidade de turbinamento declarada positiva tem $\lambda_{h,b} = 1$ exatamente, de modo que sua linha é a linha da usina.
+
+A folga entra na linha de todo plano $m \in \mathcal{M}_h$ da sua célula e do seu patamar com coeficiente $-1$, de modo que a geração pode exceder cada plano da célula no valor da folga. Ela está apenas nessas linhas de plano: em nenhuma linha de balanço hídrico, de atendimento à carga ou de restrição genérica, de modo que o balanço hídrico e o acoplamento da afluência não têm termo para ela. É valorada a $c^{fpha}_h$ (R\$/MWh) vezes a duração do patamar $\tau_k$ (§9). As expressões dos planos a seguir valem para $\sigma^{fpha}_{h,b,k} = 0$.
 
 Para uma usina com capacidade de turbinamento declarada positiva, as parcelas somam $1$, de modo que as linhas por célula de cada plano somam a linha da usina desse plano (acima). Uma soma de mínimos é no máximo o mínimo das somas, de modo que, com os mesmos $v^{avg}_h$, $s_{h,k}$ e vazão turbinada total, o teto que as linhas por célula impõem à geração da usina $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, à esquerda, é no máximo a envoltória da usina, o mínimo sobre os planos das linhas da usina, à direita:
 
@@ -444,8 +446,11 @@ As penalidades por violação de restrições por patamar na função objetivo (
 $$
 \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \Big[
   c^{tv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{q-}_{h,b,k} + \sigma^{Q-}_{h,k} \Big) + c^{ov-}_h \sigma^{o-}_{h,k} + c^{ov+}_h \sigma^{o+}_{h,k} + c^{gv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{g-}_{h,b,k} + \sigma^{G-}_{h,k} \Big)
+  + c^{fpha}_h \sum_{b \in \mathcal{B}_h} \sigma^{fpha}_{h,b,k}
 \Big]
 $$
+
+A folga do plano da FPHA $\sigma^{fpha}_{h,b,k}$ é por célula, como a folga de geração mínima, e é valorada pelo $c^{fpha}_h$ da usina com magnitude integral em cada célula; ela existe onde existem as linhas de plano da FPHA da §6 e não existe para nenhuma outra UHE. O [Sistema de penalidades](/math/penalty-system) a lista com as folgas de recurso, porque ela mantém viável o PL do estágio quando um piso de geração ou uma restrição força a geração acima dos planos; a função objetivo a inclui nesta soma.
 
 As folgas de mínimo de turbinamento e de geração são **por célula** — cada célula de uma usina dividida tem sua própria coluna de folga e sua própria linha, valoradas pela penalidade da usina com magnitude integral, nunca divididas entre as células. As folgas residuais $\sigma^{Q-}_{h,k}$ e $\sigma^{G-}_{h,k}$ existem apenas para uma usina com linha residual ([§8 Mínimo e máximo da usina](#minimo-e-maximo-da-usina)) e são $0$ para todas as demais usinas. As folgas de vazão defluente permanecem por usina: a vazão defluente não tem coluna por célula à qual atribuir um piso. As folgas de evaporação também são por usina, no nível do estágio em um estágio paralelo e por patamar em um estágio cronológico ([Linha de evaporação](#linha-de-evaporacao)).
 

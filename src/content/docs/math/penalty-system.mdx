@@ -32,6 +32,7 @@ These penalties ensure that the SDDP algorithm has relatively complete recourse 
 | Deficit ($c^{def}_{b,s}$) | \$/MWh | Unmet load per bus, by segment | Piecewise cost of load shedding |
 | Excess ($c^{exc}_b$) | \$/MWh | Excess generation per bus | Absorb uncontrollable surplus |
 | Inflow non-negativity ($c^{inf}_h$) | \$/(m³/s·h) | Water added to a hydro's water balance (`penalty` and `truncation_with_penalty` inflow methods) | Keep the water balance feasible under a negative inflow realization |
+| FPHA plane slack ($c^{fpha}_h$) | \$/MWh | Generation above an FPHA plane, per cell and block | Keep the stage LP feasible when a generation floor or a constraint forces generation above the planes |
 
 Deficit and excess are conceptually slack variables on the load balance constraint, but they have special names because of their importance in the hydrothermal dispatch application. Deficit represents the value of lost load; excess is a regularization-level cost to eliminate spurious slack generation.
 
@@ -97,6 +98,20 @@ c^{def} \;>\; \frac{c^{fill}}{\kappa\,\bar\rho_{acum}}
 $$
 
 A commissioning fill schedule must not be defended as hard as load shedding — when nature physically cannot both serve load and keep a filling reservoir on its accumulation schedule, the solver should serve load and let the filling floor slip. The filling-target penalty's position _relative to the operational-constraint tier_ (minimum turbined flow, outflow, generation, evaporation, withdrawal) is left to study calibration: Novomodelo expects it below deficit and sets nothing against those operational slacks.
+
+The **FPHA plane slack** $\sigma^{fpha}_{h,b,k}$ sits only in the plane rows of its cell and block, and its price $c^{fpha}_h$ is in \$/MWh, like deficit. With the cell's generation $g_{h,b,k}$ basic and its plane binding, the plane row's dual equals, in magnitude, the sum of:
+
+- the dual of the load-balance row of the cell's bus;
+- the dual of the cell's minimum-generation row;
+- the duals of the generic-constraint rows that hold $g_{h,b,k}$, each per MWh.
+
+The slack stays 0 only while $c^{fpha}_h$ exceeds that sum. The load-balance dual is at most the largest deficit cost and the minimum-generation dual is at most $c^{gv-}_h$, so the ordering to configure is
+
+$$
+c^{fpha}_h \;>\; \max_{b,s} c^{def}_{b,s} + c^{gv-}_h
+$$
+
+A lower-bounded generic constraint on FPHA generation whose slack price is at or above $c^{fpha}_h$ adds a third term, so the slack can be active at a price above the two-term sum.
 
 ### Penalty Ordering Validation
 

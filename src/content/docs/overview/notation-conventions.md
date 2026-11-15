@@ -207,6 +207,7 @@ Cost coefficients use $c$ with a superscript naming the cost type.
 | $c^{tv-}_h$ | \$/(m³/s·h) | Turbined-flow-minimum violation penalty, charged on every cell of hydro $h$ |
 | $c^{ov-}_h$, $c^{ov+}_h$ | \$/(m³/s·h) | Outflow below-minimum and above-maximum violation penalties |
 | $c^{gv-}_h$ | \$/MWh | Generation-minimum violation penalty, charged on every cell of hydro $h$ |
+| $c^{fpha}_h$ | \$/MWh | FPHA plane-slack penalty, charged on every cell of hydro $h$ |
 | $c^{ev+}_h$, $c^{ev-}_h$ | \$/(m³/s·h) | Evaporation above-target and below-target violation penalties |
 | $c^{wv+}_h$, $c^{wv-}_h$ | \$/(m³/s·h) | Water-withdrawal over-delivery and under-delivery penalties |
 | $c^{inf}_h$ | \$/(m³/s·h) | Inflow non-negativity penalty (`penalty` and `truncation_with_penalty` inflow methods) |
@@ -380,6 +381,7 @@ Slack variables for soft constraints:
 | $\sigma^{o-}_{h,k}$                      | $\geq 0$ | m³/s  | Outflow below minimum (per plant — no per-cell outflow column to attribute a floor to)                                                            |
 | $\sigma^{o+}_{h,k}$                      | $\geq 0$ | m³/s  | Outflow above maximum (per plant)                                                                                                                 |
 | $\sigma^{g-}_{h,b,k}$                    | $\geq 0$ | MW    | Generation below minimum — one per (hydro, bus) cell $b \in \mathcal{B}_h$ of a split plant                                                       |
+| $\sigma^{fpha}_{h,b,k}$                  | $\geq 0$ | MW    | Generation above the FPHA planes — one per (hydro, bus) cell $b \in \mathcal{B}_h$ and block, in the plane rows of that cell only; priced by $c^{fpha}_h$ |
 | $\sigma^{G-}_{h,k}$                      | $\geq 0$ | MW    | Plant generation below the plant minimum, beyond what the cell slacks cover (a plant with several cells whose minimum binds) |
 | $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Evaporation above-target and below-target violation (per plant): one stage-level pair $\sigma^{e\pm}_h$ on a parallel stage, priced over the stage hours $H_t$; one pair per block on a chronological stage, priced over $\tau_k$ |
 | $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Water withdrawal under-/over-delivery relative to the effective withdrawal $T^{eff}_h$ (stage-level, not per-block); priced by $c^{wv-}_h$ / $c^{wv+}_h$ respectively |

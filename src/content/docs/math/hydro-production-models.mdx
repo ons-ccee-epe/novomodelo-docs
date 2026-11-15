@@ -270,12 +270,12 @@ A hydro plant is partitioned into one or more **(hydro, bus) cells** — one per
 For each cell $(h, b)$ of a hydro $h$ using FPHA, block $k$, and plane $m \in \mathcal{M}_h$:
 
 $$
-g_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot s_{h,k} \leq \lambda_{h,b} \, \gamma_0^m
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot s_{h,k} \leq \lambda_{h,b} \, \gamma_0^m
 $$
 
-Every variable sits on the left with its plane coefficient negated, and the apportioned intercept is the row's upper bound; the row is the cap $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot s_{h,k} \big) + \gamma_q^m \cdot q_{h,b,k}$.
+Every variable sits on the left with its plane coefficient negated, and the apportioned intercept is the row's upper bound; the row is the cap $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot s_{h,k} \big) + \gamma_q^m \cdot q_{h,b,k} + \sigma^{fpha}_{h,b,k}$.
 
-The coefficients are already $k_{FPHA}$-scaled — there is no separate pre-scaling step. These are **hard constraints** — no slack variables.
+The coefficients are already $k_{FPHA}$-scaled — there is no separate pre-scaling step. The plane rows carry one slack $\sigma^{fpha}_{h,b,k} \geq 0$ per cell and block, with coefficient $-1$ in every plane row of that cell and block and in no other row; see [Hydro Generation Constraints](/en/math/lp-formulation#6-hydro-generation-constraints) for its price.
 
 $\lambda_{h,b}$ apportions the plane's **flow-independent** part — the intercept $\gamma_0^m$, the storage term, and the spillage term — by cell $(h,b)$'s share of the plant's declared turbine capacity:
 

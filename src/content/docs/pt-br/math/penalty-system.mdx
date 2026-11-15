@@ -32,6 +32,7 @@ Essas penalidades garantem que o algoritmo de PDDE (SDDP) tenha recurso relativa
 | Déficit ($c^{def}_{b,s}$) | R\$/MWh | Carga não atendida por barramento, por patamar de déficit | Custo linear por partes do corte de carga |
 | Excesso ($c^{exc}_b$) | R\$/MWh | Excesso de geração por barramento | Absorver o excedente não controlável |
 | Não negatividade da afluência ($c^{inf}_h$) | R\$/(m³/s·h) | Água adicionada ao balanço hídrico de uma UHE (métodos de afluência `penalty` e `truncation_with_penalty`) | Manter o balanço hídrico viável sob uma realização negativa de afluência |
+| Folga do plano da FPHA ($c^{fpha}_h$) | R\$/MWh | Geração acima de um plano da FPHA, por célula e patamar | Manter o PL do estágio viável quando um piso de geração ou uma restrição força a geração acima dos planos |
 
 Déficit e excesso são, conceitualmente, variáveis de folga da restrição de atendimento à carga, mas recebem nomes específicos pela sua importância na aplicação de despacho hidrotérmico. O déficit representa o valor da carga não suprida; o excesso é um custo de nível de regularização para eliminar geração espúria por folga.
 
@@ -97,6 +98,20 @@ c^{def} \;>\; \frac{c^{fill}}{\kappa\,\bar\rho_{acum}}
 $$
 
 Um cronograma de enchimento para a entrada em operação não deve ser defendido com o mesmo rigor que o corte de carga — quando a natureza fisicamente não permite atender à carga e, ao mesmo tempo, manter um reservatório em fase de enchimento no seu cronograma de acumulação, o solver deve atender à carga e deixar o piso de enchimento ceder. A posição da penalidade de meta de enchimento _em relação ao nível de restrições operativas_ (vazão turbinada mínima, vazão defluente, geração, evaporação, retirada) fica a cargo da calibração do estudo: o Novo Modelo espera que ela fique abaixo do déficit e não impõe nada em relação a essas folgas operativas.
+
+A **folga do plano da FPHA** $\sigma^{fpha}_{h,b,k}$ está apenas nas linhas de plano da sua célula e do seu patamar, e o seu preço $c^{fpha}_h$ é em R\$/MWh, como o do déficit. Com a geração $g_{h,b,k}$ da célula na base e o seu plano ativo na solução, a variável dual da linha do plano é igual, em módulo, à soma de:
+
+- a variável dual da linha de atendimento à carga do barramento da célula;
+- a variável dual da linha de geração mínima da célula;
+- as variáveis duais das linhas de restrição genérica que contêm $g_{h,b,k}$, cada uma por MWh.
+
+A folga só fica em 0 enquanto $c^{fpha}_h$ supera essa soma. A variável dual do atendimento à carga é no máximo o maior custo de déficit, e a da geração mínima é no máximo $c^{gv-}_h$, de modo que a ordenação a configurar é
+
+$$
+c^{fpha}_h \;>\; \max_{b,s} c^{def}_{b,s} + c^{gv-}_h
+$$
+
+Uma restrição genérica com limite inferior sobre a geração da FPHA, cujo preço de folga seja igual ou superior a $c^{fpha}_h$, acrescenta um terceiro termo, de modo que a folga pode ficar ativa a um preço acima da soma dos dois termos.
 
 ### Validação da ordem das penalidades
 

@@ -116,7 +116,7 @@ $$
 $$
 
 $$
-  + \underbrace{\text{Constraint violation penalties}}_{\text{See }\S 9}
+  + \underbrace{\text{Constraint violation penalties}}_{\text{See }\S 9\text{, including the FPHA plane slack } c^{fpha}_h \sigma^{fpha}_{h,b,k}}
 \Bigg]
 $$
 
@@ -292,16 +292,18 @@ Constant-productivity hydros carry no separate generation column: $g_{h,b,k}$ is
 **FPHA Model** (for each plane $m \in \mathcal{M}_h$, cell $(h, b)$ of hydro $h \in \mathcal{H}^{fpha}$, block $k$):
 
 $$
-g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
 $$
 
-where $v^{avg}_h = (v^{in}_h + v_h)/2$ is the average storage during the stage, with $v^{in}_h$ being the incoming storage LP variable ([State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)) and $v_h$ the end-of-stage storage on a parallel stage; on a chronological stage the row of block $k$ reads that block's own average $(v_{h,k-1} + v_{h,k})/2$ ([Block Formulation Variants §2.4](/en/math/block-formulations#24-per-block-production-and-evaporation)) — a single plant-level quantity shared by every cell, since storage is not partitioned. $\lambda_{h,b}$ is cell $(h,b)$'s **apportionment share** of plant $h$'s declared turbine capacity,
+where $\sigma^{fpha}_{h,b,k} \geq 0$ (MW) is the **FPHA plane slack**, one per cell $(h, b)$ and block $k$, and $v^{avg}_h = (v^{in}_h + v_h)/2$ is the average storage during the stage, with $v^{in}_h$ being the incoming storage LP variable ([State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)) and $v_h$ the end-of-stage storage on a parallel stage; on a chronological stage the row of block $k$ reads that block's own average $(v_{h,k-1} + v_{h,k})/2$ ([Block Formulation Variants §2.4](/en/math/block-formulations#24-per-block-production-and-evaporation)) — a single plant-level quantity shared by every cell, since storage is not partitioned. $\lambda_{h,b}$ is cell $(h,b)$'s **apportionment share** of plant $h$'s declared turbine capacity,
 
 $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
 (the ratio of the cell's own unit groups' declared maximum turbined flow to the plant's total, $0$ when the plant's total is $0$), so that $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ for every plant with positive declared turbine capacity. Only the plane's flow-independent part — the intercept $\gamma^m_0$, the storage term, and the spillage term — is apportioned by $\lambda_{h,b}$; the flow coefficient $\gamma^m_q$ stays on the cell's own $q_{h,b,k}$ unscaled, because it alone is homogeneous in the cell partition (summing the per-cell rows at fixed $v^{avg}_h$, $s_{h,k}$, and $\sum_b q_{h,b,k}$ recovers the plant-level bound this replaces). A single-cell plant with positive declared turbine capacity has $\lambda_{h,b} = 1$ exactly, so its row is the plant-level row.
+
+The slack enters the row of every plane $m \in \mathcal{M}_h$ of its cell and block with coefficient $-1$, so generation may exceed every plane of the cell by the slack. It sits only in those plane rows: in no water-balance, load-balance or generic-constraint row, so the water balance and the inflow coupling carry no term for it. It is priced at $c^{fpha}_h$ (\$/MWh) times the block duration $\tau_k$ (§9). The plane displays that follow hold at $\sigma^{fpha}_{h,b,k} = 0$.
 
 For a plant with positive declared turbine capacity the shares sum to $1$, so the per-cell rows of each plane sum to that plane's plant-level row (above). A sum of minima is at most the minimum of the sums, so at the same $v^{avg}_h$, $s_{h,k}$ and total turbined flow the cap the per-cell rows put on the plant's generation $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, on the left, is at most the plant-level envelope, the minimum over the planes of the plant-level rows, on the right:
 
@@ -444,8 +446,11 @@ The per-block constraint violation penalties in the objective (referenced from �
 $$
 \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \Big[
   c^{tv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{q-}_{h,b,k} + \sigma^{Q-}_{h,k} \Big) + c^{ov-}_h \sigma^{o-}_{h,k} + c^{ov+}_h \sigma^{o+}_{h,k} + c^{gv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{g-}_{h,b,k} + \sigma^{G-}_{h,k} \Big)
+  + c^{fpha}_h \sum_{b \in \mathcal{B}_h} \sigma^{fpha}_{h,b,k}
 \Big]
 $$
+
+The FPHA plane slack $\sigma^{fpha}_{h,b,k}$ is per cell, like the generation-minimum slack, and is priced at the plant's $c^{fpha}_h$ at full magnitude on every cell; it exists wherever the FPHA plane rows of §6 exist and is absent for every other hydro. [Penalty System](/en/math/penalty-system) lists it with the recourse slacks because it keeps the stage LP feasible when a generation floor or a constraint forces generation above the planes; the objective carries it in this sum.
 
 The turbined- and generation-minimum slacks are **per cell** — each of a split plant's cells carries its own slack column and its own row, priced at the plant's penalty at full magnitude, never divided across cells. The residual slacks $\sigma^{Q-}_{h,k}$ and $\sigma^{G-}_{h,k}$ exist only for a plant with a residual row ([§8 Plant Minimum and Maximum](#plant-minimum-and-maximum)) and are $0$ for every other plant. The outflow slacks stay per plant: outflow has no per-cell column to attribute a floor to. The evaporation slacks are per plant too, stage-level on a parallel stage and per block on a chronological stage ([Evaporation Row](#evaporation-row)).
 

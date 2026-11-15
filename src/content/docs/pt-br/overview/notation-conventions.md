@@ -207,6 +207,7 @@ Os coeficientes de custo usam $c$ com um sobrescrito que identifica o tipo de cu
 | $c^{tv-}_h$ | R\$/(m³/s·h) | Penalidade por violação da vazão turbinada mínima, cobrada sobre cada célula da hidrelétrica $h$ |
 | $c^{ov-}_h$, $c^{ov+}_h$ | R\$/(m³/s·h) | Penalidades por violação da vazão defluente abaixo do mínimo e acima do máximo |
 | $c^{gv-}_h$ | R\$/MWh | Penalidade por violação da geração mínima, cobrada sobre cada célula da hidrelétrica $h$ |
+| $c^{fpha}_h$ | R\$/MWh | Penalidade da folga do plano da FPHA, cobrada sobre cada célula da hidrelétrica $h$ |
 | $c^{ev+}_h$, $c^{ev-}_h$ | R\$/(m³/s·h) | Penalidades por violação da evaporação acima e abaixo da meta |
 | $c^{wv+}_h$, $c^{wv-}_h$ | R\$/(m³/s·h) | Penalidades por retirada de água acima e abaixo da meta |
 | $c^{inf}_h$ | R\$/(m³/s·h) | Penalidade de não negatividade da afluência (métodos de afluência `penalty` e `truncation_with_penalty`) |
@@ -380,6 +381,7 @@ Variáveis de folga das restrições flexíveis:
 | $\sigma^{o-}_{h,k}$                      | $\geq 0$ | m³/s  | Vazão defluente abaixo do mínimo (por usina — não há coluna de vazão defluente por célula à qual atribuir um piso)                                                            |
 | $\sigma^{o+}_{h,k}$                      | $\geq 0$ | m³/s  | Vazão defluente acima do máximo (por usina)                                                                                                                 |
 | $\sigma^{g-}_{h,b,k}$                    | $\geq 0$ | MW    | Geração abaixo do mínimo — uma por célula (hidrelétrica, barramento) $b \in \mathcal{B}_h$ de uma usina dividida                                                       |
+| $\sigma^{fpha}_{h,b,k}$                  | $\geq 0$ | MW    | Geração acima dos planos da FPHA — uma por célula (hidrelétrica, barramento) $b \in \mathcal{B}_h$ e patamar, apenas nas linhas de plano dessa célula; precificada por $c^{fpha}_h$ |
 | $\sigma^{G-}_{h,k}$                      | $\geq 0$ | MW    | Geração da usina abaixo do mínimo da usina, além do que as folgas das células cobrem (uma usina com várias células cujo mínimo está ativo) |
 | $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Violação da evaporação acima e abaixo da meta (por usina): um único par $\sigma^{e\pm}_h$ em nível de estágio em um estágio paralelo, precificado sobre as horas do estágio $H_t$; um par por patamar em um estágio cronológico, precificado sobre $\tau_k$ |
 | $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Retirada de água abaixo/acima da retirada efetiva $T^{eff}_h$ (em nível de estágio, não por patamar); precificadas por $c^{wv-}_h$ / $c^{wv+}_h$, respectivamente |
