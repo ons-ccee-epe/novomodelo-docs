@@ -1573,7 +1573,7 @@ disabled on every study stage despite supplied autoregressive coefficients, a
 negative value in `scenarios/inflow_history.parquet`, a season with no
 observations in that file, a hydro-season with at least one, but fewer than
 `estimation.min_observations_per_season`, fully covered stage occurrences in that
-file, an advisory on a hydro's declared `travel_time_hours`, or an initial
+file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, or an initial
 storage outside the storage bounds at the end of the hydro's first operating
 stage. Each is reported as a warning.
 
@@ -1631,12 +1631,22 @@ commissioning window. Its bounds are the stage-level row (`block_id` null) of
 own `min_storage_hm3` and `max_storage_hm3`. A hydro with a `filling`
 configuration is not checked. The initial storage is kept as declared.
 
+The rising-floor message, reported on `constraints/hydro_bounds.parquet`:
+
+{/* quoted from source: check_rising_hard_storage_floor in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit f6f87dfe4cc339c0e51467c5ea076f04aea86207 */}
+
+```text
+Minimum storage rises above the previous stage's floor at {} (hydro, stage) pair(s), so a stage whose inflow cannot cover the rise is infeasible: {pairs}
+```
+
+Each pair is written `Hydro {hydro_id} at stage {stage_id} ({floor} > {incoming})`. The pairs are sorted by hydro id, then stage id, and joined with `, `. The check runs under the `truncation`, `truncation_with_penalty` and `none` inflow methods and is silent under `penalty`. The hard floor is 0 for a filling hydro and at a PreFilling stage, and the stage's resolved `min_storage_hm3` otherwise. The stage that receives the initial storage is left to the initial-storage message.
+
 **Resolution:** Review the flagged input. For a penalty-ordering warning, see
 [Load-time penalty checks](/en/math/penalty-system#implementation-in-novomodelo); for the
 inflow-lag warning, see
 [`stages[].state_variables` — Cut Projection](/en/math/cut-management/#stagesstate_variables--cut-projection);
 for the initial-storage warning, check that the first operating stage can reach
-its storage bounds, or move the initial storage inside them.
+its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)).
 Warnings of this type do not prevent the solver from running.
 
 ---

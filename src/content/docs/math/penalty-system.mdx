@@ -25,7 +25,7 @@ Penalties serve three distinct purposes in the LP formulation. Understanding the
 
 ### Category 1: Recourse Slacks (LP Feasibility)
 
-These penalties ensure that the SDDP algorithm has relatively complete recourse — every subproblem must be feasible regardless of the scenario realization. Without these slacks, the LP would be infeasible when generation cannot meet demand or when excess uncontrollable generation cannot be absorbed, or when a negative inflow realization leaves a hydro's water balance without a solution.
+These penalties ensure that the SDDP algorithm has relatively complete recourse under the precondition below — every subproblem must be feasible regardless of the scenario realization. Without these slacks, the LP would be infeasible when generation cannot meet demand or when excess uncontrollable generation cannot be absorbed, or when a negative inflow realization leaves a hydro's water balance without a solution.
 
 | Penalty            | Units  | Applied To                | Purpose                         |
 | ------------------ | ------ | ------------------------- | ------------------------------- |
@@ -39,6 +39,24 @@ Deficit and excess are conceptually slack variables on the load balance constrai
 :::note[Note on the excess cost range]
 The cost spans a wide range because it serves two distinct use cases. At the low end, it acts as a pure regularization term that breaks solver degeneracy without distorting the policy. At the high end, it serves a policy-shaping role, actively discouraging excess generation to keep dispatch solutions physically realistic. See the Configure tab below for the concrete case-level default.
 :::
+
+#### Complete-Recourse Precondition
+
+Relatively complete recourse holds for an incoming storage between $F_{in}(t)$ and $C(t-1)$. $F_{in}(t)$ is the floor of the incoming storage: the hard storage floor of the previous stage, or, at the first stage and after a PreFilling stage, the floor of the interval the initial storage is clamped into. $C(t-1)$ is the previous stage's storage ceiling, or the hydro's own `max_storage_hm3` at those stages. For such a storage, every stage LP is feasible when all of the following hold:
+
+- (a) the inflow method can lift a negative local inflow to 0;
+- (b) no hard forced release applies: no positive `min_spillage_m3s` or `min_diversion_m3s`, and no positive `min_flow_m3s` of a pumping station whose `source_hydro_id` is the hydro;
+- (c) the hard storage floor of stage $t$ does not rise above $F_{in}(t)$;
+- (d) excess water can leave the reservoir when `max_spillage_m3s` is finite. In a month whose evaporation coefficient is negative, the ceiling on net evaporation $e_h$ keeps evaporation from removing water, so water above the stage's ceiling leaves through turbining, spillage, diversion, a pumping station's draw and the over-withdrawal slack $\sigma^{w+}_h$. That slack is unbounded only while the effective withdrawal $T^{eff}_h$ ([LP Formulation, Row Terms](/en/math/lp-formulation#row-terms)) is positive; otherwise it is capped so that the realized withdrawal removes no water, and a finite `max_spillage_m3s` can leave the excess no outlet;
+- (e) every generic constraint on water or hydro generation carries a slack.
+
+The inflow method decides which conditions hold on its own:
+
+- `penalty` meets (a), (b) and (c) unconditionally: its inflow slack is priced and unbounded, so it adds any missing water.
+- `truncation` and `truncation_with_penalty` meet (a) through a bounded inflow slack ([Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity)).
+- `none` meets none of them.
+
+Novomodelo checks only (c). Under every inflow method except `penalty`, it warns at load time on each hydro and stage whose hard storage floor rises above the floor the previous stage leaves, as the rising-floor message of [`ModelQuality`](/en/reference/error-codes/#modelquality). The stage that receives the initial storage is covered by the initial-storage message under every method. Novomodelo does not check (b), (d) or (e).
 
 ### Category 2: Constraint Violation Penalties (Policy Shaping)
 

@@ -1572,7 +1572,7 @@ desabilitado em todos os estágios do estudo apesar de terem sido fornecidos coe
 valor negativo em `scenarios/inflow_history.parquet`, um período sazonal sem
 observações nesse arquivo, um par hidrelétrica-período sazonal com pelo menos uma, mas menos de
 `estimation.min_observations_per_season`, ocorrências de estágio totalmente cobertas nesse
-arquivo, um alerta sobre o `travel_time_hours` declarado de uma hidrelétrica, ou um armazenamento
+arquivo, um alerta sobre o `travel_time_hours` declarado de uma hidrelétrica, um piso rígido de armazenamento que sobe acima do piso deixado pelo estágio anterior, ou um armazenamento
 inicial fora dos limites de armazenamento ao final do primeiro estágio de operação
 da hidrelétrica. Cada um é reportado como aviso.
 
@@ -1630,12 +1630,22 @@ entrada em operação da hidrelétrica. Seus limites são a linha no nível do e
 `min_storage_hm3` e `max_storage_hm3` da própria hidrelétrica. Uma hidrelétrica com configuração de `filling`
 não é verificada. O armazenamento inicial é mantido como declarado.
 
+A mensagem de piso crescente, reportada em `constraints/hydro_bounds.parquet`:
+
+{/* quoted from source: check_rising_hard_storage_floor in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit f6f87dfe4cc339c0e51467c5ea076f04aea86207 */}
+
+```text
+Minimum storage rises above the previous stage's floor at {} (hydro, stage) pair(s), so a stage whose inflow cannot cover the rise is infeasible: {pairs}
+```
+
+Cada par é escrito como `Hydro {hydro_id} at stage {stage_id} ({floor} > {incoming})`. Os pares são ordenados pelo id da hidrelétrica e, depois, pelo id do estágio, e unidos por `, `. A verificação é executada sob os métodos de afluência `truncation`, `truncation_with_penalty` e `none` e é silenciosa sob `penalty`. O piso rígido é 0 para uma hidrelétrica em fase de enchimento e em um estágio em pré-enchimento e, nos demais casos, o `min_storage_hm3` resolvido do estágio. O estágio que recebe o armazenamento inicial fica a cargo da mensagem de armazenamento inicial.
+
 **Solução:** Revise a entrada sinalizada. Para um aviso de ordenação de penalidades, veja
 [Verificações de penalidades na carga](/math/penalty-system#implementacao-no-novo-modelo); para o
 aviso de tendência hidrológica, veja
 [`stages[].state_variables` — Projeção de Cortes](/math/cut-management/#stagesstate_variables--projecao-dos-cortes);
 para o aviso de armazenamento inicial, verifique se o primeiro estágio de operação consegue atingir
-seus limites de armazenamento ou mova o armazenamento inicial para dentro deles.
+seus limites de armazenamento ou mova o armazenamento inicial para dentro deles; para o aviso de piso crescente, reduza o piso que sobe, eleve o piso do estágio anterior ou use o método de afluência `penalty` (veja [a precondição de recurso completo](/math/penalty-system#precondicao-de-recurso-completo)).
 Avisos deste tipo não impedem a execução do solver.
 
 ---

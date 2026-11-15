@@ -25,7 +25,7 @@ As penalidades cumprem três finalidades distintas na formulação do PL. Compre
 
 ### Categoria 1: folgas de recurso (viabilidade do PL)
 
-Essas penalidades garantem que o algoritmo de PDDE (SDDP) tenha recurso relativamente completo — todo subproblema deve ser viável, qualquer que seja a realização do cenário. Sem essas folgas, o PL seria inviável quando a geração não consegue atender à demanda, quando o excesso de geração não controlável não pode ser absorvido ou quando uma realização negativa de afluência deixa o balanço hídrico de uma usina hidrelétrica sem solução.
+Essas penalidades garantem que o algoritmo de PDDE (SDDP) tenha recurso relativamente completo sob a precondição abaixo — todo subproblema deve ser viável, qualquer que seja a realização do cenário. Sem essas folgas, o PL seria inviável quando a geração não consegue atender à demanda, quando o excesso de geração não controlável não pode ser absorvido ou quando uma realização negativa de afluência deixa o balanço hídrico de uma usina hidrelétrica sem solução.
 
 | Penalidade            | Unidade  | Aplica-se a                | Finalidade                         |
 | ------------------ | ------ | ------------------------- | ------------------------------- |
@@ -39,6 +39,24 @@ Déficit e excesso são, conceitualmente, variáveis de folga da restrição de 
 :::note[Observação sobre a faixa do custo de excesso]
 O custo abrange uma faixa ampla porque atende a dois casos de uso distintos. No extremo inferior, atua como termo de regularização pura, que desfaz a degenerescência do solver sem distorcer a política. No extremo superior, cumpre um papel de conformação da política, desestimulando ativamente o excesso de geração para manter as soluções de despacho fisicamente realistas. Consulte a aba Configurar abaixo para o valor padrão concreto no nível do caso.
 :::
+
+#### Precondição de recurso completo
+
+O recurso relativamente completo vale para um armazenamento de entrada entre $F_{in}(t)$ e $C(t-1)$. $F_{in}(t)$ é o piso do armazenamento de entrada: o piso rígido de armazenamento do estágio anterior ou, no primeiro estágio e após um estágio em pré-enchimento, o piso do intervalo em que o armazenamento inicial é ajustado. $C(t-1)$ é o teto de armazenamento do estágio anterior ou, nesses estágios, o `max_storage_hm3` da própria usina. Para um armazenamento assim, todo PL de estágio é viável quando todas as condições a seguir valem:
+
+- (a) o método de afluência consegue elevar a 0 uma afluência local negativa;
+- (b) nenhuma defluência forçada rígida se aplica: nenhum `min_spillage_m3s` ou `min_diversion_m3s` positivo e nenhum `min_flow_m3s` positivo de uma usina elevatória cujo `source_hydro_id` seja a usina;
+- (c) o piso rígido de armazenamento do estágio $t$ não sobe acima de $F_{in}(t)$;
+- (d) a água em excesso consegue sair do reservatório quando `max_spillage_m3s` é finito. Em um mês cujo coeficiente de evaporação é negativo, o teto da evaporação líquida $e_h$ impede que a evaporação retire água, de modo que a água acima do teto do estágio sai pela vazão turbinada, pelo vertimento, pela vazão desviada, pela captação de uma usina elevatória e pela folga de entrega a maior da retirada $\sigma^{w+}_h$. Essa folga só é ilimitada enquanto a retirada efetiva $T^{eff}_h$ ([Formulação do PL, Termos das linhas](/math/lp-formulation#termos-das-linhas)) é positiva; caso contrário, ela é limitada de modo que a retirada realizada não remova água, e um `max_spillage_m3s` finito pode deixar o excesso sem saída;
+- (e) toda restrição genérica sobre água ou geração hidrelétrica tem uma folga.
+
+O método de afluência decide por si só quais condições valem:
+
+- `penalty` atende (a), (b) e (c) incondicionalmente: sua folga de afluência é valorada e ilimitada, de modo que adiciona qualquer água que falte.
+- `truncation` e `truncation_with_penalty` atendem (a) por meio de uma folga de afluência limitada ([Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity)).
+- `none` não atende nenhuma delas.
+
+O Novo Modelo verifica apenas (c). Em todo método de afluência exceto `penalty`, ele emite, na carga, um aviso para cada usina e estágio cujo piso rígido de armazenamento sobe acima do piso deixado pelo estágio anterior, como a mensagem de piso crescente de [`ModelQuality`](/reference/error-codes/#modelquality). O estágio que recebe o armazenamento inicial é coberto pela mensagem de armazenamento inicial em todo método. O Novo Modelo não verifica (b), (d) nem (e).
 
 ### Categoria 2: penalidades por violação de restrições (conformação da política)
 
