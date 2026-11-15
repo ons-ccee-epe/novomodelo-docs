@@ -85,7 +85,7 @@ $$
 
 **Advantages**:
 
-- LP always feasible
+- Meets conditions (a) to (c) of the [complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition) for every inflow realization
 - Clear cost signal for negative inflow events
 - Slack bounds that do not depend on the incoming state, so the method leaves the lower bound's validity untouched (§7)
 
@@ -168,10 +168,12 @@ The bounds depend on the incoming state only through its inflow lags, and at a s
 
 | Method                    | LP Size             | Water added to the balance     | Cost of the added water | Feasibility | Lower bound under PAR(p > 0) |
 | ------------------------- | ------------------- | ------------------------------ | ----------------------- | ----------- | ---------------------------- |
-| `none`                    | Base                | None                           | —                       | May fail    | Unaffected                   |
-| `penalty`                 | +1 column per hydro | Any amount, at any realization | $c^{inf}_h$             | Guaranteed  | Unaffected                   |
-| `truncation`              | +1 column per hydro | Exactly $a^-_h$                | None                    | Guaranteed  | Not guaranteed (§7)          |
-| `truncation_with_penalty` | +1 column per hydro | Up to $a^-_h$                  | $c^{inf}_h$             | Guaranteed  | Not guaranteed (§7)          |
+| `none`                    | Base                | None                           | —                       | None        | Unaffected                   |
+| `penalty`                 | +1 column per hydro | Any amount, at any realization | $c^{inf}_h$             | (a) to (c)  | Unaffected                   |
+| `truncation`              | +1 column per hydro | Exactly $a^-_h$                | None                    | (a)         | Not guaranteed (§7)          |
+| `truncation_with_penalty` | +1 column per hydro | Up to $a^-_h$                  | $c^{inf}_h$             | (a)         | Not guaranteed (§7)          |
+
+The Feasibility column names the conditions of the complete-recourse precondition of Penalty System that the method meets on its own; a stage LP is feasible when the case meets the others too.
 
 Every method keeps the raw realization in the lag state (§1).
 
