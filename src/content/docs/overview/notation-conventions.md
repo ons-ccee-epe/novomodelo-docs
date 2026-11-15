@@ -254,6 +254,9 @@ Cost coefficients use $c$ with a superscript naming the cost type.
 | $\nu_{h',t,0}$ | - | Same-stage share of $h'$'s release on the downstream water balance at stage $t$, $(H_t - \Delta^{tt}_{h'})^+ / H_t$ |
 | $\nu^{k' \to k}_{h',t}$ | - | Within-stage routing share on a chronological stage, from $h'$'s block $k'$ to the downstream block $k \ge k'$ |
 | $\gamma^{ev}_{0,h}$, $\gamma^{ev}_{v,h}$ | m³/s, (m³/s)/hm³ | Linearized net-evaporation intercept and storage slope of hydro $h$ at the current stage |
+| $q^{\max}_{ev,h}$ | m³/s | Magnitude of the evaporation box of hydro $h$: the target at the stage's maximum storage times a fixed safety margin |
+| $\underline{e}^{tgt}_h$, $\bar{e}^{tgt}_h$ | m³/s | Smallest and largest evaporation target of hydro $h$ over the average storages its row can read, with the stage floor taken as the minimum storage even where it is soft |
+| $\bar{e}^{hard}_h$ | m³/s | Largest evaporation target of hydro $h$ with the stage floor taken as the hard floor |
 
 ### 3.4 Thermal, Network and Equipment Parameters
 
@@ -383,7 +386,7 @@ Slack variables for soft constraints:
 | $\sigma^{g-}_{h,b,k}$                    | $\geq 0$ | MW    | Generation below minimum — one per (hydro, bus) cell $b \in \mathcal{B}_h$ of a split plant                                                       |
 | $\sigma^{fpha}_{h,b,k}$                  | $\geq 0$ | MW    | Generation above the FPHA planes — one per (hydro, bus) cell $b \in \mathcal{B}_h$ and block, in the plane rows of that cell only; priced by $c^{fpha}_h$ |
 | $\sigma^{G-}_{h,k}$                      | $\geq 0$ | MW    | Plant generation below the plant minimum, beyond what the cell slacks cover (a plant with several cells whose minimum binds) |
-| $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Evaporation above-target and below-target violation (per plant): one stage-level pair $\sigma^{e\pm}_h$ on a parallel stage, priced over the stage hours $H_t$; one pair per block on a chronological stage, priced over $\tau_k$ |
+| $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Evaporation above-target and below-target violation (per plant; $\sigma^{e-}$ capped in a negative month): one stage-level pair $\sigma^{e\pm}_h$ on a parallel stage, priced over the stage hours $H_t$; one pair per block on a chronological stage, priced over $\tau_k$ |
 | $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Water withdrawal under-/over-delivery relative to the effective withdrawal $T^{eff}_h$ (stage-level, not per-block); priced by $c^{wv-}_h$ / $c^{wv+}_h$ respectively |
 | $\sigma^{inf}_h$                         | $\geq 0$ | m³/s  | Inflow non-negativity, every inflow method except `none`; its bounds follow the method                                                            |
 

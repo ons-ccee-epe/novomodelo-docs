@@ -254,6 +254,9 @@ Os coeficientes de custo usam $c$ com um sobrescrito que identifica o tipo de cu
 | $\nu_{h',t,0}$ | - | Fração, no mesmo estágio, da defluência de $h'$ no balanço hídrico de jusante no estágio $t$, $(H_t - \Delta^{tt}_{h'})^+ / H_t$ |
 | $\nu^{k' \to k}_{h',t}$ | - | Fração de propagação dentro do estágio em um estágio cronológico, do patamar $k'$ de $h'$ para o patamar de jusante $k \ge k'$ |
 | $\gamma^{ev}_{0,h}$, $\gamma^{ev}_{v,h}$ | m³/s, (m³/s)/hm³ | Termo independente e coeficiente angular em relação ao armazenamento da evaporação líquida linearizada da hidrelétrica $h$ no estágio corrente |
+| $q^{\max}_{ev,h}$ | m³/s | Magnitude da caixa de evaporação da hidrelétrica $h$: a meta no armazenamento máximo do estágio vezes uma margem de segurança fixa |
+| $\underline{e}^{tgt}_h$, $\bar{e}^{tgt}_h$ | m³/s | Menor e maior meta de evaporação da hidrelétrica $h$ sobre os armazenamentos médios que a sua linha pode ler, tomando como piso do estágio o armazenamento mínimo mesmo onde ele é flexível |
+| $\bar{e}^{hard}_h$ | m³/s | Maior meta de evaporação da hidrelétrica $h$ tomando como piso do estágio o piso rígido |
 
 ### 3.4 Parâmetros de termelétricas, rede e equipamentos
 
@@ -383,7 +386,7 @@ Variáveis de folga das restrições flexíveis:
 | $\sigma^{g-}_{h,b,k}$                    | $\geq 0$ | MW    | Geração abaixo do mínimo — uma por célula (hidrelétrica, barramento) $b \in \mathcal{B}_h$ de uma usina dividida                                                       |
 | $\sigma^{fpha}_{h,b,k}$                  | $\geq 0$ | MW    | Geração acima dos planos da FPHA — uma por célula (hidrelétrica, barramento) $b \in \mathcal{B}_h$ e patamar, apenas nas linhas de plano dessa célula; precificada por $c^{fpha}_h$ |
 | $\sigma^{G-}_{h,k}$                      | $\geq 0$ | MW    | Geração da usina abaixo do mínimo da usina, além do que as folgas das células cobrem (uma usina com várias células cujo mínimo está ativo) |
-| $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Violação da evaporação acima e abaixo da meta (por usina): um único par $\sigma^{e\pm}_h$ em nível de estágio em um estágio paralelo, precificado sobre as horas do estágio $H_t$; um par por patamar em um estágio cronológico, precificado sobre $\tau_k$ |
+| $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Violação da evaporação acima e abaixo da meta (por usina; $\sigma^{e-}$ limitada em um mês negativo): um único par $\sigma^{e\pm}_h$ em nível de estágio em um estágio paralelo, precificado sobre as horas do estágio $H_t$; um par por patamar em um estágio cronológico, precificado sobre $\tau_k$ |
 | $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Retirada de água abaixo/acima da retirada efetiva $T^{eff}_h$ (em nível de estágio, não por patamar); precificadas por $c^{wv-}_h$ / $c^{wv+}_h$, respectivamente |
 | $\sigma^{inf}_h$                         | $\geq 0$ | m³/s  | Não negatividade da afluência, em todos os métodos de afluência exceto `none`; seus limites seguem o método                                                            |
 
