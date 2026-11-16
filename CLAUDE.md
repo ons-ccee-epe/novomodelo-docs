@@ -44,9 +44,14 @@ developer surface" below). Versioning is **build-per-version**
 (`versions.json`): `latest` is built from the working tree and served at
 `/docs/`, and each `versions[]` entry is a frozen snapshot of one earlier novomodelo
 minor, built from its `ref` (a 40-hex commit SHA on `main`, never a tag) and
-served at `/docs/vX.Y/`. The site root `/` serves the hotsite (`hotsite/`, plain
+served at `/docs/vX.Y/`. Within `latest`, pt-BR is the root locale at
+`/docs/` and English is served at `/docs/en/`: the sources keep English at
+`src/content/docs/` and pt-BR in `src/content/docs/pt-br/` (`localeId`,
+`scripts/locale-id.mjs`), and `/docs/pt-br/*` redirects to `/docs/*`. The
+site root `/` serves the hotsite (`hotsite/`, plain
 HTML/CSS/JS outside Astro), which `build-versions.mjs` copies into `dist/` with
-a redirect stub at each docs page path without the `/docs` prefix. A novomodelo patch release updates `latest` in place; a frozen snapshot is
+a redirect stub at each docs page path without the `/docs` prefix (to
+`/docs/en/` for an English page). A novomodelo patch release updates `latest` in place; a frozen snapshot is
 never edited (a fix branches from its SHA and moves `ref`). Every frozen minor
 is kept until novomodelo v1.0.0, then the last two or three. README `## Versioning`
 is the freeze runbook.
