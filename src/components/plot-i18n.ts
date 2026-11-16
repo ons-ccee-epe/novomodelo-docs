@@ -59,7 +59,7 @@ const A: Record<string, string> = {
     "Custo futuro V₃ do exemplo com um reservatório em função do armazenamento ao final do estágio 2, com os dois cortes que as iterações 1 e 2 adicionam ao estágio 2 e sua envoltória superior, que fica sobre ou abaixo de V₃ e o toca nos estados visitados 10 e 20",
   "Future cost V(v) with Benders tangents": "Custo futuro V(v) com tangentes de Benders",
 };
-function tr(s: string): string | null {
+export function tr(s: string): string | null {
   const m = s.match(/^(\s*[↑↓←]?\s*)(.*?)(\s*[→↑↓]?\s*)$/s);
   if (!m) return null;
   const core = m[2];
@@ -84,8 +84,12 @@ function walk(root: Element) {
     if (t !== null && t !== n.nodeValue) n.nodeValue = t;
   }
 }
+// True when the page's <html lang> is a Portuguese one.
+export function isPtPage(lang: string): boolean {
+  return lang.toLowerCase().startsWith("pt");
+}
 export function initPlotI18n() {
-  if (!location.pathname.includes("/pt-br")) return;
+  if (!isPtPage(document.documentElement.lang)) return;
   const sel = '[role="img"][aria-label]';
   const run = () => document.querySelectorAll(sel).forEach((e) => walk(e));
   run();

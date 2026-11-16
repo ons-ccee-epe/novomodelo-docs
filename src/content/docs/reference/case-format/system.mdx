@@ -3,13 +3,13 @@ title: System Entity Files
 description: The buses, lines, thermals, non-controllable sources, pumping stations and energy contracts registries of a case directory, field by field.
 ---
 
-The `system/` directory holds one registry file for each entity type. This page documents the six registries other than the hydro plants: buses, lines, thermal plants, non-controllable sources, pumping stations and energy contracts. `system/buses.json`, `system/lines.json` and `system/thermals.json` are required; the other three files are optional. The hydro plant registry is on [Hydro Plant Files](/reference/case-format/hydros/). Every entity carries a required `operational_start_date`, described once under [Shared entity fields](/reference/case-format/#shared-entity-fields).
+The `system/` directory holds one registry file for each entity type. This page documents the six registries other than the hydro plants: buses, lines, thermal plants, non-controllable sources, pumping stations and energy contracts. `system/buses.json`, `system/lines.json` and `system/thermals.json` are required; the other three files are optional. The hydro plant registry is on [Hydro Plant Files](/en/reference/case-format/hydros/). Every entity carries a required `operational_start_date`, described once under [Shared entity fields](/en/reference/case-format/#shared-entity-fields).
 
 ---
 
 ## `system/buses.json`
 
-**Methodology:** [System Element Modeling Overview](/math/system-elements/)
+**Methodology:** [System Element Modeling Overview](/en/math/system-elements/)
 
 Electrical bus registry. Buses are the nodes of the transmission network.
 
@@ -17,7 +17,7 @@ Electrical bus registry. Buses are the nodes of the transmission network.
 | ------------------------------------- | -------------- | -------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `buses[].id`                          | integer        | Yes      | —       | —       | Bus identifier (integer, unique)                                                                                                                                                                            |
 | `buses[].name`                        | string         | Yes      | —       | —       | Human-readable bus name (string)                                                                                                                                                                            |
-| `buses[].operational_start_date`      | string         | Yes      | —       | —       | Required on every entity; see [Shared entity fields](/reference/case-format/#shared-entity-fields).                                                                                                         |
+| `buses[].operational_start_date`      | string         | Yes      | —       | —       | Required on every entity; see [Shared entity fields](/en/reference/case-format/#shared-entity-fields).                                                                                                         |
 | `buses[].deficit_segments`            | array \| null  | No       | —       | —       | Entity-level deficit cost tiers; when present they replace `bus.deficit_segments` in `penalties.json` for this bus and follow the same rules (non-empty, costs strictly increasing, last `depth_mw` `null`) |
 | `buses[].deficit_segments[].depth_mw` | number \| null | No       | —       | MW      | Segment depth (MW); the last segment's `depth_mw` must be `null` (unbounded)                                                                                                                                |
 | `buses[].deficit_segments[].cost`     | number         | Yes      | —       | USD/MWh | Cost per MWh of deficit in this tier (USD/MWh); `> 0`                                                                                                                                                       |
@@ -26,7 +26,7 @@ Electrical bus registry. Buses are the nodes of the transmission network.
 
 ## `system/lines.json`
 
-**Methodology:** [System Element Modeling Overview](/math/system-elements/) · [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [System Element Modeling Overview](/en/math/system-elements/) · [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Transmission line registry. Lines connect buses and carry power flows.
 
@@ -36,7 +36,7 @@ Transmission line registry. Lines connect buses and carry power flows.
 | `lines[].name`                   | string          | Yes      | —       | —       | Human-readable line name (string)                                                                   |
 | `lines[].source_bus_id`          | integer         | Yes      | —       | —       | Sending-end bus ID                                                                                  |
 | `lines[].target_bus_id`          | integer         | Yes      | —       | —       | Receiving-end bus ID                                                                                |
-| `lines[].operational_start_date` | string          | Yes      | —       | —       | Required on every entity; see [Shared entity fields](/reference/case-format/#shared-entity-fields). |
+| `lines[].operational_start_date` | string          | Yes      | —       | —       | Required on every entity; see [Shared entity fields](/en/reference/case-format/#shared-entity-fields). |
 | `lines[].entry_stage_id`         | integer \| null | No       | `null`  | —       | Stage when line enters service; `null` = always exists                                              |
 | `lines[].exit_stage_id`          | integer \| null | No       | `null`  | —       | Stage when line is decommissioned; `null` = never                                                   |
 | `lines[].capacity.direct_mw`     | number          | Yes      | —       | MW      | Maximum power flow in the direct direction (MW)                                                     |
@@ -53,7 +53,7 @@ Transmission line registry. Lines connect buses and carry power flows.
 
 ## `system/thermals.json`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/) · [State Augmentation](/math/state-augmentation/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/) · [State Augmentation](/en/math/state-augmentation/)
 
 Thermal plant registry. Each entry defines a dispatchable generation unit.
 
@@ -66,10 +66,10 @@ Thermal plant registry. Each entry defines a dispatchable generation unit.
 | `thermals[].generation.min_mw`                  | number          | Yes         | —       | MW      | Minimum dispatch level (MW)                                                                                                                                                                                                                                                |
 | `thermals[].generation.max_mw`                  | number          | Yes         | —       | MW      | Maximum dispatch level (MW)                                                                                                                                                                                                                                                |
 | `thermals[].cost_per_mwh`                       | number          | Yes         | —       | USD/MWh | Linear generation cost (USD/MWh)                                                                                                                                                                                                                                           |
-| `thermals[].operational_start_date`             | string          | Yes         | —       | —       | Required on every entity; see [Shared entity fields](/reference/case-format/#shared-entity-fields).                                                                                                                                                                        |
+| `thermals[].operational_start_date`             | string          | Yes         | —       | —       | Required on every entity; see [Shared entity fields](/en/reference/case-format/#shared-entity-fields).                                                                                                                                                                        |
 | `thermals[].entry_stage_id`                     | integer \| null | No          | `null`  | —       | Stage when the unit enters service (`null` = present from stage 0)                                                                                                                                                                                                         |
 | `thermals[].exit_stage_id`                      | integer \| null | No          | `null`  | —       | Stage when the unit is decommissioned (`null` = never)                                                                                                                                                                                                                     |
-| `thermals[].anticipated_config`                 | object \| null  | No          | —       | —       | Anticipated-dispatch lead: an object with exactly one of `lead_stages` (integer `>= 1`) or `lead_time_hours` (finite and `> 0`); both or neither is rejected at load. See the [Equipment-Specific Formulations](/math/equipment-formulations#implementation-in-novomodelo) Configure tab |
+| `thermals[].anticipated_config`                 | object \| null  | No          | —       | —       | Anticipated-dispatch lead: an object with exactly one of `lead_stages` (integer `>= 1`) or `lead_time_hours` (finite and `> 0`); both or neither is rejected at load. See the [Equipment-Specific Formulations](/en/math/equipment-formulations#implementation-in-novomodelo) Configure tab |
 | `thermals[].anticipated_config.lead_stages`     | integer         | Conditional | —       | —       | Anticipated-dispatch lead in stages (integer `>= 1`). Exactly one of `lead_stages` or `lead_time_hours` is set; both or neither is rejected at load.                                                                                                                       |
 | `thermals[].anticipated_config.lead_time_hours` | number          | Conditional | —       | h       | Anticipated-dispatch lead in hours (finite and `> 0`). Exactly one of `lead_stages` or `lead_time_hours` is set; both or neither is rejected at load.                                                                                                                      |
 
@@ -82,7 +82,7 @@ Thermal plant registry. Each entry defines a dispatchable generation unit.
 
 ## `system/non_controllable_sources.json`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Non-controllable source (NCS) registry. Each entry defines an intermittent or
 aggregate generator — wind, solar, small hydro, biomass, distributed generation —
@@ -97,7 +97,7 @@ Per-scenario availability is supplied by the
 | `non_controllable_sources[].id`                     | integer         | Yes      | —       | —       | Source identifier (integer, unique within the file)                                                                                                                                                                         |
 | `non_controllable_sources[].name`                   | string          | Yes      | —       | —       | Human-readable source name (string)                                                                                                                                                                                         |
 | `non_controllable_sources[].bus_id`                 | integer         | Yes      | —       | —       | Bus into which the source's generation is injected                                                                                                                                                                          |
-| `non_controllable_sources[].operational_start_date` | string          | Yes      | —       | —       | Required on every entity; see [Shared entity fields](/reference/case-format/#shared-entity-fields).                                                                                                                         |
+| `non_controllable_sources[].operational_start_date` | string          | Yes      | —       | —       | Required on every entity; see [Shared entity fields](/en/reference/case-format/#shared-entity-fields).                                                                                                                         |
 | `non_controllable_sources[].max_generation_mw`      | number          | Yes      | —       | MW      | Installed capacity [MW]; it scales the stochastic availability and does not cap the available generation                                                                                                                    |
 | `non_controllable_sources[].allow_curtailment`      | boolean         | No       | `true`  | —       | Whether the LP may curtail this source. `true` (default) — dispatch within `[0, max_generation_mw × availability]` at the curtailment cost; `false` — must-run, dispatch pinned to the realized availability every scenario |
 | `non_controllable_sources[].curtailment_cost`       | number \| null  | No       | `null`  | USD/MWh | Entity-level curtailment cost override [USD/MWh]; falls back to `non_controllable_source.curtailment_cost` in `penalties.json` when absent                                                                                  |
@@ -130,7 +130,7 @@ Per-scenario availability is supplied by the
 
 ## `system/pumping_stations.json`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Pumping station registry. Each entry defines a pumped-storage or water-transfer
 installation that withdraws water from a source hydro reservoir, injects it into a
@@ -145,7 +145,7 @@ optional; when absent, no pumping stations are modeled.
 | `pumping_stations[].source_hydro_id`        | integer         | Yes      | —       | —         | Hydro plant from whose reservoir water is extracted                                                 |
 | `pumping_stations[].destination_hydro_id`   | integer         | Yes      | —       | —         | Hydro plant into whose reservoir water is injected                                                  |
 | `pumping_stations[].consumption_mw_per_m3s` | number          | Yes      | —       | MW/(m³/s) | Power drawn per unit of pumped flow [MW/(m³/s)]; must be >= 0                                       |
-| `pumping_stations[].operational_start_date` | string          | Yes      | —       | —         | Required on every entity; see [Shared entity fields](/reference/case-format/#shared-entity-fields). |
+| `pumping_stations[].operational_start_date` | string          | Yes      | —       | —         | Required on every entity; see [Shared entity fields](/en/reference/case-format/#shared-entity-fields). |
 | `pumping_stations[].entry_stage_id`         | integer \| null | No       | `null`  | —         | Stage when the station enters service; `null` or absent = present from stage 0                      |
 | `pumping_stations[].exit_stage_id`          | integer \| null | No       | `null`  | —         | Stage when the station is decommissioned; `null` or absent = never                                  |
 | `pumping_stations[].flow`                   | object          | Yes      | —       | —         | Nested object with `min_m3s` and `max_m3s` (see below)                                              |
@@ -183,13 +183,13 @@ Stage-varying flow bounds can be overridden via `constraints/pumping_bounds.parq
 
 - `entry_stage_id` must be less than `exit_stage_id` when both are set.
 - `source_hydro_id` must differ from `destination_hydro_id`.
-- The station is in service only at stages where both its source and its destination hydro are Operating (neither PreFilling nor Filling); see [Equipment-Specific Formulations](/math/equipment-formulations/#implementation-in-novomodelo) for the rule.
+- The station is in service only at stages where both its source and its destination hydro are Operating (neither PreFilling nor Filling); see [Equipment-Specific Formulations](/en/math/equipment-formulations/#implementation-in-novomodelo) for the rule.
 
 ---
 
 ## `system/energy_contracts.json`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Energy contract registry. Each entry defines a bilateral energy purchase or sale
 obligation with a counterparty outside the modeled system. The file is optional;
@@ -204,7 +204,7 @@ when absent, no contracts are modeled.
 | `contracts[].price_per_mwh`          | number          | Yes      | —       | USD/MWh | Contract price [USD/MWh]. Positive = cost (import); negative = revenue (export)                     |
 | `contracts[].limits.min_mw`          | number          | Yes      | —       | MW      | Minimum dispatch level [MW]; use `0.0` unless a take-or-pay floor applies                           |
 | `contracts[].limits.max_mw`          | number          | Yes      | —       | MW      | Maximum dispatch level [MW]; must be >= `limits.min_mw`                                             |
-| `contracts[].operational_start_date` | string          | Yes      | —       | —       | Required on every entity; see [Shared entity fields](/reference/case-format/#shared-entity-fields). |
+| `contracts[].operational_start_date` | string          | Yes      | —       | —       | Required on every entity; see [Shared entity fields](/en/reference/case-format/#shared-entity-fields). |
 | `contracts[].entry_stage_id`         | integer \| null | No       | `null`  | —       | Stage when the contract enters service; `null` or absent = present from stage 0                     |
 | `contracts[].exit_stage_id`          | integer \| null | No       | `null`  | —       | Stage when the contract is decommissioned; `null` or absent = never                                 |
 

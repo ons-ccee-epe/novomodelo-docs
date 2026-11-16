@@ -7,7 +7,7 @@
 // It makes three checks.
 //
 // 1. Retired figure references. It walks every routed `*.md`/`*.mdx` under
-//    `src/content/docs/` (index.mdx included, `pt-br/` excluded, underscore-
+//    `src/content/docs/` (index.mdx and the `pt-br/` twins included, underscore-
 //    prefixed partials skipped) and exits non-zero, with a per-file message
 //    naming the file + the offending substring + the rule violated, if it finds
 //    any of:
@@ -140,9 +140,10 @@ function extractContext(text, index, length) {
 }
 
 // --- File walk --------------------------------------------------------------
-// Recursively collect every .md/.mdx under src/content/docs/, excluding pt-br/
-// (future locale; mirrors check-math-parity.mjs). index.mdx is intentionally
-// INCLUDED (it is walked like every other page, not special-cased).
+// Recursively collect every .md/.mdx under src/content/docs/, the pt-br/ twins
+// included (the checks are language-neutral; mirrors check-math-parity.mjs).
+// index.mdx is intentionally INCLUDED (it is walked like every other page, not
+// special-cased).
 //
 // Exported so check-figures.test.mjs can pin the underscore-basename exclusion
 // below directly; importing this module is safe because main() sits behind a
@@ -155,7 +156,6 @@ function extractContext(text, index, length) {
 export function collectSourceFiles(dir) {
   const files = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === "pt-br") continue;
     const full = `${dir}${entry.name}`;
     if (entry.isDirectory()) {
       files.push(...collectSourceFiles(`${full}/`));

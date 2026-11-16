@@ -9,7 +9,7 @@ runtime, how to launch under SLURM, and a worked AWS ParallelCluster reference
 architecture.
 
 If you only run on a single machine you do **not** need any of this — use
-`--threads` (see [Running Studies](/running/running-studies/#multi-threading))
+`--threads` (see [Running Studies](/en/running/running-studies/#multi-threading))
 and skip to [Next Steps](#see-also).
 
 ---
@@ -27,7 +27,7 @@ Novomodelo parallelises on two levels, and they compose:
 The parallel model — how work is partitioned across ranks and threads, which
 collectives tie the ranks together, the thread rules, and memory and case
 access — is summarised in
-[Performance Accelerators — Parallel Execution Model](/running/performance/#parallel-execution-model);
+[Performance Accelerators — Parallel Execution Model](/en/running/performance/#parallel-execution-model);
 the scheduler and communication internals live in the
 [`novomodelo-sddp` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md).
 This page is the operational counterpart: how to build and launch it.
@@ -35,11 +35,11 @@ This page is the operational counterpart: how to build and launch it.
 A single `novomodelo run` uses the local (single-process) backend. Launching under an
 MPI launcher (`srun`, `mpiexec`, or `mpirun`) switches Novomodelo to the MPI backend.
 By default `--comm-backend auto` detects the launcher, so no flag is needed —
-see [Communication Backend](/running/running-studies/#communication-backend).
+see [Communication Backend](/en/running/running-studies/#communication-backend).
 
 :::note[MPI is a build-time feature]
 The MPI backend is compiled in via the `mpi` Cargo feature and is **off by
-default**. The standard `novomodelo` binary (from the [installer or crates.io](/getting-started/installation/))
+default**. The standard `novomodelo` binary (from the [installer or crates.io](/en/getting-started/installation/))
 is single-process only; its `novomodelo version` banner reads `comm: local`. For
 multi-node runs you need the MPI-enabled binary described below, whose banner
 reads `comm: mpi`.
@@ -352,7 +352,7 @@ Check what your cluster offers with `srun --mpi=list`.
 
 No measured scaling data is published, so these rules relate ranks, threads,
 forward passes and memory to one another instead of giving node or core counts;
-[Performance Accelerators — Parallel Execution Model](/running/performance/#parallel-execution-model)
+[Performance Accelerators — Parallel Execution Model](/en/running/performance/#parallel-execution-model)
 holds the facts behind them.
 
 1. Run one rank per node, with `--threads` equal to the cores allocated to the rank
@@ -370,7 +370,7 @@ holds the facts behind them.
    each extra rank on a node adds another, and the cut pool scales with the
    iteration budget and the forward passes.
 5. Before adding ranks or threads, read the printed `Time split` and the knob table in
-   [Performance Accelerators — Diagnosing Performance](/running/performance/#diagnosing-performance).
+   [Performance Accelerators — Diagnosing Performance](/en/running/performance/#diagnosing-performance).
    The lower-bound evaluation runs serially on rank 0, and under a sampled
    forward pass every rank waits on the per-stage cut exchange, so neither
    shrinks with more ranks or threads.
@@ -385,13 +385,13 @@ A job writes its checkpoint when training ends and, with periodic checkpoints on
 on each scheduled iteration. A job killed at its `--time`
 loses the iterations after its last checkpoint, and the next job resumes from that checkpoint.
 An interrupted write that replaces a checkpoint leaves a complete one, old or new; an interrupted first write can leave none
-(see [Resume](/running/policy-management/#resume)).
+(see [Resume](/en/running/policy-management/#resume)).
 
 To fit a long training into wall-time-limited jobs, split it into slices, one
 batch job each, and submit the next slice after the previous one ends. Every
 slice after the first sets `policy.mode` to `"resume"` and raises
 `iteration_limit` to the new total, which counts the iterations of all earlier
-slices ([Train in Slices](/running/policy-management/#train-in-slices) gives the
+slices ([Train in Slices](/en/running/policy-management/#train-in-slices) gives the
 rule sets and how to size a slice).
 
 The job's `--time` covers the case load, the load of the previous checkpoint, the
@@ -526,10 +526,10 @@ of the output files is bit-identical at any rank count and at any thread count
 (the same `--threads` on every rank); timestamps, wall-clock timing columns and
 the recorded execution topology differ. The guarantee
 holds for a stopping-rule set without `time_limit`: a wall-clock or signal stop depends on timing
-([`time_limit`](/running/configuration/#time_limit)). Validate on one rank with
+([`time_limit`](/en/running/configuration/#time_limit)). Validate on one rank with
 `novomodelo-mpi` itself, because the single-process `novomodelo` is a different build
 whose results are not promised equal. The full statement is in
-[Determinism & Provenance](/math/determinism-guarantees/).
+[Determinism & Provenance](/en/math/determinism-guarantees/).
 
 Check your setup in three steps. Each step catches a different failure.
 
@@ -570,8 +570,8 @@ Check your setup in three steps. Each step catches a different failure.
 
 ## See Also
 
-- [Performance Accelerators](/running/performance/#parallel-execution-model) — the parallel-execution model MPI drives
-- [Running Studies](/running/running-studies/#communication-backend) — the `--comm-backend` flag and single-node threading
-- [CLI Reference](/reference/cli-reference/) — complete flag and subcommand reference
-- [Determinism & Provenance](/math/determinism-guarantees/) — the per-binary reproducibility guarantee
-- [Installation](/getting-started/installation/) — standard (single-process) install paths
+- [Performance Accelerators](/en/running/performance/#parallel-execution-model) — the parallel-execution model MPI drives
+- [Running Studies](/en/running/running-studies/#communication-backend) — the `--comm-backend` flag and single-node threading
+- [CLI Reference](/en/reference/cli-reference/) — complete flag and subcommand reference
+- [Determinism & Provenance](/en/math/determinism-guarantees/) — the per-binary reproducibility guarantee
+- [Installation](/en/getting-started/installation/) — standard (single-process) install paths

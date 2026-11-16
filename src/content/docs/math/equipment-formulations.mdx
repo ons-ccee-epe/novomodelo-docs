@@ -10,9 +10,11 @@ import { Content as EquipmentNotes } from './_impl/_equipment.notes.mdx';
 
 ## Purpose
 
-This chapter details the LP constraints for each equipment type in Novomodelo. While [System Element Modeling Overview](/math/system-elements) describes _what_ each element is and its decision variables, this chapter contains the _detailed mathematical constraints_ governing each equipment type's behavior within the LP. The reading order is: [System Element Modeling Overview](/math/system-elements) → **this chapter** → [LP Formulation](/math/lp-formulation).
+This chapter details the LP constraints for each equipment type in Novomodelo. While [System Element Modeling Overview](/en/math/system-elements) describes _what_ each element is and its decision variables, this chapter contains the _detailed mathematical constraints_ governing each equipment type's behavior within the LP. The reading order is: [System Element Modeling Overview](/en/math/system-elements) → **this chapter** → [LP Formulation](/en/math/lp-formulation).
 
-For variable definitions and index sets, see [Notation Conventions](/overview/notation-conventions). For hydro production constraints specifically, see [Hydro Production Function Models](/math/hydro-production-models).
+For variable definitions and index sets, see [Notation Conventions](/en/overview/notation-conventions). For hydro production constraints specifically, see [Hydro Production Function Models](/en/math/hydro-production-models).
+
+For the entity view of this chapter, see [Thermal plants](/en/entities/generation/thermal-plants/), [Non-controllable sources](/en/entities/generation/non-controllable-sources/), [Pumping stations](/en/entities/generation/pumping-stations/), [Lines and interchanges](/en/entities/network/lines/) and [Energy contracts](/en/entities/network/energy-contracts/).
 
 ## 1. Thermal Plants
 
@@ -58,7 +60,7 @@ $$
 $$
 
 :::note[Stage- and block-varying capacity]
-The capacity limits $\bar{F}^+_n$ and $\bar{F}^-_n$ may vary by stage and, optionally, by block through a stage-varying capacity override in absolute MW (Configure tab of [System Element Modeling Overview](/math/system-elements#implementation-in-novomodelo)). A line with no override keeps its base capacity unchanged.
+The capacity limits $\bar{F}^+_n$ and $\bar{F}^-_n$ may vary by stage and, optionally, by block through a stage-varying capacity override in absolute MW (Configure tab of [System Element Modeling Overview](/en/math/system-elements#implementation-in-novomodelo)). A line with no override keeps its base capacity unchanged.
 :::
 
 **Load Balance Contribution:**
@@ -75,7 +77,7 @@ $$
 f^+_{n,k} - f^-_{n,k}
 $$
 
-The dispatch LP is lossless: both flow directions enter the bus balances with coefficient ±1. Transmission losses are a reported quantity computed after the solve, $\text{loss}_{n,k} = (1 - \eta_n)\,(f^+_{n,k} + f^-_{n,k})$, where $\eta_n$ is the line's reported efficiency ([Notation Conventions](/overview/notation-conventions)). See [System Element Modeling Overview](/math/system-elements) for the network model.
+The dispatch LP is lossless: both flow directions enter the bus balances with coefficient ±1. Transmission losses are a reported quantity computed after the solve, $\text{loss}_{n,k} = (1 - \eta_n)\,(f^+_{n,k} + f^-_{n,k})$, where $\eta_n$ is the line's reported efficiency ([Notation Conventions](/en/overview/notation-conventions)). See [System Element Modeling Overview](/en/math/system-elements) for the network model.
 
 **Objective Contribution:**
 
@@ -86,13 +88,13 @@ $$
 :::note[Note on Exchange Cost]
 The cost $c^{exch}_n$ is a **regularization term**, not an actual transmission cost. Its purpose is to:
 
-1. **Prevent degenerate solutions**: Without this term, multiple equivalent solutions exist with different flow patterns
+1. **Remove alternative optima**: Without this term, flow patterns that differ only in their line flows have the same cost, so the solver could return any of them
 2. **Guide the solver**: Small positive cost encourages minimal power transfers when indifferent
-3. **Improve numerical stability**: Reduces cycling in LP simplex iterations
+3. **Keep each line flowing one way**: With a positive cost, flow in both directions of a line in the same block costs more than the net flow alone, so an optimum carries flow in both directions only where another constraint requires it
 
 Its value is set well below every generation and deficit cost, so that it only breaks ties; if it noticeably changes dispatch decisions, it is set too high.
 
-See [Penalty System — Category 3](/math/penalty-system#category-3-regularization-costs-solution-guidance) for the regularization costs.
+See [Penalty System — Category 3](/en/math/penalty-system#category-3-regularization-costs-solution-guidance) for the regularization costs.
 :::
 
 ## 3. Import/Export Contracts
@@ -124,7 +126,7 @@ $$
 
 Because import prices ($c^{ctr}_c$) are positive and export prices are negative, this single summation naturally adds import costs and subtracts export revenue. The price sign is independent of the load-balance sign: an import column injects $+\chi_{c,k}$ _and_ carries a positive (cost) price; an export column withdraws $-\chi_{c,k}$ _and_ carries a negative (revenue) price.
 
-**Take-or-pay floor and lifecycle.** A non-zero lower bound $\underline{C}_c$ is a hard **take-or-pay** obligation: the LP must dispatch at least $\underline{C}_c$ at the contract price, even when cheaper supply exists. Bounds $[\underline{C}_c, \bar{C}_c]$ and the price $c^{ctr}_c$ may each vary by stage and, optionally, by block. Outside its commissioning window ([System Element Modeling Overview §1](/math/system-elements#entity-commissioning-windows)) a contract's column is pinned to zero. A contract is **stateless**: it carries no state variable and contributes nothing to the Benders cuts.
+**Take-or-pay floor and lifecycle.** A non-zero lower bound $\underline{C}_c$ is a hard **take-or-pay** obligation: the LP must dispatch at least $\underline{C}_c$ at the contract price, even when cheaper supply exists. Bounds $[\underline{C}_c, \bar{C}_c]$ and the price $c^{ctr}_c$ may each vary by stage and, optionally, by block. Outside its commissioning window ([System Element Modeling Overview §1](/en/math/system-elements#entity-commissioning-windows)) a contract's column is pinned to zero. A contract is **stateless**: it carries no state variable and contributes nothing to the Benders cuts.
 
 ## 4. Pumping Stations
 
@@ -140,7 +142,7 @@ $$
 \underline{P}_y \leq p_{y,k} \leq \bar{P}_y
 $$
 
-Both bounds are hard constraints and may vary by stage and, optionally, by block. Outside its commissioning window ([System Element Modeling Overview §1](/math/system-elements#entity-commissioning-windows)) a pumping station's flow column is pinned to zero, so the station moves no water and draws no power.
+Both bounds are hard constraints and may vary by stage and, optionally, by block. Outside its commissioning window ([System Element Modeling Overview §1](/en/math/system-elements#entity-commissioning-windows)) a pumping station's flow column is pinned to zero, so the station moves no water and draws no power.
 
 **Power Consumption:**
 
@@ -157,7 +159,7 @@ The pumped flow leaves the source plant's reservoir and enters the destination's
 - On a chronological stage, block $k$: $-\zeta_k \, p_{y,k}$ on the source plant's block-$k$ water balance and $+\zeta_k \, p_{y,k}$ on the destination's.
 - On a parallel stage each plant has one stage row: $-\sum_{k \in \mathcal{K}} \zeta_k \, p_{y,k}$ on the source's and $+\sum_{k \in \mathcal{K}} \zeta_k \, p_{y,k}$ on the destination's.
 
-These are storage-change signs; in the all-terms row of [LP Formulation §4](/math/lp-formulation#4-hydro-water-balance) the same terms appear on the left with the opposite signs.
+These are storage-change signs; in the all-terms row of [LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance) the same terms appear on the left with the opposite signs.
 
 **Load Balance Impact:**
 
@@ -173,16 +175,16 @@ Pumping stations do not have a direct cost term in the objective function. The c
 
 Hydro constraints are the most complex in the system. Rather than duplicating them here, the hydro formulation is split across two chapters:
 
-- **Water balance, outflow, storage bounds, and soft constraints**: See [LP Formulation](/math/lp-formulation) §4 (water balance), §6 (generation constraints), §7 (outflow constraints), §8 (variable bounds), §9 (constraint violation penalties).
-- **Production function models** (constant productivity, FPHA): See [Hydro Production Function Models](/math/hydro-production-models).
+- **Water balance, outflow, storage bounds, and soft constraints**: See [LP Formulation](/en/math/lp-formulation) §4 (water balance), §6 (generation constraints), §7 (outflow constraints), §8 (variable bounds), §9 (constraint violation penalties).
+- **Production function models** (constant productivity, FPHA): See [Hydro Production Function Models](/en/math/hydro-production-models).
 
-A plant declares one or more **unit groups**, each on its own bus; groups sharing a bus form one **(hydro, bus) cell**, and turbined flow and generation are tracked per cell rather than per plant — storage, spillage, and diversion stay per plant. Turbined-flow and generation bounds (§8, §6 of [LP Formulation](/math/lp-formulation)) compose per cell from the cell's member unit groups; a single-bus plant has exactly one cell and every formula reduces to the plant-level form.
+A plant declares one or more **unit groups**, each on its own bus; groups sharing a bus form one **(hydro, bus) cell**, and turbined flow and generation are tracked per cell rather than per plant — storage, spillage, and diversion stay per plant. Turbined-flow and generation bounds (§8, §6 of [LP Formulation](/en/math/lp-formulation)) compose per cell from the cell's member unit groups; a single-bus plant has exactly one cell and every formula reduces to the plant-level form.
 
-For hydro decision variables and physical meaning, see [System Element Modeling Overview](/math/system-elements) §5.
+For hydro decision variables and physical meaning, see [System Element Modeling Overview](/en/math/system-elements) §5.
 
 ## 6. Non-Controllable Generation Sources
 
-Non-controllable sources (wind farms, solar plants, small run-of-river hydros) have an available generation the solver takes as given: drawn per scenario from the source's availability model when it has one ([Scenario Generation §5.4](/math/scenario-generation#54-non-controllable-source-availability)), and otherwise its stage's available generation. The solver can only curtail generation below the available amount — it cannot dispatch upward beyond what nature provides.
+Non-controllable sources (wind farms, solar plants, small run-of-river hydros) have an available generation the solver takes as given: drawn per scenario from the source's availability model when it has one ([Scenario Generation §5.4](/en/math/scenario-generation#54-non-controllable-source-availability)), and otherwise its stage's available generation. The solver can only curtail generation below the available amount — it cannot dispatch upward beyond what nature provides.
 
 **Decision Variables:**
 
@@ -194,7 +196,7 @@ $$
 0 \leq g^{nc}_{r,k} \leq A_{r,k}, \qquad A_{r,k} = \bar{G}_r \, \xi_r \, f_{r,k}
 $$
 
-where $\bar{G}_r$ is the installed capacity, $\xi_r$ the availability ratio of the stage and scenario ([System Element Modeling Overview §6](/math/system-elements#curtailable-vs-must-run)) and $f_{r,k}$ the block factor of block $k$ ($1$ when none is given); a must-run source has $g^{nc}_{r,k} = A_{r,k}$; a source without stochastic availability takes its stage's available generation, the installed capacity unless the stage sets it, in place of $\bar{G}_r \xi_r$.
+where $\bar{G}_r$ is the installed capacity, $\xi_r$ the availability ratio of the stage and scenario ([System Element Modeling Overview §6](/en/math/system-elements#curtailable-vs-must-run)) and $f_{r,k}$ the block factor of block $k$ ($1$ when none is given); a must-run source has $g^{nc}_{r,k} = A_{r,k}$; a source without stochastic availability takes its stage's available generation, the installed capacity unless the stage sets it, in place of $\bar{G}_r \xi_r$.
 
 **Load Balance Contribution:**
 
@@ -208,14 +210,14 @@ $$
 
 The LP prices curtailment as a reward on dispatched generation. The term equals the curtailment penalty $\sum_k \tau_k \sum_r c^{curt}_r \kappa_{r,k}$ minus the constant $\sum_k \tau_k \sum_r c^{curt}_r A_{r,k}$: it leads to the same decisions, and the stage objective can therefore be negative. A must-run source contributes the constant $-\tau_k c^{curt}_r A_{r,k}$.
 
-The curtailment cost $c^{curt}_r$ is a **regularization** penalty (Category 3 in the [Penalty System](/math/penalty-system)), analogous to the spillage cost of a hydro — curtailment discards available "free" energy.
+The curtailment cost $c^{curt}_r$ is a **regularization** penalty (Category 3 in the [Penalty System](/en/math/penalty-system)), analogous to the spillage cost of a hydro — curtailment discards available "free" energy.
 
 :::note[Note on curtailment not separate]
 Curtailment is **not** a separate LP decision variable — it is derived as $\kappa_{r,k} = A_{r,k} - g^{nc}_{r,k}$. Both bounds are hard constraints with no slack variables, since the available generation is never negative: a curtailable source can be curtailed to zero, and a must-run source's two bounds both equal $A_{r,k}$.
 :::
 
 :::note[Block factors]
-The availability ratio is one value per stage and scenario, and the block factors $f_{r,k}$ shape it across the blocks of the stage, as block load factors shape the load ([Scenario Generation](/math/scenario-generation)).
+The availability ratio is one value per stage and scenario, and the block factors $f_{r,k}$ shape it across the blocks of the stage, as block load factors shape the load ([Scenario Generation](/en/math/scenario-generation)).
 :::
 
 ## Implementation in Novomodelo
@@ -230,10 +232,10 @@ The methodology above defines every equipment type's LP constraints; the tabs be
 
 ## Cross-References
 
-- [Notation Conventions](/overview/notation-conventions) — variable and set definitions ($g_j$, $f_n$, $\chi_c$, $p_y$, $\tau_k$, $\zeta_k$)
-- [System Element Modeling Overview](/math/system-elements) — element descriptions, decision variables, and connections
-- [LP Formulation](/math/lp-formulation) — how equipment constraints integrate into the assembled LP; hydro water balance (§4), generation constraints (§6), variable bounds (§8)
-- [Hydro Production Function Models](/math/hydro-production-models) — hydro-specific production function constraints (constant, FPHA)
-- [Penalty System](/math/penalty-system) — penalty taxonomy, regularization vs. violation costs
-- [Block Formulation Variants](/math/block-formulations) — block structure within which equipment constraints operate
-- [SDDP Algorithm](/math/sddp-algorithm) — iterative algorithm that solves stage subproblems containing these equipment constraints
+- [Notation Conventions](/en/overview/notation-conventions) — variable and set definitions ($g_j$, $f_n$, $\chi_c$, $p_y$, $\tau_k$, $\zeta_k$)
+- [System Element Modeling Overview](/en/math/system-elements) — element descriptions, decision variables, and connections
+- [LP Formulation](/en/math/lp-formulation) — how equipment constraints integrate into the assembled LP; hydro water balance (§4), generation constraints (§6), variable bounds (§8)
+- [Hydro Production Function Models](/en/math/hydro-production-models) — hydro-specific production function constraints (constant, FPHA)
+- [Penalty System](/en/math/penalty-system) — penalty taxonomy, regularization vs. violation costs
+- [Block Formulation Variants](/en/math/block-formulations) — block structure within which equipment constraints operate
+- [SDDP Algorithm](/en/math/sddp-algorithm) — iterative algorithm that solves stage subproblems containing these equipment constraints

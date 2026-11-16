@@ -6,14 +6,14 @@ description: The hydro reservoir-geometry, production-model, energy-productivity
 These five files, all under `system/`, hold the per-plant tables and settings behind hydro generation: reservoir
 geometry, the production model used at each stage, energy-productivity overrides, precomputed FPHA hyperplanes, and
 tailrace-level curves. Each row or entry names a plant of
-[`system/hydros.json`](/reference/case-format/hydros/#systemhydrosjson) by `hydro_id`. The
-[File summary](/reference/case-format/#file-summary) maps every case file to its page.
+[`system/hydros.json`](/en/reference/case-format/hydros/#systemhydrosjson) by `hydro_id`. The
+[File summary](/en/reference/case-format/#file-summary) maps every case file to its page.
 
 ---
 
 ## `system/hydro_geometry.parquet`
 
-**Methodology:** [Hydro Production Function Models §2.3](/math/hydro-production-models/#23-topology-functions)
+**Methodology:** [Hydro Production Function Models §2.3](/en/math/hydro-production-models/#23-topology-functions)
 
 Volume-Height-Area (VHA) curves for hydro reservoirs. Required for a
 computed-FPHA plant (`source: "computed"`) and for a plant that declares
@@ -21,7 +21,7 @@ computed-FPHA plant (`source: "computed"`) and for a plant that declares
 at least 1 row of its own.
 
 The table is also read by the useful-range mean evaluator
-([Hydro Production Function Models §4.3](/math/hydro-production-models#43-useful-range-mean-productivity))
+([Hydro Production Function Models §4.3](/en/math/hydro-production-models#43-useful-range-mean-productivity))
 for **any** hydro, whatever its generation model, that has a specific
 productivity (the `system/hydros.json` entity field or a
 `system/hydro_energy_productivity.parquet` override). For such a plant, a table
@@ -29,7 +29,7 @@ that fails to build, or a non-positive mean equivalent head at a stage without a
 `integrated_equivalent_productivity_mw_per_m3s` value in
 `system/hydro_energy_productivity.parquet`, rejects the case at
 `novomodelo validate` (see
-[`GenericConstraintValidationError`](/reference/error-codes/#genericconstraintvalidationerror)).
+[`GenericConstraintValidationError`](/en/reference/error-codes/#genericconstraintvalidationerror)).
 Author the table to span `reservoir.min_storage_hm3` … `reservoir.max_storage_hm3`:
 when the table is narrower, the mean is taken over the table's own extent.
 
@@ -52,7 +52,7 @@ non-decreasing, each within a relative tolerance.
 
 ## `system/hydro_production_models.json`
 
-**Methodology:** [Hydro Production Function Models](/math/hydro-production-models/) · [§2.8 Similar-Hyperplane Reduction](/math/hydro-production-models/#28-similar-hyperplane-reduction)
+**Methodology:** [Hydro Production Function Models](/en/math/hydro-production-models/) · [§2.8 Similar-Hyperplane Reduction](/en/math/hydro-production-models/#28-similar-hyperplane-reduction)
 
 Per-hydro production function assignment. The file needs an entry for every
 plant whose `generation.model` in `system/hydros.json` is `"fpha"`. For any
@@ -168,8 +168,8 @@ source of truth for V_ref: when absent, the case-wide default fraction is used.
 | `production_models[].stage_ranges[].fpha_config.source`                         | string          | Yes      | —       | —     | `"precomputed"` or `"computed"`                                                                                                                                                                                                                                          |
 | `production_models[].stage_ranges[].fpha_config.volume_discretization_points`   | integer \| null | No       | —       | —     | Number of volume grid points, at least `2`; `1`, or a fitting volume range that is a single point, selects the single-volume (run-of-river) fit; absent or `null` uses `5`                                                                                               |
 | `production_models[].stage_ranges[].fpha_config.turbine_discretization_points`  | integer \| null | No       | —       | —     | Number of turbine-flow grid points; at least `2`; absent or `null` uses `5`                                                                                                                                                                                              |
-| `production_models[].stage_ranges[].fpha_config.spillage_discretization_points` | integer \| null | No       | —       | —     | Validated (`>= 2`); does not add a spillage axis to the fit — accepted for input round-tripping (see [Hydro Production Function Models — Configure](/math/hydro-production-models#implementation-in-novomodelo)); absent or `null` uses `5`                                   |
-| `production_models[].stage_ranges[].fpha_config.max_planes_per_hydro`           | integer \| null | No       | —       | —     | Validated (`>= 1`); the fit keeps every upper-envelope facet and does not trim to this count; only `fpha_plane_reduction` reduces the set (see [Hydro Production Function Models — Configure](/math/hydro-production-models#implementation-in-novomodelo)); absent or `null` uses `10` |
+| `production_models[].stage_ranges[].fpha_config.spillage_discretization_points` | integer \| null | No       | —       | —     | Validated (`>= 2`); does not add a spillage axis to the fit — accepted for input round-tripping (see [Hydro Production Function Models — Configure](/en/math/hydro-production-models#implementation-in-novomodelo)); absent or `null` uses `5`                                   |
+| `production_models[].stage_ranges[].fpha_config.max_planes_per_hydro`           | integer \| null | No       | —       | —     | Validated (`>= 1`); the fit keeps every upper-envelope facet and does not trim to this count; only `fpha_plane_reduction` reduces the set (see [Hydro Production Function Models — Configure](/en/math/hydro-production-models#implementation-in-novomodelo)); absent or `null` uses `10` |
 | `production_models[].stage_ranges[].fpha_config.fitting_window`                 | object \| null  | No       | —       | —     | Volume range restriction for hyperplane computation; absent or `null` uses the full forebay range of the plant's `system/hydro_geometry.parquet` volume–height curve                                                                                                     |
 | `production_models[].stage_ranges[].fpha_config.turbined_fit_max_m3s` | number \| null | No | — | m³/s | Upper end of the turbined-flow range a fit from geometry samples, from `0`; finite and `> 0.0`, else rejected at load; absent or `null` uses the plant's `max_turbined_m3s` |
 | `production_models[].stage_ranges[].fpha_config.spillage_fit_max_m3s` | number \| null | No | — | m³/s | Upper end of the spillage range a fit from geometry reads each plane's spillage coefficient over, from `0`; finite and `> 0.0`, else rejected at load; absent or `null` uses twice the mean of the plant's `scenarios/inflow_history.parquet` values, or twice its `max_turbined_m3s` when that mean is not positive or the plant has no history |
@@ -193,7 +193,7 @@ geometry; on a plant with no `source: "computed"` entry they are validated and o
 `turbined_fit_max_m3s` may lie below or above the plant's `max_turbined_m3s`: it sets only the flow axis of the fitting
 grid, and the LP turbined-flow bounds stay the plant's own. The spillage fallback reads the plant's `max_turbined_m3s`,
 never `turbined_fit_max_m3s`
-([Hydro Production Function Models §2.6.1 and §2.7](/math/hydro-production-models#26-computed-fpha-fitting-pipeline)).
+([Hydro Production Function Models §2.6.1 and §2.7](/en/math/hydro-production-models#26-computed-fpha-fitting-pipeline)).
 
 **`fitting_window` fields.** Absolute bounds (`volume_min_hm3`, `volume_max_hm3`)
 and percentile bounds (`volume_min_percentile`, `volume_max_percentile`) are
@@ -269,7 +269,7 @@ mutually exclusive per bound — set at most one of `volume_min_hm3` and
 
 ## `system/hydro_energy_productivity.parquet`
 
-**Methodology:** [Hydro Production Function Models §4](/math/hydro-production-models/#4-energy-conversion-quantities)
+**Methodology:** [Hydro Production Function Models §4](/en/math/hydro-production-models/#4-energy-conversion-quantities)
 
 Optional per-plant, per-stage overrides for the energy-conversion preprocessing
 layer. Rows with `stage_id = NULL` act as per-hydro defaults and apply to all
@@ -282,7 +282,7 @@ different set of consumers:
   `equivalent_productivity_mw_per_m3s` simulation output column. It reaches
   the useful-range mean value only for a plant that has no mean of its own to
   integrate (step 3 of the
-  [resolution order](/math/hydro-production-models#43-useful-range-mean-productivity)):
+  [resolution order](/en/math/hydro-production-models#43-useful-range-mean-productivity)):
   a plant with VHA geometry and a specific productivity integrates its mean
   even when this column is set.
 - `integrated_equivalent_productivity_mw_per_m3s` — sets the plant's own
@@ -333,7 +333,7 @@ different set of consumers:
 
 ## `system/fpha_hyperplanes.parquet`
 
-**Methodology:** [Hydro Production Function Models §2.5](/math/hydro-production-models/#25-fpha-hyperplanes)
+**Methodology:** [Hydro Production Function Models §2.5](/en/math/hydro-production-models/#25-fpha-hyperplanes)
 
 Pre-computed FPHA hyperplane coefficients for hydros configured with
 `fpha_config.source: "precomputed"`. When absent, only `"computed"` source is
@@ -374,7 +374,7 @@ The file produced by `output/hydro_models/fpha_hyperplanes.parquet` (written whe
 
 ## `system/tailrace_curves.parquet`
 
-**Methodology:** [Hydro Production Function Models §2.3.1](/math/hydro-production-models/#231-piecewise-quartic-tailrace-families-backwater-coupling)
+**Methodology:** [Hydro Production Function Models §2.3.1](/en/math/hydro-production-models/#231-piecewise-quartic-tailrace-families-backwater-coupling)
 
 Optional piecewise-quartic tailrace-level curves that replace the entity-level
 tailrace model for any plant that has rows in this file. When a plant has rows

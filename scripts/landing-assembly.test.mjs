@@ -15,7 +15,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   assembleLanding,
-  legacyPagePaths,
+  legacyRedirects,
+  localeRedirects,
   redirectStubHtml,
 } from "./landing-assembly.mjs";
 
@@ -54,29 +55,43 @@ test("redirectStubHtml percent-encodes the path and escapes markup", () => {
   assert.ok(!html.includes("<x>"), "no raw markup from the path");
 });
 
-test("legacyPagePaths lists every page directory except the docs root", () => {
-  const docs = tree({
-    "index.html": "",
-    "404.html": "",
-    "math/sddp-algorithm/index.html": "",
-    "v0.19/index.html": "",
-    "v0.19/math/sddp-algorithm/index.html": "",
-    "_astro/app.css": "",
-  });
-  assert.deepEqual(legacyPagePaths(docs).sort(), [
-    "math/sddp-algorithm",
-    "v0.19",
-    "v0.19/math/sddp-algorithm",
+// A latest docs tree: pt-BR at the root, English under en/, one frozen
+// snapshot and the Lunaria dashboard.
+const DOCS_PAGES = {
+  "index.html": "pt-BR home",
+  "404.html": "docs 404",
+  "math/x/index.html": "pt-BR x",
+  "en/index.html": "English home",
+  "en/math/x/index.html": "English x",
+  "v0.19/index.html": "v0.19 home",
+  "v0.19/math/x/index.html": "v0.19 x",
+  "lunaria/index.html": "dashboard",
+  "_astro/app.css": "",
+};
+const byPath = (a, b) => a.path.localeCompare(b.path);
+
+test("localeRedirects sends each pt-br URL to its pt-BR page at the docs root", () => {
+  assert.deepEqual(localeRedirects(tree(DOCS_PAGES), "docs").sort(byPath), [
+    { path: "pt-br", target: "/docs/" },
+    { path: "pt-br/math/x", target: "/docs/math/x/" },
   ]);
 });
 
-test("assembleLanding puts the hotsite, 404, public files and stubs at the root", () => {
-  const dist = tree({
-    "docs/index.html": "docs home",
-    "docs/404.html": "docs 404",
-    "docs/math/x/index.html": "x",
-    "docs/v0.19/index.html": "v0.19 home",
-  });
+test("legacyRedirects keeps the pre-/docs/ English URLs in English", () => {
+  assert.deepEqual(legacyRedirects(tree(DOCS_PAGES), "docs").sort(byPath), [
+    { path: "lunaria", target: "/docs/lunaria/" },
+    { path: "math/x", target: "/docs/en/math/x/" },
+    { path: "v0.19", target: "/docs/v0.19/" },
+    { path: "v0.19/math/x", target: "/docs/v0.19/math/x/" },
+  ]);
+});
+
+test("assembleLanding puts the hotsite, 404, public files and stubs in place", () => {
+  const dist = tree(
+    Object.fromEntries(
+      Object.entries(DOCS_PAGES).map(([rel, body]) => [`docs/${rel}`, body]),
+    ),
+  );
   const hotsite = tree({
     "index.html": "hotsite",
     "README.txt": "maintainer notes",
@@ -97,20 +112,60 @@ test("assembleLanding puts the hotsite, 404, public files and stubs at the root"
 
   assert.equal(readFileSync(join(dist, "index.html"), "utf8"), "hotsite");
   assert.ok(existsSync(join(dist, "assets/images/hero.jpg")));
-  assert.ok(!existsSync(join(dist, "README.txt")), "README.txt is not published");
+  assert.ok(
+    !existsSync(join(dist, "README.txt")),
+    "README.txt is not published",
+  );
   assert.equal(readFileSync(join(dist, "404.html"), "utf8"), "docs 404");
   assert.ok(existsSync(join(dist, "schemas/config.schema.json")));
   assert.ok(existsSync(join(dist, "THIRD-PARTY-NOTICES.txt")));
-  assert.ok(!existsSync(join(dist, "d2")), "the d2 render cache stays under the docs base");
-  assert.match(
+  assert.ok(
+    !existsSync(join(dist, "d2")),
+    "the d2 render cache stays under the docs base",
+  );
+  assert.equal(
+    readFileSync(join(dist, "docs/pt-br/index.html"), "utf8"),
+    redirectStubHtml("/docs/"),
+  );
+  assert.equal(
+    readFileSync(join(dist, "docs/pt-br/math/x/index.html"), "utf8"),
+    redirectStubHtml("/docs/math/x/"),
+  );
+  assert.equal(
     readFileSync(join(dist, "math/x/index.html"), "utf8"),
-    /url=\/docs\/math\/x\//,
+    redirectStubHtml("/docs/en/math/x/"),
   );
   assert.match(
     readFileSync(join(dist, "v0.19/index.html"), "utf8"),
     /url=\/docs\/v0\.19\//,
   );
-  assert.equal(result.stubs, 2);
+  assert.ok(!existsSync(join(dist, "en")), "no root stub for the /en/ URLs");
+  assert.ok(
+    !existsSync(join(dist, "pt-br")),
+    "no root stub for the /pt-br/ URLs",
+  );
+  assert.deepEqual(result, { stubs: 4, localeStubs: 2 });
+});
+
+test("assembleLanding refuses a pt-br stub that would overwrite a docs page", () => {
+  const dist = tree({
+    "docs/index.html": "",
+    "docs/404.html": "",
+    "docs/math/x/index.html": "",
+    "docs/en/index.html": "",
+    "docs/en/math/x/index.html": "",
+    "docs/pt-br/math/x/index.html": "a page at /docs/pt-br/math/x/",
+  });
+  assert.throws(
+    () =>
+      assembleLanding({
+        dist,
+        docsBase: "/docs/",
+        hotsiteDir: tree({ "index.html": "" }),
+        publicDir: tree({}),
+      }),
+    /dist\/docs\/pt-br\/math\/x\/index\.html/,
+  );
 });
 
 test("assembleLanding refuses a docs base of /", () => {
@@ -133,7 +188,10 @@ test("assembleLanding refuses a redirect stub that would overwrite a root file",
     "docs/404.html": "",
     "docs/assets/index.html": "a docs page at /docs/assets/",
   });
-  const hotsite = tree({ "index.html": "", "assets/index.html": "hotsite page" });
+  const hotsite = tree({
+    "index.html": "",
+    "assets/index.html": "hotsite page",
+  });
   assert.throws(
     () =>
       assembleLanding({

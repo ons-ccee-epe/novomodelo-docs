@@ -190,13 +190,13 @@ jq -r '.convergence.termination_reason' /data/cases/hydro_study/output/training/
 
 Em Python, `novomodelo.results.load_results(output_dir)` retorna os dois arquivos de metadados
 como dicts. Todos os campos estão documentados em
-[Arquivos de metadados](/pt-br/reference/output/metadata/).
+[Arquivos de metadados](/reference/output/metadata/).
 
 ### Clusters SLURM
 
 A execução do Novo Modelo sob SLURM (`srun`/`sbatch`), o mapeamento híbrido MPI + threads,
 as principais flags do SLURM e a seleção do PMI são tratados em detalhe na página
-[Implantação em HPC e clusters](/pt-br/running/hpc-deployment/#execucao-sob-slurm),
+[Implantação em HPC e clusters](/running/hpc-deployment/#execucao-sob-slurm),
 junto com a forma de obter ou compilar o binário com suporte a MPI e uma arquitetura de referência
 resolvida com o AWS ParallelCluster.
 
@@ -230,7 +230,7 @@ Validation: 0 errors, 1 warnings in my_study
 warning: initial_conditions.json (Hydro 0): Hydro 0: initial storage (83.222) lies below the minimum storage (200) at the end of stage 0, its first operating stage; that stage must reach it from its own inflow
 ```
 
-[`ModelQuality`](/pt-br/reference/error-codes/#modelquality) lista os
+[`ModelQuality`](/reference/error-codes/#modelquality) lista os
 avisos de armazenamento inicial.
 Quando `config.json` configura uma política de fronteira e a execução treina, seguem-se uma
 linha `boundary policy priced at <date>` e um resumo de uma linha da
@@ -245,11 +245,11 @@ inexistente é reportado em stderr sem o resumo.
 
 Quando `config.json` configura `policy.boundary` e a execução treina, `novomodelo validate` carrega e
 reconcilia essa política de fronteira, como faz `novomodelo run`, incluindo o
-[controle de versão](/pt-br/running/policy-management/#verificacao-de-versao). Uma recusa termina com código `1`,
+[controle de versão](/running/policy-management/#verificacao-de-versao). Uma recusa termina com código `1`,
 assim como um checkpoint de fronteira que não pode ser lido. Com `--json`, uma recusa
 e um checkpoint ilegível reportam ambos a fase `BoundaryReconciliationError`;
 consulte
-[Erros de carregamento da política](/pt-br/reference/error-codes/#erros-de-carga-da-politica).
+[Erros de carregamento da política](/reference/error-codes/#erros-de-carga-da-politica).
 
 Quando a execução carregaria uma política (`policy.mode` `warm_start` ou `resume` com
 treinamento ativado, ou treinamento desativado com simulação final ativada), `novomodelo validate`
@@ -359,22 +359,22 @@ Nenhuma.
 | `2`  | E/S ou uso | Um diretório de caso inexistente (ambos os subcomandos); um checkpoint de política que o sistema operacional se recusa a ler; uma entrada estocástica que não pode ser lida, como um arquivo de árvore de aberturas declarado e ausente; disco cheio ou outra falha do sistema de arquivos ao gravar o checkpoint da política ou os resultados do treinamento ou da simulação final após o início do treinamento, exceto a gravação dos resultados de um cenário da simulação, que é registrada em log e mantém o código de saída `0` (`novomodelo run`); ou um erro de uso da linha de comando — subcomando ou opção desconhecidos, subcomando ou argumento ausente, argumento conflitante ou valor de opção inválido — reportado pelo analisador de argumentos antes da leitura de qualquer arquivo |
 | `3`  | Solver     | Um PL inviável ou uma falha do solver, no treinamento ou na simulação final, ou um backend de solver que não pode ser inicializado |
 | `4`  | Interno   | Uma falha de comunicação, um fechamento inesperado de canal ou outra falha interna; sob `novomodelo validate`, também o erro de carregamento que escapa do relatório de validação, uma divergência na contagem de coeficientes AR (`novomodelo run`: `1`) |
-| `5`  | Interrompido    | Somente `novomodelo run`: um SIGTERM ou SIGINT durante o treinamento interrompeu a execução em uma fronteira de iteração após gravar as saídas do treinamento e o checkpoint; a simulação final é pulada ([Critérios de parada — Solicitações de encerramento](/pt-br/math/stopping-rules/#solicitacoes-de-encerramento)) |
-| `101` | Pânico     | Uma falha interna que provocou pânico (panic); a mensagem de pânico vai para stderr. Sob MPI, o rank que entra em pânico imprime `rank {rank}: panicked; aborting the MPI job` e aborta todo o job com este código ([Erros em tempo de execução](/pt-br/reference/error-codes/#erros-de-execucao)) |
+| `5`  | Interrompido    | Somente `novomodelo run`: um SIGTERM ou SIGINT durante o treinamento interrompeu a execução em uma fronteira de iteração após gravar as saídas do treinamento e o checkpoint; a simulação final é pulada ([Critérios de parada — Solicitações de encerramento](/math/stopping-rules/#solicitacoes-de-encerramento)) |
+| `101` | Pânico     | Uma falha interna que provocou pânico (panic); a mensagem de pânico vai para stderr. Sob MPI, o rank que entra em pânico imprime `rank {rank}: panicked; aborting the MPI job` e aborta todo o job com este código ([Erros em tempo de execução](/reference/error-codes/#erros-de-execucao)) |
 
 Uma referência pendente (um ID de entidade que aponta para uma entidade inexistente) aparece
 como uma linha `InvalidReference` dentro de uma violação de restrição semântica (código de saída 1).
 
 As mensagens de erro são impressas em stderr com o prefixo `error:` e linhas de dica. Consulte
-[Códigos de erro](/pt-br/reference/error-codes/) para um catálogo detalhado, incluindo
-[Erros de carregamento da política](/pt-br/reference/error-codes/#erros-de-carga-da-politica). Para a causa e a correção das falhas que um estudo costuma encontrar, consulte [Solução de problemas](/pt-br/running/troubleshooting/).
+[Códigos de erro](/reference/error-codes/) para um catálogo detalhado, incluindo
+[Erros de carregamento da política](/reference/error-codes/#erros-de-carga-da-politica). Para a causa e a correção das falhas que um estudo costuma encontrar, consulte [Solução de problemas](/running/troubleshooting/).
 
 :::note
 Toda falha de carregamento anterior ao solver termina com o mesmo código nos dois
 subcomandos, exceto o erro de carregamento que só aparece depois que o relatório
 de validação está completo, um erro de schema na montagem dos cenários: `4` sob
 `novomodelo validate` e `1` sob `novomodelo run`. Os textos das mensagens e suas formas de exibição estão em
-[`StochasticPreparationError`](/pt-br/reference/error-codes/#stochasticpreparationerror).
+[`StochasticPreparationError`](/reference/error-codes/#stochasticpreparationerror).
 :::
 
 ---

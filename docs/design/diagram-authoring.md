@@ -14,8 +14,10 @@ under `src/components/` and `src/figures/`.
 
 ### 1.1 Decision table
 
-Two tools, one job each: **d2** draws every diagram; **Observable Plot** draws
-every computed math plot.
+Three kinds of figure, one tool each: **d2** draws every structural diagram
+(boxes, containers, arrows, graphs); **Observable Plot** draws every computed
+math plot; an **entity illustration**, a pictorial figure on an entity page or
+the home energy path, is a hand-drawn inline-SVG Astro component (§9).
 
 | Diagram content                                                                            | Tool                       | Why                                                                                                      |
 | ------------------------------------------------------------------------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -23,11 +25,13 @@ every computed math plot.
 | Composed block diagram (nested containers, labeled regions, data flow with math in labels) | **inline D2** (`astro-d2`) | Code-defined topology in a text fence; PR-reviewable as diffs; theme-adaptive via the `.d2-svg` keystone |
 | Flowchart, state machine, sequential pipeline, lifecycle, loop                             | **inline D2** (`astro-d2`) | d2 draws directed graphs with `shape: diamond` decisions; build-time SVG, zero client JS, one keystone   |
 | Power-system one-line (buses, generators, demand/deficit arrows)                           | **inline D2** (`astro-d2`) | D2 handles spatial schematics; covers both schematic and spatial diagram roles                           |
+| Pictorial entity illustration (reservoir cross-section, scenario fan, energy-path scene)   | **SVG component** (§9)     | d2 lays out boxes and arrows and cannot draw a picture; themed by the `--ent-*`/`--ep-*` tokens          |
 
 Observable Plot covers the math-plot role (it _computes_ the curve from tested
-code — d2 cannot). D2 covers everything else. There are no other diagram tools
-on the site, and **no Mermaid**: flowcharts are d2, so every diagram renders at
-build time with one themable keystone. (Mermaid stays fine in the `novomodelo`
+code — d2 cannot). D2 covers every other diagram. There are no other diagram
+tools on the site, and **no Mermaid**: flowcharts are d2, so every diagram renders
+at build time with one themable keystone. Entity illustrations are pictures, not
+diagrams, and follow their own contract (§9). (Mermaid stays fine in the `novomodelo`
 READMEs and `ARCHITECTURE.md`, which GitHub renders.)
 
 ### 1.2 Decision tree
@@ -35,6 +39,10 @@ READMEs and `ARCHITECTURE.md`, which GitHub renders.)
 ````
 Does the diagram's content reduce to a mathematical function or distribution?
 ├── YES → Observable Plot island                              (§3)
+│
+Is it a picture on an entity page or the home energy path (a reservoir, the
+plants, a city), not boxes and arrows?
+├── YES → entity illustration component                       (§9)
 │
 Is it any other diagram — labeled boxes / nested containers / arrows, a
 power-system one-line, OR a flowchart / decision tree / state machine / loop?
@@ -422,8 +430,12 @@ All four must pass before the PR is opened.
 
 ## 8. Anti-patterns
 
-- **Don't** hand-author SVGs for methodology diagrams. Without a source of
-  truth, they bitrot silently and nobody can review a small change.
+- **Don't** hand-author SVGs for methodology diagrams: use d2 or a Plot island.
+  Without a source of truth, they bitrot silently and nobody can review a small
+  change. The entity illustrations (§9) are the one hand-drawn exception, and
+  only for pictorial figures.
+- **Don't** redraw an entity illustration in d2. d2 turns a picture into a
+  flowchart; a structural diagram on an entity page is still d2.
 - **Don't** hand-draw ASCII / box-drawing diagrams (`┌─┐`, `│`, `▼`, `●───●`) in
   a code fence — they don't theme, don't scale, and can't be reviewed as a diff.
   Author a ` ```d2 ` block instead. (A directory tree from `tree` and a literal
@@ -446,3 +458,33 @@ All four must pass before the PR is opened.
 - **Don't** position Observable Plot markers by eye. Every marker, tangent, and
   quantile must come from a formula evaluation in `src/figures/<name>.ts`,
   asserted by `src/figures/<name>.test.ts`.
+
+---
+
+## 9. Entity illustrations
+
+**Use when** the figure is a picture rather than a diagram: the illustrations on
+the entity pages (a hydro plant's cross-section, a thermal plant's generation
+band, the scenario fan, the stage-and-block ribbon) and the energy-path scene and
+timeline on the home page. d2 lays out boxes and arrows and cannot draw them, and
+Observable Plot computes curves from data these figures do not have.
+
+- **Location.** One Astro component per figure in
+  `src/components/entity/illustrations/` (`HydroPlant.astro`, …); the home scene
+  and timeline live in `src/components/entity/EnergyPath.astro`. A page imports
+  the component and passes its locale: `<HydroPlant lang="en" />`, and
+  `lang="pt-BR"` in the pt-BR twin.
+- **Colours.** Only through the tokens of `src/components/entity/entity.css`: the
+  family palette `--ent-*` (equipment, network, hydrology, rules) and the scene
+  tokens `--ep-*`, each with a light value and a `:root[data-theme='dark']` value,
+  plus Starlight's `--sl-color-*`. No hex inside a component. The family palette
+  belongs to the entity pages and is separate from the d2 semantic classes of
+  §4.2.
+- **Labels.** In a bilingual label table (`T`) selected with `key(lang)` from
+  `src/components/entity/entities.ts`. English and pt-BR labels change in the
+  same commit, and the pt-BR labels follow the translation glossary.
+- **Accessibility.** Each `<svg>` has `role="img"` and a non-empty `aria-label`
+  in the page's language. An entity-page illustration is a
+  `<figure class="entity-illustration">` with a `figcaption`; the home scene and
+  timeline carry their `aria-label` only.
+- **Build.** The SVG is static markup rendered at build time, with no client JS.

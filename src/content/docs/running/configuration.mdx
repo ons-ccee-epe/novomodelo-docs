@@ -100,7 +100,7 @@ load-time error (`deny_unknown_fields`).
 | `forward_passes` | integer | `sampled` only | Number of scenario trajectories per iteration (`>= 1`). Larger values reduce variance in each iteration's cut but increase cost per iteration. Rejected under `"enumerated"`. |
 
 There is **no default** forward-pass count: an absent `training.selection` is
-a hard load error ([`SchemaViolation`](/reference/error-codes/#schemaviolation)).
+a hard load error ([`SchemaViolation`](/en/reference/error-codes/#schemaviolation)).
 
 Example — sampled:
 
@@ -127,7 +127,7 @@ whose branching is all at the last stage (a deterministic trunk ending in a
 terminal fan); a graph with an interior branching node stops `novomodelo run`
 before training, with exit code `1`. `novomodelo validate` does not check it, so a
 passing validation does not rule it out. The error message is listed under
-[Communication failures](/reference/error-codes/#communication-failures).
+[Communication failures](/en/reference/error-codes/#communication-failures).
 
 Enumerated selection, in training or in simulation, also requires every node
 of the policy graph to carry a single opening: it walks each path of the
@@ -151,7 +151,7 @@ refused at study setup, by `novomodelo validate` and by `novomodelo run` before 
 
 For the per-class `scenario_source` configuration, see the
 [`scenario_source` sub-section](#trainingscenario_source) below and
-[Scenario Generation §3](/math/scenario-generation#3-sampling-scheme-abstraction).
+[Scenario Generation §3](/en/math/scenario-generation#3-sampling-scheme-abstraction).
 
 ### `training.scenario_source`
 
@@ -165,14 +165,14 @@ pre-generated opening tree).
 | `inflow`           | object            | `in_sample`   | Sampling scheme for hydro inflow. Object with `"scheme"` key.                                           |
 | `load`             | object            | `in_sample`   | Sampling scheme for bus load. Object with `"scheme"` key.                                               |
 | `ncs`              | object            | `in_sample`   | Sampling scheme for NCS availability. Object with `"scheme"` key.                                       |
-| `historical_years` | array \| object   | auto-discover | Restrict the pool of historical windows. When absent, every year of the history is a candidate. List (`[1940, 1953]`) or range (`{"from": 1940, "to": 2010}`). Each listed year names the window whose first study stage falls in that year's occurrence of its season; eligibility follows [Historical Window Pool](/math/scenario-generation/#historical-window-pool), and a year that fails it is dropped without a message. An empty result is the "no valid historical windows found" error ([Error Codes](/reference/error-codes/#stochasticpreparationerror)). The same pool supplies the `historical_residuals` openings. |
-| `openings`         | object            | `{"source": "generated"}` | Backward opening-tree source. `{"source": "generated"}` builds the tree internally, with the optional `moment_matching` of [`training.scenario_source.openings`](#trainingscenario_sourceopenings); `{"source": "file"}` reads a user-supplied tree from `scenarios/noise_openings.parquet` (sampled selection only, and not with a `policy_graph.nodes[]` declared in `stages.json`; either combination is rejected when the case is validated). Training only. A declared file that is missing stops the run in its stochastic phase ([Opening-tree file missing](/reference/error-codes/#opening-tree-file-missing)). |
+| `historical_years` | array \| object   | auto-discover | Restrict the pool of historical windows. When absent, every year of the history is a candidate. List (`[1940, 1953]`) or range (`{"from": 1940, "to": 2010}`). Each listed year names the window whose first study stage falls in that year's occurrence of its season; eligibility follows [Historical Window Pool](/en/math/scenario-generation/#historical-window-pool), and a year that fails it is dropped without a message. An empty result is the "no valid historical windows found" error ([Error Codes](/en/reference/error-codes/#stochasticpreparationerror)). The same pool supplies the `historical_residuals` openings. |
+| `openings`         | object            | `{"source": "generated"}` | Backward opening-tree source. `{"source": "generated"}` builds the tree internally, with the optional `moment_matching` of [`training.scenario_source.openings`](#trainingscenario_sourceopenings); `{"source": "file"}` reads a user-supplied tree from `scenarios/noise_openings.parquet` (sampled selection only, and not with a `policy_graph.nodes[]` declared in `stages.json`; either combination is rejected when the case is validated). Training only. A declared file that is missing stops the run in its stochastic phase ([Opening-tree file missing](/en/reference/error-codes/#opening-tree-file-missing)). |
 
 Valid values for `"scheme"`: `"in_sample"`, `"out_of_sample"`, `"external"` for every class;
 `"historical"` for `inflow` only.
 
 Admission rules (checked at load; the messages are listed under
-[Scenario-source admission rules](/reference/error-codes/#scenario-source-admission-rules)):
+[Scenario-source admission rules](/en/reference/error-codes/#scenario-source-admission-rules)):
 
 - `historical` is valid for `inflow` only — `load` or `ncs` on `historical` is rejected.
 - `seed` is required when any class is `out_of_sample` or `external`.
@@ -201,7 +201,7 @@ keeps the mean, standard deviation and coefficients its files declare
 An external column with σ = 0 is accepted for load, NCS and an inflow model of
 AR order 0 with no annual component, and rejected for an inflow model whose
 files declare an AR order above 0 or an annual component (see
-[Error Codes](/reference/error-codes/#deterministic-external-inflow-column-under-an-autoregressive-model)).
+[Error Codes](/en/reference/error-codes/#deterministic-external-inflow-column-under-an-autoregressive-model)).
 
 Example — out-of-sample inflow with in-sample load and NCS:
 
@@ -221,19 +221,19 @@ Example — out-of-sample inflow with in-sample load and NCS:
 }
 ```
 
-See [Scenario Generation §3](/math/scenario-generation#3-sampling-scheme-abstraction)
+See [Scenario Generation §3](/en/math/scenario-generation#3-sampling-scheme-abstraction)
 for a full description of each scheme and of historical windows.
 
 ### `training.scenario_source.openings`
 
 Where the backward opening tree comes from and how a generated tree is corrected
-([Scenario Generation §2.3](/math/scenario-generation/#23-opening-tree)). When
+([Scenario Generation §2.3](/en/math/scenario-generation/#23-opening-tree)). When
 `openings` is absent, the tree is generated with `moment_matching` at its default.
 
 | Field             | Type   | Default            | Description |
 | ----------------- | ------ | ------------------ | ----------- |
 | `source`          | string | `"generated"`      | One of `"generated"`, `"file"`. `"generated"` builds the tree from the stages' `sampling_method`; `"file"` reads it from `scenarios/noise_openings.parquet`. |
-| `moment_matching` | string | `"per_coordinate"` | One of `"per_coordinate"`, `"none"`; accepted with `"source": "generated"` only. `"per_coordinate"` shifts and scales the inflow openings of each generated stage so that, for every hydro, their mean is 0 and their variance is the one the stage's correlation gives that hydro's noise (step 4 of [§2.3](/math/scenario-generation/#23-opening-tree)); `"none"` keeps the openings as drawn. A `historical_residuals` stage, a stage with one opening, and the load and NCS noise are never matched. |
+| `moment_matching` | string | `"per_coordinate"` | One of `"per_coordinate"`, `"none"`; accepted with `"source": "generated"` only. `"per_coordinate"` shifts and scales the inflow openings of each generated stage so that, for every hydro, their mean is 0 and their variance is the one the stage's correlation gives that hydro's noise (step 4 of [§2.3](/en/math/scenario-generation/#23-opening-tree)); `"none"` keeps the openings as drawn. A `historical_residuals` stage, a stage with one opening, and the load and NCS noise are never matched. |
 
 ```json
 {
@@ -250,11 +250,11 @@ when `config.json` loads. The in-sample forward pass and the exported
 `stochastic/noise_openings.parquet` use the matched tree; out-of-sample forward
 draws are not matched. `training/model_provenance.json` records the mode of a
 generated tree as `inflow.opening_tree_moment_matching`
-([Metadata Files](/reference/output/metadata/#trainingmodel_provenancejson)).
+([Metadata Files](/en/reference/output/metadata/#trainingmodel_provenancejson)).
 
 ### `training.stopping_rules`
 
-Each entry in `stopping_rules` is a JSON object with a `"type"` discriminator. Each rule's stop condition is defined in [Stopping Rules](/math/stopping-rules/).
+Each entry in `stopping_rules` is a JSON object with a `"type"` discriminator. Each rule's stop condition is defined in [Stopping Rules](/en/math/stopping-rules/).
 
 #### `iteration_limit`
 
@@ -268,7 +268,7 @@ Stop after a fixed number of training iterations.
 | ------- | ------- | ------------------------------------------ |
 | `limit` | integer | Maximum number of SDDP iterations to run. |
 
-Use one `iteration_limit` entry: on a resumed run its `limit` counts the iterations of the earlier runs as well ([Train in slices](/running/policy-management/#train-in-slices)).
+Use one `iteration_limit` entry: on a resumed run its `limit` counts the iterations of the earlier runs as well ([Train in slices](/en/running/policy-management/#train-in-slices)).
 
 #### `time_limit`
 
@@ -317,7 +317,7 @@ compared is exact rather than a statistical estimate.
 At least one of `tolerance` / `relative_tolerance` must be present; a `gap`
 rule with neither field is rejected when the configuration is validated:
 `novomodelo validate` reports it as
-[`ConfigValidationError`](/reference/error-codes/#configvalidationerror), and
+[`ConfigValidationError`](/en/reference/error-codes/#configvalidationerror), and
 `novomodelo run` prints the same message and exits `1`. When both are present, the
 two arms combine by **disjunction** — training stops as soon as
 either arm is satisfied, not both. The gap itself is
@@ -392,7 +392,7 @@ Groups the result-preserving worker-scheduling knobs that shape how backward-pas
 Within a stage, opening-blocks are claimed **hardest-first**: blocks are ranked by the previous iteration's mean simplex-pivot cost per `(stage, block)`, descending (ties broken by ascending block index; the first iteration, and any block with no prior data, sort last). This claim order changes only which worker processes which block, and when — it is **result-neutral**: the produced cut set and the training lower bound are identical to canonical-order claiming.
 
 :::caution[Interaction with the dynamic method]
-If the [`dynamic` selection method](#trainingcut_selection) is set (`cut_selection.selection.method = "dynamic"`), the `by_node` scheduler falls back to `by_scenario` scheduling from that method's `start_iteration` (default `2`) onward, so `by_node` has no effect from that point on. No warning is emitted. The method is **not** the default — this caveat applies only when it is set. See [Performance Accelerators](/running/performance/) for the detailed tuning treatment of `by_node`.
+If the [`dynamic` selection method](#trainingcut_selection) is set (`cut_selection.selection.method = "dynamic"`), the `by_node` scheduler falls back to `by_scenario` scheduling from that method's `start_iteration` (default `2`) onward, so `by_node` has no effect from that point on. No warning is emitted. The method is **not** the default — this caveat applies only when it is set. See [Performance Accelerators](/en/running/performance/) for the detailed tuning treatment of `by_node`.
 :::
 
 Example — default (`by_scenario`; no `parallelism` block needed):
@@ -420,7 +420,7 @@ Example — `by_node` with an explicit `block_size`:
 }
 ```
 
-For the backward pass this schedules work within, see [SDDP Algorithm §3.4](/math/sddp-algorithm#34-execution-model-and-performance-considerations).
+For the backward pass this schedules work within, see [SDDP Algorithm §3.4](/en/math/sddp-algorithm#34-execution-model-and-performance-considerations).
 
 ---
 
@@ -430,7 +430,7 @@ Controls the row-management pipeline for the row pool of each stage. The
 pipeline has up to two passes: a selection method and a per-stage cap on active
 rows. Deactivating a row removes it from the stage LPs and keeps it in the pool.
 For a detailed explanation of each pass, see
-[Performance Accelerators](/running/performance/#cut-management-pipeline) and, for the selection methods themselves, [Cut Management](/math/cut-management/).
+[Performance Accelerators](/en/running/performance/#cut-management-pipeline) and, for the selection methods themselves, [Cut Management](/en/math/cut-management/).
 
 The block has two always-on knobs at the top level plus a `selection`
 sub-object that chooses the method and carries only that method's parameters.
@@ -539,7 +539,7 @@ Example with the `level1` method and a per-stage cap:
 ### `training.solver`
 
 For the performance-tuning treatment of the same profiles, see
-[Per-Phase Solver Profiles](/running/performance/#per-phase-solver-profiles).
+[Per-Phase Solver Profiles](/en/running/performance/#per-phase-solver-profiles).
 
 The two `retry_*` keys have no effect ([Inert keys](#inert-keys)); `backward` and `forward` are optional per-phase LP solver profile overrides.
 
@@ -592,15 +592,16 @@ template is built — and every rank resolves the same profile from the broadcas
   `use_warm_start` at every retry level. The CLP backend has no such setting:
   every phase starts from the stored basis when one exists. How the basis store
   feeds each phase is in the
-  [LP Warm-Start implementation notes](/math/lp-warm-start/#implementation-in-novomodelo).
+  [LP Warm-Start implementation notes](/en/math/lp-warm-start/#implementation-in-novomodelo).
 - `dual_edge_weight: "steepest_edge"` is a **request, not a guarantee** —
   HiGHS silently falls back to Devex pricing once the dual steepest-edge
   weight log-error exceeds `steepest_edge_devex_fallback_threshold`.
 
 :::caution[`scale: "solver_scaling"` compromises single-unscaling exactness]
-Setting `scale` to `"solver_scaling"` re-enables solver-side (Curtis–Reid)
-scaling on top of Novomodelo's own offline prescaler. Dual and cut-coefficient
-unscaling (see [LP Layout and Scaling §2.3](/math/lp-layout-and-scaling#23-row-scaling-geometric-mean))
+Setting `scale` to `"solver_scaling"` re-enables solver-side scaling (HiGHS
+equilibration: repeated geometric-mean column and row passes, with factors
+rounded to powers of two) on top of Novomodelo's own offline prescaler. Dual and cut-coefficient
+unscaling (see [LP Layout and Scaling §2.3](/en/math/lp-layout-and-scaling#23-row-scaling-geometric-mean))
 is exact only when the solve applies no scaling beyond that prescaler —
 enabling `solver_scaling` introduces a second scaling factor the
 single-unscaling identity does not account for.
@@ -630,7 +631,7 @@ with a named error identifying the phase and the field. An empty override
 block (for example `"solver": {}` or `"backward": {}`) and an absent block
 are both legal on CLP; only a field that is actually set triggers rejection.
 CLP starts the solves of every phase from a stored basis when one is
-available. See [Installation — Choosing a Backend](/getting-started/installation) for
+available. See [Installation — Choosing a Backend](/en/getting-started/installation) for
 backend selection and CLP's other limitations.
 
 Example — `training.solver.backward` with two overrides:
@@ -817,8 +818,8 @@ forward selection) can then report convergence that has not occurred.
 
 The simulation output reports the incremental inflow as `incremental_inflow_m3s`
 and the slack as `inflow_nonnegativity_slack_m3s`
-([`simulation/hydros/`](/reference/output/simulation/#simulationhydros)). The
-four methods are defined in [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity/).
+([`simulation/hydros/`](/en/reference/output/simulation/#simulationhydros)). The
+four methods are defined in [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity/).
 
 Example — the uncapped `"penalty"` slack in place of the default:
 
@@ -863,13 +864,13 @@ Example:
 ```
 
 For the methodology, see
-[LP Layout and Scaling §2.1](/math/lp-layout-and-scaling#21-cost-scaling).
+[LP Layout and Scaling §2.1](/en/math/lp-layout-and-scaling#21-cost-scaling).
 
 ---
 
 ## `estimation`
 
-Controls the PAR(p) model estimation pipeline of [PAR(p) Inflow Model](/math/par-inflow-model/). When the case provides
+Controls the PAR(p) model estimation pipeline of [PAR(p) Inflow Model](/en/math/par-inflow-model/). When the case provides
 `inflow_history.parquet`, Novomodelo can automatically estimate AR coefficients
 instead of requiring pre-computed `inflow_ar_coefficients.parquet`.
 
@@ -877,9 +878,9 @@ instead of requiring pre-computed `inflow_ar_coefficients.parquet`.
 | ----------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------- |
 | `max_order`                   | integer | `6`      | Maximum lag order considered during autoregressive model fitting.                                 |
 | `order_selection`             | string  | `"pacf"` | One of `"pacf"`, `"pacf_annual"`. Order selection criterion: PACF-based, or PACF with an annual component. |
-| `min_observations_per_season` | integer | `30`     | Recommended minimum number of fully covered stage occurrences of each season, per hydro. An occurrence is a stage in `stages.json` (study or pre-study) that carries the season; it counts only when the rows of `inflow_history.parquet` that start inside its window cover all of it, so history outside every stage window is not counted. When estimation runs, a (hydro, season) group with at least one such occurrence but fewer than this draws a [`ModelQuality`](/reference/error-codes/#modelquality) warning naming the hydro and the season, and estimation proceeds. |
+| `min_observations_per_season` | integer | `30`     | Recommended minimum number of fully covered stage occurrences of each season, per hydro. An occurrence is a stage in `stages.json` (study or pre-study) that carries the season; it counts only when the rows of `inflow_history.parquet` that start inside its window cover all of it, so history outside every stage window is not counted. When estimation runs, a (hydro, season) group with at least one such occurrence but fewer than this draws a [`ModelQuality`](/en/reference/error-codes/#modelquality) warning naming the hydro and the season, and estimation proceeds. |
 | `max_coefficient_magnitude`   | number \| null | `null`   | Safety net: reduce to order 0 if any coefficient exceeds this magnitude.                          |
-| `correlation_target`          | string  | `"inflows"` | One of `"inflows"`, `"residuals"`. Series the spatial inflow correlation is estimated from when the inflow model is fitted, in whole or in part, from `inflow_history.parquet` and the case supplies no `scenarios/correlation.json`: the standardized inflows (`"inflows"`) or the residuals of the fitted autoregression (`"residuals"`); see [PAR(p) Inflow Model §6.1](/math/par-inflow-model/#61-correlation-estimation). `training/model_provenance.json` records it as `inflow.correlation_target`. |
+| `correlation_target`          | string  | `"inflows"` | One of `"inflows"`, `"residuals"`. Series the spatial inflow correlation is estimated from when the inflow model is fitted, in whole or in part, from `inflow_history.parquet` and the case supplies no `scenarios/correlation.json`: the standardized inflows (`"inflows"`) or the residuals of the fitted autoregression (`"residuals"`); see [PAR(p) Inflow Model §6.1](/en/math/par-inflow-model/#61-correlation-estimation). `training/model_provenance.json` records it as `inflow.correlation_target`. |
 
 Example:
 
@@ -912,13 +913,13 @@ Controls policy persistence (checkpoint saving and warm-start loading).
 
 | Field                    | Type                                     | Default      | Description                                                                                                                                 |
 | ------------------------ | ---------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path`                   | string                                   | `"./policy"` | Policy directory, resolved against the run's output directory (`<case>/output` by default); training writes the checkpoint there and warm-start, resume and simulation-only read it. An empty path, `.`, `..` or a path with no named component is refused when the configuration loads; after resolution, and through a symbolic link's target, a path that is the output directory or one of its ancestors, that names or contains a directory whose files a run replaces (such as `simulation/solver` or `training/solver`), or that lies inside one a run removes whole (such as `simulation/costs`) is refused. This directory holds only whole checkpoints: a run whose training ends in an error writes its policy to the sibling `<path>.partial`, replacing one already there, and leaves this directory as the last whole checkpoint left it. A run reads the sibling only when `policy.path` names it, and a `resume` of it is refused. The checkpoint's files are listed under [Policy Checkpoint](/reference/output/policy/). |
-| `mode`                   | string                                   | `"fresh"`    | One of `"fresh"`, `"warm_start"`, `"resume"`. Initialization mode. `"fresh"` starts from scratch; `"warm_start"` loads cuts from a previous run; `"resume"` continues an interrupted run as it would have continued, restoring the iteration numbering, each row's role, binding record and stored trial state, and each scenario's LP basis. A `resume` is refused when the checkpoint cannot continue the run identically ([Resume](/running/policy-management/#resume)); a `warm_start` is not refused for those reasons. |
+| `path`                   | string                                   | `"./policy"` | Policy directory, resolved against the run's output directory (`<case>/output` by default); training writes the checkpoint there and warm-start, resume and simulation-only read it. An empty path, `.`, `..` or a path with no named component is refused when the configuration loads; after resolution, and through a symbolic link's target, a path that is the output directory or one of its ancestors, that names or contains a directory whose files a run replaces (such as `simulation/solver` or `training/solver`), or that lies inside one a run removes whole (such as `simulation/costs`) is refused. This directory holds only whole checkpoints: a run whose training ends in an error writes its policy to the sibling `<path>.partial`, replacing one already there, and leaves this directory as the last whole checkpoint left it. A run reads the sibling only when `policy.path` names it, and a `resume` of it is refused. The checkpoint's files are listed under [Policy Checkpoint](/en/reference/output/policy/). |
+| `mode`                   | string                                   | `"fresh"`    | One of `"fresh"`, `"warm_start"`, `"resume"`. Initialization mode. `"fresh"` starts from scratch; `"warm_start"` loads cuts from a previous run; `"resume"` continues an interrupted run as it would have continued, restoring the iteration numbering, each row's role, binding record and stored trial state, and each scenario's LP basis. A `resume` is refused when the checkpoint cannot continue the run identically ([Resume](/en/running/policy-management/#resume)); a `warm_start` is not refused for those reasons. |
 | `boundary`               | object \| null                           | `null`       | Terminal boundary cut configuration for coupling with an outer model's FCF. See below.                                                      |
 
 ### `policy.checkpointing`
 
-`enabled`, `initial_iteration` and `interval_iterations` schedule periodic checkpoints ([Policy Management — Checkpointing Configuration](/running/policy-management/#checkpointing-configuration)); `store_basis` and `compress` have no effect ([Inert keys](#inert-keys)).
+`enabled`, `initial_iteration` and `interval_iterations` schedule periodic checkpoints ([Policy Management — Checkpointing Configuration](/en/running/policy-management/#checkpointing-configuration)); `store_basis` and `compress` have no effect ([Inert keys](#inert-keys)).
 
 | Field                 | Type    | Default | Description                                                         |
 | --------------------- | ------- | ------- | ------------------------------------------------------------------- |
@@ -939,7 +940,7 @@ training — they remain fixed throughout.
 This enables Novomodelo-to-Novomodelo model coupling: an upstream study produces a
 policy checkpoint, and a chained study imports one pool of that checkpoint as
 its fixed terminal function
-([Post-Study Boundary & Chained Studies §5](/math/post-study-boundary#5-chained-studies)).
+([Post-Study Boundary & Chained Studies §5](/en/math/post-study-boundary#5-chained-studies)).
 
 The source pool is selected automatically by the current study's **terminal
 boundary date** (the last non-negative stage's `end_date`) — there is no
@@ -996,9 +997,9 @@ in January 2028) is not modelled by this study, so it is dropped and counted
 under `anticipated.dropped_source`; with `strict: true` that same drop would
 reject the load instead.
 
-See [Policy Management — Boundary Cuts](/running/policy-management/#boundary-cuts)
+See [Policy Management — Boundary Cuts](/en/running/policy-management/#boundary-cuts)
 for a full explanation of the coupling workflow, and
-[Compatibility requirements](/running/policy-management/#compatibility-requirements)
+[Compatibility requirements](/en/running/policy-management/#compatibility-requirements)
 for the date-selection and subset rejects.
 
 ---
@@ -1023,10 +1024,10 @@ the run reads it, so its fields have no effect ([Inert keys](#inert-keys)).
 
 No `config.json` key sets the temporal resolution: each stage's resolution comes
 from its dates and `season_id` in `stages.json`.
-[Multi-Resolution Studies](/math/multi-resolution-studies/) explains how stages
+[Multi-Resolution Studies](/en/math/multi-resolution-studies/) explains how stages
 of different lengths share noise, aggregate history and change lag resolution;
-[Post-Study Boundary & Chained Studies](/math/post-study-boundary/) couples two
-studies, and [Block Formulation Variants](/math/block-formulations/) gives
+[Post-Study Boundary & Chained Studies](/en/math/post-study-boundary/) couples two
+studies, and [Block Formulation Variants](/en/math/block-formulations/) gives
 weekly dispatch inside a monthly stage through chronological blocks.
 
 ### Mixed-resolution behaviour
@@ -1037,7 +1038,7 @@ weekly dispatch inside a monthly stage through chronological blocks.
   class gives every stage of the group the same draw, adjacent or not. A later
   stage of the group may have fewer openings than the group's first stage, and
   then copies the first of them; one with more is refused
-  ([Noise-group opening count](/reference/error-codes/#noise-group-opening-count)).
+  ([Noise-group opening count](/en/reference/error-codes/#noise-group-opening-count)).
 - When stages move from monthly to quarterly, the lag rebuild
   takes each monthly stage's month from its season's `month_start` and averages the monthly
   values over calendar quarters (January-March, April-June, July-September,
@@ -1061,7 +1062,7 @@ weekly dispatch inside a monthly stage through chronological blocks.
   and every later lag ℓ to incoming lag ℓ − 1. With such stages and a PAR order
   of 1 or more, the lower bound is not guaranteed to stay below the upper bound,
   even with inflow lags in the cut projection
-  ([`stages[].state_variables`](/math/cut-management/#stagesstate_variables--cut-projection)).
+  ([`stages[].state_variables`](/en/math/cut-management/#stagesstate_variables--cut-projection)).
 
 ---
 
@@ -1085,8 +1086,8 @@ These keys are accepted when `config.json` loads — their names and value types
 | ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `policy.checkpointing.store_basis`          | `null`  | A checkpoint holds the LP bases of the run's scenarios.                                                                                                           |
 | `policy.checkpointing.compress`             | `null`  | Checkpoint files are written uncompressed.                                                                                                           |
-| `training.solver.retry_max_attempts`        | `5`     | A solve that does not reach optimality escalates through the solver's built-in retry sequence, not this setting ([Solver Safeguards](/running/performance/#solver-safeguards)). |
-| `training.solver.retry_time_budget_seconds` | `30.0`  | A solve that does not reach optimality escalates through the solver's built-in retry sequence, not this setting ([Solver Safeguards](/running/performance/#solver-safeguards)). |
+| `training.solver.retry_max_attempts`        | `5`     | A solve that does not reach optimality escalates through the solver's built-in retry sequence, not this setting ([Solver Safeguards](/en/running/performance/#solver-safeguards)). |
+| `training.solver.retry_time_budget_seconds` | `30.0`  | A solve that does not reach optimality escalates through the solver's built-in retry sequence, not this setting ([Solver Safeguards](/en/running/performance/#solver-safeguards)). |
 | `upper_bound_evaluation`                    | `{}`    | Nothing reads the block: every key in it, the `lipschitz` keys included, has no effect.                                                                                         |
 
 ---
@@ -1210,7 +1211,7 @@ Train with in-sample noise and simulate with out-of-sample inflow. The `simulati
 
 ## See Also
 
-- [Case Format](/reference/case-format/) — full schema for all input files
-- [Running Studies](/running/running-studies/) — end-to-end workflow guide
-- [Error Codes](/reference/error-codes/) — validation errors including `SchemaViolation` for config fields
-- [Multi-Resolution Studies](/math/multi-resolution-studies/) — how stage resolution affects PAR noise sharing (noise groups) and observation aggregation
+- [Case Format](/en/reference/case-format/) — full schema for all input files
+- [Running Studies](/en/running/running-studies/) — end-to-end workflow guide
+- [Error Codes](/en/reference/error-codes/) — validation errors including `SchemaViolation` for config fields
+- [Multi-Resolution Studies](/en/math/multi-resolution-studies/) — how stage resolution affects PAR noise sharing (noise groups) and observation aggregation

@@ -20,7 +20,7 @@ policy by a warm-start or resume run — align to the current LP.
 
 ## 1. The Repeated-LP Problem
 
-The [SDDP Algorithm](/math/sddp-algorithm) backward pass solves, at each stage,
+The [SDDP Algorithm](/en/math/sddp-algorithm) backward pass solves, at each stage,
 one LP per opening per trial point per iteration. Across a training run these
 LPs are not independent: the LP at stage $t$ in iteration $k+1$ differs from the
 LP at stage $t$ in iteration $k$ only in two ways — the active cut set has
@@ -47,7 +47,7 @@ solves at the same stage are very similar.
 ## 2. Per-(Scenario, Node) Basis Store
 
 Novomodelo keeps a basis store keyed by `(scenario, node)`: the scenario identifies a
-trial point, and the node is a node of the [policy graph](/math/policy-graphs);
+trial point, and the node is a node of the [policy graph](/en/math/policy-graphs);
 on a stage chain (one node per stage) a node is a stage. The store holds at most
 one captured basis — the partition of variables and constraints into basic and
 non-basic — for each trial point at each node.
@@ -100,7 +100,7 @@ The basis a solve starts from therefore depends on the order in which its
 chain's openings are solved. That order is fixed in advance, and it changes the
 starting basis, never the validity of a cut, since every optimal basis of an
 opening's LP yields a valid cut;
-[Determinism & Provenance §3](/math/determinism-guarantees#3-methodology-mechanisms)
+[Determinism & Provenance §3](/en/math/determinism-guarantees#3-methodology-mechanisms)
 sets out how the fixed order keeps the run reproducible.
 
 A warm-start or resume run seeds the store from the saved bases, one per trial
@@ -123,7 +123,7 @@ The relevant change is cut-set growth: each
 iteration adds one new cut per trial point at every stage except the last. The
 cut pool and the persistent lower-bound LP are append-only, while each
 iteration's stage template carries the active cuts only (deactivation is covered
-at the end of this section; see [Cut Management](/math/cut-management) for the
+at the end of this section; see [Cut Management](/en/math/cut-management) for the
 append-only monotonicity guarantee). A new cut adds one constraint row to the
 LP.
 
@@ -151,14 +151,14 @@ retained in the append-only pool, and reactivation re-bakes the cut at that same
 slot. Because the active set can change this way, a stored basis cannot be
 replayed by row position; the slot-identity reconstruction of §4 reconciles it
 to the current active set, which is what keeps warm-starting valid across
-deactivation and reactivation. See [Cut Management](/math/cut-management) for the
+deactivation and reactivation. See [Cut Management](/en/math/cut-management) for the
 full deactivation mechanism, including the separate persistent-lower-bound-LP
 route, which is **append-only** — its cut rows are never removed, so
 deactivation changes nothing there and the lower bound stays monotone.
 
 ## 4. Cut-Aware Basis Reconstruction by Slot Identity
 
-Between solves, cut selection (see [Cut Management](/math/cut-management))
+Between solves, cut selection (see [Cut Management](/en/math/cut-management))
 deactivates and reactivates cuts and the backward pass appends new ones, so the
 set of active cut rows in the stage LP **churns** from one iteration to the
 next. A stored basis records a status for each row it contained; if those
@@ -167,7 +167,7 @@ would misalign — and the solver would warm-start from a corrupted basis or fal
 back to a cold start.
 
 Novomodelo avoids this by reconciling on **slot identity**, not position. The cut
-pool assigns every cut a stable slot index (see [Cut Management §5](/math/cut-management)),
+pool assigns every cut a stable slot index (see [Cut Management §5](/en/math/cut-management)),
 and a stored basis carries, for each cut row it held, the pool slot that
 generated it. To reconstruct a basis for the current LP:
 
@@ -230,18 +230,18 @@ use the store at runtime.
 
 ## Cross-References
 
-- [Cut Management](/math/cut-management) — The append-only cut lifecycle with
+- [Cut Management](/en/math/cut-management) — The append-only cut lifecycle with
   stable slot indices that drives cut-set changes and underpins slot-identity
   reconstruction; cut deactivation mechanism and selection strategies that
   determine how frequently the cut pool changes.
-- [SDDP Algorithm](/math/sddp-algorithm) — The iteration loop in which the
+- [SDDP Algorithm](/en/math/sddp-algorithm) — The iteration loop in which the
   forward and backward passes share the basis store; forward and backward pass
   structure, how each stage's openings are visited, and the synchronization
   barriers that separate stages.
-- [Policy Graphs](/math/policy-graphs) — The nodes that key the basis store, and
+- [Policy Graphs](/en/math/policy-graphs) — The nodes that key the basis store, and
   the stages they map to.
-- [Determinism & Provenance](/math/determinism-guarantees) — The deterministic
+- [Determinism & Provenance](/en/math/determinism-guarantees) — The deterministic
   pinning of the chain order described in
-  [Determinism & Provenance §3](/math/determinism-guarantees#3-methodology-mechanisms),
+  [Determinism & Provenance §3](/en/math/determinism-guarantees#3-methodology-mechanisms),
   which is what keeps warm-starting compatible with bit-identical
   reproducibility across runs.

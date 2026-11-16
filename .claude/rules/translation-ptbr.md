@@ -22,7 +22,7 @@ translation, never in a later "translation catch-up" commit.
 | Formula, code block, JSON key, CLI flag, file name, `import` changed | Apply the identical change to `pt-br/<same path>` (not translated) |
 | New page | Create `pt-br/<same path>` with a full translation — never a stub |
 | Page deleted or renamed | Delete or rename the pt-br counterpart |
-| Link target or heading anchor changed | Update the pt-br link (`/pt-br/` prefix, anchor of the translated heading) |
+| Link target or heading anchor changed | Update the pt-br link (the English target without its `/en` prefix, anchor of the translated heading) |
 | Sidebar entry added in `astro.config.mjs` | Add `translations: { "pt-BR": "..." }` to its `label` |
 | New Observable Plot label | Add it to `src/components/plot-i18n.ts` |
 | New entity card text | Fill both `en` and `pt` in `src/components/entity/entities.ts` |

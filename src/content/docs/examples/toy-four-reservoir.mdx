@@ -8,7 +8,7 @@ import ToyFourSlopesPlot from "../../../components/ToyFourSlopesPlot.astro";
 ## Purpose
 
 This chapter extends the single-reservoir walkthrough in
-[Toy Single-Reservoir Walkthrough](/examples/toy-single-reservoir) to a
+[Toy Single-Reservoir Walkthrough](/en/examples/toy-single-reservoir) to a
 four-reservoir, four-bus system, still using a 0-order
 (seasonal-sampling) inflow model. The chapter demonstrates two
 phenomena that the single-reservoir case cannot exhibit:
@@ -124,7 +124,7 @@ later stages.
 ## 2. Stage LP for This Case
 
 The stage-$t$ LP is assembled from the general formulation in
-[LP Formulation](/math/lp-formulation), specialised to four
+[LP Formulation](/en/math/lp-formulation), specialised to four
 hydros, four buses with one local thermal each, four storage state
 variables, and 0-order inflow (no AR-lag state).
 
@@ -198,7 +198,7 @@ this walkthrough preserves that property.
 If a `correlation.json` file were supplied, the spatial structure
 $C$ between innovations would be applied via the spectral
 factorisation $\varepsilon = C^{1/2} z$ with $C^{1/2} = U \Lambda^{1/2} U^{\top}$ — see
-[PAR(p) Inflow Model §6](/math/par-inflow-model#6-spatial-correlation-factorisation) for the
+[PAR(p) Inflow Model §6](/en/math/par-inflow-model#6-spatial-correlation-factorisation) for the
 multivariate case. For this walkthrough the four innovations are
 drawn independently.
 
@@ -276,7 +276,7 @@ The backward pass walks stages $4 \to 2$. At each stage it pins the
 incoming storage to the trial point from the forward pass, evaluates
 all three openings, reads the four pinned-column reduced costs, and
 aggregates into a 4-coefficient cut. The mechanics follow
-[Cut Management](/math/cut-management) sections 2–3, generalised
+[Cut Management](/en/math/cut-management) sections 2–3, generalised
 from one storage coefficient (single-reservoir case) to four (this
 case).
 
@@ -449,7 +449,7 @@ spreads trial points across the storage state space as iterations
 progress, and each new trial point produces a cut that tightens the
 approximation in its neighbourhood. When the cuts bound the cost-to-go
 from below and when the approximation converges is set out in
-[Cut Management — when bounds and certificates hold](/math/cut-management#when-bounds-and-certificates-hold).
+[Cut Management — when bounds and certificates hold](/en/math/cut-management#when-bounds-and-certificates-hold).
 
 **Per-bus thermal regime drives slope structure.** A bus whose
 thermal is always idle (B4 in this trial) gets $\bar\beta^v_h = 0$;
@@ -464,17 +464,17 @@ where every reservoir's storage carries a non-zero marginal value.
 ## 7. Convergence on This Case
 
 The percent form of the
-[optimality gap](/math/stopping-rules#optimality-gap) divides the gap
+[optimality gap](/en/math/stopping-rules#optimality-gap) divides the gap
 by the magnitude of the lower bound, $\lvert\underline{z}^k\rvert$
 (floored at one currency unit). The iteration count needed to close it
 depends on the demand-to-inflow ratios, the reservoir capacities and
 the variance of the inflows, and the upper bound of a sampled forward
 pass is a statistical estimate that certifies nothing
-([Cut Management — Tier 3](/math/cut-management#tier-3-gap-certificate)).
+([Cut Management — Tier 3](/en/math/cut-management#tier-3-gap-certificate)).
 The shipped `4ree` runs four sampled forward passes per iteration and
 stops at its iteration limit of 256; novomodelo rejects a `gap` stopping
 rule at setup under a sampled forward pass. See
-[Stopping Rules](/math/stopping-rules) for the available criteria.
+[Stopping Rules](/en/math/stopping-rules) for the available criteria.
 
 ---
 
@@ -496,47 +496,47 @@ no transmission. It does not cover:
   $v_h = v^{in}_h + a_h - q_h - s_h + \sum_{h' \in \mathcal{U}_h}(q_{h'} + s_{h'})$;
   the storage cut coefficient at upstream plants then carries the
   expected downstream value of released water. See
-  [System Element Modeling Overview](/math/system-elements) for cascade topology
-  and [Cut Management](/math/cut-management) for how cascade
+  [System Element Modeling Overview](/en/math/system-elements) for cascade topology
+  and [Cut Management](/en/math/cut-management) for how cascade
   sensitivities propagate through the pinned-column reduced cost.
 - **FPHA production model**: nonlinear head-dependent productivity
   approximated by piecewise-linear hyperplanes; one of the planes
   binds at the optimum and contributes to the storage cut
-  coefficient. See [Hydro Production Function Models](/math/hydro-production-models).
+  coefficient. See [Hydro Production Function Models](/en/math/hydro-production-models).
 - **Spatial inflow correlation**: when a `correlation.json` file is
   supplied, the per-hydro innovations are drawn from a correlated
   multivariate normal via spectral factorisation. See
-  [PAR(p) Inflow Model §6](/math/par-inflow-model#6-spatial-correlation-factorisation).
+  [PAR(p) Inflow Model §6](/en/math/par-inflow-model#6-spatial-correlation-factorisation).
 - **Autoregressive inflow memory**: a PAR(p) model with $p \geq 1$
   adds one lag state variable per hydro per lag; whether a stage's cuts
   carry a coefficient for each lag is that stage's cut-state projection
-  ([State Augmentation §7](/math/state-augmentation#7-cut-state-projection)).
+  ([State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)).
 - **Risk measures**: CVaR weighting that shifts cut aggregation
   probabilities away from uniform $p = 1/N_t$ toward worst scenarios,
   raising cut intercepts and slopes in the dry direction. See
-  [Risk Measures](/math/risk-measures).
+  [Risk Measures](/en/math/risk-measures).
 - **Cyclic policy graphs**: the four-stage horizon ends without a cut
   linking back to stage 1. A cyclic (periodic) policy graph, in which
   the first stage's cost-to-go would feed the last stage, is a reserved
   design: `stages.json` accepts only `finite_horizon` as
   `policy_graph.type` and rejects `cyclic` at case load. See
-  [Horizon Modes](/math/horizon-modes#1-finite-acyclic-mode).
+  [Horizon Modes](/en/math/horizon-modes#1-finite-acyclic-mode).
 - **Multi-resolution studies**: stages of different lengths in one
   horizon, for example a weekly head followed by a monthly tail,
   sharing one set of cuts. See
-  [Multi-Resolution Studies](/math/multi-resolution-studies).
+  [Multi-Resolution Studies](/en/math/multi-resolution-studies).
 
 ---
 
 ## Cross-References
 
-- [Toy Single-Reservoir Walkthrough](/examples/toy-single-reservoir) — Single-reservoir baseline; core SDDP loop, 0-order inflow, forward/backward/cut in the simplest setting
-- [LP Formulation](/math/lp-formulation) — Complete stage LP
-- [LP Layout and Scaling](/math/lp-layout-and-scaling) — Column and row layout
-- [State Augmentation](/math/state-augmentation) — Column-bound state pinning, reduced-cost extraction
-- [System Element Modeling Overview](/math/system-elements) — Hydro plant element, cascade topology (not exercised here), water-balance convention, FPHA overview
-- [Hydro Production Function Models](/math/hydro-production-models) — Constant-productivity (used here) and FPHA hyperplane fitting; impact on Benders cut coefficients
-- [PAR(p) Inflow Model](/math/par-inflow-model) — Inflow model definition; the $p = 0$ degenerate case (white noise) used here; spatial correlation factorisation for multivariate cases
-- [Cut Management](/math/cut-management) — Dual extraction, per-opening intercepts, single-cut aggregation; sign convention $\beta^v = \partial Q/\partial \hat v$
-- [Risk Measures](/math/risk-measures) — CVaR definition, EAVaR convex combination, risk-adjusted aggregation weights
-- [Horizon Modes](/math/horizon-modes) — Finite (supported) vs. reserved cyclic policy graphs and the season-indexed cut pool
+- [Toy Single-Reservoir Walkthrough](/en/examples/toy-single-reservoir) — Single-reservoir baseline; core SDDP loop, 0-order inflow, forward/backward/cut in the simplest setting
+- [LP Formulation](/en/math/lp-formulation) — Complete stage LP
+- [LP Layout and Scaling](/en/math/lp-layout-and-scaling) — Column and row layout
+- [State Augmentation](/en/math/state-augmentation) — Column-bound state pinning, reduced-cost extraction
+- [System Element Modeling Overview](/en/math/system-elements) — Hydro plant element, cascade topology (not exercised here), water-balance convention, FPHA overview
+- [Hydro Production Function Models](/en/math/hydro-production-models) — Constant-productivity (used here) and FPHA hyperplane fitting; impact on Benders cut coefficients
+- [PAR(p) Inflow Model](/en/math/par-inflow-model) — Inflow model definition; the $p = 0$ degenerate case (white noise) used here; spatial correlation factorisation for multivariate cases
+- [Cut Management](/en/math/cut-management) — Dual extraction, per-opening intercepts, single-cut aggregation; sign convention $\beta^v = \partial Q/\partial \hat v$
+- [Risk Measures](/en/math/risk-measures) — CVaR definition, EAVaR convex combination, risk-adjusted aggregation weights
+- [Horizon Modes](/en/math/horizon-modes) — Finite (supported) vs. reserved cyclic policy graphs and the season-indexed cut pool

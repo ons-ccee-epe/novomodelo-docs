@@ -9,12 +9,12 @@ files, the node-keyed `basis/NNN.bin` files, the pool-keyed `states/NNN.bin`
 trial states (for each pool that stores them, under `exports.states` or the
 `level1` selection method), and `manifest.bin`, written last. A run that fails
 writes its checkpoint under `<policy.path>.partial` instead (see
-[A failed run](/running/policy-management/#a-failed-run)).
+[A failed run](/en/running/policy-management/#a-failed-run)).
 
 :::note[Wire format]
 The wire format of the binary files below is described by the canonical
 `policy.fbs` schema of the novomodelo repository. See
-[FlatBuffers Policy Schema](/reference/flatbuffers-schema/) for
+[FlatBuffers Policy Schema](/en/reference/flatbuffers-schema/) for
 recipes on dumping a `.bin` to JSON and on generating typed readers in
 Python, C++, TypeScript, and other languages with `flatc`.
 :::
@@ -31,11 +31,11 @@ plain stage chain, pool id equals stage index. The general node -> pool mapping
 entries of [`policy/manifest.bin`](#policymanifestbin), never trusted from the
 file name.
 
-**Methodology:** [Cut Management](/math/cut-management)
+**Methodology:** [Cut Management](/en/math/cut-management)
 
 Each `cuts/<pool>.bin` is **self-describing**: alongside its cuts it carries its
 own `state_dimension`, its own `cost_scale_factor` (the authoritative load-time
-scale for this pool — see [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization)),
+scale for this pool — see [Cost-Scale Canonicalization](/en/running/policy-management/#cost-scale-canonicalization)),
 and its own graph identity (node and graph-stage ids), so no field of the
 study-global manifest is needed to interpret a pool's coefficients.
 
@@ -50,7 +50,7 @@ study-global manifest is needed to interpret a pool's coefficients.
 | `cuts`               | [AffinePiece] | No       | —     | The pool's cuts, one `AffinePiece` per cut (fields below), strictly ascending by `slot_index`.                                                                                          |
 | `populated_count`    | uint32        | No       | —     | Number of filled slots; equals the length of `cuts`.                                                                                                                                     |
 | `entity_manifest`    | [EntitySlot]  | No       | —     | Per-slot entity identity, one `EntitySlot` per state dimension (fields below).                                                                                                           |
-| `cost_scale_factor`  | float64       | No       | —     | The scale of every cut's `intercept` and `coefficients`: the objective cost-scale factor of the writing study, whose scaled units they are in (see [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization)). |
+| `cost_scale_factor`  | float64       | No       | —     | The scale of every cut's `intercept` and `coefficients`: the objective cost-scale factor of the writing study, whose scaled units they are in (see [Cost-Scale Canonicalization](/en/running/policy-management/#cost-scale-canonicalization)). |
 | `node_id`            | int32         | No       | —     | Policy-graph id of the pool's sole owning node; `-1` for a shared pool.                                                                                                                  |
 | `graph_stage_id`     | int32         | No       | —     | Graph-stage id of the stage that owns the pool; `-1` when unresolved. No load reads it: a boundary load selects its source pool by `priced_state_date`.                                  |
 | `priced_state_date`  | int32         | No       | —     | The owning stage's `end_date` encoded `YYYYMMDD` (`year*10000 + month*100 + day`); `-2147483648` (the int32 minimum) when not recorded.                                                  |
@@ -64,7 +64,7 @@ The binary is not human-readable. The logical record structure of each cut
 | `iteration`          | uint32    | No       | —     | Training iteration that generated this cut.                                                                                                                                                                                                                                                                                                                |
 | `forward_pass_index` | uint32    | No       | —     | Forward pass index within the generating iteration.                                                                                                                                                                                                                                                                                                        |
 | `intercept`          | float64   | No       | —     | Pre-computed cut intercept $\beta_0 = \bar{Q}_t - \beta^\top \hat{x}_{t-1}$, where $\hat{x}_{t-1}$ is the state at the generating forward pass node and $\bar{Q}_t$ the aggregated stage value there; in the scale of the pool's `cost_scale_factor`.                                                                                                     |
-| `coefficients`       | [float64] | No       | —     | The cut's slope: one coefficient per state dimension, the sensitivity of the future cost to each incoming state value (see [Cut Management](/math/cut-management/)). Length equals the state dimension — the number of entries in the embedded entity manifest below, also the pool's own `state_dimension` (per-pool, not a `policy/manifest.bin` field). |
+| `coefficients`       | [float64] | No       | —     | The cut's slope: one coefficient per state dimension, the sensitivity of the future cost to each incoming state value (see [Cut Management](/en/math/cut-management/)). Length equals the state dimension — the number of entries in the embedded entity manifest below, also the pool's own `state_dimension` (per-pool, not a `policy/manifest.bin` field). |
 | `is_active`          | bool      | No       | —     | Whether this cut was active in the LP when the checkpoint was written: the last selection. Inactive cuts are retained for potential reactivation by the selection method.                                                                                                                                                                                   |
 | `scored`             | bool      | No       | —     | Whether the writing run stored the trial state the cut was computed at (under `exports.states` or the `level1` method). Kept when that state is later dropped from `states/`; a `level1` run that loads the policy selects a scored cut like its own.                                                                                                       |
 | `active_count`       | uint64    | Yes      | —     | The writing run's count of the cut's binding activity; absent unless the manifest's `activity_counters` is set.                                                                                                                                                                                                                                             |
@@ -78,7 +78,7 @@ set.
 Each `NNN.bin` also embeds a **per-slot entity manifest** — one entry per
 state-vector dimension, in canonical cut-coefficient order — recording which
 entity each coefficient position belongs to. It is what policy-load
-validation checks (see [Policy Management](/running/policy-management)):
+validation checks (see [Policy Management](/en/running/policy-management)):
 a policy whose dimensions match the current study by count but bind to different
 entities is rejected.
 
@@ -88,7 +88,7 @@ entities is rejected.
 | ---------------- | ---------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `entity_type`    | EntityType | No       | —     | `byte` enum: state-dimension kind — `0` HydroStorage, `1` HydroInflowLag, `2` AnticipatedThermalState, `3` HydroTransitBucket.                                                                                                                                                                                                                                                                                       |
 | `entity_id`      | int32      | No       | —     | Owning entity id — for a transit bucket, the downstream hydro.                                                                                                                                                                                                                                                                                                                                                       |
-| `subindex`       | uint32     | No       | —     | Secondary index within the entity: the inflow-lag order, anticipated-commitment ring slot (counted from stage 0: $(s - 1) \bmod k_{max}$ for the [Hold Ring](/math/state-augmentation#hold-ring) slot $s$), or transit maturity lag.                                                                                                                                                                                 |
+| `subindex`       | uint32     | No       | —     | Secondary index within the entity: the inflow-lag order, anticipated-commitment ring slot (counted from stage 0: $(s - 1) \bmod k_{max}$ for the [Hold Ring](/en/math/state-augmentation#hold-ring) slot $s$), or transit maturity lag.                                                                                                                                                                                 |
 | `was_active`     | bool       | No       | —     | Whether the owning entity was operationally active at this stage (excluded from the load-time identity check).                                                                                                                                                                                                                                                                                                       |
 | `reference_date` | int32      | No       | —     | The `HydroInflowLag` reference past-stage `start_date`, encoded `YYYYMMDD` (`year*10000 + month*100 + day`); sentinel `-2147483648` (the int32 minimum) for every other family.                                                                                                                                                                                                                                      |
 | `interval_start` | int32      | No       | —     | Inclusive start of the forward-family half-open window, encoded `YYYYMMDD`: a `HydroTransitBucket` arrival start or an `AnticipatedThermalState` delivery start. Sentinel `-2147483648` for `HydroStorage` and `HydroInflowLag`, and for an `AnticipatedThermalState` ring slot that holds no live commitment at the pool's stage or whose delivery lands past the study calendar extended by the post-study stages. |
@@ -97,11 +97,11 @@ entities is rejected.
 **Wire readability.** A reader parses `policy/manifest.bin` first, requires the
 `CBVF` file identifier and a `format_version` of `4`, and only then decodes the
 payloads. There is no conversion between format versions; see
-[Versioning policy](/reference/flatbuffers-schema/#versioning-policy).
+[Versioning policy](/en/reference/flatbuffers-schema/#versioning-policy).
 
 **Load admission.** Every policy load requires the `software` and
 `software_version` recorded in `manifest.bin` to equal the running software's
-name and version exactly (see the [version gate](/running/policy-management/#version-gate)).
+name and version exactly (see the [version gate](/en/running/policy-management/#version-gate)).
 
 ---
 
@@ -119,10 +119,10 @@ no stored bases, so a checkpoint unpacked from an archive that dropped the
 empty directory still loads. Warm-start, resume, and simulation-only loads read
 the bases to warm-start the stage LP solves, using each basis that fits its stage LP
 and leaving the others out (see the
-[stored-basis gate](/running/policy-management/#stored-basis-gate)); boundary
+[stored-basis gate](/en/running/policy-management/#stored-basis-gate)); boundary
 loads read none.
 
-**Methodology:** [LP Warm-Start](/math/lp-warm-start)
+**Methodology:** [LP Warm-Start](/en/math/lp-warm-start)
 
 The logical record structure (the `StageBasis` root table) is:
 
@@ -169,7 +169,7 @@ states of the pools it selects whether or not `exports.states` is set. The
 each `NNN.bin` embeds the per-slot entity manifest describing its state
 dimensions.
 
-**Methodology:** [Cut Management](/math/cut-management)
+**Methodology:** [Cut Management](/en/math/cut-management)
 
 A trial state is the state vector a cut was computed at. A `resume` reads these
 files to restore the trial states a `level1` run selects at; a `warm_start`
@@ -201,10 +201,10 @@ the stage count, and the producer provenance — lives here. On the wire,
 `CheckpointManifest` is one flat table: the graph and producer fields sit at its
 root, beside a nested `season_manifest`. The Python bindings group them under
 `graph_manifest`, `producer` and `season_manifest` (see
-[`load_policy`](/running/policy-management/#load-a-policy)); the tables below
+[`load_policy`](/en/running/policy-management/#load-a-policy)); the tables below
 follow that grouping, with the same field names.
 
-**Methodology:** [Policy Graphs](/math/policy-graphs)
+**Methodology:** [Policy Graphs](/en/math/policy-graphs)
 
 ## Python view of the manifest
 
@@ -213,13 +213,13 @@ follow that grouping, with the same field names.
 | Name              | Type    | Nullable | Units | Description                                                                                                                                                                                                                                                                                                                                                                       |
 | ----------------- | ------- | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `format_version`  | integer | No       | —     | On-disk format version; must equal `4` on read, before any payload is parsed (wire readability). Admission is the separate software and version check.                                                                                                                                                                                                                                 |
-| `software` | string | Yes | — | Name of the software that wrote this checkpoint: `"novomodelo"` from every novomodelo writer, `None` for a buffer without the field (wire id 20). The [version gate](/running/policy-management/#version-gate) compares it, and `novomodelo.write_policy_checkpoint` stamps it. |
+| `software` | string | Yes | — | Name of the software that wrote this checkpoint: `"novomodelo"` from every novomodelo writer, `None` for a buffer without the field (wire id 20). The [version gate](/en/running/policy-management/#version-gate) compares it, and `novomodelo.write_policy_checkpoint` stamps it. |
 | `software_version` | string | No | — | Version of that software, compared verbatim (wire id 1); every policy load requires it to equal the running version. |
 | `created_at`      | string  | No       | —     | ISO 8601 timestamp when the checkpoint was written.                                                                                                                                                                                                                                                                                                                               |
 | `num_stages`      | integer | No       | —     | Number of stages the graph manifest spans. Must match the case configuration on resume.                                                                                                                                                                                                                                                                                           |
 | `graph_manifest`  | object  | No       | —     | Graph manifest: node list, edge list and pool-set size; each node names its pool (`nodes[].pool_id`).                                                                                                                                                                                                                                                                             |
 | `producer`        | object  | No       | —     | Producer-namespaced metadata — the training algorithm's own recorded state. See below.                                                                                                                                                                                                                                                                                            |
-| `season_manifest` | object  | No       | —     | Study-global season / periodic-AR compatibility descriptor: `cycle_code` (`0` monthly, `1` weekly, `2` custom, `255` absent: no season map declared), `n_seasons`, and per-hydro AR orders (ascending by hydro id). Compared on boundary loads only — see [Compatibility requirements](/running/policy-management/#compatibility-requirements); full-FCF loads do not compare it. |
+| `season_manifest` | object  | No       | —     | Study-global season / periodic-AR compatibility descriptor: `cycle_code` (`0` monthly, `1` weekly, `2` custom, `255` absent: no season map declared), `n_seasons`, and per-hydro AR orders (ascending by hydro id). Compared on boundary loads only — see [Compatibility requirements](/en/running/policy-management/#compatibility-requirements); full-FCF loads do not compare it. |
 
 **`graph_manifest` fields:**
 
@@ -261,7 +261,7 @@ follow that grouping, with the same field names.
 | `producer.total_visited_states`            | integer | No       | —     | Total number of trial states the pools store, summed over the pools: the `count` of every `states/<pool>.bin`. `0` when no pool stores states.                                                                                                                                                                                                                                                                                                                            |
 | `producer.training_block_mode`             | string  | No       | —     | Block mode the artifact was trained under: the shared lowercase mode (`"parallel"`/`"chronological"`) when every stage agrees, else `"mixed"`.                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `producer.training_block_mode_per_stage[]` | array   | No       | —     | Per-study-stage training block modes, in study-stage order. Empty when uniform; populated only for mixed-mode studies.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `producer.cost_scale_factor`               | number  | Yes      | —     | Objective cost-scale factor the writing study resolved (`modeling.cost_scale_factor`): the scale of the writer's scaled units, which every cut's `intercept` and `coefficients` are in, recorded here as study-global provenance. Each pool carries its own copy in `cuts/<pool>.bin`, which is what a load reads; every load path requires it, and a resolved pool missing it is rejected ("predates self-describing cuts …"). See [Cost-Scale Canonicalization](/running/policy-management/#cost-scale-canonicalization) for the details. |
+| `producer.cost_scale_factor`               | number  | Yes      | —     | Objective cost-scale factor the writing study resolved (`modeling.cost_scale_factor`): the scale of the writer's scaled units, which every cut's `intercept` and `coefficients` are in, recorded here as study-global provenance. Each pool carries its own copy in `cuts/<pool>.bin`, which is what a load reads; every load path requires it, and a resolved pool missing it is rejected ("predates self-describing cuts …"). See [Cost-Scale Canonicalization](/en/running/policy-management/#cost-scale-canonicalization) for the details. |
 | `producer.state_history`                   | string \| integer | Yes | — | Which trial states the pools strictly between the first and the last stage store: `None` (none), `"whole"` (every one), or a positive integer `w` (those of the last `w` iterations). On the wire, `state_history_scope` (`0` none, `1` window, `2` whole) and `state_history_window`. A resume checks it against the run's `level1` setting. |
 | `producer.activity_counters`               | bool    | No       | —     | Whether every cut of every pool carries `active_count` and `last_active_iteration`; set by a run with `max_active_per_stage` or the `dynamic` method, whose resume reads them. |
 | `producer.basis_store_complete`            | bool    | No       | —     | Whether `basis/` holds the bases of every scenario the writing run gathered from all ranks. Unset when the run failed, which keeps the writing rank's own; a resume refuses a checkpoint where it is unset. |

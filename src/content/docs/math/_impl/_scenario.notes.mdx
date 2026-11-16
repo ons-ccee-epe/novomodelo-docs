@@ -1,4 +1,4 @@
-This tab records how Novomodelo implements [§2.2 Reproducible Sampling](/math/scenario-generation#22-reproducible-sampling), [§2.3 Opening Tree](/math/scenario-generation#23-opening-tree), [§2.5 Historical-Residual Openings](/math/scenario-generation#25-historical-residual-openings), [§4.3 Noise Inversion for External and Historical Scenarios](/math/scenario-generation#43-noise-inversion-for-external-and-historical-scenarios) and [§4.5 x₀ Consistency Under Historical Replay](/math/scenario-generation#45-x-consistency-under-historical-replay),
+This tab records how Novomodelo implements [§2.2 Reproducible Sampling](/en/math/scenario-generation#22-reproducible-sampling), [§2.3 Opening Tree](/en/math/scenario-generation#23-opening-tree), [§2.5 Historical-Residual Openings](/en/math/scenario-generation#25-historical-residual-openings), [§4.3 Noise Inversion for External and Historical Scenarios](/en/math/scenario-generation#43-noise-inversion-for-external-and-historical-scenarios) and [§4.5 x₀ Consistency Under Historical Replay](/en/math/scenario-generation#45-x-consistency-under-historical-replay),
 and lists the byte layouts, the lag chain, the tolerance, the warnings and the limit that the methodology leaves out.
 
 ### Seed derivation
@@ -22,11 +22,11 @@ Window and external-scenario selection hash `(iteration, scenario)` with the For
 {/* quoted from source: crates/novomodelo-sddp/src/setup/mod.rs:1802-1816 at novomodelo v0.20.0 */}
 The inversion of §4.3 advances its lag chain with the per-stage lag transitions that the LP uses. `resolve_stage_lag_transitions` derives the downstream PAR order and the per-stage lag transitions (`StageLagTransition`), and it is, in the source's words, "The sole owner of both derivations"; the LP setup and the historical scenario library each call it once, over their own PAR model.
 
-The library carries a fingerprint of the inflow-lag seed that rooted its inversion chain: a SipHash-1-3 digest of the seed's lag values as little-endian `f64` bytes. Novomodelo reports it as `historical_library_seed_digest` in `training/model_provenance.json` (see [Metadata Files](/reference/output/metadata/#trainingmodel_provenancejson)) and omits it when no library was built. A digest that differs from the one of the freshly derived seed marks a library inverted against a different x₀, whose replay is not exact.
+The library carries a fingerprint of the inflow-lag seed that rooted its inversion chain: a SipHash-1-3 digest of the seed's lag values as little-endian `f64` bytes. Novomodelo reports it as `historical_library_seed_digest` in `training/model_provenance.json` (see [Metadata Files](/en/reference/output/metadata/#trainingmodel_provenancejson)) and omits it when no library was built. A digest that differs from the one of the freshly derived seed marks a library inverted against a different x₀, whose replay is not exact.
 
 ### Deterministic tolerance
 
-The σ = 0 rule of §4.3 compares the standard deviation with `0.0` exactly. At σ = 0 the inversion returns noise `0` when the target differs from the deterministic value by less than `1e-10` in magnitude, and `NEG_INFINITY` otherwise. The library validation refuses a `NEG_INFINITY` or NaN noise value. Check V2.3 covers the historical window pool and check V3.7 an external library; the error messages carry these identifiers (see [Error Codes](/reference/error-codes/#stochasticpreparationerror)).
+The σ = 0 rule of §4.3 compares the standard deviation with `0.0` exactly. At σ = 0 the inversion returns noise `0` when the target differs from the deterministic value by less than `1e-10` in magnitude, and `NEG_INFINITY` otherwise. The library validation refuses a `NEG_INFINITY` or NaN noise value. Check V2.3 covers the historical window pool and check V3.7 an external library; the error messages carry these identifiers (see [Error Codes](/en/reference/error-codes/#stochasticpreparationerror)).
 
 ### Warnings
 
@@ -91,7 +91,7 @@ The Sobol direction numbers cover `SOBOL_MAX_DIM: usize = 21201` dimensions. A s
 
 {/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-401 and crates/novomodelo-stochastic/src/tree/opening_tree.rs:258-275 at novomodelo v0.20.0 */}
 
-On two or more MPI processes, `novomodelo run` checks after setup that every rank built the same opening tree. Each rank hashes its tree with 64-bit FNV-1a over the stage count, the noise dimension, the per-stage opening counts, the bit pattern of every noise value and the solve order, and the ranks exchange the smallest and the largest digest. When the two differ, the run stops with exit `4` before training ([Communication failures](/reference/error-codes/#communication-failures)):
+On two or more MPI processes, `novomodelo run` checks after setup that every rank built the same opening tree. Each rank hashes its tree with 64-bit FNV-1a over the stage count, the noise dimension, the per-stage opening counts, the bit pattern of every noise value and the solve order, and the ranks exchange the smallest and the largest digest. When the two differ, the run stops with exit `4` before training ([Communication failures](/en/reference/error-codes/#communication-failures)):
 
 ```text
 opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same tree from the broadcast inputs

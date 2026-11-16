@@ -1,5 +1,5 @@
 Comportamento não normativo do software para o aproveitamento de base (warm-start da base) do PL — o que o Novo Modelo faz em tempo de execução,
-além da metodologia de [Aproveitamento de base do PL](/pt-br/math/lp-warm-start). Esta aba
+além da metodologia de [Aproveitamento de base do PL](/math/lp-warm-start). Esta aba
 remete ao corpo metodológico para a transferência e a reconstrução, em vez de
 reapresentá-las.
 
@@ -27,7 +27,7 @@ HiGHS quando o perfil daquela fase tem `use_warm_start: true` (ver
 
 Uma resolução a frio pode terminar em um vértice ótimo diferente daquele de uma resolução com base aproveitada, com o
 mesmo valor ótimo
-([Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos)),
+([Determinismo e rastreabilidade §3](/math/determinism-guarantees#3-mecanismos-metodologicos)),
 de modo que os estados visitados de uma execução, seus cortes, seu limite inferior final e suas variáveis duais simuladas
 podem diferir entre as duas configurações.
 
@@ -48,7 +48,7 @@ própria, pois cada sucessor carrega seu próprio PL.
 O escalonador padrão `by_scenario` resolve as aberturas de um estado visitado em um
 nó sucessor como uma única cadeia. O escalonador `by_node`
 (`training.parallelism.backward_scheduler`; ver
-[Escalonamento por Nó](/pt-br/running/performance/#escalonamento-por-no)) divide-as em
+[Escalonamento por nó](/running/performance/#escalonamento-por-no)) divide-as em
 blocos de aberturas e resolve cada bloco como uma cadeia própria. A abertura resolvida primeiro
 em cada bloco lê a base que a simulação forward capturou na posição
 (a captura forward). Com `by_node`, a simulação backward não grava nada, de modo que a
@@ -56,7 +56,7 @@ posição mantém a captura forward, que é a base oferecida à resolução forw
 da iteração seguinte.
 
 Entretanto, sob uma simulação forward enumerada
-([`training.selection`](/pt-br/running/configuration/#trainingselection)), a simulação
+([`training.selection`](/running/configuration/#trainingselection)), a simulação
 forward resolve cada nó uma vez por iteração e grava a base dessa resolução em uma única
 posição para o nó, oferecida à resolução forward da iteração seguinte nesse nó.
 A simulação backward não lê nem grava bases armazenadas: a abertura resolvida primeiro
@@ -74,7 +74,7 @@ as resoluções forward da primeira iteração partem a frio, qualquer que seja 
 resolução forward inviável limpa sua posição.
 
 Enquanto o método dinâmico de seleção de cortes
-([Gerenciamento de cortes §8](/pt-br/math/cut-management#8-o-metodo-dinamico)) está ativo, nenhuma
+([Gerenciamento de cortes §8](/math/cut-management#8-o-metodo-dinamico)) está ativo, nenhuma
 resolução lê ou grava no repositório. A simulação forward deixa sua posição intacta,
 e o PL inicial de toda resolução parte sem base armazenada; em uma fase
 com aproveitamento de base, as aberturas posteriores de uma cadeia backward, e cada nova resolução após o
@@ -96,7 +96,7 @@ checkpoint pode ter realizado menos simulações forward. Uma posição deixada 
 resolução a frio e depois reutiliza suas próprias capturas. Fora do método dinâmico, as
 resoluções inicializadas da primeira iteração em uma fase com aproveitamento de base partem por meio da
 reconstrução de
-[§4](/pt-br/math/lp-warm-start#4-reconstrucao-da-base-sensivel-aos-cortes-por-identidade-de-slot); uma
+[§4](/math/lp-warm-start#4-reconstrucao-da-base-sensivel-aos-cortes-por-identidade-de-slot); uma
 execução nova não tem o que inicializar. Com o perfil forward padrão do HiGHS, as
 resoluções forward aproveitam a base; assim, em uma cadeia de estágios, onde todo estado
 visitado passa por todos os nós, as bases do checkpoint inicializam as resoluções forward da
@@ -122,7 +122,7 @@ PL do estágio atual do nó, seu número de linhas é igual às linhas do modelo
 linhas de corte registradas, seu número de variáveis básicas é igual ao número de linhas, e toda posição de linha de corte
 que ela registra contém um corte carregado. Uma base reprovada é descartada, e a carga
 informa quantas foram descartadas e por que a primeira foi reprovada (ver
-[Validação de bases armazenadas](/pt-br/running/policy-management/#verificacao-das-bases-armazenadas)). Uma
+[Validação de bases armazenadas](/running/policy-management/#verificacao-das-bases-armazenadas)). Uma
 base admitida mantém os status de suas linhas de corte registradas, associadas ao
 conjunto de cortes carregado pela posição; uma linha de corte atual que ela não registra parte como BASIC. Em
 ambos os casos, muda apenas a base a partir da qual o aproveitamento começa, nunca o valor ótimo
@@ -153,8 +153,8 @@ combinada dos modelos e do repositório de bases pode ser significativa.
 Quando a fase backward aproveita a base, como ocorre por padrão, uma resolução da simulação
 backward após a primeira iteração custa principalmente o trabalho do simplex dual
 que restaura a otimalidade a partir da base reutilizada, depois que essa base é
-conciliada com o conjunto de cortes atual
-([§4](/pt-br/math/lp-warm-start#4-reconstrucao-da-base-sensivel-aos-cortes-por-identidade-de-slot)),
+reconciliada com o conjunto de cortes atual
+([§4](/math/lp-warm-start#4-reconstrucao-da-base-sensivel-aos-cortes-por-identidade-de-slot)),
 em vez do trabalho de viabilidade da Fase I de uma partida a frio.
 
 ### Desativação do aproveitamento de base
@@ -169,4 +169,4 @@ configurações forward e backward são de diagnóstico, não opções de produ�
 simulação a frio com outra com aproveitamento de base isola a contribuição do aproveitamento para o
 desempenho do treinamento. Sobrescritas de perfil por fase existem apenas no HiGHS; o backend
 CLP rejeita um campo definido já na inicialização; ver
-[`training.solver`](/pt-br/running/configuration/#trainingsolver).
+[`training.solver`](/running/configuration/#trainingsolver).

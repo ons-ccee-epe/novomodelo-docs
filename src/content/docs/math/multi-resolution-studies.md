@@ -19,8 +19,10 @@ handles that challenge.
 one cut set. A chained study is instead two studies: the second imports a fixed
 terminal function, the cuts of one pool of the first study's policy, chosen by
 date and not necessarily the pool of the first study's last stage (see
-[Post-Study Boundary & Chained Studies](/math/post-study-boundary)). This
+[Post-Study Boundary & Chained Studies](/en/math/post-study-boundary)). This
 chapter owns the sub-period lag accumulation (§2).
+
+For the entity view of this chapter, see [Horizon, stages and load blocks](/en/entities/time-structure/).
 
 ## 1. Season Map
 
@@ -170,9 +172,9 @@ season forms its own group, and in a uniform single-resolution study every
 group is a single stage, so every stage draws independently, except that on
 a weekly cycle the 53rd week of a 53-week year takes the season of the 52nd
 and joins its group. The sampling rule is stated in
-[Scenario Generation](/math/scenario-generation); the group assignment
+[Scenario Generation](/en/math/scenario-generation); the group assignment
 depends on the stage calendar alone, so every MPI rank computes the same
-groups (see [Determinism & Provenance](/math/determinism-guarantees)).
+groups (see [Determinism & Provenance](/en/math/determinism-guarantees)).
 
 Along a trajectory, the stages inside one lag period see the same lags (§2).
 
@@ -186,15 +188,15 @@ mean before estimation, so the statistics of the season refer to its own
 resolution. The aggregate is a mean, not a sum: it keeps the units of a flow
 rate, and observations of unequal duration, such as months of unequal length,
 weigh in proportion to their duration. The PAR estimation procedure of
-[PAR(p) Inflow Model §3](/math/par-inflow-model#3-estimation) then applies per
+[PAR(p) Inflow Model §3](/en/math/par-inflow-model#3-estimation) then applies per
 season without modification, and each stage takes its season's parameters when
 the runtime PAR quantities are built
-([PAR(p) Inflow Model §4.2](/math/par-inflow-model#42-runtime-quantities)). A
+([PAR(p) Inflow Model §4.2](/en/math/par-inflow-model#42-runtime-quantities)). A
 coarse season's fit sees only coarse-resolution variation: the variation among
 the fine observations inside one occurrence does not reach its parameters.
 
 ## Cross-References
 
-- [PAR(p) Inflow Model](/math/par-inflow-model) — The fitting procedure (§3) that applies to aggregated statistics; the parameter set that the aggregated statistics populate; the LP-ready form that quarterly stages use at runtime.
-- [Scenario Generation](/math/scenario-generation) — Opening-tree generation that produces per-stage noise vectors; the noise-group sampling rule.
-- [Post-Study Boundary & Chained Studies](/math/post-study-boundary) — Two studies coupled by a terminal function imported from the upstream policy, rather than one study with mixed stages; the lag seeding at a study's start.
+- [PAR(p) Inflow Model](/en/math/par-inflow-model) — The fitting procedure (§3) that applies to aggregated statistics; the parameter set that the aggregated statistics populate; the LP-ready form that quarterly stages use at runtime.
+- [Scenario Generation](/en/math/scenario-generation) — Opening-tree generation that produces per-stage noise vectors; the noise-group sampling rule.
+- [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) — Two studies coupled by a terminal function imported from the upstream policy, rather than one study with mixed stages; the lag seeding at a study's start.

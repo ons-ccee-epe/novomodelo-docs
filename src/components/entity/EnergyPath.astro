@@ -5,7 +5,6 @@ interface Props { lang?: 'en' | 'pt-BR' }
 const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
 const k = key(lang);
 const pt = k === 'pt';
-const soon = pt ? 'em breve' : 'coming soon';
 const L = pt
   ? {
       title: 'O caminho da energia, da chuva à cidade',
@@ -24,7 +23,7 @@ const L = pt
     }
   : {
       title: 'The path of energy, from rain to city',
-      sub: 'Each stage opens the entities the model represents in it',
+      sub: 'Each step opens the entities the model represents in it',
       aria: 'Four scenes joined by a continuous band: water (rain, river and reservoir), generation (dam, thermal plant, wind and solar), network (towers and bus) and consumption (city)',
       s: ['1 · WATER', '2 · GENERATION', '3 · NETWORK', '4 · CONSUMPTION'],
       band: ['inflows', 'generated energy', 'transported energy', 'consumed energy'],
@@ -51,9 +50,9 @@ const stageX = [24, 304, 584, 864];
 const stageCls = ['hyd', 'eqp', 'net', 'rul'];
 const bandX = [140, 416, 696, 968];
 const icon = (n: string) => ICONS[n] ?? '';
-const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/sddp-framework-overview/';
+const methodHref = pt ? '/overview/sddp-framework-overview/' : '/en/overview/sddp-framework-overview/';
 ---
-<section class="energy-path" id="entidades" aria-labelledby="ep-title">
+<section class="energy-path" id="entities" aria-labelledby="ep-title">
   <div class="energy-path__head">
     <h2 id="ep-title">{L.title}</h2>
     <span>{L.sub}</span>
@@ -107,10 +106,7 @@ const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/
           <div class={`ep-col entity-${c.fam}`}>
             {c.slugs.map((s) => {
               const e = bySlug(s);
-              const inner = (<><strong>{e.title[k]}</strong><span>{e.blurb[k]}</span>{!e.ready && <em class="ep-soon">{soon}</em>}</>);
-              return e.ready
-                ? <a class="ep-card" href={entityHref(e.slug, lang)}>{inner}</a>
-                : <div class="ep-card ep-card--soon">{inner}</div>;
+              return <a class="ep-card" href={entityHref(e.slug, lang)}><strong>{e.title[k]}</strong><span>{e.blurb[k]}</span></a>;
             })}
           </div>
         ))}
@@ -135,22 +131,17 @@ const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/
             <text class="tcarry" x="300" y="94">{L.carry}</text>
           </svg>
           <div class="ep-pills">
-            {timeLinks.map((e) => e.ready
-              ? <a class="ep-pill" href={entityHref(e.slug, lang)}>{e.title[k]}</a>
-              : <span class="ep-pill ep-pill--soon">{e.title[k]}<em class="ep-soon">{soon}</em></span>)}
+            {timeLinks.map((e) => <a class="ep-pill" href={entityHref(e.slug, lang)}>{e.title[k]}</a>)}
           </div>
         </div>
         <div class="ep-box entity-rules">
           <span class="ep-label">{L.rules}</span>
-          {rules.map((e) => {
-            const inner = (<>
+          {rules.map((e) => (
+            <a class="ep-rule" href={entityHref(e.slug, lang)}>
               <svg aria-hidden="true" focusable="false" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icon(e.icon)} />
-              <span><strong>{e.title[k]}</strong>{!noBlurb.has(e.slug.split('/').pop()!) && <> · {e.blurb[k]}</>}{!e.ready && <em class="ep-soon">{soon}</em>}</span>
-            </>);
-            return e.ready
-              ? <a class="ep-rule" href={entityHref(e.slug, lang)}>{inner}</a>
-              : <div class="ep-rule ep-rule--soon">{inner}</div>;
-          })}
+              <span><strong>{e.title[k]}</strong>{!noBlurb.has(e.slug.split('/').pop()!) && <> · {e.blurb[k]}</>}</span>
+            </a>
+          ))}
           <a class="ep-rule ep-rule--method" href={methodHref}>
             <svg aria-hidden="true" focusable="false" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={icon('book')} />
             <span><strong>{L.method.title}</strong> · {L.method.blurb}</span>
@@ -208,8 +199,6 @@ const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/
   a.ep-card:focus-visible, a.ep-pill:focus-visible, a.ep-rule:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 2px; }
   .ep-card strong { font-size: 14px; color: var(--sl-color-white); line-height: 1.3; }
   .ep-card > span { font-size: 12.5px; color: var(--sl-color-gray-2); line-height: 1.4; }
-  .ep-soon { align-self: flex-start; font-style: normal; font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--sl-color-gray-3); border: 1px solid var(--sl-color-hairline); border-radius: 999px; padding: 0 .5rem; margin-top: .3rem; }
-  .ep-card--soon { opacity: .9; }
 
   .ep-foot { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
   .ep-box { background: var(--sl-color-bg-nav); border: 1px solid var(--sl-color-hairline); border-radius: 14px; padding: .9rem 1.1rem; display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
@@ -224,11 +213,9 @@ const methodHref = pt ? '/pt-br/overview/sddp-framework-overview/' : '/overview/
   .ep-pills { display: flex; flex-wrap: wrap; gap: .5rem; }
   .ep-pill { text-decoration: none; font-size: 13.5px; background: var(--ep-scene-bg); color: var(--sl-color-text); border-radius: 999px; padding: .35rem .75rem; display: inline-flex; align-items: center; gap: .5rem; }
   a.ep-pill:hover { outline: 1px solid var(--sl-color-accent); }
-  .ep-pill .ep-soon { margin-top: 0; }
   .ep-rule { display: flex; gap: .65rem; align-items: center; text-decoration: none; color: var(--sl-color-text); font-size: 14px; }
   .ep-rule svg { flex: none; color: var(--ent); }
   .ep-rule strong { color: var(--sl-color-white); }
-  .ep-rule .ep-soon { margin: 0 0 0 .5rem; display: inline-block; }
   a.ep-rule:hover strong { text-decoration: underline; }
   .ep-box > .ep-rule--method { margin-top: .25rem !important; padding-top: .6rem; border-top: 1px solid var(--sl-color-hairline); }
   .ep-rule--method svg { color: var(--sl-color-accent); }

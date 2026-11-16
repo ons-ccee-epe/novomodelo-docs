@@ -15,12 +15,14 @@ concept, the sampling scheme abstraction that governs how scenarios are selected
 in forward and backward passes, external scenario integration, load and
 non-controllable source scenarios, and enumerated scenario trees. For the
 mathematical definition of the PAR(p) model itself, see
-[PAR(p) Inflow Model](/math/par-inflow-model).
+[PAR(p) Inflow Model](/en/math/par-inflow-model).
+
+For the entity view of this chapter, see [Scenarios and openings](/en/entities/inflows/scenarios/) and [Load](/en/entities/consumption/load/).
 
 ## 1. The Inflow Model
 
 Scenario generation samples the applied PAR(p) model of
-[PAR(p) Inflow Model](/math/par-inflow-model), which defines the model and its
+[PAR(p) Inflow Model](/en/math/par-inflow-model), which defines the model and its
 estimation, the innovation-scale closure and the validation invariants. The
 inflow-lag seed that starts every trajectory is the lag state $x_0$ of §4.5.
 
@@ -39,11 +41,12 @@ The generation process:
    eigendecomposition $C = U \Lambda U^\top$ during
    preprocessing. The spectral factor
    $C^{1/2} = U \tilde{\Lambda}^{1/2} U^\top$ transforms
-   independent noise into the correlated [PAR innovation](/overview/notation-conventions#35-inflow-model-parameters):
+   independent noise into the correlated [PAR innovation](/en/overview/notation-conventions#35-inflow-model-parameters):
    $\varepsilon = C^{1/2} z$. Negative
    eigenvalues are clipped to zero, which gives the nearest
-   positive-semidefinite matrix in the Frobenius norm; its diagonal can exceed
-   one (see [PAR(p) Inflow Model](/math/par-inflow-model#6-spatial-correlation-factorisation)).
+   positive-semidefinite matrix in the Frobenius norm
+   ([Higham, 1988](/en/reference/bibliography/#numerical-methods)); its diagonal can exceed
+   one (see [PAR(p) Inflow Model](/en/math/par-inflow-model#6-spatial-correlation-factorisation)).
    Spectral factorisation is the only method Novomodelo implements, and the same
    section gives the rationale.
 3. **Entity assignment** — Each entity in the group receives its own
@@ -53,7 +56,7 @@ Entities in different correlation groups are independent of each other.
 Entities not assigned to any group receive independent $N(0,1)$ noise.
 
 For the spectral factorisation rationale and the full eigendecomposition
-derivation, see [PAR(p) Inflow Model](/math/par-inflow-model).
+derivation, see [PAR(p) Inflow Model](/en/math/par-inflow-model).
 
 ### 2.2 Reproducible Sampling
 
@@ -66,7 +69,7 @@ assignment, thread scheduling, or restart. This is achieved through
   a tuple that identifies it. The tuple depends on the sampling method and on
   the pass: for example (iteration, scenario, stage) for the in-sample forward
   choice of an opening and (opening, stage) for a Monte Carlo opening-tree draw;
-  [Determinism & Provenance §3](/math/determinism-guarantees#3-methodology-mechanisms)
+  [Determinism & Provenance §3](/en/math/determinism-guarantees#3-methodology-mechanisms)
   lists the tuple of every pass
 - The RNG state is initialized from this derived seed before generating the
   noise vector for that tuple
@@ -98,7 +101,7 @@ layouts.
 
 The backward pass in SDDP evaluates an aggregated cut at a node by solving
 **all** of that node's openings — the within-node opening set $\Omega_n$
-defined in [Policy Graphs](/math/policy-graphs) section 2. These openings must
+defined in [Policy Graphs](/en/math/policy-graphs) section 2. These openings must
 be identical across all iterations — the backward pass always "sees the same
 tree" at every node. Novomodelo fixes each node's opening set before training and
 visits all of it in every backward pass. This fixed, per-node structure is the
@@ -161,7 +164,7 @@ the validity of the lower bound.
    unchanged, so its openings are not moment-matched as a set. A stage without a
    season gets its own group; in a uniform monthly study every group is
    unique and every stage draws independently. See
-   [Multi-Resolution Studies](/math/multi-resolution-studies) for the
+   [Multi-Resolution Studies](/en/math/multi-resolution-studies) for the
    mechanism's role in mixed-resolution horizons.
 
 Each node's opening set $\Omega_n$ is drawn from the tree generated for its
@@ -172,7 +175,7 @@ vectors produced above.
 **all** of $\Omega_n$ — $N_t$ noise vectors at stage $t$ on the implicit
 chain — solving one subproblem per opening, then aggregates the resulting
 cuts, composed across successor nodes per the between-node edge weights (see
-[Policy Graphs](/math/policy-graphs) section 2). Because the tree is fixed,
+[Policy Graphs](/en/math/policy-graphs) section 2). Because the tree is fixed,
 every iteration produces cuts that refine the same set of future cost
 scenarios.
 
@@ -198,7 +201,7 @@ seed derivation of step 2 and the noise-group assignment
 are pure functions of globally known inputs — the base seed and the stage
 calendar of the broadcast system — and the moment matching of step 4 sums over
 the openings in a fixed order. For the determinism guarantees that follow
-from this property, see [Determinism & Provenance](/math/determinism-guarantees).
+from this property, see [Determinism & Provenance](/en/math/determinism-guarantees).
 
 ### 2.3a Sampling Method and Opening Tree Generation
 
@@ -310,7 +313,7 @@ same inflow.
 
 The SDDP algorithm has three concerns that govern
 how scenarios are handled during training. Novomodelo formalizes these as distinct
-abstractions, following the design established by SDDP.jl ([Dowson & Kapelevich, 2021](/reference/bibliography/#software-references)):
+abstractions, following the design established by SDDP.jl ([Dowson & Kapelevich, 2021](/en/reference/bibliography/#software-references)):
 
 | Concern                                              | Abstraction            | What It Controls                 | Default    |
 | ---------------------------------------------------- | ---------------------- | -------------------------------- | ---------- |
@@ -336,7 +339,7 @@ opening tree, whose openings the stage LP turns into realizations with the
 applied model (§4.2). The forward-cost estimate is then the policy's expected
 cost under the forward law, and the lower bound bounds the value of the tree
 problem from below, so the gap of
-[Stopping Rules](/math/stopping-rules/#optimality-gap) compares two problems
+[Stopping Rules](/en/math/stopping-rules/#optimality-gap) compares two problems
 and need not close or stay non-negative.
 
 ### 3.2 Forward Sampling Schemes
@@ -390,7 +393,7 @@ a set of external inflow scenarios). Each forward trajectory replays one
 external scenario for all its stages, chosen with replacement by a hash of the
 training iteration and trajectory indices from its own fixed base. A
 policy-graph node whose openings point into its stage's external realization
-column uses that column instead (see [Policy Graphs](/math/policy-graphs)).
+column uses that column instead (see [Policy Graphs](/en/math/policy-graphs)).
 
 - **Noise source**: External scenario values (not the opening tree)
 - **Realization computation**: External values must always be **inverted to
@@ -596,7 +599,7 @@ where $b_{h,m} = \mu_m - \sum_{\ell=1}^{P_h} \psi_{m,\ell} \cdot \mu_{m-\ell}$ i
 the precomputed base value.
 
 All quantities ($\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) are in their respective
-units as described in [PAR(p) Inflow Model](/math/par-inflow-model). The AR
+units as described in [PAR(p) Inflow Model](/en/math/par-inflow-model). The AR
 coefficients are in original units; $\sigma_m$ is the derived residual std.
 Under PAR(p)-A, the upper index $P_h$ of the lag sum equals the full width of
 the AR-dynamics row (twelve lags, or the classical order if larger, when any
@@ -623,7 +626,7 @@ lag buffer for the next):
      replay and the historical-residual openings (§2.5), refuses the study
      when a study stage has no season, when an inverted noise value is the
      $\sigma_m = 0$ mismatch above or is not a number, or when the window pool
-     is empty. [Error Codes](/reference/error-codes/#stochasticpreparationerror)
+     is empty. [Error Codes](/en/reference/error-codes/#stochasticpreparationerror)
      lists the messages and the exit codes.
 
 ### 4.4 Deterministic (σ = 0) External Columns
@@ -643,7 +646,7 @@ reconstructed from a flat column — so the load fails, naming the class, stage,
 and entity. This is distinct from the §4.3 inversion anchor check: it is a
 load-time admissibility rule on the column, not a per-stage residual test. (The
 concrete rejection message is a software-layer concern — see
-[Error Codes](/reference/error-codes).)
+[Error Codes](/en/reference/error-codes).)
 
 ### 4.5 x₀ Consistency Under Historical Replay
 
@@ -675,7 +678,7 @@ that does not close with iteration count.
 To eliminate this gap, the inversion runs as a **rolling lag chain seeded
 from the derived seed** and advanced at every stage with the same per-stage
 lag transitions the LP uses (see
-[Multi-Resolution Studies](/math/multi-resolution-studies)), for monthly,
+[Multi-Resolution Studies](/en/math/multi-resolution-studies)), for monthly,
 sub-monthly and multi-monthly stages alike.
 
 The cross-scheme implications are:
@@ -688,7 +691,7 @@ The cross-scheme implications are:
   feeds, negative observations included, and differs only in the water it
   adds to the water balance beside the realization; under `none`, which adds
   none, a negative observation can leave the stage LP without a solution (see
-  [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity)).
+  [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity)).
 - **Historical-residual openings.** When training replays history, the openings
   of a historical-residual stage (§2.5) come from the same window pool, applied
   PAR model and derived seed as the replay. At a trial point whose lags are
@@ -776,7 +779,7 @@ unclamped availability factor at the stage and $\varepsilon^{nc}_r \sim N(0,1)$ 
 noise. The ratio is a dimensionless fraction of the installed capacity: the
 source's generation cap in a block is the installed capacity times $\xi_r$
 times the block factor
-([Equipment-Specific Formulations §6](/math/equipment-formulations#6-non-controllable-generation-sources)
+([Equipment-Specific Formulations §6](/en/math/equipment-formulations#6-non-controllable-generation-sources)
 states that bound and curtailment). With $s^{nc}_r > 0$ the clamp raises the
 mean of $\xi_r$ above $\mu^{nc}_r$ when $\mu^{nc}_r < 1/2$ and lowers it when
 $\mu^{nc}_r > 1/2$. NCS noise is correlated only with the other sources of its
@@ -793,13 +796,13 @@ Sampling evaluates a node's opening set by drawing from it. An **enumerated**
 pass instead visits every node and every root-to-leaf path of a finite policy
 graph once, with no sampling, so its bounds are those of the declared tree: the
 upper bound is computed over every path rather than estimated from a sample
-([Upper Bound Evaluation §2](/math/upper-bound-evaluation/#2-exact-deterministic-upper-bound)).
+([Upper Bound Evaluation §2](/en/math/upper-bound-evaluation/#2-exact-deterministic-upper-bound)).
 Its structural requirements — a singleton opening set at every node, and
 in-degree 1 everywhere, so the graph is a pure tree — are those of
-[Policy Graphs §6](/math/policy-graphs/#6-the-enumerated-tree-structural-requirement).
+[Policy Graphs §6](/en/math/policy-graphs/#6-the-enumerated-tree-structural-requirement).
 Branching is therefore declared as sibling nodes, each with one opening, and
 the deterministic trunk with branching only at the final stage
-([Maceira et al., 2002](/reference/bibliography/#inflow-modelling)) is a chain of single-successor nodes ending in a terminal fan of sibling
+([Maceira et al., 2002](/en/reference/bibliography/#inflow-modelling)) is a chain of single-successor nodes ending in a terminal fan of sibling
 nodes.
 
 With a common branching count per stage, the number of root-to-leaf paths is
@@ -818,11 +821,11 @@ The methodology above defines how scenarios are generated and sampled; the tabs 
 
 ## Cross-References
 
-- [PAR(p) Inflow Model](/math/par-inflow-model) — Mathematical definition, parameter set, stored vs. computed quantities, fitting procedure, spectral factorisation rationale, validation invariants
-- [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) — Handling of negative inflow realizations from PAR sampling
-- [SDDP Algorithm](/math/sddp-algorithm) — Forward/backward pass structure, cut generation, convergence; references sampling scheme abstraction (sections 3.1–3.2)
-- [Policy Graphs](/math/policy-graphs) — The node/transition/pool structure the opening tree's per-node opening set $\Omega_n$ (section 2.3) is scoped to
-- [Cut Management](/math/cut-management) — Cut generation, storage, and selection; uses opening tree branchings as the backward pass input
-- [Multi-Resolution Studies](/math/multi-resolution-studies) — Multi-resolution modeling configurations; uses scenario generation with varied stage counts
-- [Post-Study Boundary & Chained Studies](/math/post-study-boundary) — a study chained to an upstream policy; each study draws its own scenario tree
-- [Determinism & Provenance](/math/determinism-guarantees) — bit-identical results per binary at any rank or thread count and on every re-run; grounded in the seed derivation architecture of section 2.2
+- [PAR(p) Inflow Model](/en/math/par-inflow-model) — Mathematical definition, parameter set, stored vs. computed quantities, fitting procedure, spectral factorisation rationale, validation invariants
+- [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity) — Handling of negative inflow realizations from PAR sampling
+- [SDDP Algorithm](/en/math/sddp-algorithm) — Forward/backward pass structure, cut generation, convergence; references sampling scheme abstraction (sections 3.1–3.2)
+- [Policy Graphs](/en/math/policy-graphs) — The node/transition/pool structure the opening tree's per-node opening set $\Omega_n$ (section 2.3) is scoped to
+- [Cut Management](/en/math/cut-management) — Cut generation, storage, and selection; uses opening tree branchings as the backward pass input
+- [Multi-Resolution Studies](/en/math/multi-resolution-studies) — Multi-resolution modeling configurations; uses scenario generation with varied stage counts
+- [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) — a study chained to an upstream policy; each study draws its own scenario tree
+- [Determinism & Provenance](/en/math/determinism-guarantees) — bit-identical results per binary at any rank or thread count and on every re-run; grounded in the seed derivation architecture of section 2.2

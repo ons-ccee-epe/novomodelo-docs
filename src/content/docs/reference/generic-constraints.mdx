@@ -7,17 +7,19 @@ Generic constraints are written in an **authoring language**: three input
 files, one output, and a grammar (named `@expressions`, inline relational
 right-hand sides, interval bounds). This page is the authority for that
 language. For the per-file field tables, see
-[Constraint Files](/reference/case-format/constraints/); for the LP
+[Constraint Files](/en/reference/case-format/constraints/); for the LP
 formulation these constraints desugar into, see
-[LP Formulation §10](/math/lp-formulation#10-generic-constraints).
+[LP Formulation §10](/en/math/lp-formulation#10-generic-constraints).
+
+For the entity view of this page, see [Generic constraints](/en/entities/generic-constraints/).
 
 ## File set
 
 | File                                                | Role                                                                                                                                                                    |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `constraints/generic_constraints.json`               | Declares the constraints, each a linear expression over the [variable catalog](#variable-catalog) with an optional inline bound and a slack setting, and the named expressions they share; field table: [Constraint Files](/reference/case-format/constraints/#constraintsgeneric_constraintsjson). |
-| `constraints/generic_constraint_bounds.parquet`      | The **activation grid**: one row per constraint, stage and optional block the constraint is active for, carrying the nullable lower and upper bound endpoints (the parquet base); field table: [Constraint Files](/reference/case-format/constraints/#constraintsgeneric_constraint_boundsparquet). |
-| `constraints/generic_parameters.json`                | Declares the named scalar parameters that constraint expressions, inline bound endpoints and other named expressions reference by `@name`; field table: [Constraint Files](/reference/case-format/constraints/#constraintsgeneric_parametersjson). |
+| `constraints/generic_constraints.json`               | Declares the constraints, each a linear expression over the [variable catalog](#variable-catalog) with an optional inline bound and a slack setting, and the named expressions they share; field table: [Constraint Files](/en/reference/case-format/constraints/#constraintsgeneric_constraintsjson). |
+| `constraints/generic_constraint_bounds.parquet`      | The **activation grid**: one row per constraint, stage and optional block the constraint is active for, carrying the nullable lower and upper bound endpoints (the parquet base); field table: [Constraint Files](/en/reference/case-format/constraints/#constraintsgeneric_constraint_boundsparquet). |
+| `constraints/generic_parameters.json`                | Declares the named scalar parameters that constraint expressions, inline bound endpoints and other named expressions reference by `@name`; field table: [Constraint Files](/en/reference/case-format/constraints/#constraintsgeneric_parametersjson). |
 | `generic_constraints/resolved_echo.parquet` (output) | The fully-resolved, desugared form of every generic constraint the solver actually built — one row per `(constraint, stage, block, term)`. Written whenever the study has generic constraints; the directory is entirely absent otherwise.            |
 
 ---
@@ -145,7 +147,7 @@ if a row exists for it there.
   ([Inline relational RHS](#inline-relational-rhs)), so `0 * thermal_generation(0)`
   does not hold the row per block.
   Full row-materialization derivation:
-  [LP Formulation §10](/math/lp-formulation#10-generic-constraints).
+  [LP Formulation §10](/en/math/lp-formulation#10-generic-constraints).
 
 ---
 
@@ -191,7 +193,7 @@ The productions do not show these rules:
   rejected when the case loads. A constant that reads a parameter is evaluated
   for every stage and block when the study is set up; a value that is not
   finite there stops setup with
-  [`GenericConstraintValidationError`](/reference/error-codes/#genericconstraintvalidationerror),
+  [`GenericConstraintValidationError`](/en/reference/error-codes/#genericconstraintvalidationerror),
   naming the constraint, the coefficient or bound, the stage and the block.
 - **An expression holds at most one relational operator, outside
   parentheses.** With one, constants may stand on either side, inside a group
@@ -210,7 +212,7 @@ The productions do not show these rules:
   reads (a scalar parameter or a named expression) is stated under
   [The `@name` grammar](#the-name-grammar).
 - Give at most one positional block argument: a second one, equal or not, is rejected when the case loads
-  ([Error Codes — `SchemaViolation`](/reference/error-codes/#schemaviolation)).
+  ([Error Codes — `SchemaViolation`](/en/reference/error-codes/#schemaviolation)).
 - A named-expression definition in `expressions` takes no relational operator
   and reads at least one LP variable.
 
@@ -233,7 +235,7 @@ a constant and a sign on a later term may all stand in one constraint:
 ### Not supported
 
 Each construct below is rejected when the case loads, reported as
-[`SchemaViolation`](/reference/error-codes/#schemaviolation).
+[`SchemaViolation`](/en/reference/error-codes/#schemaviolation).
 
 **A product of two LP variables.** No linear rewrite exists; bound each
 variable on its own, or scale one by a parameter.
@@ -380,12 +382,12 @@ parse).
 | `contract_export(id[, block])`   | Yes       | No     |                                                                           |
 | `non_controllable_generation(id[, block])` | Yes | No   |                                                                           |
 | `non_controllable_curtailment(id[, block])` | Yes | No  |                                                                           |
-| `anticipated_decision(id)`       | **No** (rejected if given) | No | Stage-level scalar commitment column of a thermal that declares [`anticipated_config`](/reference/case-format/system/#systemthermalsjson); no block index at all — use `anticipated_decision(N)` |
+| `anticipated_decision(id)`       | **No** (rejected if given) | No | Stage-level scalar commitment column of a thermal that declares [`anticipated_config`](/en/reference/case-format/system/#systemthermalsjson); no block index at all — use `anticipated_decision(N)` |
 
 Only `hydro_turbined` and `hydro_generation` accept `bus=`; any other
 variable rejects it as "does not accept a bus selector." A `(hydro, bus)` cell
 is the part of a plant on one bus: a plant has one cell per distinct bus among
-its [unit groups](/reference/case-format/hydros/#systemhydrosjson), and `bus=`
+its [unit groups](/en/reference/case-format/hydros/#systemhydrosjson), and `bus=`
 must name one of those buses.
 
 A `hydro_withdrawal`, `non_controllable_generation` or
@@ -419,7 +421,7 @@ created, and the folded endpoints are visible in
 
 With `h` a hydro id and `K` the number of blocks the stage declares, the
 generic-constraint check rejects a `hydro_evaporation` reference that the
-stage's [`block_mode`](/reference/case-format/stages/#stagesjson) cannot
+stage's [`block_mode`](/en/reference/case-format/stages/#stagesjson) cannot
 expose:
 
 - On a parallel stage with two or more blocks, `hydro_evaporation(h)` and
@@ -443,7 +445,7 @@ hydro_evaporation(h, 1)   parallel: rejected; chronological with K > 1: block 1
 The check runs only for a (constraint, stage) pair that has a row in
 `generic_constraint_bounds.parquet`. Each rejection is a `BusinessRuleViolation`;
 the messages are quoted in
-[Error Codes — Per-block generic-constraint references](/reference/error-codes/#per-block-generic-constraint-references).
+[Error Codes — Per-block generic-constraint references](/en/reference/error-codes/#per-block-generic-constraint-references).
 
 For any reference not covered above, the block argument is not checked when the
 case loads: keep it below `K` on every stage where the constraint is active. A
@@ -460,14 +462,14 @@ of:
 
 - the plant's local inflow;
 - under the `truncation` and `truncation_with_penalty` methods of
-  [`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity),
+  [`modeling.inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity),
   the inflow non-negativity slack that corrects a negative local inflow;
 - the flows diverted into it;
 - the upstream releases credited to the block by travel time;
 - the share of the in-transit volume maturing at the stage that arrives in the
   block, as a rate;
 - the water of upstream
-  [PreFilling](/math/system-elements#not-yet-commissioned-hydros-prefilling)
+  [PreFilling](/en/math/system-elements#not-yet-commissioned-hydros-prefilling)
   plants passing through: the local inflow of each, its truncation slack under
   the same two methods, the flows diverted into it, the releases of its
   upstream plants, and its maturing in-transit volume, as a rate.
@@ -478,7 +480,7 @@ total matches the water balance; the split across blocks is a convention. For a 
 water-balance row of its nearest downstream plant that is not PreFilling, so the
 term equals no row's own inflow.
 
-Definition: [LP Formulation — Hydro Inflow](/math/lp-formulation#hydro-inflow).
+Definition: [LP Formulation — Hydro Inflow](/en/math/lp-formulation#hydro-inflow).
 
 ### `line_exchange(source_bus=, target_bus=)`
 
@@ -691,7 +693,7 @@ affine bound, never "no bound."
 
 ## `generic_parameters.json`: the parameter kinds
 
-The file's top-level JSON key is `"scalar_parameters"` (an array). The [field table](/reference/case-format/constraints/#constraintsgeneric_parametersjson) lists
+The file's top-level JSON key is `"scalar_parameters"` (an array). The [field table](/en/reference/case-format/constraints/#constraintsgeneric_parametersjson) lists
 the field each kind fills. Each entry carries its own kind's payload field and
 no other: a field that belongs to another kind (for example `values` on a
 `constant`) stops the load.
@@ -701,13 +703,13 @@ no other: a field that belongs to another kind (for example `values` on a
 | `constant`        | One value for every stage                                                                                                                                                                                                     |
 | `per_stage`       | Explicit value per study stage; `stage_id`s must be a contiguous range from `0`, one per study stage                                                                                                                         |
 | `seasonal`        | One value per season; stages inherit their season's value; `season_id`s must be unique, and every season a study stage falls in needs a value                                                                                 |
-| `computed`        | Derived from hydro geometry/operational data at LP-build time — one of thirteen hydro-derived tags (e.g. `equivalent_productivity`); see [Constraint Files](/reference/case-format/constraints/#constraintsgeneric_parametersjson) |
+| `computed`        | Derived from hydro geometry/operational data at LP-build time — one of thirteen hydro-derived tags (e.g. `equivalent_productivity`); see [Constraint Files](/en/reference/case-format/constraints/#constraintsgeneric_parametersjson) |
 | `per_stage_block` | Explicit value per `(stage_id, block_id)` pair; each pair unique, and every block of every study stage covered                                                                                                                |
 | `expression`      | A formula over other parameters of the file, evaluated per stage, and per block when a parameter it reads varies by block                                                                                                    |
 
 For editor validation with the vendored
 [`generic_parameters.schema.json`](/schemas/generic_parameters.schema.json), see
-[JSON Schemas](/reference/json-schemas/).
+[JSON Schemas](/en/reference/json-schemas/).
 
 `per_stage_block` is the mechanism that makes a generic-constraint bound (or
 coefficient) genuinely block-varying — and, per
@@ -816,7 +818,7 @@ and the penalty's meaning must not change when a term is added or removed.
 Pick the basis from the unit of the row, not from the variables in it.
 
 The `slack_cost` of
-[`simulation/violations/generic/`](/reference/output/simulation/#simulationviolationsgeneric)
+[`simulation/violations/generic/`](/en/reference/output/simulation/#simulationviolationsgeneric)
 prices each row's slack at the same cost per unit the LP charges it.
 
 ---
@@ -877,7 +879,7 @@ auditing an authored expression against the LP that was actually built.
 A security curve keeps plant `h`'s end-of-stage stored energy above a fraction
 `p` of its maximum, stated in energy terms with the useful-range mean
 productivity of
-[Hydro Production Function Models §4.3](/math/hydro-production-models#43-useful-range-mean-productivity):
+[Hydro Production Function Models §4.3](/en/math/hydro-production-models#43-useful-range-mean-productivity):
 `@rho_int * hydro_useful_volume_final(h) >= p * @emax`.
 
 `constraints/generic_parameters.json` declares the two computed parameters for
@@ -936,7 +938,7 @@ the same range `@emax` spans. Pairing `max_stored_energy` with another
 productivity tag of the same unit, such as the reference-point
 `accumulated_productivity` or the plant-only
 `integrated_equivalent_productivity`, does not cancel and raises a
-[`SemanticAmbiguity`](/reference/error-codes/#semanticambiguity) warning.
+[`SemanticAmbiguity`](/en/reference/error-codes/#semanticambiguity) warning.
 
 The row is an amount, a stored energy, so its slack is priced `per_unit`: the
 penalty is a price per unit of missed stored energy on every stage, whatever
@@ -991,50 +993,50 @@ MWh tags, among the stored-energy and productivity tags, raises the same warning
 ## Authoring errors
 
 The failure modes below are the ones an author is most likely to hit while
-writing this grammar; see [Error Codes](/reference/error-codes/) for the
+writing this grammar; see [Error Codes](/en/reference/error-codes/) for the
 exhaustive catalog and resolutions — it is not repeated here. The Kind column
 names each failure's kind; on an error line, `novomodelo validate` prints it in
 brackets, as in `error: [SchemaViolation] …`.
 
 | Situation                                                                    | Kind                         |
 | ------------------------------------------------------------------------------ | ------------------------------- |
-| An unknown variable name, including a catalog name written in another case (`Hydro_generation(0)`) | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
-| An `@name` declared as neither a scalar parameter nor a named expression, a product of two LP-variable terms or a division by one, a constant built from numbers that divides by zero or is not finite, nesting deeper than 256 levels, or any construct under [Not supported](#not-supported) | [`SchemaViolation`](/reference/error-codes/#generic-constraint-expression-rejected) |
-| A named-expression body with a relational operator, or one that reads no LP variable | [`SchemaViolation`](/reference/error-codes/#generic-constraint-expression-rejected) |
-| `bus=` on a variable other than `hydro_turbined` and `hydro_generation`, or a block argument on `hydro_storage`, `hydro_withdrawal` or `anticipated_decision`, or a second positional block argument (`hydro_turbined(5, 0, 1)`) | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
-| A duplicate constraint `id`, or a duplicate parameter `id` or `name` | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
-| A name declared both as a scalar parameter and as a named expression | [`SchemaViolation`](/reference/error-codes/#namespace-collision-between-a-scalar-parameter-and-a-named-expression) |
-| A reference cycle among named expressions, a self-reference included | [`SchemaViolation`](/reference/error-codes/#named-expression-reference-cycle) |
-| A key the constraint entry does not declare (for example `sense`) | [`ParseError`](/reference/error-codes/#unknown-field-in-a-generic-constraint-entry) |
-| A constraint entry with no `slack` object | [`ParseError`](/reference/error-codes/#parseerror) |
-| `slack.enabled: true` with no `penalty`, a `penalty` of zero or less, or no `penalty_basis`; or `slack.enabled: false` with `penalty` or `penalty_basis` set | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
-| A `penalty_basis` other than `per_hour` or `per_unit` | [`ParseError`](/reference/error-codes/#parseerror) |
-| A parameter entry with a payload field of another kind (`values` on a `constant`), or without its own | [`SchemaViolation`](/reference/error-codes/#scalar-parameter-entry-rejected) |
-| An `expression` parameter whose formula reads an LP variable, a named expression or an unknown name, holds a relational operator, or divides by zero; or a reference cycle among `expression` parameters | [`SchemaViolation`](/reference/error-codes/#scalar-parameter-entry-rejected) |
-| A coefficient, bound or `expression` parameter that resolves to a value that is not finite at some stage and block | [`GenericConstraintValidationError`](/reference/error-codes/#genericconstraintvalidationerror) |
-| A term naming an entity id the case does not declare (`hydro_generation(7)` with no hydro `7`) | [`InvalidReference`](/reference/error-codes/#invalidreference) |
-| `bus=` naming a bus on which the plant has no unit group | [`InvalidReference`](/reference/error-codes/#invalidreference) |
-| `anticipated_decision(N)` where thermal `N` has no `anticipated_config` | [`BusinessRuleViolation`](/reference/error-codes/#businessruleviolation) |
-| `line_exchange(source_bus=, target_bus=)` naming two buses that no line connects | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
-| Two lines connecting the same pair of buses, in either direction, in a case that has `constraints/generic_constraints.json`, whether or not an expression uses the bus-pair form | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
-| Constraint declares a bound reference but has no activation rows             | [`InvalidReference`](/reference/error-codes/#invalidreference) |
-| A bounds row with neither endpoint, and no affine remainder to fill one      | [`InvalidValue`](/reference/error-codes/#invalidvalue) |
-| Inverted interval (`bound_upper < bound_lower`, both statically resolvable)  | [`InvalidValue`](/reference/error-codes/#invalidvalue) |
-| A bounds row whose `block_id` is not a block of its stage | [`BusinessRuleViolation`](/reference/error-codes/#businessruleviolation) |
-| An evaporation or storage reference naming a block that its stage does not have ([block references](#hydro_evaporation-block-references)) | [`BusinessRuleViolation`](/reference/error-codes/#per-block-generic-constraint-references) |
-| The same bound column (`bound_lower` or `bound_upper`) set twice for one `(constraint_id, stage_id, block_id)` — a `bound_lower` row and a `bound_upper` row for the same triple are distinct keys and legal | [`DuplicateId`](/reference/error-codes/#duplicateid) |
-| A `contract_import` or `contract_export` term naming no declared contract | [`UnusedEntity`](/reference/error-codes/#unusedentity) — warning, the case still validates |
-| A `max_stored_energy(h)` or `max_stored_energy_mwh(h)` tag beside a productivity tag of the same unit for the same hydro other than its matching one (`integrated_accumulated_productivity`, or `integrated_accumulated_productivity_mwh_per_hm3` for the MWh tag), or raw-unit and MWh tags, among the stored-energy and productivity tags, in one constraint, read directly or through `expression` parameters | [`SemanticAmbiguity`](/reference/error-codes/#semanticambiguity) — warning, the case still validates |
+| An unknown variable name, including a catalog name written in another case (`Hydro_generation(0)`) | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
+| An `@name` declared as neither a scalar parameter nor a named expression, a product of two LP-variable terms or a division by one, a constant built from numbers that divides by zero or is not finite, nesting deeper than 256 levels, or any construct under [Not supported](#not-supported) | [`SchemaViolation`](/en/reference/error-codes/#generic-constraint-expression-rejected) |
+| A named-expression body with a relational operator, or one that reads no LP variable | [`SchemaViolation`](/en/reference/error-codes/#generic-constraint-expression-rejected) |
+| `bus=` on a variable other than `hydro_turbined` and `hydro_generation`, or a block argument on `hydro_storage`, `hydro_withdrawal` or `anticipated_decision`, or a second positional block argument (`hydro_turbined(5, 0, 1)`) | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
+| A duplicate constraint `id`, or a duplicate parameter `id` or `name` | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
+| A name declared both as a scalar parameter and as a named expression | [`SchemaViolation`](/en/reference/error-codes/#namespace-collision-between-a-scalar-parameter-and-a-named-expression) |
+| A reference cycle among named expressions, a self-reference included | [`SchemaViolation`](/en/reference/error-codes/#named-expression-reference-cycle) |
+| A key the constraint entry does not declare (for example `sense`) | [`ParseError`](/en/reference/error-codes/#unknown-field-in-a-generic-constraint-entry) |
+| A constraint entry with no `slack` object | [`ParseError`](/en/reference/error-codes/#parseerror) |
+| `slack.enabled: true` with no `penalty`, a `penalty` of zero or less, or no `penalty_basis`; or `slack.enabled: false` with `penalty` or `penalty_basis` set | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
+| A `penalty_basis` other than `per_hour` or `per_unit` | [`ParseError`](/en/reference/error-codes/#parseerror) |
+| A parameter entry with a payload field of another kind (`values` on a `constant`), or without its own | [`SchemaViolation`](/en/reference/error-codes/#scalar-parameter-entry-rejected) |
+| An `expression` parameter whose formula reads an LP variable, a named expression or an unknown name, holds a relational operator, or divides by zero; or a reference cycle among `expression` parameters | [`SchemaViolation`](/en/reference/error-codes/#scalar-parameter-entry-rejected) |
+| A coefficient, bound or `expression` parameter that resolves to a value that is not finite at some stage and block | [`GenericConstraintValidationError`](/en/reference/error-codes/#genericconstraintvalidationerror) |
+| A term naming an entity id the case does not declare (`hydro_generation(7)` with no hydro `7`) | [`InvalidReference`](/en/reference/error-codes/#invalidreference) |
+| `bus=` naming a bus on which the plant has no unit group | [`InvalidReference`](/en/reference/error-codes/#invalidreference) |
+| `anticipated_decision(N)` where thermal `N` has no `anticipated_config` | [`BusinessRuleViolation`](/en/reference/error-codes/#businessruleviolation) |
+| `line_exchange(source_bus=, target_bus=)` naming two buses that no line connects | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
+| Two lines connecting the same pair of buses, in either direction, in a case that has `constraints/generic_constraints.json`, whether or not an expression uses the bus-pair form | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
+| Constraint declares a bound reference but has no activation rows             | [`InvalidReference`](/en/reference/error-codes/#invalidreference) |
+| A bounds row with neither endpoint, and no affine remainder to fill one      | [`InvalidValue`](/en/reference/error-codes/#invalidvalue) |
+| Inverted interval (`bound_upper < bound_lower`, both statically resolvable)  | [`InvalidValue`](/en/reference/error-codes/#invalidvalue) |
+| A bounds row whose `block_id` is not a block of its stage | [`BusinessRuleViolation`](/en/reference/error-codes/#businessruleviolation) |
+| An evaporation or storage reference naming a block that its stage does not have ([block references](#hydro_evaporation-block-references)) | [`BusinessRuleViolation`](/en/reference/error-codes/#per-block-generic-constraint-references) |
+| The same bound column (`bound_lower` or `bound_upper`) set twice for one `(constraint_id, stage_id, block_id)` — a `bound_lower` row and a `bound_upper` row for the same triple are distinct keys and legal | [`DuplicateId`](/en/reference/error-codes/#duplicateid) |
+| A `contract_import` or `contract_export` term naming no declared contract | [`UnusedEntity`](/en/reference/error-codes/#unusedentity) — warning, the case still validates |
+| A `max_stored_energy(h)` or `max_stored_energy_mwh(h)` tag beside a productivity tag of the same unit for the same hydro other than its matching one (`integrated_accumulated_productivity`, or `integrated_accumulated_productivity_mwh_per_hm3` for the MWh tag), or raw-unit and MWh tags, among the stored-energy and productivity tags, in one constraint, read directly or through `expression` parameters | [`SemanticAmbiguity`](/en/reference/error-codes/#semanticambiguity) — warning, the case still validates |
 
 ---
 
 ## See also
 
-- [LP Formulation §10](/math/lp-formulation#10-generic-constraints) — the math
+- [LP Formulation §10](/en/math/lp-formulation#10-generic-constraints) — the math
   formulation these constraints desugar into.
-- [Constraint Files](/reference/case-format/constraints/#constraintsgeneric_constraintsjson) — field tables for
+- [Constraint Files](/en/reference/case-format/constraints/#constraintsgeneric_constraintsjson) — field tables for
   the three input files.
-- [Error Codes](/reference/error-codes/) — the exhaustive `LoadError`/`ErrorKind` catalog.
-- [JSON Schemas](/reference/json-schemas/) — vendored
+- [Error Codes](/en/reference/error-codes/) — the exhaustive `LoadError`/`ErrorKind` catalog.
+- [JSON Schemas](/en/reference/json-schemas/) — vendored
   [`generic_constraints.schema.json`](/schemas/generic_constraints.schema.json) and
   [`generic_parameters.schema.json`](/schemas/generic_parameters.schema.json) for editor integration.

@@ -4,7 +4,7 @@ As seções abaixo configuram as usinas hidrelétricas de
 [§5 Usinas hidrelétricas](#5-usinas-hidreletricas). O bloco `generation` da usina e a
 seleção do modelo de produção (`system/hydro_production_models.json`) estão na
 aba Configuração de
-[Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo).
+[Modelos de função de produção hidrelétrica](/math/hydro-production-models#implementacao-no-novo-modelo).
 
 ### `system/hydros.json` — Cadastro de usinas hidrelétricas
 
@@ -104,9 +104,9 @@ desativadas.
 | `id` | integer | Sim | Identificador único e não negativo. Deve ser único entre todas as usinas hidrelétricas. Referenciado por `initial_conditions.json` e por outras usinas via `downstream_id`. |
 | `name` | string | Sim | Nome legível da usina. Usado nos arquivos de saída, nas mensagens de validação e no log. |
 | `downstream_id` | integer ou null | Não | Identificador da usina que recebe a vazão defluente desta usina. Ausente ou `null` significa que a usina está no final de sua cascata — a vazão defluente sai do sistema. |
-| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a usina entra no histórico operacional do cadastro. Serve de procedência e de chave canônica de ordenação `(operational_start_date, id)` (veja [Convenções de notação](/pt-br/overview/notation-conventions)) — independente de `entry_stage_id`/`exit_stage_id` abaixo, que são os únicos a controlar a entrada em operação. |
+| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a usina entra no histórico operacional do cadastro. Serve de procedência e de chave canônica de ordenação `(operational_start_date, id)` (veja [Convenções de notação](/overview/notation-conventions)) — independente de `entry_stage_id`/`exit_stage_id` abaixo, que são os únicos a controlar a entrada em operação. |
 | `entry_stage_id` | integer ou null | Não | Índice do estágio em que a usina entra em operação (inclusive). `null` significa que a usina está disponível desde o estágio 0. |
-| `exit_stage_id` | integer ou null | Não | Índice do estágio em que a usina é desativada. A janela de operação é **semiaberta** `[entry_stage_id, exit_stage_id)`: a usina fica ativa até `exit_stage_id - 1` e, fora da janela, não está em operação. Para uma usina hidrelétrica, o estado fora de operação é o **pré-enchimento (PreFilling)** — turbinamento, vertimento e desvio fixados em zero, armazenamento congelado e vazão natural afluente repassada adiante pelo local (veja [Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo) e [Usinas ainda não em operação (pré-enchimento)](#hidreletricas-ainda-nao-em-operacao-pre-enchimento)) —, e não uma simples fixação das colunas em zero. `null` significa que a usina nunca é desativada. |
+| `exit_stage_id` | integer ou null | Não | Índice do estágio em que a usina é desativada. A janela de operação é **semiaberta** `[entry_stage_id, exit_stage_id)`: a usina fica ativa até `exit_stage_id - 1` e, fora da janela, não está em operação. Para uma usina hidrelétrica, o estado fora de operação é o **pré-enchimento (PreFilling)** — turbinamento, vertimento e desvio fixados em zero, armazenamento congelado e vazão natural afluente repassada adiante pelo local (veja [Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/math/hydro-production-models#implementacao-no-novo-modelo) e [Usinas ainda não em operação (pré-enchimento)](#hidreletricas-ainda-nao-em-operacao-pre-enchimento)) —, e não uma simples fixação das colunas em zero. `null` significa que a usina nunca é desativada. |
 
 #### Reservatório
 
@@ -126,7 +126,7 @@ O armazenamento é contabilizado em **hm³** (hectômetros cúbicos; 1 hm³ = 10
 
 Esta é a faixa física da usina, invariante entre estágios: as saídas de
 energia armazenada e a produtibilidade média na faixa útil
-([Modelos de função de produção hidrelétrica §4.3](/pt-br/math/hydro-production-models#43-produtibilidade-media-na-faixa-util))
+([Modelos de função de produção hidrelétrica §4.3](/math/hydro-production-models#43-produtibilidade-media-na-faixa-util))
 a utilizam, enquanto as sobrescritas de armazenamento de
 `constraints/hydro_bounds.parquet` (por exemplo, um teto de volume de espera)
 restringem apenas os limites operativos por estágio da variável de
@@ -196,7 +196,7 @@ Os limites de turbinamento de cada grupo devem ser internamente consistentes
 (`min_turbined_m3s <= max_turbined_m3s`, e o mesmo para a geração), e os
 `id`s dos grupos são únicos dentro da usina. No conjunto da usina, a soma dos
 `max_turbined_m3s` de todos os grupos (e, separadamente, dos `max_generation_mw`)
-não pode exceder o máximo declarado pela própria usina em seu [bloco `generation`](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo)
+não pode exceder o máximo declarado pela própria usina em seu [bloco `generation`](/math/hydro-production-models#implementacao-no-novo-modelo)
 — o valor da própria usina é a envoltória, e os grupos não podem elevá-lo —, e
 a soma dos mínimos de todos os grupos deve ser capaz de alcançar o mínimo
 declarado pela própria usina.
@@ -205,13 +205,13 @@ pode levar os limites da própria usina além dos limites de seus grupos: um
 mínimo da usina elevado acima da soma dos mínimos dos grupos é imposto ao total
 da usina, e um máximo da usina reduzido abaixo da soma das capacidades das
 células limita esse total (veja [Formulação do PL —
-Mínimo e máximo da usina](/pt-br/math/lp-formulation#minimo-e-maximo-da-usina)). Um
+Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina)). Um
 mínimo da usina reduzido abaixo da soma dos mínimos dos grupos não tem efeito,
 e a preparação do estudo emite um aviso a respeito; nesse caso, reduza os
 mínimos dos grupos em `constraints/hydro_unit_group_bounds.parquet`.
 
 As sobrescritas variáveis por estágio, opcionalmente por patamar, dos quatro
-limites de um grupo são fornecidas por `constraints/hydro_unit_group_bounds.parquet` — veja a aba Entradas e saídas de [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo).
+limites de um grupo são fornecidas por `constraints/hydro_unit_group_bounds.parquet` — veja a aba Entradas e saídas de [Modelos de função de produção hidrelétrica](/math/hydro-production-models#implementacao-no-novo-modelo).
 
 #### Topologia da cascata (`downstream_id`)
 
@@ -243,17 +243,17 @@ para percorrer o **arco principal da cascata** até `downstream_id`.
 
 | Campo | Tipo | Obrigatório | Descrição |
 | --- | --- | --- | --- |
-| `travel_time_hours` | number ou null | Não | Tempo de viagem no arco principal da cascata, em horas. Quando presente, estritamente positivo e a usina tem `downstream_id`, a parcela de cada defluência que o tempo de viagem leva além do fim do estágio de liberação chega ao reservatório de jusante em estágios posteriores; o restante chega dentro do próprio estágio (veja [Tempo de viagem na cascata](/pt-br/math/system-elements#tempo-de-viagem-na-cascata)). Ausente, `null` ou `0.0` significa transferência instantânea. |
+| `travel_time_hours` | number ou null | Não | Tempo de viagem no arco principal da cascata, em horas. Quando presente, estritamente positivo e a usina tem `downstream_id`, a parcela de cada defluência que o tempo de viagem leva além do fim do estágio de liberação chega ao reservatório de jusante em estágios posteriores; o restante chega dentro do próprio estágio (veja [Tempo de viagem na cascata](/math/system-elements#tempo-de-viagem-na-cascata)). Ausente, `null` ou `0.0` significa transferência instantânea. |
 
 Quando um arco é declarado, o Novo Modelo mantém a água em trânsito como estado
-de Bellman adicional (veja [Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua) e
+de Bellman adicional (veja [Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua) e
 [Tempo de viagem na cascata](#tempo-de-viagem-na-cascata)). O tempo de viagem se
 aplica apenas ao arco principal da cascata — as transferências por desvio e
 por bombeamento são sempre instantâneas. Declarar um arco exige informar as
 defluências anteriores ao estudo que já estão em trânsito via
 `initial_conditions.past_defluences`, e a usina de jusante deve ter entrado em
 operação até o primeiro estágio do estudo — veja
-[Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo).
+[Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/math/hydro-production-models#implementacao-no-novo-modelo).
 
 #### Campos avançados
 
@@ -285,7 +285,7 @@ Os pontos devem estar ordenados por `outflow_m3s` crescente; o solver
 interpola linearmente entre eles. Uma terceira fonte, no nível de arquivo — as
 curvas opcionais de canal de fuga quárticas por partes, por usina, com
 famílias de remanso ([Modelos de função de produção hidrelétrica
-§2.3.1](/pt-br/math/hydro-production-models#231-familias-quarticas-por-partes-do-canal-de-fuga-acoplamento-por-remanso)) —, substitui o modelo no nível da entidade no ajuste da FPHA calculada para qualquer usina que tenha linhas nesse
+§2.3.1](/math/hydro-production-models#231-familias-quarticas-por-partes-do-canal-de-fuga-acoplamento-por-remanso)) —, substitui o modelo no nível da entidade no ajuste da FPHA calculada para qualquer usina que tenha linhas nesse
 arquivo; a derivação da produtibilidade equivalente continua lendo o modelo no nível da entidade.
 
 **Perdas hidráulicas** — o bloco `hydraulic_losses` modela a perda de carga no
@@ -332,7 +332,7 @@ valores negativos, aporte líquido por precipitação.
 
 Uma usina que declara `coefficients_mm` mas não tem uma curva área-volume
 utilizável para convertê-los em fluxo — veja
-[Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo) para saber exatamente o que significa "curva
+[Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/math/hydro-production-models#implementacao-no-novo-modelo) para saber exatamente o que significa "curva
 não utilizável" e como o Novo Modelo trata o caso.
 
 **Canal de desvio** — o bloco `diversion` modela um desvio que conduz vazão
@@ -362,9 +362,9 @@ reservatório acumula água rumo a `min_storage_hm3` antes que a usina possa ger
 | `filling_min_rate_m3s` | Não | Taxa mínima de acumulação por estágio [m³/s], com padrão `0.0` quando omitida: ancora uma meta de armazenamento mínimo ao final de cada estágio que cresce até `min_storage_hm3` no último estágio de enchimento. **Não** é uma afluência aplicada e **não** é um teto — a vazão natural afluente e as defluências da cascata a montante continuam passando pelo balanço hídrico comum; não há mecanismo de retenção ou represamento que desvie afluência para o armazenamento. |
 
 A trajetória-meta e sua penalidade de piso flexível são tratadas em
-[Sistema de penalidades §6](/pt-br/math/penalty-system#particularidades-do-enchimento-de-volume-morto); a
+[Sistema de penalidades §6](/math/penalty-system#particularidades-do-enchimento-de-volume-morto); a
 verificação de suficiência do enchimento, feita na carga, está listada na
-[aba Configurar](/pt-br/math/penalty-system#implementacao-no-novo-modelo) daquela página.
+[aba Configurar](/math/penalty-system#implementacao-no-novo-modelo) daquela página.
 
 **Penalidades** — o bloco `penalties` sobrescreve, para uma usina, os padrões
 globais de `penalties.json`; quando ausente, a usina usa os valores globais.
@@ -393,9 +393,9 @@ custos direcionais de evaporação e de retirada não têm chave neste bloco; a
 usina obtém cada um do custo simétrico correspondente do bloco, quando o bloco
 o define, ou, caso contrário, de `penalties.json`
 ([Sistema de penalidades — Custos direcionais de evaporação e
-de retirada](/pt-br/math/penalty-system#custos-direcionais-de-evaporacao-e-de-retirada)).
+de retirada](/math/penalty-system#custos-direcionais-de-evaporacao-e-de-retirada)).
 Para a lista completa de campos, as unidades e a ordenação de prioridade entre
-as categorias de penalidade, veja [Sistema de penalidades](/pt-br/math/penalty-system).
+as categorias de penalidade, veja [Sistema de penalidades](/math/penalty-system).
 
 **Cascata de resolução em três níveis** — os valores de penalidade são
 resolvidos da fonte mais específica para a mais geral:
@@ -426,7 +426,7 @@ como uma faixa de vertimento com `min_spillage_m3s > max_spillage_m3s`. A
 ausência de linha deixa sem definição o piso de desvio e a faixa de vertimento
 da usina no estágio/patamar que a linha cobriria (sem piso; vertimento limitado
 apenas pelas demais restrições de vazão defluente da usina). Veja
-[Arquivos de restrições — `constraints/hydro_bounds.parquet`](/pt-br/reference/case-format/constraints/#constraintshydro_boundsparquet)
+[Arquivos de restrições — `constraints/hydro_bounds.parquet`](/reference/case-format/constraints/#constraintshydro_boundsparquet)
 para a tabela completa de colunas, incluindo as colunas de sobrescrita de
 turbinamento, armazenamento, vazão defluente, geração, desvio máximo,
 enchimento e retirada que esse arquivo também contém.

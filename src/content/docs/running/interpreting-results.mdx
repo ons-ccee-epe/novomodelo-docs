@@ -3,7 +3,7 @@ title: Convergence & Diagnostics
 description: Practical analysis patterns for assessing convergence, extracting generation and cost statistics, and troubleshooting simulation results.
 ---
 
-The [Output Format](/reference/output/) documents what each
+The [Output Format](/en/reference/output/) documents what each
 output file contains. This page goes one level deeper: it provides practical
 analysis patterns for answering domain questions from the data. It assumes you
 are comfortable loading Parquet files in your preferred tool.
@@ -18,7 +18,7 @@ common problems from the output data.
 ## Loading Results in Python
 
 The `novomodelo.results` module of `novomodelo-python` reads a run's output directory
-into Python. [Python Quickstart](/getting-started/python-quickstart/) covers
+into Python. [Python Quickstart](/en/getting-started/python-quickstart/) covers
 the installation. The snippets below read the output of
 `novomodelo run my_study --output results`, where `my_study` is the 1dtoy template
 from `novomodelo init --template 1dtoy my_study`, and run from the directory that
@@ -126,7 +126,7 @@ For a case converted from another planning tool, the converter writes `conversio
 the converted case directory, beside `config.json`, as its provenance record:
 the converter version, the source directory, the input-file hashes and the
 entity counts. How the converted entity ids relate to the source model's
-plant codes is on [Converting an existing case](/running/case-conversion/).
+plant codes is on [Converting an existing case](/en/running/case-conversion/).
 
 ---
 
@@ -160,7 +160,7 @@ of the 1dtoy template:
 | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `convergence.achieved`           | `true` when the stopping rules ended the run and a `gap` or `bound_stalling` rule was satisfied at that iteration; `false` when only `iteration_limit` or `time_limit` triggered, when a shutdown request alone ended training, and after a failure. |
 | `convergence.final_gap_percent`  | The relative gap at termination, in percent: the upper bound minus the lower bound, relative to the lower bound. Negative when the upper bound is below the lower bound; `null` when the final lower bound is not positive. See guidelines below. |
-| `convergence.termination_reason` | The name of the stopping rule that ended the run. The values are listed under [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson). |
+| `convergence.termination_reason` | The name of the stopping rule that ended the run. The values are listed under [`training/metadata.json`](/en/reference/output/metadata/#trainingmetadatajson). |
 | `iterations.converged_at`        | Equal to `iterations.completed` when `achieved` is `true`, `null` otherwise.                             |
 
 **Gap guidelines.** There is no universal threshold — acceptable gap depends
@@ -175,7 +175,7 @@ for a gap without sampling noise, from an enumerated forward pass
   suboptimal.
 
 With a sampled upper bound (`bounds.final_upper_bound_kind` is `"statistical"`)
-the [gap](/math/stopping-rules/#optimality-gap) is an estimate, not a
+the [gap](/en/math/stopping-rules/#optimality-gap) is an estimate, not a
 certificate: it compares the mean cost of the latest iteration's sampled forward
 passes with the lower bound, carries sampling noise, and is negative whenever
 that mean falls below the lower bound, as in the excerpt above. The thresholds
@@ -186,14 +186,14 @@ enumerated forward pass (`"exact"`) the upper bound is exact and the gap carries
 no sampling noise, but the gap certifies the policy only when the risk measure
 is the same at every stage;
 see [when bounds and certificates
-hold](/math/cut-management/#when-bounds-and-certificates-hold).
+hold](/en/math/cut-management/#when-bounds-and-certificates-hold).
 
 **What to do if the gap is large:**
 
-1. Increase `limit` in the [`iteration_limit`](/running/configuration/#iteration_limit)
+1. Increase `limit` in the [`iteration_limit`](/en/running/configuration/#iteration_limit)
    stopping rule.
 2. Increase `training.selection.forward_passes`
-   ([`training.selection`](/running/configuration/#trainingselection)) to reduce
+   ([`training.selection`](/en/running/configuration/#trainingselection)) to reduce
    the noise of the upper-bound estimate.
 3. Check `training/convergence.parquet` (see next section) to see whether
    the lower bound is still rising or has plateaued.
@@ -207,7 +207,7 @@ hold](/math/cut-management/#when-bounds-and-certificates-hold).
 `novomodelo run` prints a `Time split` block in its training summary once training finishes,
 decomposing the total training wall time into three walls — `Forward`,
 `Backward`, and `Serial`. See the [`novomodelo run` Output format
-sample](/reference/cli-reference/#output-format) for the full block this
+sample](/en/reference/cli-reference/#output-format) for the full block this
 section reads. Each phase wall (`Forward`/`Backward`) carries a
 `solve · wait` split; the `Serial` wall carries a
 `bound · selection [· allreduce · sync] · other` split.
@@ -220,12 +220,12 @@ covers the workers of every rank, so it also holds the time a rank waits for
 slower peers to finish a stage's solves; `forward_wait` is rank 0's own. This
 is exactly what the
 `by_node` backward scheduler ([By-node
-scheduling](/running/performance/#by-node-scheduling)) exists to
+scheduling](/en/running/performance/#by-node-scheduling)) exists to
 reduce, by shrinking the work unit from a whole trial point to a `(trial
 point, opening block)` pair so an idle worker can steal finer-grained work
 instead of waiting for an entire trial point to free up. Row selection is
 off by default (`training.cut_selection.selection` is `null`,
-[`training.cut_selection`](/running/configuration/#trainingcut_selection));
+[`training.cut_selection`](/en/running/configuration/#trainingcut_selection));
 when its `method` is `"dynamic"`, the backward pass schedules by scenario from
 its `start_iteration` on, whatever the `by_node` setting.
 
@@ -255,7 +255,7 @@ the full convergence history. Its schema:
 | Column             | Type    | Description                                                                            |
 | ------------------ | ------- | -------------------------------------------------------------------------------------- |
 | `iteration`        | Int32   | Iteration number (1-based)                                                             |
-| `lower_bound`      | Float64 | Training lower bound on the risk-adjusted cost: the expected cost when the first stage's risk measure is the expectation ([lower bound](/math/upper-bound-evaluation/#lower-bound)) |
+| `lower_bound`      | Float64 | Training lower bound on the risk-adjusted cost: the expected cost when the first stage's risk measure is the expectation ([lower bound](/en/math/upper-bound-evaluation/#lower-bound)) |
 | `upper_bound`      | Float64 | Upper bound estimate — mean over forward passes for a statistical bound; the exact enumerated weighted bound otherwise |
 | `upper_bound_std`  | Float64 | Standard deviation of the upper bound estimate. NULL on exact-bound rows (`upper_bound_kind` = `"exact"`) |
 | `upper_bound_kind` | Utf8    | Bound kind for this row: `"exact"` (enumerated weighted bound) or `"statistical"` (sampled forward-pass mean) |
@@ -384,7 +384,7 @@ adds `bus_id`. `costs` is one row per (`scenario_id`, `stage_id`) with a null
 Aggregate within a (scenario, stage) first — sum energy and cost over blocks,
 weight a per-block rate such as `water_value_per_hm3` by block hours — and only then take statistics across
 scenarios. Each table's columns are listed in the
-[Output Format](/reference/output/).
+[Output Format](/en/reference/output/).
 :::
 
 The printed outputs in this section and in
@@ -399,7 +399,7 @@ case directory, which here holds both `results/` and `stages.json`.
 
 Each `simulation/<entity>/` directory reads as one table over all scenarios;
 `scenario_id` is both the partition directory name and an in-file column (see
-[Hive Partitioning](/reference/output/#hive-partitioning)).
+[Hive Partitioning](/en/reference/output/#hive-partitioning)).
 
 ```python
 # Polars — reads all scenarios at once, infers scenario_id from directory names
@@ -883,7 +883,7 @@ Possible causes:
   initial storage lies below the minimum in force at the end of the plant's
   first operating stage, that stage must reach the minimum from its own
   inflow, which leaves less water to turbine, and `novomodelo validate` reports a
-  [`ModelQuality`](/reference/error-codes/#modelquality) warning naming the
+  [`ModelQuality`](/en/reference/error-codes/#modelquality) warning naming the
   hydro and the stage. An initial storage outside the plant's own
   `[min_storage_hm3, max_storage_hm3]` in `hydros.json` is refused at load.
 
@@ -891,6 +891,6 @@ Possible causes:
 
 ## Related Pages
 
-- **Theory:** [Upper Bound Evaluation](/math/upper-bound-evaluation/) — the statistical upper-bound estimator behind the convergence metrics this page analyzes.
-- [Output Format](/reference/output/) — complete field-by-field schema for all output files
-- [Configuration](/running/configuration/) — all `config.json` fields including stopping rules and seed
+- **Theory:** [Upper Bound Evaluation](/en/math/upper-bound-evaluation/) — the statistical upper-bound estimator behind the convergence metrics this page analyzes.
+- [Output Format](/en/reference/output/) — complete field-by-field schema for all output files
+- [Configuration](/en/running/configuration/) — all `config.json` fields including stopping rules and seed

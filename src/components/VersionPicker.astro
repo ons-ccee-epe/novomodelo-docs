@@ -2,6 +2,7 @@
 // Architecture B version picker — overrides Starlight's `SocialIcons` slot.
 // Each build knows its own base via import.meta.env.BASE_URL ("/" or "/vX.Y/"),
 // so the picker marks the current version and links across the sibling builds.
+// The select renders only when it has more than one option; the version text always shows.
 import versions from "../../versions.json";
 
 const norm = (b: string): string => (b.endsWith("/") ? b : b + "/");
@@ -10,9 +11,15 @@ const all = [versions.latest, ...versions.versions];
 const currentEntry = all.find((v) => norm(v.base) === current) ?? all[0];
 const pt = (Astro.currentLocale ?? "en").toLowerCase().startsWith("pt");
 const shown = pt ? [currentEntry] : all;
+// English readers of latest stay in English: its English home is under en/.
+// A frozen snapshot is English only and keeps its base.
+const optionValue = (v: { base: string }): string =>
+  !pt && v === versions.latest ? `${norm(v.base)}en/` : v.base;
+const hasChoice = shown.length > 1;
+const Wrapper = hasChoice ? "label" : "div";
 ---
 
-<label class="version-picker" title={pt ? "Versão da documentação" : "Documentation version"}>
+<Wrapper class="version-picker" title={pt ? "Versão da documentação" : "Documentation version"}>
   <span class="version-picker__label">{pt ? "Versão" : "Version"}: {currentEntry.label}</span>
   {
     currentEntry.novomodelo && (
@@ -24,19 +31,23 @@ const shown = pt ? [currentEntry] : all;
       </span>
     )
   }
-  <select
-    class="version-picker__select"
-    aria-label={pt ? "Selecionar versão da documentação" : "Select documentation version"}
-  >
-    {
-      shown.map((v) => (
-        <option value={v.base} selected={norm(v.base) === current}>
-          {v.label}
-        </option>
-      ))
-    }
-  </select>
-</label>
+  {
+    hasChoice && (
+      <select
+        class="version-picker__select"
+        aria-label={pt ? "Selecionar versão da documentação" : "Select documentation version"}
+      >
+        {
+          shown.map((v) => (
+            <option value={optionValue(v)} selected={norm(v.base) === current}>
+              {v.label}
+            </option>
+          ))
+        }
+      </select>
+    )
+  }
+</Wrapper>
 
 <script>
   const sel = document.querySelector<HTMLSelectElement>(

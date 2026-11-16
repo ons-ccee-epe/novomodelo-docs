@@ -6,7 +6,7 @@ description: The constraints/ files that override entity bounds per stage and bl
 This page documents the `constraints/` files that override entity bounds per stage and block
 (thermal, hydro, hydro unit group, line, pumping, contract and NCS bounds) and the files that define
 generic constraints: `generic_constraints.json`, `generic_constraint_bounds.parquet` and
-`generic_parameters.json`. The other case files, including the penalty overrides that share the `constraints/` directory, are listed in the [Case Format](/reference/case-format/#file-summary) overview.
+`generic_parameters.json`. The other case files, including the penalty overrides that share the `constraints/` directory, are listed in the [Case Format](/en/reference/case-format/#file-summary) overview.
 
 All bounds Parquet files use sparse storage: only `(entity_id, stage_id)` pairs
 that differ from the base entity-level value need rows. Absent rows use the
@@ -16,7 +16,7 @@ entity-level value unchanged.
 
 ## `constraints/thermal_bounds.parquet`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Stage-varying generation and cost overrides for thermal plants.
 
@@ -41,7 +41,7 @@ so a per-block dispatch cost has nothing to attach to.
 
 ## `constraints/hydro_bounds.parquet`
 
-**Methodology:** [System Element Modeling Overview](/math/system-elements/)
+**Methodology:** [System Element Modeling Overview](/en/math/system-elements/)
 
 Stage-varying operational bound overrides for hydro plants.
 
@@ -71,12 +71,12 @@ diversion column is pinned `[0, 0]`: a positive floor would be infeasible, and a
 positive ceiling would divert water that no plant receives. `min_diversion_m3s`,
 `min_spillage_m3s`, and `max_spillage_m3s` must each be non-negative, and a
 row combining `min_spillage_m3s` and `max_spillage_m3s` with
-`min_spillage_m3s > max_spillage_m3s` is rejected. See [Error Codes](/reference/error-codes) for
+`min_spillage_m3s > max_spillage_m3s` is rejected. See [Error Codes](/en/reference/error-codes) for
 the full failure-mode catalog.
 
 A plant's own declared minima cannot exceed its unit groups' summed minima, and
 its declared maxima cannot fall below their summed maxima (see
-[`system/hydros.json`](/reference/case-format/hydros/#systemhydrosjson)), so
+[`system/hydros.json`](/en/reference/case-format/hydros/#systemhydrosjson)), so
 only an override in this file binds the plant's total. A
 `min_turbined_m3s` or `min_generation_mw` override below the groups' summed
 minima has no effect: setup prints a `WARN` line naming the hydro, the field,
@@ -85,7 +85,7 @@ the groups' own, in
 [`constraints/hydro_unit_group_bounds.parquet`](#constraintshydro_unit_group_boundsparquet).
 The plant minimum's shortfall is reported in the `turbined_slack_m3s` and
 `generation_slack_mw` columns of
-[`simulation/hydros/`](/reference/output/simulation/#simulationhydros).
+[`simulation/hydros/`](/en/reference/output/simulation/#simulationhydros).
 
 **Validation:**
 
@@ -97,11 +97,11 @@ The plant minimum's shortfall is reported in the `turbined_slack_m3s` and
 
 ## `constraints/hydro_unit_group_bounds.parquet`
 
-**Methodology:** [System Element Modeling Overview](/math/system-elements/)
+**Methodology:** [System Element Modeling Overview](/en/math/system-elements/)
 
 Stage-varying, optionally per-block bound overrides for a hydro plant's
 declared unit groups (`hydros[].unit_groups[]`; see
-[`system/hydros.json`](/reference/case-format/hydros/#systemhydrosjson)). A row overrides one of a
+[`system/hydros.json`](/en/reference/case-format/hydros/#systemhydrosjson)). A row overrides one of a
 group's four declared bounds for one `(hydro_id, hydro_unit_group_id,
 stage_id)`, optionally narrowed to a single block; a group with no override
 row reads its declared value. Group `id` is unique within its
@@ -127,7 +127,7 @@ plant, not necessarily dense or 0-based, and `hydro_unit_group_id` addresses the
 
 ## `constraints/line_bounds.parquet`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Stage-varying, absolute-MW flow capacity overrides for transmission lines.
 
@@ -147,7 +147,7 @@ closes the line in the direct direction for that block, or for the stage when
 
 ## `constraints/pumping_bounds.parquet`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Stage-varying flow bounds for pumping stations.
 
@@ -168,7 +168,7 @@ Stage-varying flow bounds for pumping stations.
 
 ## `constraints/contract_bounds.parquet`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Stage-varying power and price overrides for energy contracts.
 
@@ -189,17 +189,17 @@ per-block contract price — deliberately asymmetric with
 
 ## `constraints/ncs_bounds.parquet`
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Stage-varying available generation bounds for non-controllable sources. Absent rows keep the entity's
 declared `max_generation_mw` unchanged; a present row overrides that entity
 capacity with its per-stage `available_generation_mw` for the `(ncs_id, stage_id)` cell.
 The rows apply to a source with no stochastic availability model. A source with rows in
-[`scenarios/non_controllable_stats.parquet`](/reference/case-format/scenarios/#scenariosnon_controllable_statsparquet), or one that draws its
+[`scenarios/non_controllable_stats.parquet`](/en/reference/case-format/scenarios/#scenariosnon_controllable_statsparquet), or one that draws its
 availability from
-[`scenarios/external_ncs_scenarios.parquet`](/reference/case-format/scenarios/#scenariosexternal_ncs_scenariosparquet) under the `external` scheme,
+[`scenarios/external_ncs_scenarios.parquet`](/en/reference/case-format/scenarios/#scenariosexternal_ncs_scenariosparquet) under the `external` scheme,
 ignores its rows here: its available generation follows the model or the realizations (see
-[Equipment-Specific Formulations §6](/math/equipment-formulations#6-non-controllable-generation-sources)).
+[Equipment-Specific Formulations §6](/en/math/equipment-formulations#6-non-controllable-generation-sources)).
 
 | Name                      | Type    | Required | Default | Units | Description                                                     |
 | ------------------------- | ------- | -------- | ------- | ----- | --------------------------------------------------------------- |
@@ -217,7 +217,7 @@ For a source these rows apply to, the per-block available generation bound in th
 
 ## `constraints/generic_constraints.json`
 
-**Methodology:** [Generic Constraints](/reference/generic-constraints/) · [LP Formulation](/math/lp-formulation/)
+**Methodology:** [Generic Constraints](/en/reference/generic-constraints/) · [LP Formulation](/en/math/lp-formulation/)
 
 User-defined linear constraints, added to every stage's LP alongside the
 built-in constraint set. The file is optional; when absent, no generic
@@ -255,7 +255,7 @@ constraints are added.
 | `constraints[].slack`         | object         | Yes         | —       | —     | Slack variable configuration: `enabled`, `penalty` and `penalty_basis`.                                                |
 | `constraints[].slack.enabled` | boolean        | Yes         | —       | —     | Whether a slack variable is allowed.                                                                                   |
 | `constraints[].slack.penalty` | number \| null | Conditional | —       | USD/(row unit·h) or USD/row unit | Penalty per unit of violation, read under `penalty_basis`. Required and `> 0` when `enabled` is `true`; absent when it is `false`. |
-| `constraints[].slack.penalty_basis` | string \| null | Conditional | —  | —     | One of `"per_hour"`, `"per_unit"`. `"per_hour"` charges the penalty per hour of the row's period: use it for a row in MW or m³/s; `"per_unit"` charges it once per unit of violation: use it for a row in MWh or hm³. Required when `enabled` is `true`; absent when it is `false`. See [Penalty basis](/reference/generic-constraints/#penalty-basis). |
+| `constraints[].slack.penalty_basis` | string \| null | Conditional | —  | —     | One of `"per_hour"`, `"per_unit"`. `"per_hour"` charges the penalty per hour of the row's period: use it for a row in MW or m³/s; `"per_unit"` charges it once per unit of violation: use it for a row in MWh or hm³. Required when `enabled` is `true`; absent when it is `false`. See [Penalty basis](/en/reference/generic-constraints/#penalty-basis). |
 
 **Named expressions (`expressions[]`):**
 
@@ -268,17 +268,17 @@ constraints are added.
 
 The `expression` grammar, the variables it can name, named expressions (`@name`) and how a
 constraint's shape follows from its bounds are specified in
-[Generic Constraints](/reference/generic-constraints/):
-[Expression grammar](/reference/generic-constraints/#expression-grammar),
-[Variable catalog](/reference/generic-constraints/#variable-catalog),
-[The `@name` grammar](/reference/generic-constraints/#the-name-grammar),
-[Interval and shape derivation](/reference/generic-constraints/#interval-and-shape-derivation).
+[Generic Constraints](/en/reference/generic-constraints/):
+[Expression grammar](/en/reference/generic-constraints/#expression-grammar),
+[Variable catalog](/en/reference/generic-constraints/#variable-catalog),
+[The `@name` grammar](/en/reference/generic-constraints/#the-name-grammar),
+[Interval and shape derivation](/en/reference/generic-constraints/#interval-and-shape-derivation).
 
 ---
 
 ## `constraints/generic_constraint_bounds.parquet`
 
-**Methodology:** [Generic Constraints](/reference/generic-constraints/) · [LP Formulation](/math/lp-formulation/)
+**Methodology:** [Generic Constraints](/en/reference/generic-constraints/) · [LP Formulation](/en/math/lp-formulation/)
 
 Stage-varying, optionally per-block RHS bound overrides for generic
 constraints declared in `constraints/generic_constraints.json`. This table
@@ -296,15 +296,15 @@ value instead — see below).
 | `bound_upper`   | Float64 (nullable) | No       | —       | —     | Upper interval endpoint. `null` when the constraint is unbounded above at this cell.      |
 
 How the two endpoints set the shape:
-[Interval and shape derivation](/reference/generic-constraints/#interval-and-shape-derivation).
+[Interval and shape derivation](/en/reference/generic-constraints/#interval-and-shape-derivation).
 Which rows are rejected:
-[The activation grid](/reference/generic-constraints/#the-activation-grid).
+[The activation grid](/en/reference/generic-constraints/#the-activation-grid).
 
 ---
 
 ## `constraints/generic_parameters.json`
 
-**Methodology:** [Generic Constraints](/reference/generic-constraints/) · [LP Formulation](/math/lp-formulation/)
+**Methodology:** [Generic Constraints](/en/reference/generic-constraints/) · [LP Formulation](/en/math/lp-formulation/)
 
 Named scalar parameters that can be referenced from generic-constraint coefficient
 expressions using the `@name` sigil. The file is optional; when absent, no
@@ -362,7 +362,7 @@ by `@name`.
 | `max_stored_energy_mwh`                           | `max_stored_energy` × 10⁶/3600, in MWh                                                                                      |
 
 The productivity and stored-energy quantities these tags resolve to are defined in
-[Hydro Production Function Models §4](/math/hydro-production-models#4-energy-conversion-quantities).
+[Hydro Production Function Models §4](/en/math/hydro-production-models#4-energy-conversion-quantities).
 
 **Validation:**
 
@@ -392,4 +392,4 @@ The productivity and stored-energy quantities these tags resolve to are defined 
 - Unknown JSON fields on any entry are rejected immediately.
 
 For what each kind means, see
-[The parameter kinds](/reference/generic-constraints/#generic_parametersjson-the-parameter-kinds).
+[The parameter kinds](/en/reference/generic-constraints/#generic_parametersjson-the-parameter-kinds).

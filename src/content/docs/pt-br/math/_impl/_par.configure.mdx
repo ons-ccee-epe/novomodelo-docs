@@ -22,7 +22,7 @@ O bloco `estimation` é uma chave de nível superior do `config.json` (no mesmo 
 }
 ```
 
-A seção [`estimation`](/pt-br/running/configuration/#estimation) da
+A seção [`estimation`](/running/configuration/#estimation) da
 referência de configuração lista todos os campos e seus valores padrão e descreve o
 comportamento de `min_observations_per_season`.
 
@@ -40,7 +40,7 @@ média móvel de 12 meses são calculadas, e a tripla ajustada
 — ver a aba Entradas e saídas. Quando ausente (ou definido como `"pacf"`), apenas o
 caminho clássico do PAR(p) é executado e nenhuma tripla anual é produzida.
 
-### Resolução da Origem das Afluências — Escolha dos Arquivos a Fornecer
+### Resolução da origem das afluências — Escolha dos arquivos a fornecer
 
 O modelo de afluências PAR(p) é construído a partir de até cinco arquivos em `scenarios/`. Três
 deles determinam a **resolução do caminho** — sua presença ou ausência seleciona qual
@@ -93,7 +93,7 @@ perfil agregado (§6.1 da metodologia).
 | Fornecer todos os parâmetros, inclusive o termo anual do PAR(p)-A | Os três arquivos H, S e R (e, opcionalmente, o arquivo anual) | 7    |
 | Fixar uma correlação espacial personalizada em qualquer caminho | Acrescentar `correlation.json`                                   | qualquer |
 
-### `scenarios/inflow_history.parquet` — Observações Históricas por Janela
+### `scenarios/inflow_history.parquet` — Observações históricas por janela
 
 O registro por janelas é obrigatório para conduzir qualquer um dos caminhos de estimação (H = 1
 acima) e, sempre que presente, é a camada base a partir da qual se constrói a tendência
@@ -102,7 +102,7 @@ hidrológica derivada (ver "Inicialização das defasagens e do acumulador" abai
 Toda usina hidrelétrica em `hydros.json` deve ter pelo menos uma janela de observação
 neste arquivo quando a estimação está ativa. As colunas, as regras das janelas e os papéis do
 arquivo estão em
-[`scenarios/inflow_history.parquet`](/pt-br/reference/case-format/scenarios/#scenariosinflow_historyparquet).
+[`scenarios/inflow_history.parquet`](/reference/case-format/scenarios/#scenariosinflow_historyparquet).
 
 ### Inicialização das defasagens e do acumulador — `recent_observations`
 
@@ -114,13 +114,13 @@ formato `hydro_id` / `start_date` / `end_date` / `value_m3s` de
 `inflow_history.parquet` e o substituem **dia a dia** onde os dois se sobrepõem
 (as duas séries nunca são mescladas). `value_m3s` aceita valores negativos nos
 dois arquivos: a grandeza é a vazão incremental, de modo que uma janela negativa é hidrologia
-real (ver [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity)).
+real (ver [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity)).
 
 Quando `scenarios/inflow_ar_coefficients.parquet` é fornecido, o registro deve
 cobrir integralmente cada posição de defasagem até a ordem AR máxima e, com componente
 anual, cada posição da janela anual de doze períodos que os próprios períodos
 concluídos do estudo não substituem; caso contrário, o caso é recusado na carga
-([`BusinessRuleViolation`](/pt-br/reference/error-codes/#businessruleviolation)). Uma
+([`BusinessRuleViolation`](/reference/error-codes/#businessruleviolation)). Uma
 lacuna em uma posição mais profunda, que os próprios períodos concluídos do estudo empurram para fora da
 janela de defasagens antes do fim do estudo, gera apenas um aviso.
 
@@ -132,7 +132,7 @@ Em qualquer dos caminhos, um período do primeiro estágio já em curso no iníc
 que o registro cobre apenas parcialmente é aceito, com um aviso; sem nenhum
 dia coberto, seu acumulador é inicializado com zero.
 
-### `scenarios/correlation.json` — Configuração da Correlação Espacial
+### `scenarios/correlation.json` — Configuração da correlação espacial
 
 Perfis nomeados de grupos de correlação, com um cronograma opcional de associação
 de estágios a perfis:
@@ -179,10 +179,10 @@ de estágios a perfis:
 A correlação é modelada **de forma independente por classe de entidade** — afluência, carga e
 NCS têm, cada uma, sua própria estrutura de correlação espacial, e **não** há
 termo de correlação entre classes (ver
-[Geração de cenários §2.1](/pt-br/math/scenario-generation/#21-geracao-de-ruidos-correlacionados)).
+[Geração de cenários §2.1](/math/scenario-generation/#21-geracao-de-ruidos-correlacionados)).
 
 Todos os campos e regras de carga do arquivo estão em
-[`scenarios/correlation.json`](/pt-br/reference/case-format/scenarios/#scenarioscorrelationjson).
+[`scenarios/correlation.json`](/reference/case-format/scenarios/#scenarioscorrelationjson).
 
 ### Alternativa fora da amostra
 
@@ -190,4 +190,4 @@ Sob o esquema forward `out_of_sample`, um estágio cujo `sampling_method` seja
 `historical_residuals` ou `selective` sorteia ruído por Monte Carlo simples, e a execução
 registra um aviso que identifica a classe de entidade e os ids dos estágios afetados. Para a
 mensagem, ver
-[Geração de cenários — aba Notas de implementação, Avisos](/pt-br/math/scenario-generation/#implementacao-no-novo-modelo).
+[Geração de cenários — aba Notas de implementação, Avisos](/math/scenario-generation/#implementacao-no-novo-modelo).

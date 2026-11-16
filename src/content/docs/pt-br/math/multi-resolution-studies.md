@@ -21,10 +21,12 @@ estudo com um conjunto de cortes. Um estudo encadeado, por outro lado, são dois
 estudos: o segundo importa uma função terminal fixa, os cortes de um dos conjuntos
 de cortes da política do primeiro estudo, escolhido pela data e não
 necessariamente o conjunto do último estágio do primeiro estudo (veja
-[Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)). Este
+[Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary)). Este
 capítulo é responsável pela acumulação das defasagens em subperíodos (§2).
 
-## 1. Mapa de Períodos Sazonais
+Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamares](/entities/time-structure/).
+
+## 1. Mapa de períodos sazonais
 
 O modelo PAR(p) associa cada estágio $t$ a um período sazonal $m(t)$, e os estágios de
 um mesmo período sazonal compartilham seus parâmetros $\mu_m$, $s_m$ e $\psi_{m,\ell}$. Um
@@ -44,7 +46,7 @@ de períodos sazonais fixa, assim, os parâmetros de todos os estágios; as §2 
 como se formam as defasagens sobre as quais esses parâmetros atuam quando os
 estágios têm durações diferentes.
 
-## 2. Acumulação das Defasagens
+## 2. Acumulação das defasagens
 
 As defasagens do modelo PAR são valores de períodos sazonais concluídos, e não de
 estágios individuais. Um **período de defasagem** $\mathcal{W}$ é uma ocorrência da
@@ -152,7 +154,7 @@ coarse: "De mensal para trimestral" {
 weekly -> coarse: "mesma regra de fração\ne de transbordamento"
 ```
 
-## 3. Mudança de Resolução
+## 3. Mudança de resolução
 
 Os coeficientes AR de um período sazonal grosso atuam sobre defasagens de períodos
 grossos, de modo que o estado de defasagens muda de resolução junto com os
@@ -166,7 +168,7 @@ concluídos, do mais recente para o mais antigo: o mais recente torna-se a
 defasagem 1, o anterior a defasagem 2, e assim por diante. A partir daí, a
 acumulação ocorre na resolução grossa.
 
-## 4. Grupos de Ruído
+## 4. Grupos de ruído
 
 Na árvore de aberturas, estágios consecutivos que compartilham um período sazonal e o ano
 civil do seu início formam um **grupo de ruído** e compartilham um único ruído por
@@ -179,15 +181,15 @@ período sazonal forma seu próprio grupo, e em um estudo uniforme de resoluçã
 grupo é um único estágio, de modo que cada estágio é sorteado de forma
 independente, exceto que, em um ciclo semanal, a 53ª semana de um ano de 53
 semanas recebe o período sazonal da 52ª e entra no seu grupo. A regra de amostragem está
-enunciada em [Geração de cenários](/pt-br/math/scenario-generation); a atribuição dos
+enunciada em [Geração de cenários](/math/scenario-generation); a atribuição dos
 grupos depende apenas do calendário dos estágios, de modo que todo processo (rank
 MPI) calcula os mesmos grupos (veja
-[Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees)).
+[Determinismo e rastreabilidade](/math/determinism-guarantees)).
 
 Ao longo de uma trajetória, os estágios dentro de um mesmo período de defasagem
 enxergam as mesmas defasagens (§2).
 
-## 5. Agregação Ponderada pela Duração para o Ajuste
+## 5. Agregação ponderada pela duração para o ajuste
 
 As estatísticas sazonais de um período sazonal devem se referir à resolução em que o seu
 modelo PAR é avaliado. Quando um período sazonal é mais grosso que o histórico de
@@ -198,16 +200,16 @@ se refiram à sua própria resolução. O agregado é uma média, e não uma som
 as unidades de uma vazão, e observações de durações diferentes, como meses de
 comprimentos diferentes, pesam em proporção à sua duração. O procedimento de
 estimação do PAR de
-[Modelo de afluências PAR(p) §3](/pt-br/math/par-inflow-model#3-estimacao) aplica-se
+[Modelo de afluências PAR(p) §3](/math/par-inflow-model#3-estimacao) aplica-se
 então por período sazonal sem modificação, e cada estágio recebe os parâmetros do seu
 período sazonal quando as grandezas PAR de execução são montadas
-([Modelo de afluências PAR(p) §4.2](/pt-br/math/par-inflow-model#42-grandezas-em-execucao)).
+([Modelo de afluências PAR(p) §4.2](/math/par-inflow-model#42-grandezas-em-execucao)).
 O ajuste de um período sazonal grosso enxerga apenas a variação na resolução grossa: a
 variação entre as observações finas dentro de uma ocorrência não chega aos seus
 parâmetros.
 
-## Referências Cruzadas
+## Referências cruzadas
 
-- [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — O procedimento de ajuste (§3) que se aplica às estatísticas agregadas; o conjunto de parâmetros que as estatísticas agregadas preenchem; a forma pronta para o PL que os estágios trimestrais usam em tempo de execução.
-- [Geração de cenários](/pt-br/math/scenario-generation) — Geração da árvore de aberturas que produz os vetores de ruído por estágio; a regra de amostragem por grupo de ruído.
-- [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) — Dois estudos acoplados por uma função terminal importada da política de montante, em vez de um único estudo com estágios mistos; a inicialização das defasagens no início de um estudo.
+- [Modelo de afluências PAR(p)](/math/par-inflow-model) — O procedimento de ajuste (§3) que se aplica às estatísticas agregadas; o conjunto de parâmetros que as estatísticas agregadas preenchem; a forma pronta para o PL que os estágios trimestrais usam em tempo de execução.
+- [Geração de cenários](/math/scenario-generation) — Geração da árvore de aberturas que produz os vetores de ruído por estágio; a regra de amostragem por grupo de ruído.
+- [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) — Dois estudos acoplados por uma função terminal importada da política de origem, em vez de um único estudo com estágios mistos; a inicialização das defasagens no início de um estudo.

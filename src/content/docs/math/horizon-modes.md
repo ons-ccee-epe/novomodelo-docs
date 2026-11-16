@@ -23,8 +23,10 @@ season function, the cycle convergence inequality, the season-indexed
 cut pool, and the fixed-point Bellman operator); section 4 describes the
 forward-pass termination logic the reserved design anticipates; section 5
 compares the supported and reserved modes as a reference. The per-transition
-discount factor is defined in [Discount Rate Formulation](/math/discount-rate);
+discount factor is defined in [Discount Rate Formulation](/en/math/discount-rate);
 its role in cycle convergence is set out in section 3.
+
+For the entity view of this chapter, see [Horizon, stages and load blocks](/en/entities/time-structure/).
 
 ## 1. Finite (Acyclic) Mode
 
@@ -32,7 +34,7 @@ its role in cycle convergence is set out in section 3.
 leads to stage 3, and so on up to stage T. The chain has a definite end. The
 terminal value function is zero unless a fixed terminal function is imported
 from an upstream policy (see
-[Post-Study Boundary & Chained Studies](/math/post-study-boundary)); with the
+[Post-Study Boundary & Chained Studies](/en/math/post-study-boundary)); with the
 zero terminal value, no water left in storage at stage T+1 has any value in
 the model.
 
@@ -84,7 +86,7 @@ section 3.
 policy graph type as cyclic and supply an annual discount rate; the discount
 rate, together with each transition's duration, determines the
 per-transition factor, and the product of factors around one cycle must be
-strictly below one (see [Discount Rate Formulation](/math/discount-rate) for
+strictly below one (see [Discount Rate Formulation](/en/math/discount-rate) for
 the conversion mechanics).
 
 **Trade-off.** Cyclic mode eliminates the end-of-world effect by representing
@@ -146,7 +148,7 @@ $$
 
 so contributions from far-future cycles become negligible. The reserved design
 requires this inequality of every cyclic graph. See
-[Discount Rate Formulation](/math/discount-rate) for the conversion from the
+[Discount Rate Formulation](/en/math/discount-rate) for the conversion from the
 annual rate to the per-transition factors.
 
 ### Season-Indexed Cut Pool
@@ -251,7 +253,7 @@ unconditionally.
 The forward pass would terminate when either condition is met, whichever comes
 first. The discount mechanics underlying the cumulative-discount condition —
 the formula relating the annual rate to the per-transition factor and the
-running product — are described in [Discount Rate Formulation](/math/discount-rate).
+running product — are described in [Discount Rate Formulation](/en/math/discount-rate).
 
 ## 5. Choosing Between Modes
 
@@ -262,7 +264,7 @@ finite mode (section 1) and the reserved cyclic design (sections 2–4).
 
 - The study has a well-defined end date and the modeller can accept a zero
   terminal condition (or supplement it with imported boundary cuts — see
-  [Post-Study Boundary & Chained Studies](/math/post-study-boundary)).
+  [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary)).
 - The planning horizon is short enough that the end-of-world effect is
   negligible or acceptable.
 - Interpretability and simplicity are priorities: acyclic traversal requires
@@ -293,32 +295,40 @@ finite mode (section 1) and the reserved cyclic design (sections 2–4).
 | Mathematical complexity     | Lower                           | Higher                              |
 
 The cut-generation mechanics that produce the cuts filling both pool
-organisations are covered in [Cut Management](/math/cut-management). The
+organisations are covered in [Cut Management](/en/math/cut-management). The
 algorithm within which finite mode operates, and within which the reserved
 cyclic design is specified to operate, is described in
-[SDDP Algorithm](/math/sddp-algorithm).
+[SDDP Algorithm](/en/math/sddp-algorithm).
 
-## 6. Reference
+## 6. References
 
-- [Costa et al. (2025)](/reference/bibliography/#boundary-conditions-and-horizon-modes)
+- [Birge & Zhao (2007)](/en/reference/bibliography/#boundary-conditions-and-horizon-modes)
+- [Shapiro & Ding (2020)](/en/reference/bibliography/#boundary-conditions-and-horizon-modes)
+- [Dowson (2020)](/en/reference/bibliography/#sddp-foundations)
+- [Costa et al. (2025)](/en/reference/bibliography/#boundary-conditions-and-horizon-modes)
 
-The cyclic-mode formal structure in section 3 — the season function,
-the cycle convergence inequality, the season-indexed cut pool with its
-cut-sharing equation, and the fixed-point Bellman operator — follows
-this paper; the stationarity assumption and the contraction of the
-operator chain are the standard discounted periodic dynamic-programming
-argument.
+Infinite-horizon discounted stochastic programs solved by cutting planes on
+a stationary value function are treated by Birge & Zhao (2007); periodic
+multistage programs, whose value functions repeat with the period and whose
+SDDP shares cuts across the stages of one period, by Shapiro & Ding (2020);
+and a cyclic policy graph with a back-edge by Dowson (2020). The cyclic-mode
+formal structure in section 3 — the season function, the cycle convergence
+inequality, the season-indexed cut pool with its cut-sharing equation, and
+the fixed-point Bellman operator — follows the presentation of Costa et al.
+(2025) for hydrothermal operation planning; the stationarity assumption and
+the contraction of the operator chain are the standard discounted periodic
+dynamic-programming argument.
 
 ## Cross-References
 
-- [Discount Rate Formulation](/math/discount-rate) — Annual-rate-to-factor
+- [Discount Rate Formulation](/en/math/discount-rate) — Annual-rate-to-factor
   conversion, per-transition discount mechanics, and cumulative discounting.
-- [Cut Management](/math/cut-management) — Cut generation and aggregation
+- [Cut Management](/en/math/cut-management) — Cut generation and aggregation
   mechanics that produce the cuts filling the per-stage or per-season pools.
-- [SDDP Algorithm](/math/sddp-algorithm) — The algorithm that the horizon mode
+- [SDDP Algorithm](/en/math/sddp-algorithm) — The algorithm that the horizon mode
   parameterises; finite (supported) and cyclic (reserved) policy graph
   topologies; terminal boundary cut mechanism.
-- [Post-Study Boundary & Chained Studies](/math/post-study-boundary) — The
+- [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) — The
   terminal function a finite study may import from an upstream policy.
-- [Stopping Rules](/math/stopping-rules) — The stopping rules that end
+- [Stopping Rules](/en/math/stopping-rules) — The stopping rules that end
   training in the finite mode.

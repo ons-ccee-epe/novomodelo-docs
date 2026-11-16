@@ -13,7 +13,9 @@ import { Content as HydroNotes } from "./_impl/_hydro.notes.mdx";
 
 This chapter defines the hydro generation constraint models supported by Novomodelo, which relate turbined flow and reservoir storage to electrical output. Two production functions shape dispatch: constant productivity and FPHA. The choice between constant productivity and FPHA trades off accuracy vs. computational cost, and can vary by stage per hydro.
 
-All decision variables use **rate units** (MW, m³/s) — see the Variable Units Convention in [System Element Modeling Overview](/math/system-elements). For variable definitions see [Notation Conventions](/overview/notation-conventions); for LP integration see [LP Formulation](/math/lp-formulation); for hydro element descriptions see [System Element Modeling Overview](/math/system-elements).
+All decision variables use **rate units** (MW, m³/s) — see the Variable Units Convention in [System Element Modeling Overview](/en/math/system-elements). For variable definitions see [Notation Conventions](/en/overview/notation-conventions); for LP integration see [LP Formulation](/en/math/lp-formulation); for hydro element descriptions see [System Element Modeling Overview](/en/math/system-elements).
+
+For the entity view of this chapter, see [Hydro plants](/en/entities/generation/hydro-plants/).
 
 ## 1. Constant Productivity Model
 
@@ -42,11 +44,11 @@ with:
 
 ## 2. FPHA (Approximate Hydroelectric Production Function)
 
-For accurate modeling of hydroelectric generation, FPHA (Approximate Hydroelectric Production Function) captures the nonlinear relationship between storage, flow, spillage, and generation through a piecewise-linear approximation. The approach follows the piecewise-linear hydro production model of [Diniz & Maceira (2008)](/reference/bibliography/#hydro-production); that model is four-dimensional (forebay/head, turbined flow, and tailrace/spillage), whereas Novomodelo fits a reduced variant over storage and turbined flow at spillage = 0, capturing the spillage effect through the per-plane lateral-flow secant of §2.7 rather than an explicit spillage axis.
+For accurate modeling of hydroelectric generation, FPHA (Approximate Hydroelectric Production Function) captures the nonlinear relationship between storage, flow, spillage, and generation through a piecewise-linear approximation. The approach follows the piecewise-linear hydro production model of [Diniz & Maceira (2008)](/en/reference/bibliography/#hydro-production), a four-dimensional relation that gives generation as a function of storage, turbined flow and spillage, with the head computed from the forebay and tailrace levels and the nonconcave regions of the exact function approximated by convexification and regression. Novomodelo fits its planes over storage and turbined flow at spillage = 0, by a convex hull with a least-squares correction (§2.6), and carries the spillage effect by the per-plane lateral-flow secant of §2.7 rather than a spillage axis in the fit.
 
 ### 2.1 Notation
 
-This section uses the notation of the [LP Formulation](/math/lp-formulation); for equivalent terms in other planning tools, see the [Glossary](/reference/glossary#equivalent-terms-in-other-planning-tools).
+This section uses the notation of the [LP Formulation](/en/math/lp-formulation); for equivalent terms in other planning tools, see the [Glossary](/en/reference/glossary#equivalent-terms-in-other-planning-tools).
 
 :::note[Note on lateral flow]
 The tailrace level depends on the outflow below the plant, which this model takes as $q_{out} = q + s$ (the plant's own turbined and spilled flow). The lateral-flow secant (§2.7) captures the spillage effect, and upstream releases or other inflows below the dam do not enter $q_{out}$.
@@ -261,7 +263,7 @@ Reduction is optional and applies only when selected (Configure tab).
 
 ### 2.9 LP Integration
 
-A hydro plant is partitioned into one or more **(hydro, bus) cells** — one per distinct bus among its declared unit groups (see [System Element Modeling Overview §5](/math/system-elements)) — and FPHA is evaluated **per cell**, not per plant: a plant's fitted hyperplane set (§2.1–§2.8) is fitted once per plant and consumed by every one of its cells, apportioned as described below. For a single-cell plant the per-cell constraint is the plant-level constraint.
+A hydro plant is partitioned into one or more **(hydro, bus) cells** — one per distinct bus among its declared unit groups (see [System Element Modeling Overview §5](/en/math/system-elements)) — and FPHA is evaluated **per cell**, not per plant: a plant's fitted hyperplane set (§2.1–§2.8) is fitted once per plant and consumed by every one of its cells, apportioned as described below. For a single-cell plant the per-cell constraint is the plant-level constraint.
 
 #### Final FPHA Constraint
 
@@ -291,15 +293,15 @@ $$
 v^{avg}_h = \frac{v^{in}_h + v_h}{2}
 $$
 
-where $v^{in}_h$ is the incoming storage LP variable (pinned to $\hat{v}_h$ via column bounds — see [State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds)) and $v_h$ is end-of-stage storage — a single plant-level quantity shared by every cell, since storage is not partitioned. Both are LP variables, so $v^{in}_h$ appears in every cell's FPHA constraint with coefficient $-\lambda_{h,b} \, \gamma_v^m / 2$ on the left-hand side, as does $v_h$, on a parallel stage; on a chronological stage, in block 1's rows, and $v_h$ in block $|\mathcal{K}|$'s. The LP solver automatically accounts for this in the reduced cost of the pinned $v^{in}_h$ column.
+where $v^{in}_h$ is the incoming storage LP variable (pinned to $\hat{v}_h$ via column bounds — see [State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)) and $v_h$ is end-of-stage storage — a single plant-level quantity shared by every cell, since storage is not partitioned. Both are LP variables, so $v^{in}_h$ appears in every cell's FPHA constraint with coefficient $-\lambda_{h,b} \, \gamma_v^m / 2$ on the left-hand side, as does $v_h$, on a parallel stage; on a chronological stage, in block 1's rows, and $v_h$ in block $|\mathcal{K}|$'s. The LP solver automatically accounts for this in the reduced cost of the pinned $v^{in}_h$ column.
 
-On a chronological stage the row of block $k$ uses that block's own average storage $(v_{h,k-1} + v_{h,k})/2$ in place of $v^{avg}_h$, with $v_{h,0} = v^{in}_h$ (see [Block Formulation Variants](/math/block-formulations)).
+On a chronological stage the row of block $k$ uses that block's own average storage $(v_{h,k-1} + v_{h,k})/2$ in place of $v^{avg}_h$, with $v_{h,0} = v^{in}_h$ (see [Block Formulation Variants](/en/math/block-formulations)).
 
 #### Generation as Independent Variable
 
 When using FPHA, the generation variable $g_{h,b,k}$ is **not** directly computed from turbined flow. Instead:
 
-1. Generation is a free LP variable per cell, bounded by $[0, \bar{G}_{h,b}]$, where $\bar{G}_{h,b}$ sums the cell's own unit groups' declared maximum generation and closes against the plant's own resolved maximum (see [LP Formulation §6](/math/lp-formulation))
+1. Generation is a free LP variable per cell, bounded by $[0, \bar{G}_{h,b}]$, where $\bar{G}_{h,b}$ sums the cell's own unit groups' declared maximum generation and closes against the plant's own resolved maximum (see [LP Formulation §6](/en/math/lp-formulation))
 2. FPHA constraints (one per plane $m$, per cell) provide upper bounds relating generation to storage, flow, and spillage
 3. Where generation has value, the optimizer raises it until an FPHA plane or a tighter bound such as $\bar{G}_{h,b}$ binds
 4. At an optimum where generation has value, each cell's generation lies on one of its FPHA hyperplane facets or on a tighter bound, such as $\bar{G}_{h,b}$
@@ -314,13 +316,13 @@ $$
 \sum_{k} \tau_k \sum_{b \in \mathcal{B}_h} c^{tc}_h \, q_{h,b,k}
 $$
 
-Where generation has no value, the LP is indifferent between turbining water without generating from it and spilling it; a cost above the spillage cost, $c^{tc}_h > c^{spill}_h$, tips it toward spilling. On a binding plane with $\gamma_q^m = 0$, more turbined flow adds no generation, but each unit of spillage lowers the plane by $\lambda_{h,b} \lvert \gamma_s^m \rvert$ (sections 2.7 and 2.9), so the LP spills that water only where $c^{tc}_h - c^{spill}_h$ exceeds the value of the generation lost. A hydro using FPHA requires $c^{tc}_h \geq 0$ ([Penalty System — Category 3](/math/penalty-system#category-3-regularization-costs-solution-guidance)).
+Where generation has no value, the LP is indifferent between turbining water without generating from it and spilling it; a cost above the spillage cost, $c^{tc}_h > c^{spill}_h$, tips it toward spilling. On a binding plane with $\gamma_q^m = 0$, more turbined flow adds no generation, but each unit of spillage lowers the plane by $\lambda_{h,b} \lvert \gamma_s^m \rvert$ (sections 2.7 and 2.9), so the LP spills that water only where $c^{tc}_h - c^{spill}_h$ exceeds the value of the generation lost. A hydro using FPHA requires $c^{tc}_h \geq 0$ ([Penalty System — Category 3](/en/math/penalty-system#category-3-regularization-costs-solution-guidance)).
 
-For the full penalty taxonomy and priority ordering, see [Penalty System](/math/penalty-system).
+For the full penalty taxonomy and priority ordering, see [Penalty System](/en/math/penalty-system).
 
 ### 2.11 Impact on Benders Cuts
 
-The FPHA formulation affects water value computation. Because the incoming storage variable $v^{in}_h$ appears in **every one of the plant's cells'** FPHA constraints (via $v^{avg}_h = (v^{in}_h + v_h)/2$, each apportioned by that cell's $\lambda_{h,b}$, section 2.9) — on a parallel stage; on a chronological stage, in block 1's rows — the FPHA hyperplane duals of every cell contribute to the marginal value of incoming storage. However, the implementation does **not** require manually combining duals from the water balance and FPHA constraints. Instead, pinning $v^{in}_h$ to $\hat{v}_h$ by column bounds (see [State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds)) makes its reduced cost capture the total sensitivity $\beta^v_h$ automatically — the LP solver propagates every cell's FPHA contribution through the single shared $v^{in}_h$.
+The FPHA formulation affects water value computation. Because the incoming storage variable $v^{in}_h$ appears in **every one of the plant's cells'** FPHA constraints (via $v^{avg}_h = (v^{in}_h + v_h)/2$, each apportioned by that cell's $\lambda_{h,b}$, section 2.9) — on a parallel stage; on a chronological stage, in block 1's rows — the FPHA hyperplane duals of every cell contribute to the marginal value of incoming storage. However, the implementation does **not** require manually combining duals from the water balance and FPHA constraints. Instead, pinning $v^{in}_h$ to $\hat{v}_h$ by column bounds (see [State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)) makes its reduced cost capture the total sensitivity $\beta^v_h$ automatically — the LP solver propagates every cell's FPHA contribution through the single shared $v^{in}_h$.
 
 The cut coefficient for storage is simply the reduced cost of the pinned $v^{in}_h$ column:
 
@@ -328,13 +330,13 @@ $$
 \beta^v_h = \bar{c}^{in}_h / d^{col}_h
 $$
 
-This reduced cost implicitly includes the water balance contribution (that of the row reading $v^{in}_h$: $\pi^{wb}_h$ on a parallel stage, $\pi^{wb}_{h,1}$ on a chronological stage), the FPHA contribution summed over every cell of the plant ($\frac{1}{2} \sum_{b \in \mathcal{B}_h} \lambda_{h,b} \sum_m \pi_{h,b,m}^{fpha} \cdot \gamma_v^m$, with $\pi_{h,b,m}^{fpha}$ summed over the blocks whose rows read $v^{in}_h$: every block on a parallel stage, block 1 on a chronological stage), the dual of the evaporation row ([LP Formulation — Evaporation Row](/math/lp-formulation#evaporation-row)) weighted by $\gamma^{ev}_{v,h}/2$ for a hydro with an evaporation model (block 1's row only on a chronological stage), and any generic constraint contributions — all resolved by the LP solver without explicit dual combination.
+This reduced cost implicitly includes the water balance contribution (that of the row reading $v^{in}_h$: $\pi^{wb}_h$ on a parallel stage, $\pi^{wb}_{h,1}$ on a chronological stage), the FPHA contribution summed over every cell of the plant ($\frac{1}{2} \sum_{b \in \mathcal{B}_h} \lambda_{h,b} \sum_m \pi_{h,b,m}^{fpha} \cdot \gamma_v^m$, with $\pi_{h,b,m}^{fpha}$ summed over the blocks whose rows read $v^{in}_h$: every block on a parallel stage, block 1 on a chronological stage), the dual of the evaporation row ([LP Formulation — Evaporation Row](/en/math/lp-formulation#evaporation-row)) weighted by $\gamma^{ev}_{v,h}/2$ for a hydro with an evaporation model (block 1's row only on a chronological stage), and any generic constraint contributions — all resolved by the LP solver without explicit dual combination.
 
-For the complete cut coefficient computation, see [Cut Management](/math/cut-management).
+For the complete cut coefficient computation, see [Cut Management](/en/math/cut-management).
 
 #### Production Model and Cut Validity
 
-A production model that varies by stage or season is part of the model the policy is trained on: its cuts lower-approximate that model's cost-to-go whichever production model each stage uses ([Cut Management — when bounds and certificates hold](/math/cut-management#when-bounds-and-certificates-hold)). A policy simulated under a different production model than the one it was trained on is a heuristic, with no bound guarantee: the trained lower bound need not bound the simulated model's optimal value, and the gap between the two certifies nothing.
+A production model that varies by stage or season is part of the model the policy is trained on: its cuts lower-approximate that model's cost-to-go whichever production model each stage uses ([Cut Management — when bounds and certificates hold](/en/math/cut-management#when-bounds-and-certificates-hold)). A policy simulated under a different production model than the one it was trained on is a heuristic, with no bound guarantee: the trained lower bound need not bound the simulated model's optimal value, and the gap between the two certifies nothing.
 
 ## 3. Model Selection Guidelines
 
@@ -392,7 +394,7 @@ $$
 \rho_{acum,h,t} \;=\; \rho_{eq,h,t} \;+\; \sum_{h' \,\in\, \text{downstream}(h)} \rho_{eq,h',t}
 $$
 
-The sum is taken in topological order over the cascade (see [System Element Modeling Overview](/math/system-elements) for the cascade topology). Plants with no downstream successors have $\rho_{acum} = \rho_{eq}$. The accumulation is per-stage because each summand can vary by stage.
+The sum is taken in topological order over the cascade (see [System Element Modeling Overview](/en/math/system-elements) for the cascade topology). Plants with no downstream successors have $\rho_{acum} = \rho_{eq}$. The accumulation is per-stage because each summand can vary by stage.
 
 ### 4.3 Useful-Range Mean Productivity
 
@@ -446,7 +448,7 @@ $$
 v_h - V^{min}_h \;\ge\; p\,\big(V^{max}_h - V^{min}_h\big)
 $$
 
-states "at least a fraction $p$ of the useful volume, in energy terms". The per-plant coefficient cancels only because both sides use the same (mean) evaluator and the same raw unit; mixing the reference-point coefficient on one side with $E^{max}_{h,t}$ on the other, or converting one side to MWh alone, would not reduce to the useful-volume fraction. How such a row is authored is described in [LP Formulation §10](/math/lp-formulation#10-generic-constraints).
+states "at least a fraction $p$ of the useful volume, in energy terms". The per-plant coefficient cancels only because both sides use the same (mean) evaluator and the same raw unit; mixing the reference-point coefficient on one side with $E^{max}_{h,t}$ on the other, or converting one side to MWh alone, would not reduce to the useful-volume fraction. How such a row is authored is described in [LP Formulation §10](/en/math/lp-formulation#10-generic-constraints).
 
 ### 4.4 Inflow and Storage in Energy Units
 
@@ -484,7 +486,7 @@ These quantities do not enter the LP — they are accounting outputs derived fro
 
 ### 4.5 Why a Scalar Reduction Exists at All
 
-The full FPHA production function (section 2) is multi-dimensional and concave; constant productivity is a scalar but per-plant. Neither can be summed across a cascade or scaled by inflow without a reference operating point. The energy-conversion scalars resolve this: each model is reduced to two numbers per (hydro, stage) — one from the reference-point evaluator, one from the useful-range mean evaluator — and those numbers are what the cascade-summation, ENA, EARM, and maximum-stored-energy formulas above can consume uniformly. The LP's production model does not use these scalars; it continues to enforce the full production model. They are accounting quantities that may also be used as coefficients of user-authored generic constraints, such as the security curve of §4.3 (see [LP Formulation §10](/math/lp-formulation#10-generic-constraints)).
+The full FPHA production function (section 2) is multi-dimensional and concave; constant productivity is a scalar but per-plant. Neither can be summed across a cascade or scaled by inflow without a reference operating point. The energy-conversion scalars resolve this: each model is reduced to two numbers per (hydro, stage) — one from the reference-point evaluator, one from the useful-range mean evaluator — and those numbers are what the cascade-summation, ENA, EARM, and maximum-stored-energy formulas above can consume uniformly. The LP's production model does not use these scalars; it continues to enforce the full production model. They are accounting quantities that may also be used as coefficients of user-authored generic constraints, such as the security curve of §4.3 (see [LP Formulation §10](/en/math/lp-formulation#10-generic-constraints)).
 
 ## Implementation in Novomodelo
 
@@ -504,9 +506,9 @@ The methodology above defines the hydro production models; the tabs below cover 
 
 ## Cross-References
 
-- [Notation Conventions](/overview/notation-conventions) — variable and set definitions ($g_h$, $q_h$, $v_h$, $s_h$, $\rho_h$)
-- [System Element Modeling Overview](/math/system-elements) — hydro plant element description, decision variables, Variable Units Convention
-- [LP Formulation](/math/lp-formulation) — how production constraints integrate into the assembled LP
-- [Penalty System](/math/penalty-system) — turbined-cost regularization, penalty priority ordering
-- [Cut Management](/math/cut-management) — Benders cut generation affected by FPHA dual variables
-- [Equipment-Specific Formulations](/math/equipment-formulations) — thermal and hydro equipment constraint patterns
+- [Notation Conventions](/en/overview/notation-conventions) — variable and set definitions ($g_h$, $q_h$, $v_h$, $s_h$, $\rho_h$)
+- [System Element Modeling Overview](/en/math/system-elements) — hydro plant element description, decision variables, Variable Units Convention
+- [LP Formulation](/en/math/lp-formulation) — how production constraints integrate into the assembled LP
+- [Penalty System](/en/math/penalty-system) — turbined-cost regularization, penalty priority ordering
+- [Cut Management](/en/math/cut-management) — Benders cut generation affected by FPHA dual variables
+- [Equipment-Specific Formulations](/en/math/equipment-formulations) — thermal and hydro equipment constraint patterns

@@ -1,9 +1,9 @@
 This is a topic-scoped index of the files cut management touches. Cuts have
 no case-directory input file of their own — the only configuration surface is
-`training.cut_selection` in `config.json` (see [its configuration entry](/running/configuration/#trainingcut_selection)). The topic's
+`training.cut_selection` in `config.json` (see [its configuration entry](/en/running/configuration/#trainingcut_selection)). The topic's
 I/O surface is the **policy checkpoint**: the FlatBuffers `.bin` files that
 persist the cut pool between runs. This tab names that surface and its role;
-it does not repeat the field-by-field record layout, which is owned by the [Case Format](/reference/case-format/) and [Output Format](/reference/output/) pages.
+it does not repeat the field-by-field record layout, which is owned by the [Case Format](/en/reference/case-format/) and [Output Format](/en/reference/output/) pages.
 
 ### Inputs
 
@@ -18,10 +18,10 @@ There is no case-directory input file for cuts. Two input paths re-read a
   the checkpoint holds them, the stored trial states (`policy/states/NNN.bin`).
   The load
   applies the
-  [Policy Load Contract](/running/policy-management/#policy-load-contract),
+  [Policy Load Contract](/en/running/policy-management/#policy-load-contract),
   which requires the running novomodelo version to have written the checkpoint
-  ([version gate](/running/policy-management/#version-gate)) and leaves out any stored basis that does not fit its stage LP
-  ([stored-basis gate](/running/policy-management/#stored-basis-gate)).
+  ([version gate](/en/running/policy-management/#version-gate)) and leaves out any stored basis that does not fit its stage LP
+  ([stored-basis gate](/en/running/policy-management/#stored-basis-gate)).
   See Implementation notes for how a warm-started cut is tracked once it is back
   in the pool.
 - **Boundary source** — when `policy.boundary.path` is set, Novomodelo loads a
@@ -30,21 +30,21 @@ There is no case-directory input file for cuts. Two input paths re-read a
   terminal boundary date and reconciled onto the current state — lenient by
   default (surplus source slots dropped and reported), strict-rejectable. The
   boundary checkpoint must also come from the running novomodelo version
-  ([Compatibility requirements](/running/policy-management/#compatibility-requirements)
+  ([Compatibility requirements](/en/running/policy-management/#compatibility-requirements)
   lists the check order).
-  See [Post-Study Boundary & Chained Studies](/math/post-study-boundary) and
-  [Policy Management — Boundary Cuts](/running/policy-management/#boundary-cuts).
+  See [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) and
+  [Policy Management — Boundary Cuts](/en/running/policy-management/#boundary-cuts).
 
 ### Outputs
 
 | File                          | Role |
 | ----------------------------- | ---- |
-| `policy/cuts/NNN.bin`   | One FlatBuffers binary per **pool** (`NNN` is the pool id — on a plain stage chain the 0-based stage position, which is not the declared stage id; on a branching graph the pool id differs from the stage position), root table `StageCuts`: every cut's slot, intercept, coefficient vector, active flag, whether its trial state was stored, and its binding counters, with the pool's cost-scale factor. The coefficient vector is a bare `float64[]`; each position maps to a state variable via the per-slot entity manifest embedded in the same file (see the [Output Format](/reference/output/) reference). Written every training run and re-read on the next warm-start, resume, or simulation-only run (see Inputs above). |
-| `policy/basis/NNN.bin`  | One per node (`NNN` is the node position), root table `StageBasis`: one stored LP basis per forward-pass scenario, each with its column and row statuses and the pool slot of every cut row it holds. Re-read on the next warm-start, resume, or simulation-only run, behind the [stored-basis gate](/running/policy-management/#stored-basis-gate). |
-| `policy/states/NNN.bin` | One per pool that stores trial states (`NNN` is the pool id), keyed by the slot of the cut written at each state. Written when the run selects with `level1` or sets [`exports.states`](/running/configuration/#exports); read on resume and warm start. |
+| `policy/cuts/NNN.bin`   | One FlatBuffers binary per **pool** (`NNN` is the pool id — on a plain stage chain the 0-based stage position, which is not the declared stage id; on a branching graph the pool id differs from the stage position), root table `StageCuts`: every cut's slot, intercept, coefficient vector, active flag, whether its trial state was stored, and its binding counters, with the pool's cost-scale factor. The coefficient vector is a bare `float64[]`; each position maps to a state variable via the per-slot entity manifest embedded in the same file (see the [Output Format](/en/reference/output/) reference). Written every training run and re-read on the next warm-start, resume, or simulation-only run (see Inputs above). |
+| `policy/basis/NNN.bin`  | One per node (`NNN` is the node position), root table `StageBasis`: one stored LP basis per forward-pass scenario, each with its column and row statuses and the pool slot of every cut row it holds. Re-read on the next warm-start, resume, or simulation-only run, behind the [stored-basis gate](/en/running/policy-management/#stored-basis-gate). |
+| `policy/states/NNN.bin` | One per pool that stores trial states (`NNN` is the pool id), keyed by the slot of the cut written at each state. Written when the run selects with `level1` or sets [`exports.states`](/en/running/configuration/#exports); read on resume and warm start. |
 
 For the complete field-by-field record layout (`AffinePiece`, `StageCuts`, `StageBasis`, `StageStates`) and the
 checkpoint-wide `policy/manifest.bin` summary, see the
-[Output Format](/reference/output/) reference page. For the schema file itself and per-language `flatc` codegen
+[Output Format](/en/reference/output/) reference page. For the schema file itself and per-language `flatc` codegen
 recipes (Python, C++, TypeScript, …) to read a checkpoint outside Novomodelo, see
-the [FlatBuffers Policy Schema](/reference/flatbuffers-schema/) reference page.
+the [FlatBuffers Policy Schema](/en/reference/flatbuffers-schema/) reference page.

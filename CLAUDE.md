@@ -44,9 +44,14 @@ developer surface" below). Versioning is **build-per-version**
 (`versions.json`): `latest` is built from the working tree and served at
 `/docs/`, and each `versions[]` entry is a frozen snapshot of one earlier novomodelo
 minor, built from its `ref` (a 40-hex commit SHA on `main`, never a tag) and
-served at `/docs/vX.Y/`. The site root `/` serves the hotsite (`hotsite/`, plain
+served at `/docs/vX.Y/`. Within `latest`, pt-BR is the root locale at
+`/docs/` and English is served at `/docs/en/`: the sources keep English at
+`src/content/docs/` and pt-BR in `src/content/docs/pt-br/` (`localeId`,
+`scripts/locale-id.mjs`), and `/docs/pt-br/*` redirects to `/docs/*`. The
+site root `/` serves the hotsite (`hotsite/`, plain
 HTML/CSS/JS outside Astro), which `build-versions.mjs` copies into `dist/` with
-a redirect stub at each docs page path without the `/docs` prefix. A novomodelo patch release updates `latest` in place; a frozen snapshot is
+a redirect stub at each docs page path without the `/docs` prefix (to
+`/docs/en/` for an English page). A novomodelo patch release updates `latest` in place; a frozen snapshot is
 never edited (a fix branches from its SHA and moves `ref`). Every frozen minor
 is kept until novomodelo v1.0.0, then the last two or three. README `## Versioning`
 is the freeze runbook.
@@ -120,7 +125,7 @@ read; open them directly when working on the topic without reading a page first.
 | `thermals-and-discounting.md` | state augmentation, equipment, discount, post-study pages | Anticipated thermals, discount factors |
 | `commissioning.md` | penalty, system-elements, entity pages | Filling, commissioning windows, initial storage, canonical entity order |
 | `stochastic.md` | scenario generation, PAR, multi-resolution pages | Historical sampling, correlation target, moment matching, noise groups, MPI fingerprint |
-| `diagrams.md` | `src/figures/**`, `src/components/**`, `src/styles/**`, `.mdx` pages | d2 + Observable Plot only, semantic colours, site accent |
+| `diagrams.md` | `src/figures/**`, `src/components/**`, `src/styles/**`, `.mdx` pages | d2, Observable Plot and entity illustrations, semantic colours, site accent |
 | `quality-gates.md` | `scripts/**`, `package.json`, CI workflows | Gate prerequisites (d2, novomodelo binary, KaTeX strict) and CI wiring |
 
 The translation guide and glossary is
@@ -134,7 +139,7 @@ The translation guide and glossary is
 # export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.20.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
-  && npm run check:input-schemas && npm run check:glossary && npm run check:python-api \
+  && npm run check:input-schemas && npm run check:glossary && npm run check:ptbr-case && npm run check:python-api \
   && npm run check:gc-examples && npm run check:type-spelling && npm run check:d2 \
   && npm run check:spdx && npm run refresh:recordings -- --check \
   && npm run build && npm run check && npm run check:math \

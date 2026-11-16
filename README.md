@@ -37,14 +37,14 @@ serve or emit the latest docs at `/` with no hotsite, and `npm run build` emptie
 
 ## Stack
 
-| Concern        | Tool                                                                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Site framework | [Astro Starlight](https://starlight.astro.build/)                                                                                     |
-| Math           | KaTeX via manual `remark-math` + `rehype-katex` (rendered at build time, zero client JS)                                              |
-| Diagrams       | inline [D2](https://d2lang.com/) (ELK engine) for every diagram — schematics, flowcharts, network one-lines (build-time SVG)          |
-| Math plots     | [Observable Plot](https://observablehq.com/plot/) islands backed by a unit-tested TypeScript compute layer                            |
-| i18n           | Starlight-native (`en` + `pt-br`) + [Lunaria](https://lunaria.dev/) translation dashboard                                             |
-| Versioning     | latest at `/docs/`, one frozen snapshot per novomodelo minor at `/docs/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json` |
+| Concern        | Tool                                                                                                                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Site framework | [Astro Starlight](https://starlight.astro.build/)                                                                                                                                               |
+| Math           | KaTeX via manual `remark-math` + `rehype-katex` (rendered at build time, zero client JS)                                                                                                        |
+| Diagrams       | inline [D2](https://d2lang.com/) (ELK engine) for every structural diagram — schematics, flowcharts, network one-lines (build-time SVG); hand-drawn SVG components for the entity illustrations |
+| Math plots     | [Observable Plot](https://observablehq.com/plot/) islands backed by a unit-tested TypeScript compute layer                                                                                      |
+| i18n           | Starlight-native (pt-BR root locale + `en`) + [Lunaria](https://lunaria.dev/) translation dashboard                                                                                             |
+| Versioning     | latest at `/docs/`, one frozen snapshot per novomodelo minor at `/docs/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json`                                                           |
 
 ## Structure
 
@@ -62,7 +62,7 @@ src/
 │       ├── reference/    #   Reference — CLI, error codes, schemas, Python API, glossary, bibliography
 │       │   ├── case-format/ #   Reference > Case Format
 │       │   └── output/   #   Reference > Output Format
-│       └── pt-br/        #   pt-BR locale scaffold (.gitkeep only); feeds no sidebar group
+│       └── pt-br/        #   pt-BR twin of every page, served at /docs/ (English at /docs/en/)
 ├── content.config.ts
 ├── components/           # Astro islands (Observable Plot figures, version picker, footer)
 ├── figures/              # tested TypeScript compute layer for the plots (*.ts + *.test.ts)
@@ -88,6 +88,7 @@ npm run check:counts  # stated counts match their tables and files: column/field
 npm run check:version # novomodelo-version references vs the Synced-to anchor
 npm run check:narration # change narration, both zones (ratchet: scripts/doc-lint-allow.txt)
 npm run check:glossary # glossary: no file/path/config tokens, A–Z index complete (ratchet: scripts/doc-lint-allow.txt)
+npm run check:ptbr-case # pt-BR headings, frontmatter titles and sidebar labels in sentence case; exemptions in EXEMPT_TERMS (ratchet: scripts/doc-lint-allow.txt)
 npm run check:error-coverage # every emitted ErrorKind/LoadError variant has an error-codes section; unemitted ones are reserved
 npm run check:input-schemas # vendored input schemas match the case-format tables: names both ways, required flags, enums
 npm run check:python-api # every public novomodelo-python stub symbol has an anchor in reference/python-api (stubs: scripts/pystubs/)
@@ -108,9 +109,11 @@ site, runs the build checks, and publishes it to GitHub Pages at
 (`hotsite/`, without its `README.txt`) and the documentation lives under `/docs/`.
 `build-versions.mjs` also gives the root the docs 404 page and the files of
 `public/` (so `/schemas/<name>.schema.json`, the schemas' `$id`, resolves), and
-writes a redirect stub at each docs page path without the `/docs` prefix
-(`/math/x/` → `/docs/math/x/`, `/vX.Y/…` → `/docs/vX.Y/…`), query and fragment
-included. The repository's Pages source is GitHub Actions,
+writes a redirect stub at each docs page path without the `/docs` prefix, which
+keeps the URLs from before `/docs/` working: `/math/x/` → `/docs/en/math/x/` for an
+English page (those URLs were English) and `/vX.Y/…` → `/docs/vX.Y/…`. It also
+writes a stub at each `/docs/pt-br/<p>/`, which goes to `/docs/<p>/`. Every stub
+keeps the query and fragment. The repository's Pages source is GitHub Actions,
 and its Pages settings hold the custom domain. The full gate suite, including the
 doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on pull requests to
 `main`.
@@ -118,7 +121,11 @@ doc-lint gates, runs in `.github/workflows/starlight-ci.yml` on pull requests to
 ## Versioning
 
 `versions.json` lists the documentation versions. `latest` is built from the
-working tree and served at `/docs/`. Each `versions` entry is a frozen snapshot of
+working tree and served at `/docs/`. Within `latest`, pt-BR is the root locale at
+`/docs/` and English is served at `/docs/en/`: the sources keep English at
+`src/content/docs/` and pt-BR in `src/content/docs/pt-br/` (`localeId`,
+`scripts/locale-id.mjs`), and `/docs/pt-br/*` redirects to `/docs/*`. Each
+`versions` entry is a frozen snapshot of
 one novomodelo minor, built from its `ref` (a 40-hex commit SHA on `main`) and
 served at its `base` (`/docs/vX.Y/`). The version picker lists `latest`, then `versions` in
 file order, newest first, each frozen entry under the release it documents

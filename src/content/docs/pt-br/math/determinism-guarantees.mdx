@@ -76,9 +76,9 @@ na amostragem Monte Carlo e uma por estágio em um método em lote (seção 3).
 Como a derivação das sementes e a atribuição dos grupos de ruído (na árvore de
 aberturas, estágios consecutivos de um mesmo grupo de ruído reutilizam um mesmo sorteio) são funções puras
 de entradas globalmente conhecidas — a semente-base e o calendário de estágios do
-sistema difundido — e o casamento de momentos (moment matching) soma sobre as aberturas em
+sistema difundido — e a correspondência de momentos (moment matching) soma sobre as aberturas em
 uma ordem fixa, todo processo MPI gera a mesma árvore, idêntica bit a bit. Veja
-[Geração de cenários](/pt-br/math/scenario-generation)
+[Geração de cenários](/math/scenario-generation)
 para o procedimento de derivação das sementes e a construção da árvore de aberturas.
 
 **Fora da abrangência.** O tempo de relógio, o pico de memória, a iteração de parada sob um
@@ -105,7 +105,7 @@ da cadeia continuam a quente a partir da fatoração que a abertura anterior dei
 pronta, avançando ao longo da ordem de resolução fixada, pois apenas os limites que dependem do ruído
 mudam de uma abertura para a seguinte. Uma fase que parte a frio inicia
 toda resolução sem base, de modo que seu ponto de partida é o mesmo em toda execução. Veja
-[Aproveitamento de base do PL](/pt-br/math/lp-warm-start) para a configuração por fase, o armazenamento de bases
+[Aproveitamento de base do PL](/math/lp-warm-start) para a configuração por fase, o armazenamento de bases
 e o mecanismo de reconstrução completo.
 
 O aproveitamento de base é compatível com a garantia, mas por uma razão mais específica
@@ -116,8 +116,10 @@ degenerado, várias bases distintas atingem esse mesmo valor, e o simplex
 para naquela que seu caminho de pivoteamento alcançar. Como os coeficientes de um corte são
 lidos dos custos reduzidos das colunas fixadas do estado de entrada, eles são
 propriedades da base final, e não do valor ótimo: em um ótimo
-degenerado, os valores marginais do subproblema formam um intervalo, e uma
-resolução retorna um de seus extremos.
+degenerado, a função de valor do subproblema pode ter uma quebra no estado
+visitado, seus subgradientes nesse ponto formam um conjunto convexo (um intervalo
+quando o estado tem uma única componente), e uma resolução retorna o subgradiente
+dado por sua base final.
 
 Toda escolha desse tipo produz um corte igualmente válido. Cada vetor de custos reduzidos
 obtido em uma base ótima é um subgradiente da função de valor do subproblema
@@ -146,7 +148,7 @@ no estado visitado $\hat{x}$ é, portanto, reprodutível, não por ser indiferen
 ao histórico de resolução, mas porque esse histórico é ele próprio fixado.
 
 A ordenação dos blocos do vetor de estado é ela própria canônica: armazenamento, defasagens AR,
-buckets de tempo de viagem da água em trânsito e slots das termelétricas com antecipação de despacho ocupam, cada um, um
+parcelas de água em trânsito (in-transit buckets) e posições do anel de despacho antecipado (commitment ring slots) das termelétricas com antecipação de despacho ocupam, cada um, um
 intervalo fixo, de modo que o vetor de coeficientes de um corte tem leiaute idêntico independentemente
 do número de processos ou da topologia de processos. Dentro de cada bloco, as entidades são dispostas na
 ordem total canônica $(\text{operational\_start\_date}, \text{id})$ —
@@ -155,11 +157,11 @@ primeiro pela data de início operativo e, entre entidades com a mesma data, pel
 entidade não tem papel nela, de modo que renomear uma entidade nunca altera o leiaute das
 colunas do PL, a ordenação dos coeficientes dos cortes nem a ordem das colunas de saída; renumerar o
 `id` de uma entidade, por outro lado, pode mover sua posição e, portanto, altera os
-três. Os in-transit buckets são ordenados por `(plant, lag)` — a usina
+três. As parcelas de água em trânsito são ordenadas por `(plant, lag)` — a usina
 receptora na mesma ordem canônica de entidades usada por todos os outros blocos de estado e, em seguida,
 a defasagem de maturação crescente —, de forma coerente com as ordenações dos blocos de armazenamento e de
 defasagens de afluência. Veja
-[Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling#1-estrutura-de-colunas-e-linhas)
+[Estrutura e escalonamento do PL](/math/lp-layout-and-scaling#1-estrutura-de-colunas-e-linhas)
 para o leiaute de colunas e linhas que essa construção produz.
 
 **Valores dos estados visitados canonizados nos limites.** O leiaute canônico é apenas metade
@@ -170,11 +172,14 @@ projeção sobre os limites admissíveis resolvidos — cada coordenada limitada
 seu intervalo, e as defasagens de afluência, não limitadas, passam inalteradas; a projeção
 é a identidade para um ótimo dentro da caixa. Como uma coordenada fixada em um limite pode
 terminar ligeiramente fora de seu intervalo em uma resolução degenerada ou com deriva
-numérica, essa projeção na leitura é o que torna o estado visitado $\hat{x}$ uma
-função do valor ótimo do estágio e de seus limites resolvidos — e não do
-vértice final nem de erros de arredondamento —, a mesma propriedade de que depende a leitura do corte a partir
-dos custos reduzidos. Ela é aplicada uma única vez, na leitura, e usada por todos os consumidores.
-Veja [Algoritmo da PDDE §3.1](/pt-br/math/sddp-algorithm#31-simulacao-forward) para a
+numérica, essa projeção na leitura mantém essa deriva fora do estado visitado
+$\hat{x}$, de modo que as colunas fixadas do estado de entrada do estágio seguinte e o
+termo independente do corte compartilham uma mesma âncora dentro da caixa
+([Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos)).
+Ela não torna $\hat{x}$ independente do vértice final: quando o problema do estágio
+tem várias soluções ótimas, $\hat{x}$ é o estado dado pela base final, e é reprodutível
+porque as entradas da resolução e sua base inicial são fixadas (acima). Ela é aplicada uma única vez, na leitura, e usada por todos os consumidores.
+Veja [Algoritmo da PDDE §3.1](/math/sddp-algorithm#31-simulacao-forward) para a
 projeção descrita por completo.
 
 **Ordem de resolução fixada; ordem de conclusão irrelevante.** Duas ordens importam na
@@ -191,7 +196,7 @@ os resultados por abertura são combinados. Aqui, o que se fixa é onde cada res
 são armazenados sob a identidade canônica da própria $\omega$, nunca sob a posição em
 que a resolução por acaso ocorreu. A agregação lê esses resultados de volta na
 ordem canônica de $\omega$, combinando-os como a média ponderada pelas probabilidades
-definida em [Gerenciamento de cortes](/pt-br/math/cut-management) — como a
+definida em [Gerenciamento de cortes](/math/cut-management) — como a
 adição em ponto flutuante não é associativa, o valor calculado de uma soma depende da
 ordem em que seus termos são somados, e é exatamente por isso que essa ordem é fixada na
 canônica, em vez de ficar sujeita à ordem de conclusão das resoluções. Separar as duas
@@ -224,7 +229,7 @@ O limite inferior é avaliado em um único processo a partir das aberturas do pr
 ordem canônica, e difundido; os custos da simulação são, da mesma forma, reunidos na
 ordem canônica dos cenários e reduzidos ali. Nenhuma dessas reduções, portanto,
 depende de como o trabalho é particionado. Veja
-[Aceleradores de desempenho — Modelo de execução paralela](/pt-br/running/performance/#modelo-de-execucao-paralela)
+[Aceleradores de desempenho — Modelo de execução paralela](/running/performance/#modelo-de-execucao-paralela)
 para a partição entre processos e as operações coletivas.
 
 **Derivação determinística das sementes entre processos MPI.** Cada sorteio é produzido por um
@@ -248,17 +253,17 @@ Como a derivação usa apenas
 constantes globalmente conhecidas e um hash determinístico idêntico, todo processo
 calcula de forma independente a mesma semente para qualquer tupla dada, sem comunicação.
 Não há condições de corrida na difusão, nem entropia por processo, nem dependência da
-ordem das mensagens MPI. Veja [Geração de cenários](/pt-br/math/scenario-generation) para
+ordem das mensagens MPI. Veja [Geração de cenários](/math/scenario-generation) para
 a codificação da entrada do hash e o leiaute de bytes little-endian que garante
 a estabilidade entre plataformas.
 
 **Injeção da fronteira terminal invariante ao processo.** Quando um estudo importa sua
-função terminal de uma política de fronteira, o conjunto de cortes importado é conciliado
+função terminal de uma política de fronteira, o conjunto de cortes importado é reconciliado
 com o estado terminal do próprio estudo **uma única vez** — a distribuição datada e ponderada por horas
-e a conciliação por família descritas em
-[Fronteira pós-estudo e estudos encadeados §4](/pt-br/math/post-study-boundary) — e o único resultado
-conciliado é injetado de forma idêntica no estágio terminal em **todos** os processos. Essa
-conciliação é uma função pura de entradas globalmente conhecidas: a política
+e a reconciliação por família descritas em
+[Fronteira pós-estudo e estudos encadeados §4](/math/post-study-boundary) — e o único resultado
+reconciliado é injetado de forma idêntica no estágio terminal em **todos** os processos. Essa
+reconciliação é uma função pura de entradas globalmente conhecidas: a política
 de origem importada, juntamente com o calendário de estágios e o leiaute de estado do próprio estudo atual —
 grandezas que todo processo já possui. Ela, portanto, não depende do número
 de processos, de como o trabalho é particionado nem de qual processo lê a política de origem.
@@ -268,9 +273,9 @@ a mesma invariância ao número de processos já estabelecida para os cortes ger
 os estados visitados e os custos de simulação.
 
 **Seleção de cortes paralela independente de ordem.** A seleção de cortes Nível 1 (Level-1) atribui a cada
-estado visitado armazenado um único dono: o corte de maior valor naquele ponto, com um empate
+estado visitado armazenado um único detentor: o corte de maior valor naquele ponto, com um empate
 exato resolvido em favor do corte na menor posição do conjunto. Os estados visitados armazenados são
-particionados em blocos de tamanho fixo processados em paralelo, e o dono de cada ponto
+particionados em blocos de tamanho fixo processados em paralelo, e o detentor de cada ponto
 é calculado apenas a partir desse ponto e dos cortes, de modo que nenhum resultado depende de como os
 blocos são distribuídos entre as threads nem de quantas threads são executadas — uma
 execução com uma só thread e uma execução totalmente paralela produzem as mesmas desativações e
@@ -286,7 +291,7 @@ as pontuações de violação dos cortes omitidos vêm de um produto em lote det
 e a ordem em que os cortes violados são acrescentados é fixada por uma ordenação total da
 magnitude da violação, com desempate pelo índice de posição crescente. O conjunto residente —
 e, portanto, o resultado da resolução — é, consequentemente, idêntico para quaisquer números de threads e de
-processos MPI. Veja [Gerenciamento de cortes](/pt-br/math/cut-management).
+processos MPI. Veja [Gerenciamento de cortes](/math/cut-management).
 
 **Ajuste paralelo de modelos estável em relação à ordem.** A fase de preparação do estudo ajusta em paralelo duas famílias
 de modelos por entidade: os coeficientes do modelo de afluências periódico autorregressivo (PAR(p)),
@@ -297,7 +302,7 @@ são função apenas das entradas — independentemente de quantas threads são 
 ou de como as entidades são distribuídas. Duas disciplinas complementares mantêm os ajustes
 idênticos bit a bit: a etapa de envoltória convexa ordena sua nuvem de pontos de entrada e as facetas de saída em
 uma ordem canônica, de modo que os hiperplanos emitidos não dependem da ordenação dos pontos nem do
-número de processos MPI (veja [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models)); e
+número de processos MPI (veja [Modelos de função de produção hidrelétrica](/math/hydro-production-models)); e
 a redução opcional de hiperplanos semelhantes sorteia suas amostras de um gerador
 cuja semente vem apenas da identidade estável da entidade/plano, nunca do relógio, da
 thread ou do processo. Um ajuste com uma só thread e um ajuste totalmente paralelo, portanto,
@@ -313,7 +318,7 @@ implementação da biblioteca MPI — nada disso está sob o controle do Novo Mo
 **Carga do sistema.** Processos em segundo plano, redução térmica de frequência, posicionamento NUMA e
 outros efeitos do estado do sistema alteram os tempos, e não o resultado numérico de nenhuma
 iteração, e não são registrados. Sob um critério de parada por tempo de relógio
-([Critérios de parada §3](/pt-br/math/stopping-rules#3-limite-de-tempo)), o tempo decorrido decide
+([Critérios de parada §3](/math/stopping-rules#3-limite-de-tempo)), o tempo decorrido decide
 a iteração em que o treinamento para, de modo que a carga do sistema e o número de threads podem
 alterar quantas iterações uma execução de processo único conclui; duas execuções desse tipo concordam
 iteração a iteração até a parada mais precoce. Sob esse critério, os processos
@@ -356,7 +361,7 @@ de forma idêntica bit a bit em toda execução.
 **Reutilização da política entre versões do software.** Uma política armazenada só é carregada na
 versão do software que a gravou; portanto, a garantia abrange a reobtenção de uma política
 a partir de suas entradas registradas, e não a carga de uma política armazenada em outra versão (veja
-[Verificação de versão](/pt-br/running/policy-management/#verificacao-de-versao)).
+[Verificação de versão](/running/policy-management/#verificacao-de-versao)).
 
 ## 5. Rastreabilidade
 
@@ -376,13 +381,13 @@ e não os bytes dos arquivos. Os arquivos que contêm o registro são uma quest�
   correlação e a árvore de aberturas — e, para um modelo ajustado, o
   método de seleção de ordem e a maior ordem selecionada. Para saber como as entradas da
   árvore de aberturas são geradas a partir dessas partes, veja
-  [Geração de cenários](/pt-br/math/scenario-generation).
+  [Geração de cenários](/math/scenario-generation).
 - **Linhagem das sementes aleatórias.** A semente-base: os metadados da execução a registram tal como o
   estudo a configura, ou não registram nenhuma quando o estudo não configura nenhuma e a
   execução usa um padrão fixo; uma política armazenada registra a semente-base em vigor.
   Toda semente derivada decorre de uma semente-raiz — a semente-base ou a semente
   separada de uma simulação forward fora da amostra — pela regra fixa de
-  [Geração de cenários](/pt-br/math/scenario-generation); a semente fora da amostra é
+  [Geração de cenários](/math/scenario-generation); a semente fora da amostra é
   lida da configuração do estudo e não é registrada.
 - **Identificadores do solver e das bibliotecas.** O solver de PL e sua versão, a biblioteca
   MPI de uma execução MPI e a versão do software. Uma versão diferente do solver
@@ -427,14 +432,14 @@ a aba abaixo lista os arquivos de saída e os nomes de campos que contêm esse r
 
 ## Referências cruzadas
 
-- [Geração de cenários](/pt-br/math/scenario-generation) — Derivação determinística das sementes
+- [Geração de cenários](/math/scenario-generation) — Derivação determinística das sementes
   para a árvore de aberturas e a simulação forward; a propriedade de árvore idêntica bit a bit enunciada
   na seção 2.3, que este capítulo formaliza
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — Monotonicidade dos cortes, que só são acrescentados; a
+- [Gerenciamento de cortes](/math/cut-management) — Monotonicidade dos cortes, que só são acrescentados; a
   ordem dos cortes é determinística entre iterações e é pré-condição para a
   garantia de sequência de limites inferiores idêntica bit a bit
-- [Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling) — Determinismo na construção
+- [Estrutura e escalonamento do PL](/math/lp-layout-and-scaling) — Determinismo na construção
   do PL; a ordenação de colunas e linhas que o leiaute canônico dos blocos de estado
   preserva
-- [Aproveitamento de base do PL](/pt-br/math/lp-warm-start) — O armazenamento de bases cuja ordem de cadeia o §3
+- [Aproveitamento de base do PL](/math/lp-warm-start) — O armazenamento de bases cuja ordem de cadeia o §3
   fixa

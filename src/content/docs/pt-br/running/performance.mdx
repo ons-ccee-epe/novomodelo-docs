@@ -20,21 +20,21 @@ As tabelas de tempo e o `Time split` impresso refletem a visão do processo (ran
 desbalanceamento de outro rank aparece como tempo do rank 0 em `cut_sync_ms`, `state_exchange_ms`
 e `mpi_allreduce_ms`. A espera da simulação backward é a exceção: `bwd_load_imbalance_ms`
 e a espera `Backward` impressa abrangem os workers de todos os ranks, de modo que incluem
-o tempo em que um rank aguarda que pares mais lentos concluam as resoluções de um estágio. [Leitura da decomposição `Time split`](/pt-br/running/interpreting-results/#leitura-do-detalhamento-time-split)
+o tempo em que um rank aguarda que pares mais lentos concluam as resoluções de um estágio. [Leitura da decomposição `Time split`](/running/interpreting-results/#leitura-do-detalhamento-time-split)
 explica como ler o bloco impresso. Uma simulação backward enumerada registra zero em
 `cut_sync_ms`, `state_exchange_ms` e `bwd_load_imbalance_ms`.
 
 | Sintoma                                                        | Métrica                                                                                                                                                                                                                                                                                                                                                                                       | Parâmetro de ajuste                                                                                                                                                                                                                                                                                                                                                                          |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| O tempo da simulação backward cresce a cada iteração           | `time_backward_ms` e `cuts_active` em [`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet); `cuts_active_after` e `active_after_budget` em [`training/cut_selection/iterations.parquet`](/pt-br/reference/output/training/#trainingcut_selectioniterationsparquet)                                                                                              | [`training.cut_selection.selection`](/pt-br/running/configuration/#trainingcut_selection) e [`training.cut_selection.max_active_per_stage`](/pt-br/running/configuration/#trainingcut_selection)                                                                                                                                                                                                       |
-| As resoluções com seleção preguiçosa carregam muitas linhas    | `mean_rows_in_lp` em `training/convergence.parquet` (0 quando não houve seleção preguiçosa); `lazy_scoring_ms` em [`training/timing/iterations.parquet`](/pt-br/reference/output/training/#trainingtimingiterationsparquet)                                                                                                                                                                         | Os parâmetros do método `dynamic` em [`training.cut_selection.selection`](/pt-br/running/configuration/#trainingcut_selection)                                                                                                                                                                                                                                                                    |
-| Workers aguardam dentro de uma fase                            | `fwd_load_imbalance_ms` e `bwd_load_imbalance_ms` em `training/timing/iterations.parquet`; a parcela de espera de cada fase no time split impresso                                                                                                                                                                                                                                             | Simulação backward: `by_node` com `block_size` em [`training.parallelism.backward_scheduler`](/pt-br/running/configuration/#trainingparallelism), veja [Escalonamento por nó](#escalonamento-por-no) (sem efeito enquanto a seleção preguiçosa estiver ativa). Simulação forward: um [`training.selection.forward_passes`](/pt-br/running/configuration/#trainingselection) múltiplo do número de workers (ranks vezes `--threads`) |
-| Workers ociosos por falta de trajetórias                       | `forward_passes` em `training/convergence.parquet` comparado a `distribution.world_size` e `distribution.threads_per_rank` em [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson)                                                                                                                                                                                     | Aumente [`training.selection.forward_passes`](/pt-br/running/configuration/#trainingselection), ou execute menos ranks ou menos threads por rank; veja [Modelo de execução paralela](#modelo-de-execucao-paralela)                                                                                                                                                                                   |
-| Tempo de operações coletivas em execuções com vários ranks     | `cut_sync_ms`, `state_exchange_ms` e `mpi_allreduce_ms` em `training/timing/iterations.parquet`                                                                                                                                                                                                                                                                                               | Balanceie o trabalho como nas duas linhas acima, ou execute menos ranks com mais `--threads` cada, tipicamente [um rank por nó](/pt-br/running/hpc-deployment/#dimensionamento-e-escalabilidade); veja [Modelo de execução paralela](#modelo-de-execucao-paralela)                                                                                                                                                 |
+| O tempo da simulação backward cresce a cada iteração           | `time_backward_ms` e `cuts_active` em [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet); `cuts_active_after` e `active_after_budget` em [`training/cut_selection/iterations.parquet`](/reference/output/training/#trainingcut_selectioniterationsparquet)                                                                                              | [`training.cut_selection.selection`](/running/configuration/#trainingcut_selection) e [`training.cut_selection.max_active_per_stage`](/running/configuration/#trainingcut_selection)                                                                                                                                                                                                       |
+| As resoluções com seleção preguiçosa carregam muitas linhas    | `mean_rows_in_lp` em `training/convergence.parquet` (0 quando não houve seleção preguiçosa); `lazy_scoring_ms` em [`training/timing/iterations.parquet`](/reference/output/training/#trainingtimingiterationsparquet)                                                                                                                                                                         | Os parâmetros do método `dynamic` em [`training.cut_selection.selection`](/running/configuration/#trainingcut_selection)                                                                                                                                                                                                                                                                    |
+| Workers aguardam dentro de uma fase                            | `fwd_load_imbalance_ms` e `bwd_load_imbalance_ms` em `training/timing/iterations.parquet`; a parcela de espera de cada fase no time split impresso                                                                                                                                                                                                                                             | Simulação backward: `by_node` com `block_size` em [`training.parallelism.backward_scheduler`](/running/configuration/#trainingparallelism), veja [Escalonamento por nó](#escalonamento-por-no) (sem efeito enquanto a seleção preguiçosa estiver ativa). Simulação forward: um [`training.selection.forward_passes`](/running/configuration/#trainingselection) múltiplo do número de workers (ranks vezes `--threads`) |
+| Workers ociosos por falta de trajetórias                       | `forward_passes` em `training/convergence.parquet` comparado a `distribution.world_size` e `distribution.threads_per_rank` em [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson)                                                                                                                                                                                     | Aumente [`training.selection.forward_passes`](/running/configuration/#trainingselection), ou execute menos ranks ou menos threads por rank; veja [Modelo de execução paralela](#modelo-de-execucao-paralela)                                                                                                                                                                                   |
+| Tempo de operações coletivas em execuções com vários ranks     | `cut_sync_ms`, `state_exchange_ms` e `mpi_allreduce_ms` em `training/timing/iterations.parquet`                                                                                                                                                                                                                                                                                               | Balanceie o trabalho como nas duas linhas acima, ou execute menos ranks com mais `--threads` cada, tipicamente [um rank por nó](/running/hpc-deployment/#dimensionamento-e-escalabilidade); veja [Modelo de execução paralela](#modelo-de-execucao-paralela)                                                                                                                                                 |
 | A avaliação do limite inferior ocupa uma parcela crescente do tempo da iteração | `lower_bound_ms` em `training/timing/iterations.parquet`                                                                                                                                                                                                                                                                                                                     | Nenhum: a avaliação é serial no rank 0, com uma resolução de PL por abertura do estágio 0; veja [Avaliação do limite inferior](#avaliacao-do-limite-inferior)                                                                                                                                                                                                                                   |
-| As resoluções são repetidas                                    | `lp_retries` e `retry_attempts` em [`training/solver/iterations.parquet`](/pt-br/reference/output/training/#trainingsolveriterationsparquet); `retry_level` em [`training/solver/retry_histogram.parquet`](/pt-br/reference/output/training/#trainingsolverretry_histogramparquet); os diagnósticos de pré-escalonamento do PL em [`training/scaling_report.json`](/pt-br/reference/output/training/#trainingscaling_reportjson) | Os perfis de solver por fase [`training.solver.backward`](/pt-br/running/configuration/#trainingsolver), [`training.solver.forward`](/pt-br/running/configuration/#trainingsolver) e [`simulation.solver`](/pt-br/running/configuration/#campos-do-perfil-do-solver); [`modeling.cost_scale_factor`](/pt-br/running/configuration/#modelingcost_scale_factor)                                                          |
-| Os balanços recalculados a partir das saídas não fecham | `lp_row_violations` em [`training/solver/iterations.parquet`](/pt-br/reference/output/training/#trainingsolveriterationsparquet) e [`simulation/solver/iterations.parquet`](/pt-br/reference/output/simulation/#simulationsolveriterationsparquet); o aviso de fim de execução de [Soluções que violam um limite de linha](/pt-br/reference/error-codes/#solucoes-que-violam-um-limite-de-linha) | Nenhum: reporte o caso com as contagens |
-| Início lento                                                   | `setup.load_seconds`, `setup.stochastic_fit_seconds`, `setup.production_fit_seconds`, `setup.evaporation_fit_seconds` e `setup.broadcast_seconds` em `training/metadata.json` (coletados no rank 0)                                                                                                                                                                                           | Para o ajuste estocástico, exporte uma vez os artefatos ajustados e reutilize-os: [`exports.stochastic`](/pt-br/running/configuration/#exports) e [Exportação de artefatos estocásticos](/pt-br/running/running-studies/#exportando-os-artefatos-estocasticos)                                                                                                                                                |
+| As resoluções são repetidas                                    | `lp_retries` e `retry_attempts` em [`training/solver/iterations.parquet`](/reference/output/training/#trainingsolveriterationsparquet); `retry_level` em [`training/solver/retry_histogram.parquet`](/reference/output/training/#trainingsolverretry_histogramparquet); os diagnósticos de pré-escalonamento do PL em [`training/scaling_report.json`](/reference/output/training/#trainingscaling_reportjson) | Os perfis de solver por fase [`training.solver.backward`](/running/configuration/#trainingsolver), [`training.solver.forward`](/running/configuration/#trainingsolver) e [`simulation.solver`](/running/configuration/#campos-do-perfil-do-solver); [`modeling.cost_scale_factor`](/running/configuration/#modelingcost_scale_factor)                                                          |
+| Os balanços recalculados a partir das saídas não fecham | `lp_row_violations` em [`training/solver/iterations.parquet`](/reference/output/training/#trainingsolveriterationsparquet) e [`simulation/solver/iterations.parquet`](/reference/output/simulation/#simulationsolveriterationsparquet); o aviso de fim de execução de [Resoluções que violam um limite de linha](/reference/error-codes/#resolucoes-que-violam-um-limite-de-linha) | Nenhum: reporte o caso com as contagens |
+| Início lento                                                   | `setup.load_seconds`, `setup.stochastic_fit_seconds`, `setup.production_fit_seconds`, `setup.evaporation_fit_seconds` e `setup.broadcast_seconds` em `training/metadata.json` (coletados no rank 0)                                                                                                                                                                                           | Para o ajuste estocástico, exporte uma vez os artefatos ajustados e reutilize-os: [`exports.stochastic`](/running/configuration/#exports) e [Exportação de artefatos estocásticos](/running/running-studies/#exportando-os-artefatos-estocasticos)                                                                                                                                                |
 
 ---
 
@@ -62,12 +62,12 @@ Antes de construir o modelo-base (template) do PL de cada estágio, o Novo Model
 pré-escalonador de linhas/colunas pela média geométrica, que normaliza os coeficientes da matriz de restrições
 em torno de 1,0, melhorando o condicionamento numérico. O mecanismo de pré-escalonamento e sua
 garantia de desescalonamento exato estão documentados na camada matemática, em
-[Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling#2-escalonamento-do-pl).
+[Estrutura e escalonamento do PL](/math/lp-layout-and-scaling#2-escalonamento-do-pl).
 
 ### Fator de escala de custos
 
 A função objetivo é dividida por um fator de escala de custos (padrão `1_000_000.0`,
-configurável em [`modeling.cost_scale_factor`](/pt-br/running/configuration/#modelingcost_scale_factor))
+configurável em [`modeling.cost_scale_factor`](/running/configuration/#modelingcost_scale_factor))
 para reduzir a magnitude dos coeficientes da função objetivo, melhorando a estabilidade
 numérica do simplex.
 
@@ -76,7 +76,7 @@ Como o pré-escalonador já condiciona a matriz, o escalonamento interno do HiGH
 ser reativado por fase no campo `scale` do perfil de solver: selecionar
 `solver_scaling` reativa o escalonamento pelo solver e abre mão da garantia de
 desescalonamento único exato. Veja
-[Campos do perfil de solver](/pt-br/running/configuration/#campos-do-perfil-do-solver)
+[Campos do perfil de solver](/running/configuration/#campos-do-perfil-do-solver)
 para o campo e seu compromisso.
 
 Os diagnósticos de escalonamento são gravados em `training/scaling_report.json` após
@@ -106,7 +106,7 @@ s1 -> s2
 ### Etapa 1: seleção baseada em estratégia
 
 Dois métodos estão disponíveis, configurados em
-[`training.cut_selection`](/pt-br/running/configuration/#trainingcut_selection) no
+[`training.cut_selection`](/running/configuration/#trainingcut_selection) no
 `config.json`; a referência de Configuração define as chaves e os valores padrão:
 
 | Estratégia | Regra de seleção                                                                                                                                           |
@@ -116,19 +116,19 @@ Dois métodos estão disponíveis, configurados em
 
 `level1` respeita `check_frequency`: a passagem de seleção é executada apenas nas iterações
 que são múltiplas desse valor. Ela seleciona os conjuntos de cortes dos estágios estritamente entre
-o primeiro e o último; o conjunto do primeiro estágio e o conjunto terminal nunca passam por
+o primeiro e o último; o conjunto do primeiro estágio e o conjunto final nunca passam por
 seleção. Cada um desses conjuntos armazena o estado visitado de cada corte que a execução adiciona a ele,
 ou os das últimas `lookback_iterations` iterações, e todo corte avaliado, incluídos
 os cortes da iteração corrente e os cortes inativos, concorre em cada estado
 armazenado, de modo que um corte desativado é reativado quando passa a dominar um estado. A regra
-está em [Seleção Nível 1](/pt-br/math/cut-management/#7-selecao-nivel-1).
+está em [Seleção Nível 1](/math/cut-management/#7-selecao-nivel-1).
 
 `dynamic` funciona de outra forma: é um laço preguiçoso por resolução, que adiciona cortes sob
 demanda em vez de desativá-los a partir de uma varredura do conjunto, e não lê
-`check_frequency`. Veja [O método dinâmico](/pt-br/math/cut-management/#8-o-metodo-dinamico)
+`check_frequency`. Veja [O método dinâmico](/math/cut-management/#8-o-metodo-dinamico)
 para o procedimento. Uma resolução que atinge o limite de rodadas com algum candidato ainda
 violado é contabilizada em `lazy_round_cap_hits` de
-[`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet).
+[`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet).
 
 ### Etapa 2: imposição do orçamento
 
@@ -137,8 +137,8 @@ conjuntos de cortes dos estágios estritamente entre o primeiro e o último, ao 
 separadamente, e contabiliza apenas os cortes gerados pela execução corrente: os cortes carregados de
 uma política, entre eles os cortes de fronteira, não são contabilizados nem descartados. Quando a contagem
 excede o limite após a passagem de seleção, o conjunto descarta cortes de iterações
-anteriores em ordem crescente da iteração em que o corte esteve ativo pela última vez,
-depois do número de resoluções em que esteve ativo e, por fim, de sua posição no conjunto. Os cortes da
+anteriores em ordem crescente da iteração em que o corte esteve ativo na solução pela última vez,
+depois do número de resoluções em que esteve ativo na solução e, por fim, de sua posição no conjunto. Os cortes da
 iteração corrente são contabilizados, mas nunca descartados. Com `level1`, uma
 passagem de seleção posterior reativa um corte descartado que domine algum estado, e o limite é
 aplicado novamente nessa iteração. O limite é recusado com o método `dynamic`
@@ -156,7 +156,7 @@ sem crescimento ilimitado do tempo de resolução.
 ### Observabilidade
 
 O processo de gerenciamento de linhas grava estatísticas por conjunto de cortes em
-[`training/cut_selection/iterations.parquet`](/pt-br/reference/output/training/#trainingcut_selectioniterationsparquet),
+[`training/cut_selection/iterations.parquet`](/reference/output/training/#trainingcut_selectioniterationsparquet),
 onde cada coluna é definida. A [tabela de parâmetros de ajuste](#diagnostico-de-desempenho) indica as
 colunas que diagnosticam o crescimento do tempo da simulação backward.
 
@@ -167,7 +167,7 @@ colunas que diagnosticam o crescimento do tempo da simulação backward.
 Uma execução tem dois níveis de paralelismo: processos MPI (ranks) e threads de trabalho (workers) dentro de cada
 rank. `--threads` define o número de threads de trabalho por rank (padrão `1`, no
 mínimo `1`); o lançador define o número de ranks (veja
-[Implantação em HPC e clusters](/pt-br/running/hpc-deployment/)).
+[Implantação em HPC e clusters](/running/hpc-deployment/)).
 
 O bloco `Execution` do cabeçalho da execução informa os dois níveis. O trecho abaixo
 mostra um exemplo de execução com dois ranks e duas threads por rank em um único host; ele omite a
@@ -189,7 +189,7 @@ mostra ali `across N nodes`, com os ranks de cada host listados abaixo.
 ### Partição do trabalho
 
 Com uma simulação forward amostrada, as `forward_passes` trajetórias de uma iteração
-(veja [`training.selection`](/pt-br/running/configuration/#trainingselection)) são
+(veja [`training.selection`](/running/configuration/#trainingselection)) são
 divididas entre os ranks em blocos contíguos. Cada rank recebe
 `forward_passes / ranks` delas, arredondado para baixo, e os primeiros
 `forward_passes mod ranks` ranks recebem uma a mais: 50 simulações forward em 4 ranks resultam em 13,
@@ -216,7 +216,7 @@ estado visitado inteiro. O escalonador opcional `by_node` usa unidades de trabal
 `(trial point, opening block)` para melhorar o balanceamento de carga quando os estados
 visitados têm tempos de resolução variáveis. Em ambos os casos, o conjunto de cortes produzido e o limite inferior
 independem do número de workers e de threads. Veja
-[`parallelism.backward_scheduler`](/pt-br/running/configuration/#trainingparallelism) para a
+[`parallelism.backward_scheduler`](/running/configuration/#trainingparallelism) para a
 configuração, e o
 [README do `novomodelo-sddp`](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md)
 para os detalhes internos do escalonador e da comunicação entre ranks.
@@ -238,7 +238,7 @@ altera apenas qual worker processa qual bloco, e quando — ela é
 **neutra quanto ao resultado**: o conjunto de cortes produzido e o limite inferior do treinamento são
 idênticos aos da atribuição canônica (por estado visitado inteiro).
 
-Veja [`parallelism.backward_scheduler`](/pt-br/running/configuration/#trainingparallelism)
+Veja [`parallelism.backward_scheduler`](/running/configuration/#trainingparallelism)
 para o campo de configuração que ativa `by_node` e define seu `block_size`.
 
 :::caution[Escalonamento por nó e o método dinâmico]
@@ -261,7 +261,7 @@ Cada fase do algoritmo — varredura forward, varredura backward e simulação f
 sobrescrever o perfil de solver interno (tolerâncias de viabilidade, o limite de atualizações
 do simplex, a estratégia de pricing, o campo `scale` e outros) por meio de
 `training.solver.backward`, `training.solver.forward` e `simulation.solver`.
-Veja [Campos do perfil de solver](/pt-br/running/configuration/#campos-do-perfil-do-solver)
+Veja [Campos do perfil de solver](/running/configuration/#campos-do-perfil-do-solver)
 para a lista completa de campos, o perfil interno de que cada fase parte e o
 compromisso de desescalonamento único associado a `scale`.
 
@@ -307,7 +307,7 @@ Com uma simulação forward amostrada, a simulação backward acrescenta:
   simulação backward (cronometrado como `state_exchange_ms`);
 - um allgatherv, por estágio, dos cortes gerados na simulação backward, ao final
   de cada estágio da simulação backward, pelo qual todos os ranks aguardam (cronometrado como `cut_sync_ms`);
-- uma soma por allreduce dos incrementos de atividade dos cortes por iteração.
+- uma soma por allreduce dos incrementos de atividade na solução dos cortes por iteração.
 
 A simulação backward enumerada não tem a troca de estados nem a troca
 de cortes; em vez disso, usa um allgatherv dos resultados sucessores de cada nó
@@ -346,8 +346,8 @@ checkpoint da política em todos os ranks, a partir do diretório de saída.
 
 ## Veja também
 
-- [Configuração](/pt-br/running/configuration/#trainingcut_selection) — configuração da seleção e da gerenciamento de linhas
-- [Formato de saída](/pt-br/reference/output/) — esquemas de saída de tempos, estatísticas do solver e seleção de linhas
+- [Configuração](/running/configuration/#trainingcut_selection) — configuração da seleção e da gerenciamento de linhas
+- [Formato de saída](/reference/output/) — esquemas de saída de tempos, estatísticas do solver e seleção de linhas
 - [novomodelo-solver](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-solver/README.md) — interface do solver e detalhes internos do escalonamento de novas tentativas (guia do desenvolvedor do novomodelo)
 - [novomodelo-sddp](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md) — arquitetura do laço de treinamento, escalonamento e estruturas de dados (guia do desenvolvedor do novomodelo)
 - [novomodelo-comm](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-comm/README.md) — backends de comunicação e operações coletivas (guia do desenvolvedor do novomodelo)

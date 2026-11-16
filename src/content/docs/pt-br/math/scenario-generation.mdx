@@ -15,18 +15,20 @@ de árvore de aberturas, da abstração do esquema de amostragem que determina c
 nas simulações forward e backward, da integração de cenários externos, dos cenários de carga e de
 fontes não despacháveis e das árvores de cenários enumeradas. Para a
 definição matemática do próprio modelo PAR(p), veja
-[Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model).
+[Modelo de afluências PAR(p)](/math/par-inflow-model).
 
-## 1. O Modelo de Afluências
+Para a visão por entidade deste capítulo, veja [Cenários e aberturas](/entities/inflows/scenarios/) e [Carga](/entities/consumption/load/).
+
+## 1. O modelo de afluências
 
 A geração de cenários amostra o modelo PAR(p) aplicado de
-[Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model), que define o modelo e sua
+[Modelo de afluências PAR(p)](/math/par-inflow-model), que define o modelo e sua
 estimação, o fechamento da escala do ruído (inovação) e os invariantes de validação. A
 tendência hidrológica que inicia cada trajetória é o estado de defasagens $x_0$ da §4.5.
 
-## 2. Geração de Ruídos
+## 2. Geração de ruídos
 
-### 2.1 Geração de Ruídos Correlacionados
+### 2.1 Geração de ruídos correlacionados
 
 As usinas hidrelétricas de um mesmo grupo de correlação compartilham ruídos espacialmente **correlacionados**.
 Cada grupo tem sua própria matriz de correlação.
@@ -39,11 +41,12 @@ O processo de geração:
    autodecomposição $C = U \Lambda U^\top$ durante o
    pré-processamento. O fator espectral
    $C^{1/2} = U \tilde{\Lambda}^{1/2} U^\top$ transforma o
-   ruído independente no [ruído (inovação) do PAR](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias) correlacionado:
+   ruído independente no [ruído (inovação) do PAR](/overview/notation-conventions#35-parametros-do-modelo-de-afluencias) correlacionado:
    $\varepsilon = C^{1/2} z$. Os autovalores
    negativos são truncados em zero, o que fornece a matriz
-   semidefinida positiva mais próxima na norma de Frobenius; sua diagonal pode exceder
-   um (veja [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model#6-fatoracao-da-correlacao-espacial)).
+   semidefinida positiva mais próxima na norma de Frobenius
+   ([Higham, 1988](/reference/bibliography/#metodos-numericos)); sua diagonal pode exceder
+   um (veja [Modelo de afluências PAR(p)](/math/par-inflow-model#6-fatoracao-da-correlacao-espacial)).
    A fatoração espectral é o único método implementado pelo Novo Modelo, e a mesma
    seção apresenta a justificativa.
 3. **Atribuição às entidades** — Cada entidade do grupo recebe seu próprio
@@ -53,9 +56,9 @@ Entidades de grupos de correlação diferentes são independentes entre si.
 Entidades não atribuídas a nenhum grupo recebem ruído $N(0,1)$ independente.
 
 Para a justificativa da fatoração espectral e a dedução completa da
-autodecomposição, veja [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model).
+autodecomposição, veja [Modelo de afluências PAR(p)](/math/par-inflow-model).
 
-### 2.2 Amostragem Reprodutível
+### 2.2 Amostragem reprodutível
 
 A geração de ruídos deve produzir resultados idênticos independentemente da distribuição
 entre processos MPI, do escalonamento de threads ou de reinícios. Isso é obtido por meio da
@@ -66,7 +69,7 @@ entre processos MPI, do escalonamento de threads ou de reinícios. Isso é obtid
   uma tupla que o identifica. A tupla depende do método de amostragem e da
   simulação: por exemplo, (iteração, cenário, estágio) para a escolha de uma abertura na simulação forward
   dentro da amostra (in-sample) e (abertura, estágio) para um sorteio Monte Carlo da árvore de aberturas;
-  [Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos)
+  [Determinismo e rastreabilidade §3](/math/determinism-guarantees#3-mecanismos-metodologicos)
   lista a tupla de cada simulação
 - O estado do gerador de números aleatórios é inicializado a partir dessa semente derivada antes de gerar o
   vetor de ruídos dessa tupla
@@ -94,11 +97,11 @@ que o resultado seja idêntico em todas as plataformas. A aba Notas de implement
 em [Implementação no Novo Modelo](#implementacao-no-novo-modelo) apresenta os
 leiautes das tuplas.
 
-### 2.3 Árvore de Aberturas
+### 2.3 Árvore de aberturas
 
 A simulação backward da PDDE (SDDP) avalia um corte agregado em um nó resolvendo
 **todas** as aberturas desse nó — o conjunto de aberturas dentro do nó $\Omega_n$
-definido em [Grafos da política](/pt-br/math/policy-graphs), seção 2. Essas aberturas devem
+definido em [Grafos da política](/math/policy-graphs), seção 2. Essas aberturas devem
 ser idênticas em todas as iterações — a simulação backward sempre "vê a mesma
 árvore" em cada nó. O Novo Modelo fixa o conjunto de aberturas de cada nó antes do treinamento (training) e
 percorre-o integralmente em toda simulação backward. Essa estrutura fixa, por nó, é a
@@ -132,7 +135,7 @@ a validade do limite inferior.
    e em diferentes configurações MPI (veja a seção 2.2)
 3. A correlação é aplicada conforme o perfil ativo de cada estágio (veja a seção
    2.4)
-4. Opcionalmente, o ruído de afluência de cada estágio passa por **casamento de momentos**
+4. Opcionalmente, o ruído de afluência de cada estágio passa por **correspondência de momentos**
    (moment matching) sobre as aberturas do estágio. Para a usina hidrelétrica $i$, sejam
    $\bar{\varepsilon}_i$ e $s_i$ a média e o desvio-padrão, com divisor $N_t$, de seus
    valores de ruído correlacionado $\varepsilon_{i,1}, \ldots, \varepsilon_{i,N_t}$ no
@@ -162,7 +165,7 @@ a validade do limite inferior.
    momentos. Um estágio sem
    período sazonal forma seu próprio grupo; em um estudo mensal uniforme, todos os grupos são
    únicos e cada estágio sorteia de forma independente. Veja
-   [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies) para o
+   [Estudos com múltiplas resoluções](/math/multi-resolution-studies) para o
    papel desse mecanismo em horizontes com resoluções mistas.
 
 O conjunto de aberturas $\Omega_n$ de cada nó é extraído da árvore gerada para seu
@@ -173,7 +176,7 @@ vetores do estágio $t$ produzido acima.
 **todo** o conjunto $\Omega_n$ — $N_t$ vetores de ruídos no estágio $t$ na cadeia
 implícita —, resolvendo um subproblema por abertura, e então agrega os cortes
 resultantes, compostos entre os nós sucessores conforme os pesos das arestas entre nós (veja
-[Grafos da política](/pt-br/math/policy-graphs), seção 2). Como a árvore é fixa,
+[Grafos da política](/math/policy-graphs), seção 2). Como a árvore é fixa,
 cada iteração produz cortes que refinam o mesmo conjunto de cenários de
 custo futuro.
 
@@ -197,11 +200,11 @@ a estrutura da árvore.
 A mesma árvore é gerada de forma idêntica, bit a bit, em todos os processos MPI, porque a
 derivação de sementes do passo 2 e a atribuição aos grupos de ruído
 são funções puras de entradas conhecidas globalmente — a semente base e o calendário
-de estágios do sistema difundido — e o casamento de momentos do passo 4 soma sobre as
+de estágios do sistema difundido — e a correspondência de momentos do passo 4 soma sobre as
 aberturas em uma ordem fixa. Para as garantias de determinismo que decorrem
-dessa propriedade, veja [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees).
+dessa propriedade, veja [Determinismo e rastreabilidade](/math/determinism-guarantees).
 
-### 2.3a Método de Amostragem e Geração da Árvore de Aberturas
+### 2.3a Método de amostragem e geração da árvore de aberturas
 
 Cada estágio seleciona o método de amostragem que gera suas aberturas — o conjunto
 do qual o(s) nó(s) de cada estágio extrai(em) seu $\Omega_n$. O método é **ortogonal**
@@ -243,7 +246,7 @@ número de estratos.
 **Variação por estágio.** O método pode variar por estágio, permitindo estratégias
 mistas em uma única execução.
 
-### 2.4 Perfis de Correlação Variáveis no Tempo
+### 2.4 Perfis de correlação variáveis no tempo
 
 A estrutura de correlação pode variar entre estágios por meio do padrão **perfil + cronograma**:
 os perfis de correlação e seu cronograma por estágio.
@@ -259,7 +262,7 @@ perfil** (e não por estágio). Em tempo de execução, o gerador de cenários c
 perfil ativo do estágio corrente por meio do cronograma e usa seu
 fator espectral pré-calculado.
 
-### 2.5 Aberturas por Resíduos Históricos
+### 2.5 Aberturas por resíduos históricos
 
 Sob qualquer esquema forward, uma árvore de aberturas gerada preenche um estágio que usa o
 método de resíduos históricos a partir do conjunto de janelas e do modelo PAR aplicado de
@@ -305,13 +308,13 @@ abertura (seção 2.3): o resíduo entra na equação do PAR com as defasagens d
 visitado, e não com as da própria janela. A §4.5 indica quando as duas resultam na
 mesma afluência.
 
-## 3. Abstração do Esquema de Amostragem
+## 3. Abstração do esquema de amostragem
 
-### 3.1 Três Aspectos Ortogonais
+### 3.1 Três aspectos ortogonais
 
 O algoritmo da PDDE tem três aspectos que determinam
 como os cenários são tratados durante o treinamento. O Novo Modelo os formaliza como abstrações
-distintas, seguindo o projeto estabelecido pelo SDDP.jl ([Dowson & Kapelevich, 2021](/pt-br/reference/bibliography/#referencias-de-software)):
+distintas, seguindo o projeto estabelecido pelo SDDP.jl ([Dowson & Kapelevich, 2021](/reference/bibliography/#referencias-de-software)):
 
 | Aspecto                                                       | Abstração                            | O que controla                          | Padrão     |
 | ------------------------------------------------------------- | ------------------------------------ | --------------------------------------- | ---------- |
@@ -337,17 +340,17 @@ externa ou histórica, enquanto os cortes e o limite inferior são construídos 
 modelo aplicado (§4.2). A estimativa do custo forward é então o custo esperado da política
 sob a lei forward, e o limite inferior limita inferiormente o valor do problema
 da árvore; assim, o gap de
-[Critérios de parada](/pt-br/math/stopping-rules/#gap-de-otimalidade) compara dois problemas
+[Critérios de parada](/math/stopping-rules/#gap-de-otimalidade) compara dois problemas
 e não precisa se fechar nem permanecer não negativo.
 
-### 3.2 Esquemas de Amostragem Forward
+### 3.2 Esquemas de amostragem forward
 
 O esquema de amostragem determina como a simulação forward seleciona uma
 realização de cenário em cada estágio. O Novo Modelo suporta quatro esquemas de amostragem, escolhidos
 de forma independente para cada classe estocástica (afluência, carga, NCS); o esquema
 Historical aplica-se apenas à classe de afluência:
 
-#### InSample (Padrão)
+#### InSample (padrão)
 
 Em cada estágio $t$, sorteia um índice aleatório
 $j \in \{1, \ldots, N_{\text{openings}}\}$ e usa o vetor de ruídos
@@ -391,7 +394,7 @@ um conjunto de cenários externos de afluência). Cada trajetória forward repro
 cenário externo em todos os seus estágios, escolhido com reposição por um hash dos
 índices da iteração de treinamento e da trajetória, a partir de uma base própria fixa. Um
 nó do grafo da política cujas aberturas apontam para a coluna de realizações externas do seu estágio
-usa essa coluna (veja [Grafos da política](/pt-br/math/policy-graphs)).
+usa essa coluna (veja [Grafos da política](/math/policy-graphs)).
 
 - **Fonte de ruídos**: valores dos cenários externos (não a árvore de aberturas)
 - **Cálculo da realização**: os valores externos devem sempre ser **invertidos para
@@ -430,7 +433,7 @@ iterações.
 
 Corresponde à semântica do esquema de amostragem `Historical` do SDDP.jl.
 
-#### Conjunto de Janelas Históricas
+#### Conjunto de janelas históricas
 
 O esquema Historical extrai as sequências reproduzidas de um conjunto de janelas da
 série histórica. Uma **janela** é um ano $y$, o ano da ocorrência do período sazonal do estágio 1
@@ -490,7 +493,7 @@ study: "Estágios do estudo · reproduzidos" {
 
 Para cada usina hidrelétrica, cada janela deve abranger a ocorrência do período sazonal de todos os estágios do estudo.
 
-### 3.3 Modelo da Simulação Forward
+### 3.3 Modelo da simulação forward
 
 O modelo da simulação forward determina qual PL é resolvido em cada estágio durante a
 simulação forward. O Novo Modelo implementa um modelo:
@@ -499,7 +502,7 @@ simulação forward. O Novo Modelo implementa um modelo:
   com a realização do cenário fornecida pelo esquema de amostragem. Esta é a simulação forward
   padrão da PDDE.
 
-### 3.4 Amostragem na Simulação Backward
+### 3.4 Amostragem na simulação backward
 
 O esquema de amostragem da simulação backward determina quais termos de ruído são avaliados em cada
 estágio durante a simulação backward. O Novo Modelo implementa um esquema:
@@ -512,9 +515,9 @@ Toda simulação backward avalia o conjunto completo de aberturas; uma variante 
 da amostragem backward sortearia, em vez disso, $n_{\text{sample}}$ aberturas com
 reposição.
 
-## 4. Integração de Cenários Externos
+## 4. Integração de cenários externos
 
-### 4.1 Fontes de Cenários Externos
+### 4.1 Fontes de cenários externos
 
 O Novo Modelo suporta cenários externos — realizações pré-geradas indexadas por
 cenário, das quais cada trajetória forward reproduz uma (§3.2) — como
@@ -536,7 +539,7 @@ média, o desvio-padrão e os coeficientes do modelo PAR do estudo.
 | Importação Monte Carlo     | Cenários pré-gerados por ferramenta externa        |
 | Teste de estresse          | Cenários específicos de seca/cheia                 |
 
-### 4.2 Simulação Backward com Cenários Forward Externos
+### 4.2 Simulação backward com cenários forward externos
 
 Quando o esquema de amostragem `External` ou `Historical` está ativo durante o treinamento,
 as simulações forward e backward usam **fontes de ruídos diferentes**. A simulação
@@ -578,7 +581,7 @@ os próprios cenários externos; para as entidades do passo 1, os
 momentos substituídos levam a média e a dispersão das amostras externas para essas
 ramificações.
 
-### 4.3 Inversão de Ruídos para Cenários Externos e Históricos
+### 4.3 Inversão de ruídos para cenários externos e históricos
 
 Ao usar cenários externos ou históricos, o Novo Modelo precisa calcular os **valores de ruído
 implícitos** que teriam gerado essas afluências sob o modelo PAR.
@@ -597,7 +600,7 @@ em que $b_{h,m} = \mu_m - \sum_{\ell=1}^{P_h} \psi_{m,\ell} \cdot \mu_{m-\ell}$ 
 o valor base pré-calculado.
 
 Todas as grandezas ($\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) estão em suas respectivas
-unidades, conforme descrito em [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model). Os coeficientes
+unidades, conforme descrito em [Modelo de afluências PAR(p)](/math/par-inflow-model). Os coeficientes
 AR estão nas unidades originais; $\sigma_m$ é o desvio-padrão residual derivado.
 No PAR(p)-A, o índice superior $P_h$ da soma das defasagens é igual à largura total da
 linha de dinâmica AR (doze defasagens, ou a ordem clássica, se maior, quando alguma
@@ -624,10 +627,10 @@ buffer de defasagens para o seguinte):
      histórica quanto às aberturas por resíduos históricos (§2.5), recusa o estudo
      quando um estágio do estudo não tem período sazonal, quando um valor de ruído invertido é a
      incompatibilidade com $\sigma_m = 0$ descrita acima ou não é um número, ou quando o conjunto de janelas
-     está vazio. [Códigos de erro](/pt-br/reference/error-codes/#stochasticpreparationerror)
+     está vazio. [Códigos de erro](/reference/error-codes/#stochasticpreparationerror)
      lista as mensagens e os códigos de saída.
 
-### 4.4 Colunas Externas Determinísticas (σ = 0)
+### 4.4 Colunas externas determinísticas (σ = 0)
 
 A coluna externa de uma classe pode ser **constante** — todas as realizações idênticas,
 desvio-padrão zero. Como as estatísticas da classe são derivadas das
@@ -644,9 +647,9 @@ reconstruída a partir de uma coluna constante —; assim, a carga falha, indica
 e a entidade. Isso é distinto da verificação de ancoragem da inversão da §4.3: trata-se de uma
 regra de admissibilidade da coluna aplicada na carga, e não de um teste do resíduo por estágio. (A
 mensagem concreta de rejeição é uma questão da camada de software — veja
-[Códigos de erro](/pt-br/reference/error-codes).)
+[Códigos de erro](/reference/error-codes).)
 
-### 4.5 Consistência de x₀ na Reprodução Histórica
+### 4.5 Consistência de x₀ na reprodução histórica
 
 Os esquemas histórico e externo compartilham a mesma simulação forward da PDDE: o
 amostrador retorna um resíduo de ruído padronizado $\varepsilon_t$ e o PL reconstrói
@@ -676,7 +679,7 @@ que não se fecha com o número de iterações.
 Para eliminar esse gap, a inversão é executada como uma **cadeia móvel de defasagens inicializada
 a partir da semente derivada** e avançada em cada estágio com as mesmas transições de defasagem
 por estágio usadas pelo PL (veja
-[Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies)), para estágios mensais,
+[Estudos com múltiplas resoluções](/math/multi-resolution-studies)), para estágios mensais,
 submensais e plurimensais igualmente.
 
 As implicações entre esquemas são:
@@ -689,7 +692,7 @@ As implicações entre esquemas são:
   alimenta, incluindo observações negativas, e difere apenas na água que
   acrescenta ao balanço hídrico ao lado da realização; em `none`, que não acrescenta
   água, uma observação negativa pode deixar o PL do estágio sem solução (veja
-  [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity)).
+  [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity)).
 - **Aberturas por resíduos históricos.** Quando o treinamento reproduz o histórico, as aberturas
   de um estágio de resíduos históricos (§2.5) vêm do mesmo conjunto de janelas, do mesmo modelo
   PAR aplicado e da mesma semente derivada da reprodução. Em um estado visitado cujas defasagens são
@@ -711,7 +714,7 @@ As implicações entre esquemas são:
   estágio de resíduos históricos, ela lê um resíduo invertido de janela (§2.5) e
   o aplica no próprio estado de defasagens da trajetória, como faz a simulação backward.
 
-### 4.6 Cenários Externos na Simulação Final
+### 4.6 Cenários externos na simulação final
 
 A simulação final seleciona o cenário externo ou a janela histórica de uma classe com
 os mesmos hashes do treinamento ([§3.2](#32-esquemas-de-amostragem-forward)), com o
@@ -720,9 +723,9 @@ sorteio de um cenário simulado depende apenas do índice do cenário. Um nó do
 que aponta para a coluna de realizações externas do seu estágio usa essa
 coluna.
 
-## 5. Cenários de Carga e de Fontes Não Despacháveis
+## 5. Cenários de carga e de fontes não despacháveis
 
-### 5.1 Modelo de Incerteza da Carga
+### 5.1 Modelo de incerteza da carga
 
 Quando são fornecidas estatísticas de carga, o sistema gera realizações estocásticas
 de carga por (barramento, estágio) usando a média e o desvio-padrão
@@ -745,7 +748,7 @@ Sem estatísticas de carga, todo barramento tem carga zero, a menos que a classe
 externa no treinamento: os barramentos de seus cenários externos assumem então os
 momentos das amostras externas (§4.1).
 
-### 5.2 Fatores de Carga por Patamar
+### 5.2 Fatores de carga por patamar
 
 A realização de carga base $d_{b,t}$ é um valor **do estágio**, em MW.
 As cargas por patamar são obtidas aplicando-se **fatores multiplicativos por patamar**:
@@ -757,14 +760,14 @@ $$
 em que $f_{b,t,k}$ é o fator do patamar $k$ do barramento $b$ no estágio $t$.
 Quando nenhum fator de patamar é informado, aplica-se um fator igual a um.
 
-### 5.3 Correlação da Carga
+### 5.3 Correlação da carga
 
 Um grupo de correlação contém entidades de uma única classe: usinas hidrelétricas, barramentos de carga ou
 fontes não despacháveis. O ruído de carga é correlacionado com os demais barramentos de carga do
 seu grupo por meio da fatoração da seção 2.1, e é independente dos
 ruídos de afluência e de NCS.
 
-### 5.4 Disponibilidade das Fontes Não Despacháveis
+### 5.4 Disponibilidade das fontes não despacháveis
 
 A disponibilidade da fonte não despachável $r$ em um estágio é a razão
 
@@ -777,7 +780,7 @@ fator de disponibilidade não limitado no estágio e $\varepsilon^{nc}_r \sim N(
 ruído. A razão é uma fração adimensional da capacidade instalada: o
 limite de geração da fonte em um patamar é a capacidade instalada multiplicada por $\xi_r$
 e pelo fator do patamar
-([Formulações específicas por equipamento §6](/pt-br/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis)
+([Formulações específicas por equipamento §6](/math/equipment-formulations#6-fontes-de-geracao-nao-despachaveis)
 apresenta esse limite e o corte de geração). Com $s^{nc}_r > 0$, a limitação eleva a
 média de $\xi_r$ acima de $\mu^{nc}_r$ quando $\mu^{nc}_r < 1/2$ e a reduz quando
 $\mu^{nc}_r > 1/2$. O ruído das NCS é correlacionado apenas com as demais fontes do seu
@@ -788,19 +791,19 @@ sem esse modelo assume a geração disponível do seu estágio — a capacidade 
 a menos que o estágio a defina — no lugar da capacidade instalada multiplicada por $\xi_r$, conforme
 indica a §6 de Formulações dos Equipamentos.
 
-## 6. Árvores de Cenários Enumeradas
+## 6. Árvores de cenários enumeradas
 
 A amostragem avalia o conjunto de aberturas de um nó sorteando a partir dele. Uma simulação
 **enumerada**, ao contrário, visita cada nó e cada caminho raiz-folha de um grafo da política
 finito uma única vez, sem amostragem; assim, seus limites são os da árvore declarada: o
 limite superior é calculado sobre todos os caminhos, em vez de estimado a partir de uma amostra
-([Avaliação do limite superior §2](/pt-br/math/upper-bound-evaluation/#2-limite-superior-deterministico-exato)).
+([Avaliação do limite superior §2](/math/upper-bound-evaluation/#2-limite-superior-deterministico-exato)).
 Seus requisitos estruturais — um conjunto de aberturas unitário em cada nó e
 grau de entrada 1 em todos os nós, de modo que o grafo seja uma árvore pura — são os de
-[Grafos da política §6](/pt-br/math/policy-graphs/#6-o-requisito-estrutural-de-arvore-enumerada).
+[Grafos da política §6](/math/policy-graphs/#6-o-requisito-estrutural-de-arvore-enumerada).
 A ramificação é, portanto, declarada como nós irmãos, cada um com uma abertura, e
 o tronco determinístico com ramificação apenas no estágio final
-([Maceira et al., 2002](/pt-br/reference/bibliography/#modelagem-de-afluencias)) é uma cadeia de nós com um único sucessor que termina em um leque terminal de nós
+([Maceira et al., 2002](/reference/bibliography/#modelagem-de-afluencias)) é uma cadeia de nós com um único sucessor que termina em um leque terminal de nós
 irmãos.
 
 Com um número comum de ramificações por estágio, o número de caminhos raiz-folha é
@@ -817,13 +820,13 @@ A metodologia acima define como os cenários são gerados e amostrados; as abas 
   <TabItem label="Notas de implementação"><ScenarioNotes /></TabItem>
 </Tabs>
 
-## Referências Cruzadas
+## Referências cruzadas
 
-- [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — definição matemática, conjunto de parâmetros, grandezas armazenadas vs. calculadas, procedimento de ajuste, justificativa da fatoração espectral, invariantes de validação
-- [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity) — tratamento de realizações negativas de afluência na amostragem do PAR
-- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — estrutura das simulações forward/backward, geração de cortes, convergência; remete à abstração do esquema de amostragem (seções 3.1–3.2)
-- [Grafos da política](/pt-br/math/policy-graphs) — a estrutura de nós/transições/conjuntos de cortes à qual se refere o conjunto de aberturas por nó $\Omega_n$ da árvore de aberturas (seção 2.3)
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — geração, armazenamento e seleção de cortes; usa as ramificações da árvore de aberturas como entrada da simulação backward
-- [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies) — configurações de modelagem com múltiplas resoluções; usa a geração de cenários com números variados de estágios
-- [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) — um estudo encadeado a uma política de montante; cada estudo sorteia sua própria árvore de cenários
-- [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) — resultados idênticos bit a bit por binário, com qualquer número de processos ou threads e em toda reexecução; fundamentados na arquitetura de derivação de sementes da seção 2.2
+- [Modelo de afluências PAR(p)](/math/par-inflow-model) — definição matemática, conjunto de parâmetros, grandezas armazenadas vs. calculadas, procedimento de ajuste, justificativa da fatoração espectral, invariantes de validação
+- [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity) — tratamento de realizações negativas de afluência na amostragem do PAR
+- [Algoritmo da PDDE](/math/sddp-algorithm) — estrutura das simulações forward/backward, geração de cortes, convergência; remete à abstração do esquema de amostragem (seções 3.1–3.2)
+- [Grafos da política](/math/policy-graphs) — a estrutura de nós/transições/conjuntos de cortes à qual se refere o conjunto de aberturas por nó $\Omega_n$ da árvore de aberturas (seção 2.3)
+- [Gerenciamento de cortes](/math/cut-management) — geração, armazenamento e seleção de cortes; usa as ramificações da árvore de aberturas como entrada da simulação backward
+- [Estudos com múltiplas resoluções](/math/multi-resolution-studies) — configurações de modelagem com múltiplas resoluções; usa a geração de cenários com números variados de estágios
+- [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) — um estudo encadeado a uma política de origem; cada estudo sorteia sua própria árvore de cenários
+- [Determinismo e rastreabilidade](/math/determinism-guarantees) — resultados idênticos bit a bit por binário, com qualquer número de processos ou threads e em toda reexecução; fundamentados na arquitetura de derivação de sementes da seção 2.2

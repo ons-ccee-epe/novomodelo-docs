@@ -6,14 +6,14 @@ description: Os arquivos do caso com a geometria dos reservatórios, os modelos 
 Estes cinco arquivos, todos em `system/`, contêm as tabelas e configurações por usina que sustentam a geração hidrelétrica:
 geometria do reservatório, o modelo de produção usado em cada estágio, sobrescritas de produtibilidade energética,
 hiperplanos da FPHA pré-calculados e curvas de nível do canal de fuga. Cada linha ou entrada identifica uma usina de
-[`system/hydros.json`](/pt-br/reference/case-format/hydros/#systemhydrosjson) por `hydro_id`. O
-[Resumo dos arquivos](/pt-br/reference/case-format/#resumo-dos-arquivos) associa cada arquivo do caso à sua página.
+[`system/hydros.json`](/reference/case-format/hydros/#systemhydrosjson) por `hydro_id`. O
+[Resumo dos arquivos](/reference/case-format/#resumo-dos-arquivos) associa cada arquivo do caso à sua página.
 
 ---
 
 ## `system/hydro_geometry.parquet`
 
-**Metodologia:** [Modelos de função de produção hidrelétrica §2.3](/pt-br/math/hydro-production-models/#23-funcoes-de-topologia)
+**Metodologia:** [Modelos de função de produção hidrelétrica §2.3](/math/hydro-production-models/#23-funcoes-de-topologia)
 
 Curvas cota-área-volume (VHA) dos reservatórios das usinas hidrelétricas.
 Obrigatório para uma usina com FPHA calculada (`source: "computed"`) e para uma
@@ -21,7 +21,7 @@ usina que declara coeficientes de `evaporation`. Quando o arquivo contém alguma
 linha, toda usina com FPHA precisa de pelo menos 1 linha própria.
 
 A tabela também é lida pelo avaliador da média na faixa útil
-([Modelos de função de produção hidrelétrica §4.3](/pt-br/math/hydro-production-models#43-produtibilidade-media-na-faixa-util))
+([Modelos de função de produção hidrelétrica §4.3](/math/hydro-production-models#43-produtibilidade-media-na-faixa-util))
 para **qualquer** usina hidrelétrica, seja qual for seu modelo de geração, que
 tenha produtibilidade específica (o campo de entidade em `system/hydros.json` ou
 uma sobrescrita em `system/hydro_energy_productivity.parquet`). Para essa usina,
@@ -30,7 +30,7 @@ positiva em um estágio sem valor de
 `integrated_equivalent_productivity_mw_per_m3s` em
 `system/hydro_energy_productivity.parquet`, faz o caso ser rejeitado em
 `novomodelo validate` (veja
-[`GenericConstraintValidationError`](/pt-br/reference/error-codes/#genericconstraintvalidationerror)).
+[`GenericConstraintValidationError`](/reference/error-codes/#genericconstraintvalidationerror)).
 Elabore a tabela de modo que cubra de `reservoir.min_storage_hm3` a `reservoir.max_storage_hm3`:
 quando a tabela é mais estreita, a média é calculada sobre a extensão da própria tabela.
 
@@ -53,7 +53,7 @@ não decrescentes, cada um dentro de uma tolerância relativa.
 
 ## `system/hydro_production_models.json`
 
-**Metodologia:** [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models/) · [§2.8 Redução de hiperplanos semelhantes](/pt-br/math/hydro-production-models/#28-reducao-de-hiperplanos-semelhantes)
+**Metodologia:** [Modelos de função de produção hidrelétrica](/math/hydro-production-models/) · [§2.8 Redução de hiperplanos semelhantes](/math/hydro-production-models/#28-reducao-de-hiperplanos-semelhantes)
 
 Atribuição da função de produção por usina hidrelétrica. O arquivo precisa de
 uma entrada para cada usina cujo `generation.model` em `system/hydros.json` seja
@@ -173,8 +173,8 @@ padrão válida para todo o caso.
 | `production_models[].stage_ranges[].fpha_config.source` | string | Sim | — | — | `"precomputed"` ou `"computed"` |
 | `production_models[].stage_ranges[].fpha_config.volume_discretization_points` | integer \| null | Não | — | — | Número de pontos da grade de volume, no mínimo `2`; `1`, ou uma faixa de volume de ajuste reduzida a um único ponto, seleciona o ajuste com volume único (fio d'água); ausente ou `null` usa `5` |
 | `production_models[].stage_ranges[].fpha_config.turbine_discretization_points` | integer \| null | Não | — | — | Número de pontos da grade de vazão turbinada; no mínimo `2`; ausente ou `null` usa `5` |
-| `production_models[].stage_ranges[].fpha_config.spillage_discretization_points` | integer \| null | Não | — | — | Validado (`>= 2`); não acrescenta um eixo de vertimento ao ajuste — aceito para preservar a entrada em ida e volta (veja [Modelos de função de produção hidrelétrica — Configurar](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo)); ausente ou `null` usa `5` |
-| `production_models[].stage_ranges[].fpha_config.max_planes_per_hydro` | integer \| null | Não | — | — | Validado (`>= 1`); o ajuste mantém todas as facetas da envoltória superior e não as reduz a esse número; apenas `fpha_plane_reduction` reduz o conjunto (veja [Modelos de função de produção hidrelétrica — Configurar](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo)); ausente ou `null` usa `10` |
+| `production_models[].stage_ranges[].fpha_config.spillage_discretization_points` | integer \| null | Não | — | — | Validado (`>= 2`); não acrescenta um eixo de vertimento ao ajuste — aceito para preservar a entrada em ida e volta (veja [Modelos de função de produção hidrelétrica — Configurar](/math/hydro-production-models#implementacao-no-novo-modelo)); ausente ou `null` usa `5` |
+| `production_models[].stage_ranges[].fpha_config.max_planes_per_hydro` | integer \| null | Não | — | — | Validado (`>= 1`); o ajuste mantém todas as facetas da envoltória superior e não as reduz a esse número; apenas `fpha_plane_reduction` reduz o conjunto (veja [Modelos de função de produção hidrelétrica — Configurar](/math/hydro-production-models#implementacao-no-novo-modelo)); ausente ou `null` usa `10` |
 | `production_models[].stage_ranges[].fpha_config.fitting_window` | object \| null | Não | — | — | Restrição da faixa de volume para o cálculo dos hiperplanos; ausente ou `null` usa toda a faixa de nível de montante da curva cota-volume da usina em `system/hydro_geometry.parquet` |
 | `production_models[].stage_ranges[].fpha_config.turbined_fit_max_m3s` | number \| null | Não | — | m³/s | Extremo superior da faixa de vazão turbinada que um ajuste a partir da geometria amostra, a partir de `0`; finito e `> 0.0`, caso contrário é rejeitado na carga; ausente ou `null` usa o `max_turbined_m3s` da usina |
 | `production_models[].stage_ranges[].fpha_config.spillage_fit_max_m3s` | number \| null | Não | — | m³/s | Extremo superior da faixa de vertimento sobre a qual um ajuste a partir da geometria lê o coeficiente de vertimento de cada plano, a partir de `0`; finito e `> 0.0`, caso contrário é rejeitado na carga; ausente ou `null` usa o dobro da média dos valores da usina em `scenarios/inflow_history.parquet`, ou o dobro de seu `max_turbined_m3s` quando essa média não é positiva ou a usina não tem histórico |
@@ -198,7 +198,7 @@ geometria; em uma usina sem nenhuma entrada `source: "computed"`, são validadas
 `turbined_fit_max_m3s` pode ficar abaixo ou acima do `max_turbined_m3s` da usina: ele define apenas o eixo de vazão da grade de
 ajuste, e os limites de vazão turbinada do PL continuam sendo os da própria usina. O valor substituto do vertimento lê o `max_turbined_m3s` da usina,
 nunca `turbined_fit_max_m3s`
-([Modelos de função de produção hidrelétrica §2.6.1 e §2.7](/pt-br/math/hydro-production-models#26-processo-de-ajuste-da-fpha-calculada)).
+([Modelos de função de produção hidrelétrica §2.6.1 e §2.7](/math/hydro-production-models#26-processo-de-ajuste-da-fpha-calculada)).
 
 **Campos de `fitting_window`.** Os limites absolutos (`volume_min_hm3`, `volume_max_hm3`)
 e os limites percentuais (`volume_min_percentile`, `volume_max_percentile`) são
@@ -274,7 +274,7 @@ mutuamente exclusivos para cada limite — defina no máximo um entre `volume_mi
 
 ## `system/hydro_energy_productivity.parquet`
 
-**Metodologia:** [Modelos de função de produção hidrelétrica §4](/pt-br/math/hydro-production-models/#4-grandezas-de-conversao-de-energia)
+**Metodologia:** [Modelos de função de produção hidrelétrica §4](/math/hydro-production-models/#4-grandezas-de-conversao-de-energia)
 
 Sobrescritas opcionais, por usina e por estágio, para a camada de
 pré-processamento da conversão energética. Linhas com `stage_id = NULL` atuam
@@ -287,7 +287,7 @@ diferente de consumidores:
   `accumulated_productivity` e a coluna de saída da simulação
   `equivalent_productivity_mw_per_m3s`. Ela só atinge o valor médio na faixa
   útil para uma usina que não tem média própria a integrar (passo 3 da
-  [ordem de resolução](/pt-br/math/hydro-production-models#43-produtibilidade-media-na-faixa-util)):
+  [ordem de resolução](/math/hydro-production-models#43-produtibilidade-media-na-faixa-util)):
   uma usina com geometria VHA e produtibilidade específica integra sua média
   mesmo quando esta coluna está definida.
 - `integrated_equivalent_productivity_mw_per_m3s` — define integralmente a
@@ -330,7 +330,7 @@ diferente de consumidores:
 - `integrated_equivalent_productivity_mw_per_m3s`, quando definida, deve ser finita e >= 0.0.
 - Uma linha em que as quatro colunas de sobrescrita são NULL é aceita.
 - Pares `(hydro_id, stage_id)` duplicados são rejeitados na montagem do caso.
-- O volume operativo de referência V_ref é declarado por `(usina, estágio)` por `reference_volume` em
+- O volume operativo de referência V_ref é declarado por `(plant, stage)` por `reference_volume` em
   `system/hydro_production_models.json`; uma coluna `reference_volume_hm3` neste
   arquivo é ignorada, com um aviso.
 
@@ -338,7 +338,7 @@ diferente de consumidores:
 
 ## `system/fpha_hyperplanes.parquet`
 
-**Metodologia:** [Modelos de função de produção hidrelétrica §2.5](/pt-br/math/hydro-production-models/#25-hiperplanos-da-fpha)
+**Metodologia:** [Modelos de função de produção hidrelétrica §2.5](/math/hydro-production-models/#25-hiperplanos-da-fpha)
 
 Coeficientes pré-calculados dos hiperplanos da FPHA para usinas configuradas com
 `fpha_config.source: "precomputed"`. Quando ausente, apenas a fonte `"computed"`
@@ -380,7 +380,7 @@ quando se usa `source: "computed"`) tem exatamente o mesmo esquema de 11 colunas
 
 ## `system/tailrace_curves.parquet`
 
-**Metodologia:** [Modelos de função de produção hidrelétrica §2.3.1](/pt-br/math/hydro-production-models/#231-familias-quarticas-por-partes-do-canal-de-fuga-acoplamento-por-remanso)
+**Metodologia:** [Modelos de função de produção hidrelétrica §2.3.1](/math/hydro-production-models/#231-familias-quarticas-por-partes-do-canal-de-fuga-acoplamento-por-remanso)
 
 Curvas opcionais de nível do canal de fuga, quárticas por partes, que
 substituem o modelo de canal de fuga no nível da entidade para qualquer usina
