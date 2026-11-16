@@ -239,6 +239,17 @@ aritmética dá no local, de modo que reutilizá-la entre as aberturas de um est
 visitado, ou entre os estados visitados de um nó, não altera nenhum bit
 ([Folding do PAR(p) §3](/math/par-folding#3-o-lado-direito-dos-cortes)).
 
+**Cada trajetória carrega sua própria acumulação de defasagens.** Onde um período de
+defasagem abrange vários estágios, as defasagens que um estágio repassa dependem da
+soma parcial do período aberto ([Estudos com múltiplas resoluções §2](/math/multi-resolution-studies#2-acumulacao-das-defasagens)).
+Cada trajetória da simulação forward mantém suas próprias somas parciais, restauradas
+antes de cada uma de suas resoluções e gravadas depois dela, e cada resolução backward
+em um estado visitado lê a soma parcial da visita forward que produziu esse estado
+visitado. As defasagens de uma trajetória, portanto, não dependem de qual thread ou
+processo resolveu seus estágios anteriores, nem da ordem em que as trajetórias são
+executadas. As somas parciais ficam no processo que detém a trajetória, e nenhuma
+mensagem MPI as transporta.
+
 **Derivação determinística das sementes entre processos MPI.** Cada sorteio é produzido por um
 gerador de números pseudoaleatórios cuja semente é um valor derivado deterministicamente
 de uma semente-raiz e de uma tupla que identifica o sorteio. A tupla depende do

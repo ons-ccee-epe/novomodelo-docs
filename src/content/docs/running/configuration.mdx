@@ -1058,14 +1058,26 @@ weekly dispatch inside a monthly stage through chronological blocks.
   lowest-id season that covers its date; a season that never has the lowest id
   therefore receives observations only from inside the `stages.json` stages of
   that season.
-- On a stage that does not close its lag period, such as a weekly stage inside a
-  month, the outgoing inflow lags are the incoming ones, and on the stage that
-  runs the monthly-to-quarterly rebuild they are the averaged quarterly lags,
-  while a cut on the inflow-lag components maps lag 1 to the stage's own inflow
-  and every later lag ℓ to incoming lag ℓ − 1. With such stages and a PAR order
-  of 1 or more, the lower bound is not guaranteed to stay below the upper bound,
-  even with inflow lags in the cut projection
-  ([`stages[].state_variables`](/en/math/cut-management/#stagesstate_variables--cut-projection)).
+- A cut on the inflow-lag components reads the stage's outgoing inflow lags
+  ([Multi-Resolution Studies §2.1](/en/math/multi-resolution-studies/#21-the-lags-the-cuts-read)).
+  On a stage that does not close its lag period, such as a weekly stage inside a
+  month, those are the incoming lags. On a stage that closes a period begun at
+  an earlier stage or before the study, lag 1 is the period's duration-weighted
+  mean, the stage's own inflow included, and every later lag ℓ is incoming lag
+  ℓ − 1. On the stage that runs the monthly-to-quarterly rebuild, the outgoing
+  lags are the averaged quarterly lags, but the cut maps lag 1 to the stage's
+  own inflow and every later lag ℓ to incoming lag ℓ − 1, as at a
+  single-resolution stage, and the study setup logs one warning:
+  `stage <stage_id>: the inflow lags step from months to quarters here; cuts at this stage evaluate inflow lags as at a single-resolution stage`.
+- With such stages and a PAR order of 1 or more, the cuts are exact only where
+  the partial inflow of every open lag period is the same on every path, as
+  when the only period split over stages begins before the study and closes at
+  its first stage. Elsewhere the lower bound is not guaranteed to stay below the
+  upper bound, even with inflow lags in the cut projection
+  ([`stages[].state_variables`](/en/math/cut-management/#stagesstate_variables--cut-projection)),
+  and no warning flags such a study.
+- Each sampled forward trajectory accumulates its own lag periods, so training
+  results do not depend on `--threads` or on the MPI rank count.
 
 ---
 

@@ -108,7 +108,7 @@ A mesma $\hat{z}_h$ é a afluência realizada em todo o restante da resolução:
 
 ## 3. O lado direito dos cortes
 
-O corte $i$ do PL do estágio $t$ limita $V_{t+1}$, cujas defasagens de entrada são a afluência realizada do estágio $t$ (defasagem $1$) e as defasagens de entrada do estágio $t$ deslocadas de uma posição (defasagem $\ell \ge 2$) ([Formulação do PL §11](/math/lp-formulation#11-cortes-de-benders)). No PL compacto, esses valores são números, e a linha de corte fica
+O corte $i$ do PL do estágio $t$ limita $V_{t+1}$, cujas defasagens de entrada são as defasagens de saída do estágio $t$: em um estágio que completa um período de defasagem que começa nele, a afluência realizada do estágio $t$ (defasagem $1$) e as defasagens de entrada do estágio $t$ deslocadas de uma posição (defasagem $\ell \ge 2$) ([Formulação do PL §11](/math/lp-formulation#11-cortes-de-benders)); o fim desta seção dá as outras formas. No PL compacto, esses valores são números, e a linha de corte fica
 
 $$
 \theta - \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h - \cdots \ge R_i
@@ -164,6 +164,14 @@ openings -> rhs
 ```
 
 Cada parte é somada em uma ordem fixa, e uma parte guardada é o valor que a mesma conta daria no lugar, de modo que o reaproveitamento não altera nenhum bit: o resultado é o mesmo com ou sem ele, em qualquer número de threads e de processos (rank MPI) ([Determinismo e rastreabilidade](/math/determinism-guarantees)). O método dinâmico verifica um corte omitido contra o mesmo lado direito ([Gerenciamento de cortes §8](/math/cut-management#8-o-metodo-dinamico)).
+
+**Períodos de defasagem divididos entre estágios.** Em um estágio que deixa seu período de defasagem aberto, as defasagens de saída são as de entrada ([Estudos com múltiplas resoluções §2.1](/math/multi-resolution-studies#21-as-defasagens-que-os-cortes-leem)), de modo que todo termo de defasagem de um corte é $\beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell}$, na parte do estado, e a parte do ruído é nula. Em um estágio que completa um período iniciado antes, a defasagem 1 é a média do período $b_h + c_h \, \hat{z}_h$, com
+
+$$
+b_h = \frac{S_{h,t}}{W_{h,t} + w_{t,\mathcal{W}}}, \qquad c_h = \frac{w_{t,\mathcal{W}}}{W_{h,t} + w_{t,\mathcal{W}}}
+$$
+
+de modo que seu termo põe $\beta^{lag}_{i,h,1} (b_h + c_h \, \hat{z}^{x}_h)$ na parte do estado e $\beta^{lag}_{i,h,1} \, c_h \, \hat{z}^{\varepsilon}_h$ na parte do ruído. $b_h$ depende do estado visitado pela soma parcial, e $c_h$ não depende do estado visitado nem da abertura, de modo que cada parte mantém seu reaproveitamento.
 
 ## 4. Os coeficientes das defasagens pela regra da cadeia
 
@@ -221,6 +229,20 @@ succ -> newcut: "+, na defasagem ℓ"
 - **Projeção.** Um componente que o corte deixa fora da projeção não tem coeficiente ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)): um corte sucessor sem a defasagem $\ell+1$ não acrescenta termo na defasagem $\ell$, e o corte novo mantém os coeficientes de defasagem que a projeção do seu próprio estágio seleciona.
 - **Completude.** O estado de entrada entra no PL compacto apenas pelos lados direitos e pelos limites de coluna (§2), de modo que os dois caminhos são os únicos e a regra deriva o PL que é resolvido. O montante de truncamento $a^-_h$ é um limite de coluna calculado a partir de $\hat{z}_h$, e a regra não o deriva; o PL expandido também não, pois nele o montante é igualmente um limite de coluna, de modo que a limitação de [Métodos de tratamento de afluências negativas §7](/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior) vale nas duas formulações.
 - **Agregação.** A regra é linear nas variáveis duais, e os pesos de [Gerenciamento de cortes §3](/math/cut-management#3-agregacao-em-corte-unico), sob o valor esperado ou sob uma medida de risco, dependem apenas dos valores objetivo das aberturas. O Novo Modelo agrega as variáveis duais das aberturas de cada nó filho com esses pesos e aplica a regra uma vez por nó filho, com os coeficientes $\psi$ desse filho; em aritmética exata, o resultado é a agregação dos cortes de cada abertura.
+
+**Períodos de defasagem divididos entre estágios.** A regra deriva os termos de defasagem das linhas de corte tal como a §3 os avalia ([Estudos com múltiplas resoluções §2.1](/math/multi-resolution-studies#21-as-defasagens-que-os-cortes-leem)). Em um estágio que deixa seu período de defasagem aberto, nenhuma linha de corte lê $\hat{z}_h$, e cada linha de corte avalia o corte sucessor na defasagem $\ell$ sobre a própria $\hat{a}_{h,\ell}$:
+
+$$
+\pi^z_h = -\sum_{r} \Gamma_{r,h} \, \pi_r, \qquad \beta^{lag}_{h,\ell} = \psi_{m(t),\ell} \, \pi^z_h + \sum_{i} \pi^{cut}_i \, \beta^{lag}_{i,h,\ell} \quad (\ell \le P^{\max})
+$$
+
+Em um estágio que completa um período iniciado antes, as linhas de corte leem $\hat{z}_h$ por meio de $c_h \, \hat{z}_h$, de modo que o termo dos cortes em $\pi^z_h$ é multiplicado por $c_h$, a soma parcial $S_{h,t}$ é mantida fixa e os coeficientes de defasagem tomam a forma dada para um estágio que completa um período que começa nele:
+
+$$
+\pi^z_h = -\sum_{r} \Gamma_{r,h} \, \pi_r + c_h \sum_{i} \pi^{cut}_i \, \beta^{lag}_{i,h,1}
+$$
+
+O corte é exato apenas onde $S_{h,t}$ é a mesma em todos os caminhos ([Estudos com múltiplas resoluções §2.1](/math/multi-resolution-studies#21-as-defasagens-que-os-cortes-leem)).
 
 ## 5. Exatidão e limites
 

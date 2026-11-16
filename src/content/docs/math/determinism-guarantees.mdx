@@ -241,6 +241,16 @@ arithmetic gives in place, so reusing it across a trial point's openings, or
 across the trial points of a node, changes no bit
 ([PAR(p) Folding §3](/en/math/par-folding#3-the-cut-right-hand-side)).
 
+**Each trajectory carries its own lag accumulation.** Where a lag period spans
+several stages, the lags a stage passes on depend on the partial sum of the open
+period ([Multi-Resolution Studies §2](/en/math/multi-resolution-studies#2-lag-accumulation)).
+Each forward trajectory keeps its own partial sums, restored before each of its
+solves and saved after it, and each backward solve at a trial point reads the
+partial sum of the forward visit that produced that trial point. A trajectory's
+lags therefore do not depend on which thread or rank solved its earlier stages,
+or on the order in which trajectories run. The partial sums stay on the rank
+that owns the trajectory, and no MPI message carries them.
+
 **Deterministic seed derivation across MPI ranks.** Each draw is produced by a
 pseudo-random number generator seeded from a value derived deterministically
 from a root seed and a tuple that identifies the draw. The tuple depends on the
