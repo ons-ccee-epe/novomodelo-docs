@@ -3,7 +3,7 @@
 // mdbook-katex and the Starlight remark-math + rehype-katex pipeline parse `$$`
 // delimiters differently, so a chapter can migrate cleanly to Markdown yet
 // silently drop or merge display-math blocks in the built HTML. This script
-// proves parity mechanically: for every migrated root-locale chapter it counts
+// proves parity mechanically: for every chapter in either locale it counts
 // display-math blocks in the source and asserts the built HTML emits exactly
 // that many `.katex-display` nodes.
 //

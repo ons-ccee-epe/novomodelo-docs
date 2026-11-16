@@ -24,7 +24,8 @@
 // before page resolution. `/` is the landing page → `dist/index.html`. The build
 // `base` (DOCS_BASE) is honoured: an absolute href carrying the base prefix has
 // it stripped before resolving against `dist/`. The whole tree is walked, so
-// links inside `dist/pt-br/…` are validated too (intentional — not special-cased).
+// the links on the pt-BR pages at the docs root and on the English pages under
+// `en/` are validated alike (intentional — not special-cased).
 // Anchor ids are read directly from each target file's emitted HTML (github-
 // slugger's output), never re-derived from heading text.
 //
@@ -126,7 +127,8 @@ export function linkPolicy(sourceHtml, targetHtml) {
 
 // Recursively collect every .html file under dist/ (shape mirrors
 // check-math-parity.mjs's collectSourceFiles walker). The whole tree is walked,
-// including dist/pt-br/, so links on every built page are checked.
+// both locales and every version included, so links on every built page are
+// checked.
 function collectHtmlFiles(dir) {
   const files = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
