@@ -19,6 +19,7 @@
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { latestDocsDist } from "./docs-dist.mjs";
 
 const contentRoot = fileURLToPath(
   new URL("../src/content/docs/", import.meta.url),
@@ -85,6 +86,7 @@ function main() {
     process.exit(1);
   }
 
+  const docsRoot = latestDocsDist(distRoot);
   const sourceFiles = collectSourceFiles(contentRoot).sort();
   const failures = [];
   let blocksVerified = 0;
@@ -105,7 +107,7 @@ function main() {
     }
     const expected = delimiters / 2;
 
-    const htmlPath = `${distRoot}${rel.replace(/\.(md|mdx)$/, "")}/index.html`;
+    const htmlPath = `${docsRoot}${rel.replace(/\.(md|mdx)$/, "")}/index.html`;
     if (!existsSync(htmlPath)) {
       failures.push({
         rel,
