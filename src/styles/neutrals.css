@@ -1,67 +1,54 @@
-/* Novomodelo brand neutrals for Starlight — warm greyscale.
+/* Novomodelo neutrals for Starlight — the hotsite's cool greys
+   (docs/design/design-system.md §2 and §11), read from tokens.css; no hex here.
+
    Overrides ONLY Starlight's documented neutral scale (`--sl-color-{black,
    gray-1..7,white}`), from which Starlight derives every bg/text/hairline token
-   (style/props.css). This is a SEPARATE concern from the copper accent triple
-   (brand.css) and the `--dgm-*` diagram palette (palette.css).
+   (style/props.css). The accent is brand.css and the chart palette palette.css:
+   separate concerns.
 
-   Dark-first: dark is the default (`:root`), light is
-   the alternative (`:root[data-theme='light']`). The brand neutrals are warm
-   (slightly amber-tinted greys, not Starlight's cool blue-greys) so the page
-   reads as part of the copper-warm identity rather than the generic blue stack.
+   Scale orientation follows Starlight's own: in the dark scope (the default
+   `:root`) `--sl-color-white` is the brightest tone (headings) and
+   `--sl-color-black` the page background; the light scope inverts it.
 
-   Scale orientation follows Starlight's own (style/props.css): in DARK,
-   `--sl-color-white` is the BRIGHTEST tone (headings) and `--sl-color-black` is
-   the page background; greys run light (gray-1) -> dark (gray-6). LIGHT inverts:
-   `--sl-color-white` is the DARKEST tone and `--sl-color-black` is the off-white
-   page background. The six brand neutrals anchor the named roles; the remaining
-   slots are interpolated to keep a smooth ramp for Starlight's UI greys.
+   Where Starlight uses each step:
+     white/gray-1/gray-2  headings and body text (--sl-color-text = gray-2)
+     gray-3               secondary text (footer, edit link, TOC)
+     gray-4               blockquote and file-tree borders
+     gray-5               borders; inline-code bg in dark
+     gray-6               nav and sidebar bg in dark; inline-code and search
+                          surfaces in light; hairline
+     gray-7               nav bar and code-block bg in light
+     black                page background */
 
-   Key derived tokens (Starlight, unchanged wiring): page bg = black; body text =
-   gray-2; secondary text = gray-3; nav/sidebar bg = gray-6 (dark) / bg (light);
-   inline-code bg = gray-5 (dark) / gray-6 (light); hairlines = gray-5/6.
-
-   Contrast (WCAG AA) — body & secondary text on their backgrounds:
-     dark  body (gray-2 = Body #C8C6C2) on Midnight #0F1419     -> 10.85:1
-     dark  body on Surface (sidebar bg) #1A2028                 ->  9.61:1
-     dark  secondary (gray-3 = Muted #8B9298) on Midnight       ->  5.87:1
-     light body (gray-2 = Body #374151) on #FAFAF8              ->  9.86:1
-     light secondary (gray-3 = Muted #6B7280) on #FAFAF8        ->  4.63:1 */
-
-/* Dark — the default. white = Bright (brightest), black = Midnight (page bg). */
+/* Dark (default scope), design-system.md §11: the footer graphite is the page,
+   the header graphite the surface.
+     headings (--color-dark-heading) on the page          15.18:1
+     body (--color-dark-text) on the page / surface       11.97 / 10.60:1
+     secondary (--color-dark-muted) on the page / surface  9.04 /  8.00:1
+     inline code text on its gray-5 bg                     7.98:1 */
 :root {
-  --sl-color-white: #e8e6e3; /* Bright — headings, emphasis */
-  --sl-color-gray-1: hsl(36, 9%, 84%); /* between Bright and Body */
-  --sl-color-gray-2: #c8c6c2; /* Body — primary body text (--sl-color-text) */
-  --sl-color-gray-3: #8b9298; /* Muted — secondary text, captions */
-  --sl-color-gray-4: hsl(212, 10%, 40%); /* mid grey — dim UI, disabled */
-  --sl-color-gray-5: #2d3440; /* Border — hairline-light, inline-code bg */
-  --sl-color-gray-6: #1a2028; /* Surface — nav/sidebar bg, hairline */
-  --sl-color-black: #0f1419; /* Midnight — page/app background */
+  --sl-color-white: var(--color-dark-heading);
+  --sl-color-gray-1: var(--color-dark-heading);
+  --sl-color-gray-2: var(--color-dark-text);
+  --sl-color-gray-3: var(--color-dark-muted);
+  --sl-color-gray-4: var(--color-dark-border-strong);
+  --sl-color-gray-5: var(--color-dark-border);
+  --sl-color-gray-6: var(--color-dark-surface);
+  --sl-color-black: var(--color-dark-bg);
 }
 
-/* Light — the hotsite's cool greys (docs/design/design-system.md §2), read from
-   tokens.css; no hex here. white = darkest text, black = page bg, per
-   Starlight's inverted light scale. The dark block above is untouched until
-   the dark-theme decision lands (design-system.md §9, D1).
-
-   Where Starlight uses each step (light): white/gray-1/gray-2 = headings and
-   body text; gray-3 = secondary text (footer, edit link, TOC); gray-4 =
-   blockquote and file-tree borders; gray-5 = header and pagination borders;
-   gray-6 = inline-code and search surfaces, hairline; gray-7 = nav bar and
-   code-block background.
-
-   Contrast (WCAG AA), on the white page bg:
-     body (--color-text #1E2528)        -> 15.55:1
-     secondary (--color-muted #545F63)  ->  6.57:1
-     secondary on gray-6 (#F3F5F5)      ->  6.01:1 */
+/* Light, design-system.md §2.
+     body (--color-text #1E2528) on the white page        15.55:1
+     secondary (--color-muted #545F63) on the page         6.57:1
+     secondary on gray-6 (#F3F5F5)                         6.01:1 */
 :root[data-theme="light"] {
-  --sl-color-white: var(--color-text); /* headings, emphasis */
+  --sl-color-white: var(--color-text);
   --sl-color-gray-1: var(--color-text);
-  --sl-color-gray-2: var(--color-text); /* body text (--sl-color-text) */
-  --sl-color-gray-3: var(--color-muted); /* secondary text, captions */
-  --sl-color-gray-4: var(--color-border-strong); /* stronger borders */
-  --sl-color-gray-5: var(--color-border); /* borders, dividers */
-  --sl-color-gray-6: var(--color-bg-light); /* surfaces, inline-code bg */
-  --sl-color-gray-7: var(--color-bg-faq); /* nav and code-block bg */
-  --sl-color-black: var(--color-surface); /* page background */
+  --sl-color-gray-2: var(--color-text);
+  --sl-color-gray-3: var(--color-muted);
+  --sl-color-gray-4: var(--color-border-strong);
+  --sl-color-gray-5: var(--color-border);
+  --sl-color-gray-6: var(--color-bg-light);
+  --sl-color-gray-7: var(--color-bg-faq);
+  --sl-color-black: var(--color-surface);
 }

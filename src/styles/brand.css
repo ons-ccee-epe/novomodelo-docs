@@ -1,87 +1,46 @@
-/* Novomodelo brand accent for Starlight chrome — COPPER.
-   Overrides ONLY Starlight's documented `--sl-color-accent*` triple (chrome:
-   sidebar-active indicator, header, focus rings, hover, buttons) — NOT the
-   `--dgm-*` diagram palette (palette.css) nor the brand neutrals (neutrals.css);
-   all three are separate concerns.
+/* Novomodelo accent, links and asides for Starlight — the hotsite's sea green
+   (docs/design/design-system.md). Every value comes from tokens.css.
 
-   Copper #B87333 is the primary accent. Flow Blue is a SECONDARY accent scoped
-   to links only, so it is applied to inline prose links here (a targeted rule),
-   NOT to the chrome accent.
+   This file overrides Starlight's documented accent ramp (`--sl-color-accent*`:
+   sidebar-active pill, focus rings, hover, buttons), the prose-link rule and the
+   aside hue families. The neutral scale is neutrals.css and the chart palette
+   palette.css: separate concerns.
 
-   The copper/blue split is intentional and must stay visibly distinct:
-     - chrome  -> copper, via the `--sl-color-accent*` triple below.
-     - prose links -> flow blue, via the targeted `.sl-markdown-content a` rule
-       at the bottom. Starlight colours content links with
-       `var(--sl-color-text-accent)` (style/markdown.css), which DERIVES from the
-       accent triple — but `--sl-color-text-accent` ALSO backs the active-sidebar
-       pill background (style/SidebarSublist.astro `[aria-current='page']`). So we
-       must NOT repoint `--sl-color-text-accent` to blue (that would turn the
-       sidebar pill blue); we keep it copper and override the link colour directly.
+   Starlight's ramp has three stops. In the dark scope (the default `:root`):
+   low = pressed / text-invert on the pill, base = focus and UI, high = accent
+   text and the pill. In the light scope it is inverted: high = darkest, base =
+   accent text and the pill, low = lightest background. */
 
-   Ramp anchors: base = Copper #B87333
-   (hsl 29 57% 46%); dark high end = Copper Light #D4956A; low/pressed end =
-   Copper Dark #8B5E3C. Light mode is the inverted ramp (high = darkest text
-   tone, low = lightest bg tint) per Starlight's discipline; the light base is
-   anchored on Copper Dark so the accent — which doubles as `--sl-color-text-accent`
-   in light mode — clears WCAG AA as text on the off-white page bg (pure Copper
-   #B87333 is only 3.6:1 on #FAFAF8, AA-large only).
-
-   Contrast (WCAG AA), all vs their on-screen background:
-     dark  accent(base, Copper)            on Midnight #0F1419  -> 4.88:1
-     dark  text-accent(-high, Copper Light) on Midnight #0F1419 -> 7.32:1
-     dark  active-pill text(text-invert)   on pill bg #D4956A   -> 6.03:1
-     light accent(base = text-accent, Copper Dark) on #FAFAF8   -> 5.34:1
-     light active-pill text(off-white)     on pill bg #8B5E3C   -> 5.58:1
-     dark  flow-blue link  #4A90B8         on Midnight #0F1419  -> 5.26:1
-     light flow-blue link  #3A7596         on #FAFAF8           -> 4.82:1 */
-
-/* Dark — the default scope. Ramp: low (pressed/invert) -> base (focus/UI) -> high (text/pill bg). */
+/* Dark (default scope), design-system.md §11. Sea green is both the accent
+   text and the pill; the pill text is the on-primary ink.
+     accent text (--color-dark-accent) on --color-dark-bg       7.48:1
+     pill text (--color-on-primary) on the sea-green pill       7.53:1 */
 :root {
-  --sl-color-accent-low: hsl(
-    26,
-    45%,
-    14%
-  ); /* Copper Dark, deep — text-invert on pill */
-  --sl-color-accent: hsl(
-    29,
-    57%,
-    46%
-  ); /* Copper #B87333 — focus rings, indicators */
-  --sl-color-accent-high: hsl(
-    24,
-    55%,
-    62%
-  ); /* Copper Light #D4956A — text-accent, pill bg */
+  --sl-color-accent-low: var(--color-on-primary);
+  --sl-color-accent: var(--color-dark-accent);
+  --sl-color-accent-high: var(--color-dark-accent);
 }
 
-/* Light — the hotsite's sea green (docs/design/design-system.md §2), read from
-   tokens.css. Inverted ramp: high (darkest) -> base (text-accent, pill bg,
-   focus ring) -> low (lightest bg). The base is --color-accent #2F6C67, not
-   the #86B7B3 fill colour, because Starlight uses the base as text and as the
-   focus ring, and #86B7B3 is 2.23:1 on white (design-system.md §2.3, rules 2
-   and 5). The dark block above stays copper until D1 lands.
-
-   Contrast (WCAG AA):
-     accent (--color-accent) as text on white          -> 6.07:1
-     active-pill text (white page bg) on accent pill   -> 6.07:1
-     accent-high (--color-on-primary) on white         -> 16.75:1 */
+/* Light, design-system.md §2.3. The base is --color-accent #2F6C67, not the
+   #86B7B3 fill colour, because Starlight uses the base as text and as the
+   focus ring, and #86B7B3 is 2.23:1 on white (rules 2 and 5).
+     accent (--color-accent) as text on white                   6.07:1
+     active-pill text (white page bg) on the accent pill        6.07:1 */
 :root[data-theme="light"] {
-  --sl-color-accent-high: var(--color-on-primary); /* darkest sea green */
-  --sl-color-accent: var(--color-accent); /* text-accent, pill bg, focus */
-  --sl-color-accent-low: var(--color-primary-soft); /* accent backgrounds */
+  --sl-color-accent-high: var(--color-on-primary);
+  --sl-color-accent: var(--color-accent);
+  --sl-color-accent-low: var(--color-primary-soft);
 }
 
-/* Inline prose links -> Flow Blue. Targeted to
-   `.sl-markdown-content` content links ONLY, so chrome stays copper. This rule is
-   unlayered (customCss), so it wins over Starlight's `@layer` rule regardless of
-   selector specificity; the selector mirrors Starlight's own to stay precise. */
+/* Prose links follow the hotsite (design-system.md §9, D6): a 1 px underline
+   offset 3 px, thickening to 2 px on hover. The rule is unlayered (customCss),
+   so it wins over Starlight's `@layer` rule; the selector mirrors Starlight's.
+     dark  --color-dark-accent on --color-dark-bg   7.48:1 (hover 8.85:1)
+     light --color-accent on white                  6.07:1 */
 :root {
-  --novomodelo-link: #4a90b8; /* Flow Blue — link on dark page bg (5.26:1) */
-  --novomodelo-link-hover: #7fb3d1; /* lighter flow blue — accessible dark hover */
+  --novomodelo-link: var(--color-dark-accent);
+  --novomodelo-link-hover: var(--color-dark-accent-hover);
 }
-/* Light links follow the hotsite (design-system.md §9, D6): --color-accent
-   (6.07:1 on white), a 1 px underline offset 3 px, thickening to 2 px on
-   hover with no colour change. */
 :root[data-theme="light"] {
   --novomodelo-link: var(--color-accent);
   --novomodelo-link-hover: var(--color-accent);
@@ -97,56 +56,48 @@
   text-decoration-thickness: 2px;
 }
 
-/* === Semantic asides — brand mapping =============================================
-   note/info -> Flow Blue, tip -> Patina (success/green),
-   caution -> Spark Amber (warning), danger -> Signal Red (error/critical).
+/* === Asides (design-system.md §9, D5) ==========================================
+   In the hotsite's tone: every aside takes the shape of the hotsite's
+   .notice (neutral ground, 1 px border, 3 px bar at the start, 12 px radius)
+   and only two grounds exist, as on the hotsite:
+     note, tip = .notice--plan: neutral ground, sea-green bar, accent title;
+     caution   = .notice--alert: the amber ground, border, bar and title;
+     danger    = .notice--plan's neutral ground with the deficit bar and title,
+                 the one place the hotsite shape carries red.
+   The hue families below still feed Starlight's other uses (badges, the
+   blue family as the hydro hue).
 
-   Starlight (style/asides.css) keys each aside off a hue FAMILY (`-low` bg, base
-   border, `-high` title) and maps note->blue, tip->PURPLE, caution->orange,
-   danger->red. Two moves:
-     1. Repoint the blue / green / orange / red families to the brand hexes, so
-        the brand colours flow through wherever Starlight uses them.
-     2. Remap `tip` from the purple family to the green (Patina) family, since the
-        brand assigns tip = Patina. Purple is left untouched (Starlight does not
-        use it elsewhere by default).
+   Contrast (WCAG AA), title on the aside ground:
+             light                                  dark
+     note    #2F6C67 on #F3F5F5   5.54              #86B7B3 on #23292C   6.62
+     tip     #2F6C67 on #F3F5F5   5.54              #86B7B3 on #23292C   6.62
+     caution #8A6418 on #FBF7EF   5.02              #E3C27A on #2E2618   8.72
+     danger  #7E2824 on #F3F5F5   8.66              #F09A92 on #23292C   6.84
+   Body text on each ground: light >= 14.21:1, dark >= 13.44:1. */
 
-   Each family keeps Starlight's three-stop shape: `-low` = subtle aside bg, base =
-   coloured left-border, `-high` = title text. Light is the inverted ramp (-low
-   palest, -high darkest) per Starlight's discipline.
-
-   Contrast (WCAG AA) — aside title (-high) and body content on the aside bg (-low):
-     dark  note title 8.79:1 / content 10.59:1 · tip 9.22 / 11.03 · caution 9.16 /
-           10.58 · danger 8.31 / 12.12   (all on their -low bg)
-     light note title 6.99:1 / content 8.67:1 · tip 7.15 / 9.00 · caution 7.16 /
-           8.76 · danger 7.69 / 8.28 */
-
-/* Dark — the default ramp. */
+/* Dark (default scope) */
 :root {
-  --sl-color-blue-low: hsl(202, 40%, 18%); /* Flow Blue family (note) */
-  --sl-color-blue: #4a90b8;
-  --sl-color-blue-high: hsl(202, 50%, 82%);
-  --sl-color-green-low: hsl(154, 30%, 15%); /* Patina family (tip) */
-  --sl-color-green: #4a8b6f;
-  --sl-color-green-high: hsl(154, 40%, 78%);
-  --sl-color-orange-low: hsl(37, 50%, 16%); /* Spark Amber family (caution) */
-  --sl-color-orange: #f5a623;
-  --sl-color-orange-high: hsl(37, 85%, 78%);
-  --sl-color-red-low: hsl(0, 45%, 18%); /* Signal Red family (danger) */
-  --sl-color-red: #dc4c4c;
-  --sl-color-red-high: hsl(0, 75%, 82%);
+  --sl-color-blue-low: var(--color-dark-el-hydro-soft);
+  --sl-color-blue: var(--color-el-hydro);
+  --sl-color-blue-high: var(--color-dark-el-hydro-light);
+  --sl-color-green-low: var(--color-dark-el-ncs-soft);
+  --sl-color-green: var(--color-el-ncs);
+  --sl-color-green-high: var(--color-dark-el-ncs-light);
+  --sl-color-orange-low: var(--color-dark-el-thermal-soft);
+  --sl-color-orange: var(--color-warning-bar);
+  --sl-color-orange-high: var(--color-dark-warning-fg);
+  --sl-color-red-low: var(--color-dark-el-deficit-soft);
+  --sl-color-red: var(--color-el-deficit);
+  --sl-color-red-high: var(--color-dark-el-deficit-light);
+  --novomodelo-note-bg: var(--color-dark-surface);
+  --novomodelo-note-title: var(--color-dark-accent);
+  --novomodelo-aside-border: var(--color-dark-border);
+  --novomodelo-caution-border: var(--color-dark-border);
+  --novomodelo-danger-title: var(--color-dark-el-deficit-light);
+  --novomodelo-aside-text: var(--color-dark-heading);
 }
 
-/* Light — the hotsite design system (docs/design/design-system.md §9, D5),
-   from tokens.css. caution = the hotsite's .notice--alert; note = its
-   .notice--plan (remapped below); tip and danger take the ncs and deficit
-   element hues; blue keeps the hydro hue for Starlight's other blue uses.
-
-   Contrast (WCAG AA), title (-high) on aside bg (-low):
-     note    --color-accent on --color-bg-light                 5.54:1
-     tip     --color-el-ncs-strong on --color-el-ncs-soft       7.30:1
-     caution --color-warning-fg on --color-warning-bg           5.02:1
-     danger  --color-el-deficit-strong on --color-el-deficit-soft 7.85:1
-   Body text is --color-text on each bg (>= 12.88:1). */
+/* Light */
 :root[data-theme="light"] {
   --sl-color-blue-low: var(--color-el-hydro-soft);
   --sl-color-blue: var(--color-el-hydro);
@@ -160,21 +111,39 @@
   --sl-color-red-low: var(--color-el-deficit-soft);
   --sl-color-red: var(--color-el-deficit);
   --sl-color-red-high: var(--color-el-deficit-strong);
+  --novomodelo-note-bg: var(--color-bg-light);
+  --novomodelo-note-title: var(--color-accent);
+  --novomodelo-aside-border: var(--color-border);
+  --novomodelo-caution-border: var(--color-warning-border);
+  --novomodelo-danger-title: var(--color-el-deficit-strong);
+  --novomodelo-aside-text: var(--color-text);
 }
 
-/* Light note aside = the hotsite's .notice--plan: light grey ground, sea-green
-   bar, accent title. Dark keeps the blue family until D1. */
-:root[data-theme="light"] .sl-markdown-content .starlight-aside--note {
-  --sl-color-asides-text-accent: var(--color-accent);
+/* The hotsite's .notice shape, for every aside */
+.sl-markdown-content .starlight-aside {
+  padding: 1.125rem 1.25rem;
+  border: 1px solid var(--novomodelo-aside-border);
+  border-inline-start: 3px solid var(--sl-color-asides-border);
+  border-radius: var(--radius);
+  color: var(--novomodelo-aside-text);
+}
+
+/* note and tip = .notice--plan */
+.sl-markdown-content :is(.starlight-aside--note, .starlight-aside--tip) {
+  --sl-color-asides-text-accent: var(--novomodelo-note-title);
   --sl-color-asides-border: var(--color-primary);
-  background-color: var(--color-bg-light);
+  background-color: var(--novomodelo-note-bg);
 }
 
-/* Remap the `tip` aside from Starlight's purple family to the Patina (green)
-   family, so tip renders brand-green per §2.2. Mirrors the variant block in
-   Starlight's style/asides.css, swapping purple -> green. */
-.sl-markdown-content .starlight-aside--tip {
-  --sl-color-asides-text-accent: var(--sl-color-green-high);
-  --sl-color-asides-border: var(--sl-color-green);
-  background-color: var(--sl-color-green-low);
+/* caution = .notice--alert (the orange family above) */
+.sl-markdown-content .starlight-aside--caution {
+  border-color: var(--novomodelo-caution-border);
+  border-inline-start-color: var(--sl-color-asides-border);
+}
+
+/* danger = .notice--plan's ground with the deficit bar and title */
+.sl-markdown-content .starlight-aside--danger {
+  --sl-color-asides-text-accent: var(--novomodelo-danger-title);
+  --sl-color-asides-border: var(--color-el-deficit);
+  background-color: var(--novomodelo-note-bg);
 }

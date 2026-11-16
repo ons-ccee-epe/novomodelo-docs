@@ -86,8 +86,9 @@ is the freeze runbook.
   `npm run check:hex` fails on a hex anywhere else. In the light theme the
   accent is sea green — `--color-primary` `#86B7B3` for fills, bars and focus
   on graphite, `--color-accent` `#2F6C67` for text and links — and the
-  diagram element hues are design-system.md §10. The dark theme keeps its
-  previous copper values until its variant lands (design-system.md §9, D1).
+  diagram element hues are design-system.md §10. The dark theme is the
+  design system's dark variant (§11, `--color-dark-*` tokens): graphite
+  grounds, `#86B7B3` for accent text and links.
   Never infer the accent from the diagram palette (`.claude/rules/diagrams.md`).
 - **Current-state voice, both layers.** Every page in both layers states what
   novomodelo does now, with no change narration (no "now", "no longer", "previously",

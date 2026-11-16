@@ -217,10 +217,9 @@ read from `src/styles/tokens.css` in the light theme. Those tokens are already
 `[data-theme]`-scoped, so a **single** rule per class themes both light and dark
 (no duplicated blocks); `!important` beats d2's emitted hex.
 
-In the light theme the look is **sea-green linework on cool-neutral cards**,
-matching the accent-coloured Observable-Plot curves, so the two figure systems
-cohere; the dark theme keeps its copper values until its variant lands
-(design-system.md §9, D1). The slot→brand map
+The look is **sea-green linework on cool-neutral cards** in both themes
+(graphite cards in the dark variant, design-system.md §11), matching the
+accent-coloured Observable-Plot curves, so the two figure systems cohere. The slot→brand map
 lives once at the top of `diagrams.css` (tune there):
 
 - **Neutrals** N1…N7 → the ink→background ramp (`--sl-color-white` … `--sl-color-black`).

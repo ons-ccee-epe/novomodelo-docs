@@ -36,7 +36,7 @@ ad-hoc hex; `npm run check:hex` rejects any other hex in a d2 fence.
 hotsite) and every colour is a token in `src/styles/tokens.css` — read both
 before any theming. In the light theme the accent is sea green (`--color-primary`
 `#86B7B3` for fills, `--color-accent` `#2F6C67` for text and links); the dark
-theme keeps its previous copper values until its variant lands (design-system.md
-§9, D1). **Never infer the accent from the diagram palette** (`--dgm-*` in
+theme is the dark variant of design-system.md §11 (`--color-dark-*` tokens,
+`#86B7B3` also for text). **Never infer the accent from the diagram palette** (`--dgm-*` in
 `src/styles/palette.css`; its `--dgm-hydro` is the hydro hue for water marks
 only, not the UI accent).

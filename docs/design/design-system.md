@@ -20,7 +20,7 @@ open until it carries a decision.
 
 - **Institutional, quiet, light.** Graphite bands frame the page (header, footer,
   one dark section); content sits on white or a very light cool grey. The
-  hotsite defines the light theme only; the docs add a dark variant (§9, D1).
+  hotsite defines the light theme only; the docs add the dark variant of §11.
 - **One accent.** Sea green `#86B7B3` is the only accent hue. It marks — bars,
   dots, borders, fills, focus — and never carries body text on a light ground.
 - **Text in a darker accent.** Accent-coloured text on light grounds uses
@@ -272,17 +272,17 @@ below needs a decision before the docs port; record it here when made.
 
 | ID | Gap | Why the docs need it | Decision |
 | --- | --- | --- | --- |
-| D1 | Dark theme | The docs open in dark and offer a theme switch; the hotsite has no `prefers-color-scheme` or `data-theme` | **Decided 2026-11-16:** the light theme follows the hotsite strictly and is final. The dark theme stays: the docs keep the theme switch, and a dark variant of this design system (tokens, Starlight dark scale, d2 dark render, chart palette, contrast table) is designed and approved before the adaptation PR merges. Until then the dark scope keeps its current values |
+| D1 | Dark theme | The docs open in dark and offer a theme switch; the hotsite has no `prefers-color-scheme` or `data-theme` | **Decided 2026-11-16:** the light theme follows the hotsite strictly. The dark theme stays, with the theme switch, as the dark variant of §11 (approved 2026-11-16) |
 | D2 | Code font | Code blocks, inline code and CLI samples; the hotsite only uses the system monospace stack on one element | **Decided 2026-11-16:** keep the hotsite's system monospace stack as `--font-mono`. No web font is shipped for code, so JetBrains Mono and its Fontsource package leave the docs |
-| D3 | Element palette for diagrams and charts | Hydro, thermal, non-controllable source, deficit and generic elements need distinct hues that sit with the single sea-green accent and keep contrast on the light grounds and on the dark variant (D1) | **Proposed 2026-11-16, pending review:** see §10 |
+| D3 | Element palette for diagrams and charts | Hydro, thermal, non-controllable source, deficit and generic elements need distinct hues that sit with the single sea-green accent and keep contrast on the light grounds and on the dark variant (D1) | **Decided 2026-11-16:** the element palette of §10 |
 | D4 | Header treatment and logo | The docs header is light today; the hotsite's wordmark and logos are white-on-graphite | **Decided 2026-11-16:** follow the hotsite. The docs header is graphite (`--color-bg-dark`) with `--color-text-on-dark`, the hotsite wordmark (`.brand-mark` + `.brand-name`) and the white ONS, CCEE and EPE logos at the header sizes in §8; the focus ring on it is `--color-primary` |
-| D5 | Semantic colours | Starlight asides (note, tip, caution, danger) need info / success / warning / danger hues; the hotsite only has the warning values of `.notice--alert` | **Proposed 2026-11-16, pending review with D3:** note = the hotsite's `.notice--plan` (`--color-bg-light` ground, `--color-primary` bar, `--color-accent` title, 5.54:1); caution = its `.notice--alert` (tokens `--color-warning-*`, 5.02:1); tip and danger use the ncs and deficit hues of §10 with their `-soft` grounds and `-strong` titles (7.30:1 and 7.85:1) |
+| D5 | Semantic colours | Starlight asides (note, tip, caution, danger) need info / success / warning / danger hues; the hotsite only has the warning values of `.notice--alert` | **Revised 2026-11-16 after review ("tom do hotsite"), pending re-approval:** every aside takes the hotsite `.notice` shape (neutral ground, 1 px border, 3 px start bar, 12 px radius) and only the hotsite grounds. Note and tip = `.notice--plan` (`--color-bg-light`, `--color-primary` bar, `--color-accent` title, 5.54:1); caution = `.notice--alert` (`--color-warning-*`, 5.02:1); danger = the `.notice--plan` ground with the `--color-el-deficit` bar and `--color-el-deficit-strong` title (8.66:1). Dark: surface ground, same bars, titles `#86B7B3` (6.62), `#E3C27A` on `#2E2618` (8.72), `#F09A92` (6.84) |
 | D6 | Link style in running text | The hotsite links are `--color-accent` with a 1 px underline offset 3 px; confirm for the docs body | **Decided 2026-11-16:** follow the hotsite. Links in running text are `--color-accent` (`#2F6C67`, 6.07:1 on white), underlined with `text-decoration-thickness: 1px` and `text-underline-offset: 3px`, thickening to 2 px on hover. Links on graphite use `--color-text-on-dark` and turn `--color-primary` on hover |
-| D7 | Token file | One `tokens.css` shared by `hotsite/` and `src/styles/`, or two copies kept in sync by a check | **Proposed 2026-11-16, pending review:** two copies kept in sync by a check. `hotsite/style.css` stays the designer's file, replaced whole on each new version; `src/styles/tokens.css` uses the same token names, and `npm run check:hex` fails when a token both declare holds different values (number and spacing formatting aside) |
+| D7 | Token file | One `tokens.css` shared by `hotsite/` and `src/styles/`, or two copies kept in sync by a check | **Deferred 2026-11-16, decision later.** In place meanwhile: two copies kept in sync by a check. `hotsite/style.css` stays the designer's file, replaced whole on each new version; `src/styles/tokens.css` uses the same token names, and `npm run check:hex` fails when a token both declare holds different values (number and spacing formatting aside) |
 
 ---
 
-## 10. Element palette for diagrams, charts and entity pages (D3, proposed)
+## 10. Element palette for diagrams, charts and entity pages (D3)
 
 Four hues mark element types; everything else uses the accent and the neutrals.
 Each hue is solved to a relative luminance of about 0.168, so the **same hex**
@@ -311,5 +311,51 @@ Rules:
    hydrology → hydro, equipment → thermal, network → accent, rules → muted.
 4. A label drawn in an element hue sits on a light ground only; on graphite
    labels use `--color-text-on-dark`.
-5. Tints for chip and card backgrounds are a light-theme concern and come with
-   the dark variant (D1) for the dark theme.
+5. Tints for chip and card backgrounds, and text drawn in an element hue,
+   change with the theme: `--color-el-*-soft` and `-strong` in light,
+   `--color-dark-el-*-soft` and `-light` in dark (§11). Only the four stroke
+   hexes are shared by both themes.
+
+---
+
+## 11. Dark variant (D1)
+
+The hotsite has no dark theme. The docs keep one, derived from the hotsite's
+own graphite: the footer graphite is the page, the header graphite the
+surface, and sea green carries accent text as well as fills, because on
+graphite it has contrast to spare. Tokens are `--color-dark-*` in
+`src/styles/tokens.css`; the Starlight dark scope in `neutrals.css`,
+`brand.css`, `palette.css` and `entity.css` reads them.
+
+| Role | Light | Dark | Token (dark) | Dark contrast |
+| --- | --- | --- | --- | --- |
+| Page background | `#FFFFFF` | `#1A1F21` | `--color-dark-bg` | — |
+| Surface: nav, sidebar, cards, header | `#F3F5F5` (header `#23292C`) | `#23292C` | `--color-dark-surface` | — |
+| Code, chips, raised panels | `#F6F7F7` | `#2C3337` | `--color-dark-surface-2` | — |
+| Headings | `#1E2528` | `#F2F5F5` | `--color-dark-heading` | 15.18 on the page |
+| Body text | `#1E2528` | `#D5DCDD` | `--color-dark-text` | 11.97 page, 10.60 surface |
+| Secondary text | `#545F63` | `#B6C1C3` | `--color-dark-muted` | 9.04 page, 8.00 surface, 6.97 surface-2 |
+| Links, accent text, focus | `#2F6C67` | `#86B7B3` | `--color-dark-accent` | 7.48 page, 6.62 surface |
+| Link hover | `#2F6C67` + 2 px underline | `#9CC5C1` | `--color-dark-accent-hover` | 8.85 page |
+| Text on a sea-green fill (pill) | `#FFFFFF` on `#2F6C67` | `#13201F` on `#86B7B3` | `--color-on-primary` | 7.53 |
+| Accent tint | `#E7F1F0` | `#20393A` | `--color-dark-accent-soft` | accent on it 5.53 |
+| Borders | `#DCE2E2` | `#353D41` | `--color-dark-border` | decorative; inline code text on it 7.97 |
+| Strong borders | `#C3CCCC` | `#4A5458` | `--color-dark-border-strong` | decorative |
+
+Element hues in the dark theme:
+
+| Element | Stroke (both themes) | Tint (dark) | Text on tint (dark) | Contrast |
+| --- | --- | --- | --- | --- |
+| Hydro | `#3378A3` (3.45 on the page) | `#1C2A33` | `#8DBEDD` | 7.38 |
+| Thermal | `#9B6719` (3.45) | `#2E2618` | `#E0B46A` | 7.75 |
+| Non-controllable source | `#5D7C2F` (3.48) | `#232B1B` | `#B4CC86` | 8.32 |
+| Deficit | `#C7463D` (3.46) | `#321F1D` | `#F09A92` | 7.22 |
+| Warning (caution aside) | bar `#B88A2E` | `#2E2618` | `#E3C27A` | 8.72 |
+
+Charts use the light shades as marks in the dark theme (thermal 8.64:1,
+hydro 8.35:1 on the page) so thin lines keep their weight; d2 strokes keep the
+four shared hexes. Asides keep the hotsite `.notice` shape: note, tip and danger on
+`--color-dark-surface` (titles 6.62, 6.62 and 6.84:1), caution on the
+thermal tint with `#E3C27A` (8.72:1). The header stays graphite in both themes; the
+EnergyPath bands keep the light-theme hues, whose white labels hold 4.82:1
+or more.

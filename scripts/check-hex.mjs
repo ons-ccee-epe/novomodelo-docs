@@ -20,10 +20,9 @@
 // the same value, so a new designer version of the hotsite that changes a
 // token fails here until tokens.css follows it.
 //
-// Exceptions live in scripts/hex-allow.txt, one `path<TAB>hex<TAB>reason` per
-// line; the dark-theme values waiting for the dark variant (D1) sit there and
-// leave when it lands. A stale exception (no longer found) is reported too, so
-// the file shrinks with the code.
+// An exception, if one is ever needed, goes in scripts/hex-allow.txt (absent
+// today), one `path<TAB>hex<TAB>reason` per line. A stale exception (no longer
+// found) is reported too, so the file shrinks with the code.
 //
 // Exports `findHexes(text, path)`, `checkFiles(files, allow)` and
 // `parseAllow(text)` behind a direct-run guard.
