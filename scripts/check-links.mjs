@@ -33,10 +33,20 @@
 // `<source-html> -> <href>`, marking a resolved-page-but-missing-fragment case
 // as `<source-html> -> <href> (missing #fragment)`, or with a build-first
 // message when `dist/` is absent.
+//
+// Link policy: a link can resolve and still break the reading path. Every
+// `<a href>` on a page of the latest docs also fails when its target is a
+// redirect stub (`<source-html> -> <href> (links to a redirect stub)`) or a page
+// whose `<html lang>` differs from the source's (`<source-html> -> <href>
+// (crosses language: en → pt-BR)`). Redirect stubs, the frozen snapshots under
+// each versions.json `versions[].base` and the Lunaria dashboard, which lists
+// both locales by design, are exempt as sources and as targets. `<link>` tags
+// (hreflang alternates, canonical) are not `<a>` links and are not checked.
 
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
+import { latestDocsDist } from "./docs-dist.mjs";
 
 const distRoot = fileURLToPath(new URL("../dist/", import.meta.url));
 
@@ -88,6 +98,30 @@ export function extractAnchors(html) {
     anchors.add(match[1]);
   }
   return anchors;
+}
+
+const HTML_LANG_PATTERN = /<html\b[^>]*\slang="([^"]*)"/i;
+const REFRESH_META_PATTERN = /<meta\b[^>]*\shttp-equiv=(["'])refresh\1/i;
+
+// The `lang` attribute of the page's <html> element, or null when it has none.
+export function htmlLang(html) {
+  return HTML_LANG_PATTERN.exec(html)?.[1] ?? null;
+}
+
+// True for a redirect stub: an Astro `redirects` page or a build:versions stub,
+// both a <meta http-equiv="refresh">.
+export function isRedirectStub(html) {
+  return REFRESH_META_PATTERN.test(html);
+}
+
+// Why a link whose target exists still fails: it lands on a redirect stub, or
+// on a page in another language. null when it does neither.
+export function linkPolicy(sourceHtml, targetHtml) {
+  if (isRedirectStub(targetHtml)) return "redirect-stub";
+  const from = htmlLang(sourceHtml);
+  const to = htmlLang(targetHtml);
+  if (from !== null && to !== null && from !== to) return "crosses-language";
+  return null;
 }
 
 // Recursively collect every .html file under dist/ (shape mirrors
@@ -182,6 +216,30 @@ function main() {
 
   let linksChecked = 0;
   let fragmentsChecked = 0;
+  let policyChecked = 0;
+
+  // Paths, relative to dist/, exempt from the link policy: the frozen snapshots
+  // and the Lunaria dashboard of the latest docs ("" or "docs/" as its root).
+  const versions = JSON.parse(
+    readFileSync(new URL("../versions.json", import.meta.url), "utf8"),
+  );
+  const latestRel = latestDocsDist(distRoot).slice(distRoot.length);
+  const exemptPrefixes = [
+    ...versions.versions.map((v) => v.base.replace(/^\/+/, "")),
+    `${latestRel}lunaria/`,
+  ];
+  const isExempt = (relPath) =>
+    exemptPrefixes.some((prefix) => relPath.startsWith(prefix));
+  const htmlCache = new Map();
+  function htmlFor(filePath) {
+    let html = htmlCache.get(filePath);
+    if (html === undefined) {
+      html = readFileSync(filePath, "utf8");
+      htmlCache.set(filePath, html);
+    }
+    return html;
+  }
+  const anchorHrefPattern = /<a\b[^>]*?\shref="([^"]*)"/g;
 
   for (const sourceFile of htmlFiles) {
     const html = readFileSync(sourceFile, "utf8");
@@ -215,21 +273,48 @@ function main() {
         }
       }
     }
+
+    if (isExempt(rel) || isRedirectStub(html)) continue;
+    for (const match of html.matchAll(anchorHrefPattern)) {
+      const href = match[1];
+      if (shouldSkip(href) || href.startsWith("#")) continue;
+      const target = resolveTarget(href, sourceFile);
+      if (target === null || !target.endsWith(".html")) continue;
+      if (isExempt(target.slice(distRoot.length))) continue;
+      policyChecked += 1;
+      const targetHtml = htmlFor(target);
+      const policy = linkPolicy(html, targetHtml);
+      if (policy !== null) {
+        failures.push({
+          source: rel,
+          href,
+          policy,
+          from: htmlLang(html),
+          to: htmlLang(targetHtml),
+        });
+      }
+    }
   }
 
   if (failures.length > 0) {
     console.error(
-      `check:links: ${failures.length} unresolved internal link(s) across ${htmlFiles.length} HTML file(s):\n`,
+      `check:links: ${failures.length} broken internal link(s) across ${htmlFiles.length} HTML file(s):\n`,
     );
     for (const f of failures) {
-      const suffix = f.missingFragment ? " (missing #fragment)" : "";
+      const suffix = f.missingFragment
+        ? " (missing #fragment)"
+        : f.policy === "redirect-stub"
+          ? " (links to a redirect stub)"
+          : f.policy === "crosses-language"
+            ? ` (crosses language: ${f.from} → ${f.to})`
+            : "";
       console.error(`  ${f.source} -> ${f.href}${suffix}`);
     }
     process.exit(1);
   }
 
   console.log(
-    `check:links: ${htmlFiles.length} HTML files crawled, ${linksChecked} internal links checked, ${fragmentsChecked} fragments checked, 0 broken.`,
+    `check:links: ${htmlFiles.length} HTML files crawled, ${linksChecked} internal links checked, ${fragmentsChecked} fragments checked, ${policyChecked} page links checked for language and redirects, 0 broken.`,
   );
   process.exit(0);
 }
