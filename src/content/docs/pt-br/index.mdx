@@ -1,0 +1,109 @@
+---
+title: Documentação do Novo Modelo
+description: Documentação do Novo Modelo, um solver PDDE (SDDP) de código aberto para o despacho hidrotérmico estocástico multiestágio — o método, o software e como executá-lo.
+template: splash
+hero:
+  tagline: Despacho hidrotérmico estocástico multiestágio com PDDE — o método e o software em um só lugar.
+  actions:
+    - text: Explorar as entidades
+      link: "#entities"
+      icon: right-arrow
+      variant: primary
+    - text: Instalação
+      link: /pt-br/getting-started/installation/
+      variant: minimal
+---
+
+import EnergyPath from "../../../components/entity/EnergyPath.astro";
+
+O Novo Modelo é um solver de código aberto para o despacho hidrotérmico estocástico multiestágio:
+ele constrói uma política de operação por Programação Dinâmica Dual Estocástica — PDDE (SDDP) — e
+a simula, pela linha de comando ou a partir do Python. Este site documenta o
+método e o software em conjunto, da matemática e dos exemplos resolvidos à
+instalação do Novo Modelo, à execução de estudos e à leitura de seus resultados.
+
+<EnergyPath lang="pt-BR">
+
+<div role="img" aria-label="O caminho da energia em quatro grupos ligados por setas: água (afluências ao reservatório), geração (usinas hidrelétricas, termelétricas e fontes não despacháveis), rede (barramentos e linhas) e consumo (carga e déficit)">
+
+```d2 title="O caminho da energia em quatro grupos ligados por setas: água (afluências ao reservatório), geração (usinas hidrelétricas, termelétricas e fontes não despacháveis), rede (barramentos e linhas) e consumo (carga e déficit)"
+...@../../../figures/semantic-classes
+direction: down
+water: "1 · ÁGUA" {
+  grid-columns: 2
+  inflow: "Afluências" {shape: oval; class: hydro}
+  reservoir: "Reservatório" {shape: cylinder; class: hydro}
+  inflow -> reservoir
+}
+generation: "2 · GERAÇÃO" {
+  hydro_plants: "Usinas hidrelétricas" {class: hydro}
+  thermal_plants: "Usinas termelétricas" {class: thermal}
+  ncs_plants: "Fontes não despacháveis" {class: ncs}
+}
+network: "3 · REDE" {
+  grid: "Barramentos e linhas" {shape: rectangle}
+}
+consumption: "4 · CONSUMO" {
+  grid-columns: 2
+  load: "Carga\nenergia consumida" {shape: oval}
+  shortfall: "Déficit" {shape: oval; class: deficit}
+  shortfall -> load
+}
+water -> generation: "vazões"
+generation -> network: "energia gerada"
+network -> consumption: "energia transportada"
+```
+
+</div>
+
+<div slot="timeline" role="img" aria-label="Linha do tempo: estágios divididos em patamares, com a água armazenada passando de um estágio ao seguinte">
+
+```d2 title="Linha do tempo: estágios divididos em patamares, com a água armazenada passando de um estágio ao seguinte"
+...@../../../figures/semantic-classes
+direction: down
+s1: "estágio 1" {
+  grid-columns: 3
+  grid-gap: 10
+  light: "leve"
+  medium: "média"
+  heavy: "pesada"
+}
+s2: "estágio 2" {
+  grid-columns: 3
+  grid-gap: 10
+  light: "leve"
+  medium: "média"
+  heavy: "pesada"
+}
+s3: "estágio 3" {
+  grid-columns: 3
+  grid-gap: 10
+  light: "leve"
+  medium: "média"
+  heavy: "pesada"
+}
+s1 -> s2: "água armazenada passa ao estágio seguinte"
+s2 -> s3
+```
+
+</div>
+
+</EnergyPath>
+
+## Como o modelo decide
+
+<div class="home-steps">
+  <div class="home-step"><span class="home-step__n">1</span><strong>Imagina o futuro</strong><p>Gera muitos cenários de afluências a partir do histórico de vazões.</p></div>
+  <div class="home-step"><span class="home-step__n">2</span><strong>Despacha estágio a estágio</strong><p>Em cada estágio escolhe quanto gerar em cada usina para atender a carga ao menor custo.</p></div>
+  <div class="home-step"><span class="home-step__n">3</span><strong>Pesa hoje contra amanhã</strong><p>A função de custo futuro diz quanto vale guardar água: é o valor da água.</p></div>
+</div>
+
+[Como o modelo decide](/pt-br/overview/how-the-model-decides/)
+
+## Execução de estudos
+
+<div class="home-paths">
+  <a class="home-path" href="/pt-br/getting-started/quickstart/"><strong>Guia rápido</strong><span>Instale, crie a estrutura, valide e execute um primeiro estudo pela linha de comando ou pelo Python.</span></a>
+  <a class="home-path" href="/pt-br/examples/toy-single-reservoir/"><strong>Exemplos resolvidos</strong><span>Sistemas com um e com quatro reservatórios, pequenos o bastante para acompanhar à mão.</span></a>
+  <a class="home-path" href="/pt-br/reference/cli-reference/"><strong>Referência de execução</strong><span>A CLI, a API Python, os esquemas JSON, os códigos de erro e a linguagem das restrições genéricas.</span></a>
+</div>

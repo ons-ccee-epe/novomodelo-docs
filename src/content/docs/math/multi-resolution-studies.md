@@ -22,6 +22,8 @@ date and not necessarily the pool of the first study's last stage (see
 [Post-Study Boundary & Chained Studies](/math/post-study-boundary)). This
 chapter owns the sub-period lag accumulation (§2).
 
+For the entity view of this chapter, see [Horizon, stages and load blocks](/entities/time-structure/).
+
 ## 1. Season Map
 
 The PAR(p) model associates each stage $t$ with a season $m(t)$, and the stages

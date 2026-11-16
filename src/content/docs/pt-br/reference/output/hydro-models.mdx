@@ -1,0 +1,135 @@
+---
+title: "Artefatos dos modelos hidrelétricos"
+description: Os arquivos de modelos hidrelétricos que o novomodelo run grava — o resumo dos modelos de produção e de evaporação e as tabelas ajustadas de hiperplanos, de evaporação e de pontos de desvio.
+---
+
+`training/hydro_models.json` resume os modelos de produção e de evaporação em uso.
+
+O diretório `hydro_models/` contém os três arquivos que seguem `training/hydro_models.json`. Cada um só é gravado quando
+tem linhas — planos da FPHA ajustados, modelos de evaporação ou, com
+`exports.fpha_deviation_points` definido como `true`, pontos de desvio —, e o
+diretório não existe quando nenhum é gravado.
+
+---
+
+## `training/hydro_models.json`
+
+Contagens agregadas dos modelos de produção e de evaporação, detalhamento por hidrelétrica para
+toda usina que usa um modelo de produção FPHA e a lista das usinas sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos). Sempre gravado.
+
+**Metodologia:** [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models)
+
+Objeto de primeiro nível:
+
+| Nome                     | Tipo    | Anulável | Unidade | Descrição                                                                                                                                                                                                        |
+| ------------------------ | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `n_constant`             | integer | Não       | —     | Número de usinas hidrelétricas com produtibilidade constante em todos os estágios: usinas cujas entradas de modelo de produção não selecionam nenhum modelo FPHA e usinas sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos), modeladas com produtibilidade zero e listadas em `no_turbine_capacity`. |
+| `n_fpha`                 | integer | Não       | —     | Número de usinas hidrelétricas com hiperplanos da FPHA pré-calculados ou calculados em pelo menos uma entrada de modelo de produção; uma usina sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos) é contada em `n_constant`. |
+| `total_planes`           | integer | Não       | —     | Soma de `n_planes` sobre `fpha_details`: os hiperplanos de cada usina com FPHA no primeiro estágio do estudo.                                                                                                                     |
+| `fpha_details`           | array   | Não       | —     | Detalhamento por hidrelétrica de cada usina contada em `n_fpha` (veja abaixo).                                                                                                                                                   |
+| `no_turbine_capacity` | array | Não | — | Usinas sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos), em ordem crescente de `hydro_id`; sempre presente (`[]` quando não há nenhuma); cada uma também é contada em `n_constant` (veja abaixo). |
+| `n_evaporation`          | integer | Não       | —     | Número de usinas hidrelétricas com modelo de evaporação linearizado.                                                                                                                                                        |
+| `n_no_evaporation`       | integer | Não       | —     | Número de usinas hidrelétricas sem modelo de evaporação.                                                                                                                                                                  |
+| `n_user_supplied_ref`    | integer | Não       | —     | Número de usinas com evaporação que usaram volumes de referência fornecidos pelo usuário.                                                                                                                                            |
+| `n_default_midpoint_ref` | integer | Não       | —     | Número de usinas com evaporação que usaram a referência padrão no ponto médio.                                                                                                                                             |
+
+**Campos de `fpha_details[]`:**
+
+| Nome                      | Tipo    | Anulável | Unidade | Descrição                                                                                                  |
+| ------------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------ |
+| `fpha_details[].hydro_id` | integer | Não       | —     | Identificador da entidade usina hidrelétrica.                                                                        |
+| `fpha_details[].name`     | string  | Não       | —     | Nome legível da usina hidrelétrica.                                                                      |
+| `fpha_details[].source`   | string  | Não       | —     | Origem dos hiperplanos da usina: `"precomputed_hyperplanes"` ou `"computed_from_geometry"`.                |
+| `fpha_details[].n_planes` | integer | Não       | —     | Número de hiperplanos da usina no primeiro estágio do estudo (`0` quando esse estágio usa produtibilidade constante). |
+
+**Campos de `no_turbine_capacity[]`:**
+
+| Nome | Tipo | Anulável | Unidade | Descrição |
+| --- | --- | --- | --- | --- |
+| `no_turbine_capacity[].hydro_id` | integer | Não | — | Identificador da entidade usina hidrelétrica. |
+| `no_turbine_capacity[].name` | string | Não | — | Nome legível da usina hidrelétrica. |
+
+---
+
+## `hydro_models/fpha_hyperplanes.parquet`
+
+Coeficientes dos hiperplanos da FPHA ajustados para toda hidrelétrica cujo ajuste calculado produziu
+planos na execução corrente, com linhas apenas para os estágios que selecionam a FPHA; uma usina sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos) não tem nenhuma.
+O esquema é idêntico ao do arquivo de entrada
+`system/fpha_hyperplanes.parquet`: 11 colunas, todas com os mesmos nomes, tipos e anulabilidade.
+
+**Metodologia:** [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models)
+
+| Nome              | Tipo    | Anulável | Unidade     | Descrição                                               |
+| ----------------- | ------- | -------- | --------- | --------------------------------------------------------- |
+| `hydro_id`        | Int32   | Não       | —         | ID da usina hidrelétrica                                            |
+| `stage_id`        | Int32   | Sim      | —         | Estágio ao qual o plano se aplica. `null` = válido para todos os estágios |
+| `plane_id`        | Int32   | Não       | —         | Índice do plano dentro desta hidrelétrica (e estágio)                 |
+| `gamma_0`         | Float64 | Não       | MW        | Termo independente (MW), sem escalonamento                      |
+| `gamma_v`         | Float64 | Não       | MW/hm³    | Coeficiente de volume (MW/hm³)                               |
+| `gamma_q`         | Float64 | Não       | MW/(m³/s) | Coeficiente de vazão turbinada (MW por m³/s)                   |
+| `gamma_s`         | Float64 | Não       | MW/(m³/s) | Coeficiente de vertimento (MW por m³/s)                        |
+| `kappa`           | Float64 | Sim      | —         | Fator de correção. Assume `1.0` quando ausente ou nulo. |
+| `valid_v_min_hm3` | Float64 | Sim      | hm³       | Mínimo da faixa de volume em que este plano é válido (hm³)      |
+| `valid_v_max_hm3` | Float64 | Sim      | hm³       | Máximo da faixa de volume em que este plano é válido (hm³)      |
+| `valid_q_max_m3s` | Float64 | Sim      | m³/s      | Vazão turbinada máxima em que este plano é válido (m³/s)    |
+
+Em um arquivo gravado, toda linha tem `stage_id` e `kappa` igual a `1.0`; as
+três colunas `valid_*` são `null`. O arquivo é gravado de forma atômica (por meio de renomeação
+de um `.tmp`), com as linhas na ordem canônica das hidrelétricas e, em seguida, na ordem de estágio e de plano; o
+carregador de entrada as ordena por `(hydro_id, stage_id, plane_id)`. Ele pode ser usado
+diretamente como uma futura entrada `source: "precomputed"`, copiando-o para
+`system/fpha_hyperplanes.parquet`. Uma usina sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos) não tem linhas no arquivo e não precisa de nenhuma: copiado para `system/`, o arquivo recarrega o ajuste tal como está, e a usina volta a ser resolvida com produtibilidade zero, listada em `no_turbine_capacity`; toda outra usina com FPHA precisa de linhas.
+
+Veja [Arquivos de modelos de produção — `system/fpha_hyperplanes.parquet`](/pt-br/reference/case-format/production-models/#systemfpha_hyperplanesparquet)
+para as definições completas das colunas e as restrições de validade.
+
+---
+
+## `hydro_models/evaporation_models.parquet`
+
+Gravado quando alguma usina hidrelétrica tem modelo de evaporação. Contém os coeficientes de
+evaporação ajustados para todas as usinas que têm evaporação, indexados por
+`(hydro_id, stage_id)`. As linhas com `stage_id = null` são os valores padrão por hidrelétrica.
+
+**Metodologia:** [Formulação do PL](/pt-br/math/lp-formulation)
+
+Seis colunas:
+
+| Nome                       | Tipo    | Anulável | Unidade      | Descrição                                                       |
+| -------------------------- | ------- | -------- | ---------- | ----------------------------------------------------------------- |
+| `hydro_id`                 | Int32   | Não       | —          | Identificador da usina hidrelétrica                                            |
+| `stage_id`                 | Int32   | Sim      | —          | Estágio; `null` = valor padrão da hidrelétrica, aplicável a todos os estágios        |
+| `intercept_m3s`            | Float64 | Não       | m³/s       | Termo independente da evaporação (m³/s)                          |
+| `volume_slope_m3s_per_hm3` | Float64 | Não       | (m³/s)/hm³ | Coeficiente angular em relação ao volume (m³/s por hm³)                 |
+| `reference_volume_hm3`     | Float64 | Não       | hm³        | Volume de referência usado na linearização (hm³)                     |
+| `source`                   | Utf8    | Não       | —          | Rótulo de origem do cálculo (p. ex., `"default_midpoint"` ou `"user_supplied"`) |
+
+---
+
+## `hydro_models/fpha_deviation_points.parquet`
+
+Gravado apenas quando `exports.fpha_deviation_points: true` está definido no `config.json`.
+Contém uma linha por ponto da grade `(hydro, stage, V, Q)` com vertimento = 0, registrando
+quão bem o conjunto de planos da FPHA ajustado aproxima a função de produção exata em
+cada ponto amostral. É opcional porque pode ser grande (uma linha por combinação de pontos da grade
+para cada estágio com FPHA de uma usina com FPHA calculada; um estágio dessa usina que usa outro
+modelo de produção não tem linhas).
+
+**Metodologia:** [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models)
+
+Oito colunas:
+
+| Nome          | Tipo    | Anulável | Unidade | Descrição                                                                                                   |
+| ------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------- |
+| `hydro_id`    | Int32   | Não       | —     | Identificador da usina hidrelétrica                                                                                        |
+| `stage_id`    | Int32   | Sim      | —     | Estágio. Anulável no esquema; sempre preenchido na saída gravada.                                                  |
+| `v`           | Float64 | Não       | hm³   | Ponto amostral de volume (hm³)                                                                                     |
+| `q`           | Float64 | Não       | m³/s  | Ponto amostral de vazão turbinada (m³/s)                                                                             |
+| `fph_exact`   | Float64 | Não       | MW    | Valor da função de produção exata neste ponto (V, Q), limitado ao `max_generation_mw` da usina (MW)         |
+| `fpha_fitted` | Float64 | Não       | MW    | Aproximação FPHA ajustada neste ponto (V, Q) (MW)                                                           |
+| `deviation`   | Float64 | Não       | MW    | Resíduo com sinal `fpha_fitted − fph_exact` (MW); positivo = envoltória ajustada acima da superfície exata                 |
+| `relative`    | Float64 | Não       | —     | `\|deviation\|` relativo à geração exata máxima da grade (adimensional, ≥ 0); `0` quando o máximo da grade ≤ 0 |
+
+Os valores são uma função pura da geometria e da configuração — o arquivo é reproduzível
+quando emitido e nunca entra no hash de paridade.

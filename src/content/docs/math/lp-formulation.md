@@ -11,6 +11,8 @@ This chapter presents the complete stage subproblem LP for the Novomodelo SDDP s
 
 For what each physical element represents and its decision variables, see [System Element Modeling Overview](/math/system-elements). For variable naming conventions and index sets, see [Notation Conventions](/overview/notation-conventions).
 
+For the entity view of this chapter, see [Hydro plants](/entities/generation/hydro-plants/), [Buses and subsystems](/entities/network/buses/), [Load](/entities/consumption/load/) and [Generic constraints](/entities/generic-constraints/).
+
 ## Stage LP at a Glance
 
 Given its incoming state, the stage LP minimizes the objective below subject to the rows of every family it carries, each written in its parallel-stage form with the symbols of its owning section, $\cdots$ standing for terms that section writes in full; the in-transit bucket and commitment-ring families are named in one line.

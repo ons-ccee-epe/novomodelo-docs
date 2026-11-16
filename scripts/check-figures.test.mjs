@@ -127,6 +127,21 @@ test("collectSourceFiles collects exactly keep.mdx and _impl/routed.mdx, excludi
   }
 });
 
+test("collectSourceFiles walks the pt-br/ twin subtree", () => {
+  const root = buildFixture();
+  try {
+    mkdirSync(join(root, "pt-br"));
+    writeFileSync(join(root, "pt-br", "keep.mdx"), "# Manter\n");
+    const files = collectSourceFiles(root).map((f) => f.slice(root.length));
+    assert.ok(
+      files.includes("pt-br/keep.mdx"),
+      `expected pt-br/keep.mdx to be collected, got: ${JSON.stringify(files)}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // ---- Plot-island contract (E07 ticket-084, R86 / ADR-023). One seeded-violation
 // test per clause of the contract (R65: the gate must prove it detects each),
 // plus a clean island and a fixture walk of checkPlotIslands.

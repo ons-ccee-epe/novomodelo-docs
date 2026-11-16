@@ -1,0 +1,171 @@
+---
+title: Formato do caso
+description: A estrutura de um diretório de caso do Novo Modelo, um mapa de cada arquivo de entrada para a página que o documenta e as convenções comuns a todos os arquivos do caso.
+---
+
+Um diretório de caso do Novo Modelo é uma pasta autocontida que reúne todos os dados de entrada
+de um único estudo do sistema elétrico. `novomodelo validate` carrega e verifica o
+diretório sem resolver o problema, e `novomodelo run` o carrega antes da resolução;
+os erros de carga estão listados em [Códigos de erro](/pt-br/reference/error-codes/).
+
+Os arquivos do caso são documentados da seguinte forma: `config.json` no final desta página, e os demais arquivos em oito páginas. O [Resumo dos arquivos](#resumo-dos-arquivos) abaixo associa cada arquivo à sua página e seção.
+
+## Estrutura do diretório
+
+```
+my_case/
+├── config.json                              # Configuração do solver (obrigatório)
+├── penalties.json                           # Penalidades padrão globais (obrigatório)
+├── stages.json                              # Sequência de estágios e grafo da política (obrigatório)
+├── initial_conditions.json                  # Armazenamento dos reservatórios no início do estudo (obrigatório)
+├── post_study_stages.json                   # Calendário da fronteira pós-estudo + limites térmicos (opcional)
+├── system/
+│   ├── buses.json                           # Barramentos elétricos (obrigatório)
+│   ├── lines.json                           # Linhas de transmissão (obrigatório)
+│   ├── hydros.json                          # Usinas hidrelétricas (obrigatório)
+│   ├── thermals.json                        # Usinas termelétricas (obrigatório)
+│   ├── non_controllable_sources.json        # Fontes intermitentes (opcional)
+│   ├── pumping_stations.json                # Usinas elevatórias (opcional)
+│   ├── energy_contracts.json                # Contratos bilaterais (opcional)
+│   ├── hydro_geometry.parquet               # Tabelas de geometria dos reservatórios (opcional)
+│   ├── hydro_production_models.json         # Configurações da função de produção FPHA (opcional)
+│   ├── hydro_energy_productivity.parquet    # Sobrescritas de conversão de energia por usina e estágio (opcional)
+│   ├── fpha_hyperplanes.parquet             # Coeficientes dos hiperplanos da FPHA (opcional)
+│   └── tailrace_curves.parquet              # Curvas de jusante polinomiais de 4ª ordem por partes (opcional)
+├── scenarios/
+│   ├── inflow_history.parquet               # Série histórica de vazões (opcional)
+│   ├── inflow_seasonal_stats.parquet        # Estatísticas sazonais do modelo PAR (opcional)
+│   ├── inflow_ar_coefficients.parquet       # Coeficientes autorregressivos do PAR (opcional)
+│   ├── inflow_annual_component.parquet      # Componente anual do PAR(p)-A (opcional)
+│   ├── external_inflow_scenarios.parquet    # Cenários externos de afluência (opcional)
+│   ├── external_load_scenarios.parquet      # Cenários externos de carga (opcional)
+│   ├── external_ncs_scenarios.parquet       # Cenários externos de NCS (opcional)
+│   ├── load_seasonal_stats.parquet          # Estatísticas sazonais do modelo de carga (opcional)
+│   ├── load_factors.json                    # Fatores de escala da carga (opcional)
+│   ├── non_controllable_factors.json        # Fatores de escala por patamar das NCS (opcional)
+│   ├── non_controllable_stats.parquet      # Disponibilidade estocástica das NCS (opcional)
+│   ├── correlation.json                     # Modelo de correlação entre séries (opcional)
+│   └── noise_openings.parquet              # Árvore de aberturas da simulação backward fornecida pelo usuário (opcional)
+└── constraints/
+    ├── thermal_bounds.parquet               # Limites térmicos variáveis por estágio (opcional)
+    ├── hydro_bounds.parquet                 # Limites hidrelétricos variáveis por estágio (opcional)
+    ├── hydro_unit_group_bounds.parquet      # Limites de grupos de unidades geradoras variáveis por estágio (opcional)
+    ├── line_bounds.parquet                  # Limites de linhas variáveis por estágio (opcional)
+    ├── pumping_bounds.parquet               # Limites de bombeamento variáveis por estágio (opcional)
+    ├── contract_bounds.parquet              # Limites de contratos variáveis por estágio (opcional)
+    ├── ncs_bounds.parquet                   # Limites de geração disponível das NCS variáveis por estágio (opcional)
+    ├── generic_constraints.json             # Restrições de PL definidas pelo usuário (opcional)
+    ├── generic_constraint_bounds.parquet    # Limites das restrições genéricas (opcional)
+    ├── generic_parameters.json              # Parâmetros nomeados para expressões de restrições (opcional)
+    ├── penalty_overrides_bus.parquet        # Sobrescritas de penalidades de barramentos por estágio (opcional)
+    ├── penalty_overrides_line.parquet       # Sobrescritas de penalidades de linhas por estágio (opcional)
+    ├── penalty_overrides_hydro.parquet      # Sobrescritas de penalidades hidrelétricas por estágio (opcional)
+    └── penalty_overrides_ncs.parquet        # Sobrescritas de penalidades das NCS por estágio (opcional)
+```
+
+## Resumo dos arquivos
+
+**Obrigatório** é **Sim** para um arquivo que todo caso deve conter; um arquivo marcado **Não** ainda pode ser exigido por uma configuração específica, e a respectiva seção na página indicada informa a condição ou o seu uso.
+
+| Arquivo                                         | Formato | Obrigatório | Página                                                                                             | Descrição                                                                               |
+| ----------------------------------------------- | ------- | -------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `config.json`                                   | JSON    | Sim      | [Formato do caso](#configjson)                                                                     | Configuração do solver                                                                  |
+| `penalties.json`                                | JSON    | Sim      | [Arquivos de penalidades](/pt-br/reference/case-format/penalties/#penaltiesjson)                         | Penalidades padrão globais                                                              |
+| `stages.json`                                   | JSON    | Sim      | [Arquivos de estágios](/pt-br/reference/case-format/stages/#stagesjson)                                  | Sequência de estágios e grafo da política (policy graph)                                |
+| `initial_conditions.json`                       | JSON    | Sim      | [Arquivos de condições iniciais](/pt-br/reference/case-format/initial-conditions/#initial_conditionsjson) | Armazenamento inicial dos reservatórios                                                 |
+| `post_study_stages.json`                        | JSON    | Não      | [Arquivos de estágios](/pt-br/reference/case-format/stages/#post_study_stagesjson)                       | Calendário da fronteira pós-estudo e limites de entrega por usina termelétrica          |
+| `system/buses.json`                             | JSON    | Sim      | [Arquivos das entidades do sistema](/pt-br/reference/case-format/system/#systembusesjson)                 | Cadastro de barramentos elétricos                                                       |
+| `system/lines.json`                             | JSON    | Sim      | [Arquivos das entidades do sistema](/pt-br/reference/case-format/system/#systemlinesjson)                 | Cadastro de linhas de transmissão                                                       |
+| `system/hydros.json`                            | JSON    | Sim      | [Arquivos de usinas hidrelétricas](/pt-br/reference/case-format/hydros/#systemhydrosjson)                | Cadastro de usinas hidrelétricas                                                        |
+| `system/thermals.json`                          | JSON    | Sim      | [Arquivos das entidades do sistema](/pt-br/reference/case-format/system/#systemthermalsjson)              | Cadastro de usinas termelétricas                                                        |
+| `system/non_controllable_sources.json`          | JSON    | Não      | [Arquivos das entidades do sistema](/pt-br/reference/case-format/system/#systemnon_controllable_sourcesjson) | Cadastro de fontes intermitentes                                                     |
+| `system/pumping_stations.json`                  | JSON    | Não      | [Arquivos das entidades do sistema](/pt-br/reference/case-format/system/#systempumping_stationsjson)      | Cadastro de usinas elevatórias                                                          |
+| `system/energy_contracts.json`                  | JSON    | Não      | [Arquivos das entidades do sistema](/pt-br/reference/case-format/system/#systemenergy_contractsjson)      | Cadastro de contratos bilaterais de energia                                             |
+| `system/hydro_geometry.parquet`                 | Parquet | Não      | [Arquivos de modelos de produção](/pt-br/reference/case-format/production-models/#systemhydro_geometryparquet)            | Tabelas de cota da geometria dos reservatórios                          |
+| `system/hydro_production_models.json`           | JSON    | Não      | [Arquivos de modelos de produção](/pt-br/reference/case-format/production-models/#systemhydro_production_modelsjson)      | Configurações da função de produção FPHA                                |
+| `system/hydro_energy_productivity.parquet`      | Parquet | Não      | [Arquivos de modelos de produção](/pt-br/reference/case-format/production-models/#systemhydro_energy_productivityparquet) | Sobrescritas de conversão de energia por usina e estágio                |
+| `system/fpha_hyperplanes.parquet`               | Parquet | Não      | [Arquivos de modelos de produção](/pt-br/reference/case-format/production-models/#systemfpha_hyperplanesparquet)          | Coeficientes dos hiperplanos da FPHA                                    |
+| `system/tailrace_curves.parquet`                | Parquet | Não      | [Arquivos de modelos de produção](/pt-br/reference/case-format/production-models/#systemtailrace_curvesparquet)           | Curvas de jusante polinomiais de 4ª ordem por partes com famílias de remanso |
+| `scenarios/inflow_history.parquet`              | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosinflow_historyparquet)           | Série histórica de vazões                                                               |
+| `scenarios/inflow_seasonal_stats.parquet`       | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosinflow_seasonal_statsparquet)    | Estatísticas sazonais do modelo PAR                                                     |
+| `scenarios/inflow_ar_coefficients.parquet`      | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosinflow_ar_coefficientsparquet)   | Coeficientes autorregressivos do PAR                                                    |
+| `scenarios/inflow_annual_component.parquet`     | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosinflow_annual_componentparquet)  | Componente anual do PAR(p)-A                                                            |
+| `scenarios/external_inflow_scenarios.parquet`   | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosexternal_inflow_scenariosparquet) | Realizações de cenários externos de afluência (hydro_id, stage_id, scenario_id, value_m3s) |
+| `scenarios/external_load_scenarios.parquet`     | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosexternal_load_scenariosparquet)  | Realizações de cenários externos de carga (bus_id, stage_id, scenario_id, value_mw)     |
+| `scenarios/external_ncs_scenarios.parquet`      | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosexternal_ncs_scenariosparquet)   | Realizações de cenários externos de NCS (ncs_id, stage_id, scenario_id, availability_factor) |
+| `scenarios/load_seasonal_stats.parquet`         | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosload_seasonal_statsparquet)      | Estatísticas sazonais do modelo de carga                                                |
+| `scenarios/load_factors.json`                   | JSON    | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosload_factorsjson)                | Fatores de escala da carga por barramento/estágio                                       |
+| `scenarios/non_controllable_factors.json`       | JSON    | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosnon_controllable_factorsjson)    | Fatores de escala por patamar das NCS por fonte/estágio                                 |
+| `scenarios/non_controllable_stats.parquet`      | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosnon_controllable_statsparquet)   | Fatores de disponibilidade estocástica das NCS                                          |
+| `scenarios/correlation.json`                    | JSON    | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenarioscorrelationjson)                 | Modelo de correlação entre séries                                                       |
+| `scenarios/noise_openings.parquet`              | Parquet | Não      | [Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosnoise_openingsparquet)           | Árvore de aberturas da simulação backward fornecida pelo usuário                        |
+| `constraints/thermal_bounds.parquet`            | Parquet | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsthermal_boundsparquet)     | Limites de geração térmica variáveis por estágio                                        |
+| `constraints/hydro_bounds.parquet`              | Parquet | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintshydro_boundsparquet)       | Limites operativos hidrelétricos variáveis por estágio                                  |
+| `constraints/hydro_unit_group_bounds.parquet`   | Parquet | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintshydro_unit_group_boundsparquet) | Limites de grupos de unidades geradoras variáveis por estágio e, opcionalmente, por patamar |
+| `constraints/line_bounds.parquet`               | Parquet | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsline_boundsparquet)        | Capacidade de fluxo das linhas variável por estágio                                     |
+| `constraints/pumping_bounds.parquet`            | Parquet | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintspumping_boundsparquet)     | Limites de vazão de bombeamento variáveis por estágio                                   |
+| `constraints/contract_bounds.parquet`           | Parquet | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintscontract_boundsparquet)    | Limites de potência dos contratos variáveis por estágio                                 |
+| `constraints/ncs_bounds.parquet`                | Parquet | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsncs_boundsparquet)         | Limites de geração disponível das NCS variáveis por estágio                             |
+| `constraints/generic_constraints.json`          | JSON    | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsgeneric_constraintsjson)   | Restrições de PL definidas pelo usuário                                                 |
+| `constraints/generic_constraint_bounds.parquet` | Parquet | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsgeneric_constraint_boundsparquet) | Limites do lado direito (RHS) das restrições genéricas                           |
+| `constraints/generic_parameters.json`           | JSON    | Não      | [Arquivos de restrições](/pt-br/reference/case-format/constraints/#constraintsgeneric_parametersjson)    | Parâmetros nomeados para expressões de restrições                                       |
+| `constraints/penalty_overrides_bus.parquet`     | Parquet | Não      | [Arquivos de penalidades](/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_busparquet) | Custo de excesso dos barramentos variável por estágio                                 |
+| `constraints/penalty_overrides_line.parquet`    | Parquet | Não      | [Arquivos de penalidades](/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_lineparquet) | Custo de intercâmbio das linhas variável por estágio                                 |
+| `constraints/penalty_overrides_hydro.parquet`   | Parquet | Não      | [Arquivos de penalidades](/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_hydroparquet) | Custos de penalidade hidrelétricos variáveis por estágio                             |
+| `constraints/penalty_overrides_ncs.parquet`     | Parquet | Não      | [Arquivos de penalidades](/pt-br/reference/case-format/penalties/#constraintspenalty_overrides_ncsparquet) | Custo de corte de geração (curtailment) das NCS variável por estágio                 |
+
+## Convenções
+
+- **Ids de estágio.** Toda coluna ou campo `stage_id` não nulo designa um `id` declarado em `stages.json`, nunca uma posição,
+  exceto `schedule[].stage_id` de [`scenarios/correlation.json`](/pt-br/reference/case-format/scenarios/#scenarioscorrelationjson), que a amostragem fora da amostra (out-of-sample)
+  da simulação forward e da simulação final associa pela posição (a partir de 0) entre os estágios do estudo, e as chaves de estágio de um par `values` de `per_stage` ou de uma tripla `block_values` de `per_stage_block` em [`constraints/generic_parameters.json`](/pt-br/reference/case-format/constraints/#constraintsgeneric_parametersjson), que são posições (a partir de 0) entre os estágios do estudo. Os ids dos estágios do estudo são não negativos e podem ter lacunas ou começar acima de `0`;
+  os ids de `pre_study_stages[]` são negativos.
+- **Ids de patamar.** `block_id` é o índice (a partir de 0) de um patamar dentro de seu estágio; os valores de `blocks[].id` de um estágio vão de `0..n-1`.
+- **Tipos das colunas Parquet.** Cada coluna Parquet deve ter exatamente o tipo indicado na respectiva tabela. Uma coluna de outro tipo
+  é rejeitada na carga com `column "<name>" has type <actual> but <expected> is required`, e uma coluna obrigatória ausente
+  com `missing required column "<name>"`. O pandas grava inteiros como `int64`; portanto, converta-os (por exemplo
+  `df["stage_id"] = df["stage_id"].astype("int32")`) ou passe um esquema pyarrow explícito para
+  `pa.Table.from_pandas(df, schema=schema)`.
+
+  Os nomes dos tipos correspondem aos das bibliotecas de gravação da seguinte forma:
+
+  | Tipo      | pyarrow        | polars       | pandas                                 |
+  | --------- | -------------- | ------------ | -------------------------------------- |
+  | `Int32`   | `pa.int32()`   | `pl.Int32`   | `int32`                                |
+  | `UInt32`  | `pa.uint32()`  | `pl.UInt32`  | `uint32`                               |
+  | `Float64` | `pa.float64()` | `pl.Float64` | `float64`                              |
+  | `Date32`  | `pa.date32()`  | `pl.Date`    | objetos `datetime.date` (dtype object) |
+
+- **Compressão.** Os arquivos Parquet de entrada devem estar sem compressão ou com compressão zstd; Snappy, gzip e LZ4 são rejeitados na
+  carga (`Parquet error: Disabled feature at compile time: snap` para Snappy). O `pq.write_table` do pyarrow e o
+  `DataFrame.to_parquet` do pandas gravam em Snappy por padrão; portanto, passe `compression="zstd"`; o `write_parquet` do polars já usa zstd por padrão.
+- **`$schema`.** Todo arquivo JSON aceita uma chave opcional `$schema` do tipo string para validação no editor; seu valor não é
+  verificado. Os
+  exemplos apontam para os esquemas da versão mais recente documentada do novomodelo (`https://docs.modelossetoreletrico.org.br/schemas/<name>.schema.json`,
+  incorporados a partir do novomodelo); [Esquemas JSON](/pt-br/reference/json-schemas/) informa a URL de cada versão da documentação.
+
+### Campos comuns às entidades
+
+`operational_start_date` é obrigatório em toda entidade dos sete arquivos de cadastro: [`system/buses.json`](/pt-br/reference/case-format/system/#systembusesjson), [`system/lines.json`](/pt-br/reference/case-format/system/#systemlinesjson), [`system/hydros.json`](/pt-br/reference/case-format/hydros/#systemhydrosjson), [`system/thermals.json`](/pt-br/reference/case-format/system/#systemthermalsjson), [`system/non_controllable_sources.json`](/pt-br/reference/case-format/system/#systemnon_controllable_sourcesjson), [`system/pumping_stations.json`](/pt-br/reference/case-format/system/#systempumping_stationsjson) e [`system/energy_contracts.json`](/pt-br/reference/case-format/system/#systemenergy_contractsjson).
+É uma data ISO 8601 (`YYYY-MM-DD`) que registra quando a entidade entra no histórico operativo do cadastro.
+
+A data é informação de procedência e a primeira chave da ordem canônica das entidades `(operational_start_date, id)`. As entidades são ordenadas por data e depois por id, nunca por nome; assim, renomear uma entidade não altera sua posição, enquanto um novo id ou uma nova data pode movê-la. A data não condiciona a entrada em operação: para as entidades que têm janela de operação, apenas `entry_stage_id` e `exit_stage_id` a determinam (`system/buses.json` não tem janela). [Visão geral da modelagem dos elementos do sistema — Data de início operativo](/pt-br/math/system-elements/#data-de-inicio-de-operacao) descreve a ordenação e a independência em relação à janela de operação.
+
+## `config.json`
+
+`config.json` contém os parâmetros da execução. Apenas a seção `training` é obrigatória, e ela deve conter `training.selection` e
+`training.stopping_rules`; todas as demais seções são opcionais.
+[Configuração](/pt-br/running/configuration/) documenta cada chave com seu tipo, valor padrão e regras de admissão;
+sua seção [Resolução das sementes](/pt-br/running/configuration/#resolucao-das-sementes) explica como as sementes conduzem os sorteios aleatórios.
+
+**Exemplo mínimo válido:**
+
+```json
+{
+  "$schema": "https://docs.modelossetoreletrico.org.br/schemas/config.schema.json",
+  "training": {
+    "selection": { "method": "sampled", "forward_passes": 192 },
+    "stopping_rules": [{ "type": "iteration_limit", "limit": 200 }]
+  }
+}
+```

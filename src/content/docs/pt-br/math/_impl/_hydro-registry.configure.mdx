@@ -1,0 +1,451 @@
+### Usinas hidrelétricas
+
+As seções abaixo configuram as usinas hidrelétricas de
+[§5 Usinas hidrelétricas](#5-usinas-hidreletricas). O bloco `generation` da usina e a
+seleção do modelo de produção (`system/hydro_production_models.json`) estão na
+aba Configuração de
+[Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo).
+
+### `system/hydros.json` — Cadastro de usinas hidrelétricas
+
+As usinas hidrelétricas são definidas em `system/hydros.json`. O objeto de
+nível superior tem uma única chave `"hydros"`, que contém um array de objetos de usina:
+
+```json
+{
+  "hydros": [
+    {
+      "id": 1,
+      "name": "UHE Tucuruí",
+      "downstream_id": null,
+      "operational_start_date": "1984-11-22",
+      "entry_stage_id": 60,
+      "exit_stage_id": null,
+      "reservoir": {
+        "min_storage_hm3": 50.0,
+        "max_storage_hm3": 45000.0
+      },
+      "outflow": {
+        "min_outflow_m3s": 1000.0,
+        "max_outflow_m3s": 100000.0
+      },
+      "generation": {
+        "model": "constant_productivity",
+        "min_turbined_m3s": 500.0,
+        "max_turbined_m3s": 22500.0,
+        "min_generation_mw": 0.0,
+        "max_generation_mw": 8370.0
+      },
+      "unit_groups": [
+        {
+          "id": 0,
+          "name": "UG1",
+          "bus_id": 0,
+          "min_turbined_m3s": 500.0,
+          "max_turbined_m3s": 22500.0,
+          "min_generation_mw": 0.0,
+          "max_generation_mw": 8370.0
+        }
+      ],
+      "tailrace": {
+        "type": "polynomial",
+        "coefficients": [5.0, 0.001]
+      },
+      "hydraulic_losses": {
+        "type": "factor",
+        "value": 0.03
+      },
+      "efficiency": {
+        "type": "constant",
+        "value": 0.93
+      },
+      "evaporation": {
+        "coefficients_mm": [
+          80.0, 75.0, 70.0, 65.0, 60.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0
+        ]
+      },
+      "diversion": {
+        "downstream_id": 2,
+        "max_flow_m3s": 200.0
+      },
+      "filling": {
+        "start_stage_id": 48,
+        "filling_min_rate_m3s": 100.0
+      },
+      "penalties": {
+        "spillage_cost": 0.01,
+        "diversion_cost": 0.1,
+        "turbined_cost": 0.05,
+        "storage_violation_below_cost": 10000.0,
+        "filling_target_violation_cost": 6000.0,
+        "turbined_violation_below_cost": 500.0,
+        "outflow_violation_below_cost": 500.0,
+        "outflow_violation_above_cost": 500.0,
+        "generation_violation_below_cost": 1000.0,
+        "evaporation_violation_cost": 5000.0,
+        "water_withdrawal_violation_cost": 1000.0,
+        "inflow_nonnegativity_cost": 1000.0
+      }
+    }
+  ]
+}
+```
+
+Somente `id`, `name`, `operational_start_date`, `reservoir`,
+`outflow`, `generation` e `unit_groups` são obrigatórios. Todas as demais chaves
+de nível superior (`tailrace`, `hydraulic_losses`, `efficiency`, `evaporation`,
+`diversion`, `filling`, `penalties`) são opcionais e, quando ausentes, ficam
+desativadas.
+
+#### Campos principais
+
+| Campo | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `id` | integer | Sim | Identificador único e não negativo. Deve ser único entre todas as usinas hidrelétricas. Referenciado por `initial_conditions.json` e por outras usinas via `downstream_id`. |
+| `name` | string | Sim | Nome legível da usina. Usado nos arquivos de saída, nas mensagens de validação e no log. |
+| `downstream_id` | integer ou null | Não | Identificador da usina que recebe a vazão defluente desta usina. Ausente ou `null` significa que a usina está no final de sua cascata — a vazão defluente sai do sistema. |
+| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a usina entra no histórico operacional do cadastro. Serve de procedência e de chave canônica de ordenação `(operational_start_date, id)` (veja [Convenções de notação](/pt-br/overview/notation-conventions)) — independente de `entry_stage_id`/`exit_stage_id` abaixo, que são os únicos a controlar a entrada em operação. |
+| `entry_stage_id` | integer ou null | Não | Índice do estágio em que a usina entra em operação (inclusive). `null` significa que a usina está disponível desde o estágio 0. |
+| `exit_stage_id` | integer ou null | Não | Índice do estágio em que a usina é desativada. A janela de operação é **semiaberta** `[entry_stage_id, exit_stage_id)`: a usina fica ativa até `exit_stage_id - 1` e, fora da janela, não está em operação. Para uma usina hidrelétrica, o estado fora de operação é o **pré-enchimento (PreFilling)** — turbinamento, vertimento e desvio fixados em zero, armazenamento congelado e vazão natural afluente repassada adiante pelo local (veja [Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo) e [Usinas ainda não em operação (pré-enchimento)](#hidreletricas-ainda-nao-em-operacao-pre-enchimento)) —, e não uma simples fixação das colunas em zero. `null` significa que a usina nunca é desativada. |
+
+#### Reservatório
+
+O armazenamento é contabilizado em **hm³** (hectômetros cúbicos; 1 hm³ = 10⁶ m³).
+
+```json
+"reservoir": {
+  "min_storage_hm3": 0.0,
+  "max_storage_hm3": 1000.0
+}
+```
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `min_storage_hm3` | number | Armazenamento mínimo físico (volume morto). A água abaixo desse nível não alcança as tomadas d'água das turbinas. Para usinas que podem esvaziar completamente, use `0.0`. |
+| `max_storage_hm3` | number | Armazenamento máximo físico. Deve ser maior ou igual a `min_storage_hm3` (a igualdade é permitida — usina com armazenamento fixo). |
+
+Esta é a faixa física da usina, invariante entre estágios: as saídas de
+energia armazenada e a produtibilidade média na faixa útil
+([Modelos de função de produção hidrelétrica §4.3](/pt-br/math/hydro-production-models#43-produtibilidade-media-na-faixa-util))
+a utilizam, enquanto as sobrescritas de armazenamento de
+`constraints/hydro_bounds.parquet` (por exemplo, um teto de volume de espera)
+restringem apenas os limites operativos por estágio da variável de
+armazenamento do PL.
+
+#### Restrições de vazão defluente
+
+A vazão defluente total é igual à vazão turbinada mais o vertimento.
+
+```json
+"outflow": {
+  "min_outflow_m3s": 0.0,
+  "max_outflow_m3s": 50.0
+}
+```
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `min_outflow_m3s` | number | Vazão defluente total mínima exigida em todos os momentos [m³/s]. Defina-a como a vazão ecológica (vazão remanescente) ou o direito mínimo dos usuários a jusante. Use `0.0` se não houver exigência mínima. |
+| `max_outflow_m3s` | number ou null | Vazão defluente total máxima [m³/s]. `null` significa ausência de limite superior para a vazão defluente. |
+
+Quando o solver não consegue atender ao limite de vazão defluente mínima, é
+acrescentada uma folga de violação ao custo de `outflow_violation_below_cost`
+do bloco de penalidades.
+
+#### Grupos de unidades geradoras (`unit_groups`)
+
+A envoltória de geração de uma usina é dividida em um ou mais grupos de
+turbinas, cada um em seu próprio barramento. `unit_groups` é obrigatório —
+toda usina hidrelétrica declara pelo menos um grupo; um array ausente, `null`
+ou vazio é rejeitado na carga. Não existe `hydro.bus_id` no nível superior: a
+associação de uma usina a barramentos fica exclusivamente no `bus_id` de seus
+grupos.
+
+```json
+"unit_groups": [
+  {
+    "id": 0,
+    "name": "UG1",
+    "bus_id": 0,
+    "min_turbined_m3s": 500.0,
+    "max_turbined_m3s": 22500.0,
+    "min_generation_mw": 0.0,
+    "max_generation_mw": 8370.0
+  }
+]
+```
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | integer | Identificador do grupo, único dentro da usina a que pertence (não globalmente). |
+| `name` | string | Nome legível do grupo. |
+| `bus_id` | integer | Barramento em que a geração deste grupo é injetada. Deve corresponder a um `id` em `buses.json`. |
+| `min_turbined_m3s` | number | Vazão turbinada mínima deste grupo [m³/s]. |
+| `max_turbined_m3s` | number | Vazão turbinada máxima deste grupo [m³/s]. |
+| `min_generation_mw` | number | Geração elétrica mínima deste grupo [MW]. |
+| `max_generation_mw` | number | Geração elétrica máxima deste grupo [MW]. |
+
+**Despacho particionado por barramento.** Uma usina é particionada em uma
+**célula** para cada `bus_id` distinto entre seus grupos: o PL tem uma coluna
+de turbinamento e uma coluna de geração FPHA por célula, e cada célula injeta
+sua geração no barramento correspondente. Uma usina cujos grupos compartilham
+todos o mesmo barramento se reduz a uma única célula — a mesma forma de PL de
+uma usina que não declara grupos além do obrigatório.
+
+Os limites de turbinamento de cada grupo devem ser internamente consistentes
+(`min_turbined_m3s <= max_turbined_m3s`, e o mesmo para a geração), e os
+`id`s dos grupos são únicos dentro da usina. No conjunto da usina, a soma dos
+`max_turbined_m3s` de todos os grupos (e, separadamente, dos `max_generation_mw`)
+não pode exceder o máximo declarado pela própria usina em seu [bloco `generation`](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo)
+— o valor da própria usina é a envoltória, e os grupos não podem elevá-lo —, e
+a soma dos mínimos de todos os grupos deve ser capaz de alcançar o mínimo
+declarado pela própria usina.
+Portanto, somente uma sobrescrita por estágio em `constraints/hydro_bounds.parquet`
+pode levar os limites da própria usina além dos limites de seus grupos: um
+mínimo da usina elevado acima da soma dos mínimos dos grupos é imposto ao total
+da usina, e um máximo da usina reduzido abaixo da soma das capacidades das
+células limita esse total (veja [Formulação do PL —
+Mínimo e máximo da usina](/pt-br/math/lp-formulation#minimo-e-maximo-da-usina)). Um
+mínimo da usina reduzido abaixo da soma dos mínimos dos grupos não tem efeito,
+e a preparação do estudo emite um aviso a respeito; nesse caso, reduza os
+mínimos dos grupos em `constraints/hydro_unit_group_bounds.parquet`.
+
+As sobrescritas variáveis por estágio, opcionalmente por patamar, dos quatro
+limites de um grupo são fornecidas por `constraints/hydro_unit_group_bounds.parquet` — veja a aba Entradas e saídas de [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo).
+
+#### Topologia da cascata (`downstream_id`)
+
+O campo `downstream_id` cria uma cadeia orientada de usinas hidrelétricas: a
+água liberada por uma usina de montante (turbinada ou vertida) entra no
+reservatório da usina de jusante no mesmo estágio. Para modelar uma cascata de
+três usinas em que a usina 0 deságua na usina 1, que deságua na usina 2:
+
+```json
+{ "id": 0, "downstream_id": 1, ... }
+{ "id": 1, "downstream_id": 2, ... }
+{ "id": 2, "downstream_id": null, ... }
+```
+
+O grafo de jusante é validado como **acíclico** — nenhuma cadeia de
+referências `downstream_id` pode retornar a uma usina que já esteja na cadeia.
+Usinas com `downstream_id: null` são usinas de final de cascata; cada
+componente conexa do grafo da cascata deve ter exatamente uma usina de final
+de cascata.
+
+#### Tempo de viagem da água (`travel_time_hours`)
+
+O campo opcional `travel_time_hours` declara quanto tempo a água liberada leva
+para percorrer o **arco principal da cascata** até `downstream_id`.
+
+```json
+{ "id": 0, "downstream_id": 1, "travel_time_hours": 48.0 }
+```
+
+| Campo | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `travel_time_hours` | number ou null | Não | Tempo de viagem no arco principal da cascata, em horas. Quando presente, estritamente positivo e a usina tem `downstream_id`, a parcela de cada defluência que o tempo de viagem leva além do fim do estágio de liberação chega ao reservatório de jusante em estágios posteriores; o restante chega dentro do próprio estágio (veja [Tempo de viagem na cascata](/pt-br/math/system-elements#tempo-de-viagem-na-cascata)). Ausente, `null` ou `0.0` significa transferência instantânea. |
+
+Quando um arco é declarado, o Novo Modelo mantém a água em trânsito como estado
+de Bellman adicional (veja [Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua) e
+[Tempo de viagem na cascata](#tempo-de-viagem-na-cascata)). O tempo de viagem se
+aplica apenas ao arco principal da cascata — as transferências por desvio e
+por bombeamento são sempre instantâneas. Declarar um arco exige informar as
+defluências anteriores ao estudo que já estão em trânsito via
+`initial_conditions.past_defluences`, e a usina de jusante deve ter entrado em
+operação até o primeiro estágio do estudo — veja
+[Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo).
+
+#### Campos avançados
+
+Estes campos permitem uma modelagem física mais detalhada e são todos opcionais.
+
+**Modelo do canal de fuga** — o bloco `tailrace` modela o nível de jusante
+como função da vazão defluente total; quando ausente, a cota do canal de fuga
+é zero. Duas variantes no nível da entidade são admitidas:
+
+```json
+"tailrace": { "type": "polynomial", "coefficients": [5.0, 0.001] }
+```
+
+`coefficients` é um polinômio em potências crescentes: `coefficients[0]` é a
+altura com vazão defluente nula (m), `coefficients[1]` é o coeficiente de `Q¹`,
+e assim por diante.
+
+```json
+"tailrace": {
+  "type": "piecewise",
+  "points": [
+    { "outflow_m3s": 0.0, "height_m": 3.0 },
+    { "outflow_m3s": 5000.0, "height_m": 4.5 }
+  ]
+}
+```
+
+Os pontos devem estar ordenados por `outflow_m3s` crescente; o solver
+interpola linearmente entre eles. Uma terceira fonte, no nível de arquivo — as
+curvas opcionais de canal de fuga quárticas por partes, por usina, com
+famílias de remanso ([Modelos de função de produção hidrelétrica
+§2.3.1](/pt-br/math/hydro-production-models#231-familias-quarticas-por-partes-do-canal-de-fuga-acoplamento-por-remanso)) —, substitui o modelo no nível da entidade no ajuste da FPHA calculada para qualquer usina que tenha linhas nesse
+arquivo; a derivação da produtibilidade equivalente continua lendo o modelo no nível da entidade.
+
+**Perdas hidráulicas** — o bloco `hydraulic_losses` modela a perda de carga no
+conduto forçado; ausente significa sem perdas.
+
+```json
+"hydraulic_losses": { "type": "factor", "value": 0.03 }
+```
+
+`value` é uma fração adimensional (por exemplo, `0.03` = 3% da queda bruta,
+isto é, nível de montante menos nível de jusante) para `"factor"`, ou um valor
+fixo em metros (`value_m`) para `"constant"`.
+
+**Modelo de rendimento** — o bloco `efficiency` converte a potência hidráulica
+em potência elétrica; ausente significa rendimento de 100%. Apenas
+`"constant"` é admitido:
+
+```json
+"efficiency": { "type": "constant", "value": 0.93 }
+```
+
+**Evaporação** — o bloco `evaporation` modela o fluxo líquido de água na
+superfície do reservatório; ausente significa sem evaporação. Os coeficientes
+têm **sinal**: valores positivos representam perda líquida por evaporação, e
+valores negativos, aporte líquido por precipitação.
+
+```json
+"evaporation": {
+  "coefficients_mm": [
+    80.0, 75.0, 70.0, 65.0, 60.0, 55.0,
+    60.0, 65.0, 70.0, 75.0, 80.0, 85.0
+  ],
+  "reference_volumes_hm3": [
+    15000, 12000, 10000, 8000, 6000, 5000,
+    5500, 7000, 9000, 11000, 13000, 14500
+  ]
+}
+```
+
+| Campo | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `coefficients_mm` | array | Sim | Exatamente 12 valores, um por mês do calendário (índice 0 = janeiro). Em mm/mês; podem ser negativos. |
+| `reference_volumes_hm3` | array | Não | Exatamente 12 volumes de referência para a linearização [hm³], um por mês, dentro de `[min_storage_hm3, max_storage_hm3]`. Na ausência, usa-se o ponto médio da faixa de armazenamento. |
+
+Uma usina que declara `coefficients_mm` mas não tem uma curva área-volume
+utilizável para convertê-los em fluxo — veja
+[Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/pt-br/math/hydro-production-models#implementacao-no-novo-modelo) para saber exatamente o que significa "curva
+não utilizável" e como o Novo Modelo trata o caso.
+
+**Canal de desvio** — o bloco `diversion` modela um desvio que conduz vazão
+diretamente ao reservatório de uma usina de jusante, sem passar pelas turbinas
+nem pelos vertedouros; ausente significa sem desvio. `max_flow_m3s` é a
+capacidade do canal; omita-o ou defina-o como `null` para um canal sem limite
+de capacidade.
+
+```json
+"diversion": { "downstream_id": 2, "max_flow_m3s": 200.0 }
+```
+
+**Configuração de enchimento** — o bloco `filling` habilita um período de
+enchimento de volume morto na entrada em operação, durante o qual o
+reservatório acumula água rumo a `min_storage_hm3` antes que a usina possa gerar.
+
+```json
+"filling": {
+  "start_stage_id": 48,
+  "filling_min_rate_m3s": 100.0
+}
+```
+
+| Campo | Obrigatório | Descrição |
+| --- | --- | --- |
+| `start_stage_id` | Sim | Índice do estágio em que o enchimento começa (inclusive); o enchimento vai até o estágio anterior a `entry_stage_id`. |
+| `filling_min_rate_m3s` | Não | Taxa mínima de acumulação por estágio [m³/s], com padrão `0.0` quando omitida: ancora uma meta de armazenamento mínimo ao final de cada estágio que cresce até `min_storage_hm3` no último estágio de enchimento. **Não** é uma afluência aplicada e **não** é um teto — a vazão natural afluente e as defluências da cascata a montante continuam passando pelo balanço hídrico comum; não há mecanismo de retenção ou represamento que desvie afluência para o armazenamento. |
+
+A trajetória-meta e sua penalidade de piso flexível são tratadas em
+[Sistema de penalidades §6](/pt-br/math/penalty-system#particularidades-do-enchimento-de-volume-morto); a
+verificação de suficiência do enchimento, feita na carga, está listada na
+[aba Configurar](/pt-br/math/penalty-system#implementacao-no-novo-modelo) daquela página.
+
+**Penalidades** — o bloco `penalties` sobrescreve, para uma usina, os padrões
+globais de `penalties.json`; quando ausente, a usina usa os valores globais.
+
+```json
+"penalties": {
+  "spillage_cost": 0.01,
+  "diversion_cost": 0.1,
+  "turbined_cost": 0.05,
+  "storage_violation_below_cost": 10000.0,
+  "filling_target_violation_cost": 6000.0,
+  "turbined_violation_below_cost": 500.0,
+  "outflow_violation_below_cost": 500.0,
+  "outflow_violation_above_cost": 500.0,
+  "generation_violation_below_cost": 1000.0,
+  "evaporation_violation_cost": 5000.0,
+  "water_withdrawal_violation_cost": 1000.0,
+  "inflow_nonnegativity_cost": 1000.0
+}
+```
+
+Quando o bloco está presente, todos os campos são opcionais e, cada um
+independentemente, recorrem ao padrão global de `penalties.json`; o bloco
+aceita exatamente essas doze chaves e rejeita qualquer campo desconhecido. Os
+custos direcionais de evaporação e de retirada não têm chave neste bloco; a
+usina obtém cada um do custo simétrico correspondente do bloco, quando o bloco
+o define, ou, caso contrário, de `penalties.json`
+([Sistema de penalidades — Custos direcionais de evaporação e
+de retirada](/pt-br/math/penalty-system#custos-direcionais-de-evaporacao-e-de-retirada)).
+Para a lista completa de campos, as unidades e a ordenação de prioridade entre
+as categorias de penalidade, veja [Sistema de penalidades](/pt-br/math/penalty-system).
+
+**Cascata de resolução em três níveis** — os valores de penalidade são
+resolvidos da fonte mais específica para a mais geral:
+
+1. **Sobrescrita no nível do estágio** (arquivos de penalidade por estágio, quando presentes)
+2. **Sobrescrita no nível da entidade** (o bloco `penalties` dentro do objeto JSON da usina)
+3. **Padrão global** (a seção `hydro` de `penalties.json`, que deve estar sempre presente e completa)
+
+#### Limites operativos variáveis por estágio (`constraints/hydro_bounds.parquet`)
+
+Além dos campos de desvio e vertimento no nível da entidade descritos acima,
+`constraints/hydro_bounds.parquet` contém sobrescritas opcionais e esparsas de
+limites variáveis por estágio para uma usina hidrelétrica, opcionalmente
+restritas a um patamar por meio de uma coluna opcional `block_id` (`null` se
+aplica ao estágio como um todo). Três de suas colunas definem um piso de
+desvio e a faixa de vertimento:
+
+- `min_diversion_m3s` — um piso para a vazão de desvio (m³/s). Um piso
+  positivo, assim como um `max_diversion_m3s` positivo, **exige um canal
+  `diversion` declarado** na usina (veja Canal de desvio, acima): sem canal
+  declarado, a coluna de desvio é fixada em `[0, 0]`, e um limite de desvio
+  positivo é rejeitado na carga.
+- `min_spillage_m3s`, `max_spillage_m3s` — a faixa de vertimento (m³/s);
+  `min_spillage_m3s` deve ser `<= max_spillage_m3s`.
+
+Os três são não negativos — um valor negativo é rejeitado na carga, assim
+como uma faixa de vertimento com `min_spillage_m3s > max_spillage_m3s`. A
+ausência de linha deixa sem definição o piso de desvio e a faixa de vertimento
+da usina no estágio/patamar que a linha cobriria (sem piso; vertimento limitado
+apenas pelas demais restrições de vazão defluente da usina). Veja
+[Arquivos de restrições — `constraints/hydro_bounds.parquet`](/pt-br/reference/case-format/constraints/#constraintshydro_boundsparquet)
+para a tabela completa de colunas, incluindo as colunas de sobrescrita de
+turbinamento, armazenamento, vazão defluente, geração, desvio máximo,
+enchimento e retirada que esse arquivo também contém.
+
+### Regras de validação na carga
+
+| Regra | Classe de erro | Descrição |
+| --- | --- | --- |
+| Integridade da referência ao barramento | Erro de referência | Todo `unit_groups[].bus_id` deve corresponder a um `id` em `buses.json`. |
+| Integridade da referência de jusante | Erro de referência | Todo `downstream_id` não nulo deve corresponder a um `id` em `hydros.json`. |
+| Ordenação dos limites do grupo de unidades | Viabilidade física | Em cada grupo, `min_turbined_m3s` deve ser `<= max_turbined_m3s`, e `min_generation_mw` deve ser `<= max_generation_mw`. |
+| Envoltória dos grupos de unidades | Viabilidade física | A soma dos `max_turbined_m3s` de todos os grupos (e, separadamente, dos `max_generation_mw`) não pode exceder o máximo declarado pela própria usina; a soma dos mínimos de todos os grupos deve ser capaz de alcançar o mínimo declarado pela própria usina. |
+| Aciclicidade da cascata | Erro de topologia | O grafo orientado das ligações `downstream_id` deve ser acíclico. |
+| Ordenação dos limites de armazenamento | Viabilidade física | `min_storage_hm3` deve ser menor ou igual a `max_storage_hm3` (a igualdade é permitida — usina com armazenamento fixo). |
+| Ordenação dos limites de vazão defluente | Viabilidade física | Quando `max_outflow_m3s` está presente, deve ser `>= min_outflow_m3s`. |
+| Ordenação dos limites de turbinamento | Viabilidade física | `min_turbined_m3s` deve ser `<= max_turbined_m3s`. |
+| Consistência dos limites de geração | Viabilidade física | `min_generation_mw` deve ser `<= max_generation_mw`. |
+| Exclusividade das condições iniciais | Erro de esquema | Em `initial_conditions.json`, uma usina aparece no máximo uma vez em `storage`, no máximo uma vez em `filling_storage` e nunca em ambos; uma usina sem entrada não é rejeitada na carga e começa em seu piso de armazenamento. |
+| Array do armazenamento inicial | Erro semântico | Uma usina com bloco `filling` informa seu armazenamento inicial em `filling_storage`, e uma usina sem esse bloco, em `storage`; uma entrada no outro array é rejeitada. |
+| Faixa do armazenamento inicial | Erro semântico | Um valor de `storage` deve estar dentro de `[min_storage_hm3, max_storage_hm3]` da própria usina, inclusive para uma usina que entra em operação mais adiante no estudo. |
+| Armazenamento inicial no primeiro estágio de operação | Aviso | Um valor de `storage` fora dos limites `min_storage_hm3`/`max_storage_hm3` de final de estágio do primeiro estágio de operação da usina (de `constraints/hydro_bounds.parquet` ou, na falta, os da própria usina) é aceito com um aviso; o armazenamento inicial é usado como declarado. |
+| Tamanho do array de evaporação | Erro de esquema | `coefficients_mm` deve ter exatamente 12 valores; `reference_volumes_hm3`, quando presente, também deve ter exatamente 12 valores dentro de `[min_storage_hm3, max_storage_hm3]`. |

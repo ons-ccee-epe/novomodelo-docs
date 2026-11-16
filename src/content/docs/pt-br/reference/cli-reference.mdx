@@ -1,0 +1,384 @@
+---
+title: Referência da CLI
+description: Referência completa de todos os subcomandos, flags e códigos de saída do `novomodelo`.
+---
+
+## Sinopse
+
+```
+novomodelo [--color <WHEN>] <SUBCOMMAND> [OPTIONS]
+```
+
+## Opções globais
+
+| Opção           | Tipo                          | Padrão | Descrição                                                                                                                                                   |
+| ---------------- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--color <WHEN>` | `auto` \| `always` \| `never` | `auto`  | Controla a saída colorida ANSI em stdout e stderr. `auto` colore cada fluxo somente quando ele é um terminal; `always` força cores em ambos — útil sob `mpiexec`, que encaminha os dois fluxos por um pipe que não é TTY. Com dois ou mais processos MPI, o rank 0 de `novomodelo run` colore ambos os fluxos, a menos que `--quiet` seja informado, independentemente de `--color`. |
+
+## Subcomandos
+
+| Subcomando | Sinopse                           | Descrição                                                    |
+| ---------- | ---------------------------------- | -------------------------------------------------------------- |
+| `init`     | `novomodelo init [OPTIONS] [DIRECTORY]` | Cria um novo diretório de caso a partir de um template embutido        |
+| `run`      | `novomodelo run <CASE_DIR> [OPTIONS]`   | Carrega, treina, simula e grava os resultados                       |
+| `validate` | `novomodelo validate <CASE_DIR>`        | Valida um diretório de caso e imprime um relatório de diagnóstico        |
+| `schema`   | `novomodelo schema <COMMAND>`           | Gerencia os arquivos JSON Schema dos tipos de entrada do diretório do caso        |
+| `version`  | `novomodelo version`                    | Imprime a versão, o backend de solver e informações de build           |
+
+---
+
+## `novomodelo init`
+
+Cria um novo diretório de caso a partir de um template embutido. Gera todos os
+arquivos de entrada obrigatórios (`config.json`, `penalties.json`, `stages.json`, arquivos do sistema etc.),
+para que um novo usuário possa partir de um exemplo funcional.
+
+### Argumentos
+
+| Argumento      | Tipo | Descrição                                           |
+| ------------- | ---- | ----------------------------------------------------- |
+| `[DIRECTORY]` | Caminho | Diretório de destino onde os arquivos do template serão gravados. Obrigatório, a menos que `--list` seja informado; não aceito com `--list` |
+
+### Opções
+
+| Opção              | Tipo   | Padrão | Descrição                                      |
+| ------------------- | ------ | ------- | ------------------------------------------------ |
+| `--template <NAME>` | string | —       | Nome do template a gerar (ex.: `1dtoy`). Obrigatório, a menos que `--list` seja informado; não aceito com `--list` |
+| `--list`            | flag   | desativada     | Lista todos os templates disponíveis e encerra. Não aceito com `--template` nem com um diretório |
+| `--force`           | flag   | desativada     | Sobrescreve arquivos existentes no diretório de destino |
+
+Sem `--list`, tanto `--template` quanto o diretório são obrigatórios.
+
+### Exemplos
+
+```bash
+# Listar os templates disponíveis
+novomodelo init --list
+
+# Gerar o exemplo 1dtoy em um novo diretório
+novomodelo init --template 1dtoy my_study
+
+# Sobrescrever arquivos em um diretório existente
+novomodelo init --template 1dtoy --force my_study
+```
+
+---
+
+## `novomodelo run`
+
+Executa o ciclo completo de resolução para um diretório de caso:
+
+1. **Carregar** — lê todos os arquivos de entrada e executa o pipeline de validação em camadas
+2. **Treinar** — treina uma política PDDE (SDDP) usando os critérios de parada configurados
+3. **Simular** — (opcional) avalia a política treinada sobre os cenários da simulação final
+4. **Gravar** — grava todos os arquivos de saída no diretório de resultados
+
+A execução da simulação final é controlada por `simulation.enabled` em `config.json`.
+A exportação dos artefatos estocásticos é controlada por `exports.stochastic` em `config.json`.
+
+### Argumentos
+
+| Argumento     | Tipo | Descrição                                                              |
+| ------------ | ---- | ------------------------------------------------------------------------ |
+| `<CASE_DIR>` | Caminho | Caminho do diretório do caso que contém os arquivos de dados de entrada e o `config.json` |
+
+### Opções
+
+| Opção           | Tipo    | Padrão              | Descrição                                                                                                                                                            |
+| ---------------- | ------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--output <DIR>` | Caminho    | `<CASE_DIR>/output/` | Diretório de saída dos resultados                                                                                                                                           |
+| `--threads <N>`  | inteiro | `1`                  | Número de threads de trabalho por processo (rank MPI). Cada thread resolve suas próprias instâncias de PL; os cenários são distribuídos entre as threads. Deve ser `1` ou mais. |
+| `--comm-backend <WHICH>` | `auto` \| `local` \| `mpi` | `auto` | Backend de comunicação. `auto` seleciona o backend MPI quando um binário compilado com suporte a MPI (o asset de release `novomodelo-mpi`) é iniciado por um lançador MPI (`mpiexec`/`mpirun`/`srun`), e o backend local nos demais casos; `local` força um único processo; `mpi` força o backend MPI e falha com uma mensagem clara em um binário compilado sem suporte a MPI. |
+| `--quiet`        | flag    | desativada                  | Suprime o banner, a saída de progresso e os resumos, de modo que stdout fica vazio. Os erros continuam indo para stderr                                                           |
+
+### Princípio da configuração em primeiro lugar
+
+A CLI segue um projeto **orientado à configuração** (config-first): `config.json` define _o que_ calcular,
+e as flags da CLI definem _como_ executar. Um estudo é inteiramente especificado pelo seu diretório de caso —
+o mesmo caso produz os mesmos resultados, quaisquer que sejam as flags da CLI usadas.
+
+| Aspecto                    | Controlado por                                     |
+| -------------------------- | ------------------------------------------------- |
+| Simulação final ativada/desativada          | `simulation.enabled` em `config.json`             |
+| Exportação estocástica ativada/desativada   | `exports.stochastic` em `config.json`             |
+| Simulações forward, iterações | `training.*` em `config.json`                     |
+| Seleção de cortes              | `training.cut_selection` em `config.json`         |
+| Método de afluência              | `modeling.inflow_non_negativity` em `config.json` |
+
+### Exemplos
+
+```bash
+# Executar um estudo com o local de saída padrão
+novomodelo run /data/cases/hydro_study
+
+# Gravar os resultados em um diretório personalizado
+novomodelo run /data/cases/hydro_study --output /data/results/run_001
+
+# Usar 4 threads de trabalho por rank MPI
+novomodelo run /data/cases/hydro_study --threads 4
+
+# Executar sem nenhuma decoração de terminal (útil em scripts)
+novomodelo run /data/cases/hydro_study --quiet
+
+# Forçar saída colorida ao executar sob mpiexec
+novomodelo --color always run /data/cases/hydro_study
+
+# Executar em 4 ranks MPI (requer o build MPI; ver Implantação em HPC e Cluster)
+mpiexec -np 4 novomodelo-mpi run /data/cases/hydro_study
+```
+
+### Formato da saída
+
+`novomodelo run` grava seu relatório em stdout: o banner, os blocos de execução e de
+preparação, as linhas de progresso e os resumos do treinamento (training) e da simulação final. Avisos
+e erros vão para stderr. Em um terminal interativo, as barras de progresso são desenhadas em
+stderr; quando stderr não é um terminal (redirecionado, encaminhado por pipe ou sob um
+lançador MPI), o progresso é uma linha acrescentada por iteração e por atualização da simulação
+em stdout.
+
+`novomodelo run` imprime este resumo em stdout quando o treinamento termina. Ele contém
+as linhas de convergência, de linhas da política e de resoluções de PL, além de um bloco `Time split`
+que decompõe o tempo de relógio total do treinamento nas fases `Forward` / `Backward` /
+`Serial` (ver as notas sobre a aritmética abaixo).
+
+```
+Training complete in 4m 12s (42 iterations, converged at iter 38)
+  Lower bound:  4.85000e4 $/stage
+  Upper bound:  4.90000e4 +/- 2.50000e2 $/stage
+  Gap:          1.03093% (started at 38.41250%)
+  Policy rows:  980000 active / 1250000 generated
+  LP solves:    84000 (81900 first-try, 2000 retried, 100 failed)
+  Avg iter:     6000ms
+  Time split:   Forward  2m 51s (68%)   solve 2m 40s · wait 14.0s (8% of phase)
+                Backward 1m 9s (27%)   solve 58.0s · wait 7.0s (10% of phase)
+                Serial   12.0s (5%)   bound 4.0s · selection 2.0s · allreduce 1.0s · sync 500ms · other 4.5s
+```
+
+A linha `Gap` acrescenta, entre parênteses, o gap da primeira iteração quando seu
+limite inferior é positivo. Os três tempos de relógio do bloco `Time split` somam o tempo total do treinamento
+(`Serial = total − Forward − Backward`, truncado em zero). Para `Forward`/
+`Backward`, `solve` é o tempo de relógio médio por worker gasto resolvendo PLs naquela fase
+(tempo acumulado de resolução de todos os workers dividido pelo paralelismo, limitado ao
+tempo de relógio da fase); `wait` é a espera dos workers daquela fase devida ao desbalanceamento de carga,
+mostrada como percentual do tempo de relógio da fase. A espera de `Backward` é o tempo do worker
+mais lento menos o tempo médio dos workers, considerando os workers de todos os ranks; assim,
+sob MPI, inclui o tempo em que um rank espera pelos demais; é a soma, ao longo
+das iterações, da coluna `bwd_load_imbalance_ms` de
+`training/timing/iterations.parquet`. Na linha `Serial`, `bound` é o tempo de
+avaliação do limite inferior e `selection` é o tempo de seleção de linhas;
+`allreduce` (sincronização MPI do limite da simulação forward) e `sync` (`allgatherv` de
+sincronização de linhas por estágio) aparecem **somente** em execuções MPI, inseridos apenas quando
+não nulos; `other` absorve o overhead de escalonamento do rayon mais qualquer resíduo
+não contabilizado. Todo o bloco `Time split` é **omitido** quando a medição do tempo de relógio
+por fase em cada iteração não está disponível.
+
+Essa saída impressa destina-se à leitura, não ao processamento automático. O registro legível por máquina da
+mesma execução são os metadados que `novomodelo run` grava no diretório de saída —
+`training/metadata.json` quando houve treinamento e `simulation/metadata.json` quando
+houve simulação final —, que podem ser consultados diretamente com `jq`:
+
+```bash
+# Status da execução e limites finais
+jq '{status, bounds}' /data/cases/hydro_study/output/training/metadata.json
+
+# Extrair o motivo de término do treinamento
+jq -r '.convergence.termination_reason' /data/cases/hydro_study/output/training/metadata.json
+
+# Quando houve simulação, falhar um job de CI se a saída de algum cenário não pôde ser gravada
+[ "$(jq -r '.scenarios.failed' /data/cases/hydro_study/output/simulation/metadata.json)" = "0" ] || exit 1
+```
+
+Em Python, `novomodelo.results.load_results(output_dir)` retorna os dois arquivos de metadados
+como dicts. Todos os campos estão documentados em
+[Arquivos de metadados](/pt-br/reference/output/metadata/).
+
+### Clusters SLURM
+
+A execução do Novo Modelo sob SLURM (`srun`/`sbatch`), o mapeamento híbrido MPI + threads,
+as principais flags do SLURM e a seleção do PMI são tratados em detalhe na página
+[Implantação em HPC e clusters](/pt-br/running/hpc-deployment/#execucao-sob-slurm),
+junto com a forma de obter ou compilar o binário com suporte a MPI e uma arquitetura de referência
+resolvida com o AWS ParallelCluster.
+
+---
+
+## `novomodelo validate`
+
+Executa o pipeline de validação em camadas e, em seguida, a construção do estudo, o carregamento da política
+que a execução aplicaria e a reconciliação da fronteira, como `novomodelo run` faz antes do
+treinamento, sem resolver. Imprime um relatório de diagnóstico em stdout.
+
+Em caso de sucesso, imprime uma única linha com a contagem de entidades:
+
+```
+Valid case: 3 buses, 12 hydros, 8 thermals, 4 lines
+```
+
+Um caso sem avisos não imprime mais nada. Quando o pipeline emite avisos, um
+resumo `Validation: 0 errors, N warnings in <dir>` segue a linha `Valid case:`
+(com `<dir>` exatamente como informado na linha de comando) e, depois, uma linha `warning:`
+por ocorrência, incluindo as do carregamento da política (`warning: <output dir>/<policy.path>: …`).
+Por exemplo, um armazenamento inicial abaixo do armazenamento mínimo que
+`constraints/hydro_bounds.parquet` define para o final do primeiro estágio
+de operação da UHE imprime:
+
+{/* quoted from source: check_initial_storage_first_stage_bounds in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.20.0 — a 1dtoy case whose hydro_bounds.parquet sets min_storage_hm3 200 for hydro 0 at stage 0 */}
+
+```
+Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
+Validation: 0 errors, 1 warnings in my_study
+warning: initial_conditions.json (Hydro 0): Hydro 0: initial storage (83.222) lies below the minimum storage (200) at the end of stage 0, its first operating stage; that stage must reach it from its own inflow
+```
+
+[`ModelQuality`](/pt-br/reference/error-codes/#modelquality) lista os
+avisos de armazenamento inicial.
+Quando `config.json` configura uma política de fronteira e a execução treina, seguem-se uma
+linha `boundary policy priced at <date>` e um resumo de uma linha da
+reconciliação.
+
+Em caso de falha, o novomodelo imprime um resumo `Validation: N errors, 0 warnings in <dir>`
+seguido de cada erro em uma linha com o prefixo `error:` e termina com o código indicado em
+[Códigos de saída](#codigos-de-saida): `1` para um caso ou uma política recusados,
+`2` para um checkpoint de política que o sistema operacional se recusa a ler ou para uma entrada estocástica que não pode ser lida,
+caso em que também imprime o erro de E/S em stderr. Um diretório de caso
+inexistente é reportado em stderr sem o resumo.
+
+Quando `config.json` configura `policy.boundary` e a execução treina, `novomodelo validate` carrega e
+reconcilia essa política de fronteira, como faz `novomodelo run`, incluindo o
+[controle de versão](/pt-br/running/policy-management/#verificacao-de-versao). Uma recusa termina com código `1`,
+assim como um checkpoint de fronteira que não pode ser lido. Com `--json`, uma recusa
+e um checkpoint ilegível reportam ambos a fase `BoundaryReconciliationError`;
+consulte
+[Erros de carregamento da política](/pt-br/reference/error-codes/#erros-de-carga-da-politica).
+
+Quando a execução carregaria uma política (`policy.mode` `warm_start` ou `resume` com
+treinamento ativado, ou treinamento desativado com simulação final ativada), `novomodelo validate`
+a lê de `<output dir>/<policy.path>` e aplica as mesmas verificações: uma recusa
+termina com código `1` (fase `WarmStartIncompatible`, `ResumeIncompatible` ou
+`SimulationPolicyIncompatible`), assim como um
+caso cuja política ainda não existe. `--output` indica o diretório de saída.
+
+### Argumentos
+
+| Argumento     | Tipo | Descrição                            |
+| ------------ | ---- | -------------------------------------- |
+| `<CASE_DIR>` | Caminho | Caminho do diretório do caso a validar |
+
+### Opções
+
+| Opção   | Tipo | Padrão | Descrição                                                                                                                                                                                                                                                                                                   |
+| -------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json` | flag | desativada     | Substitui o relatório legível por pessoas por exatamente um objeto JSON em stdout. Em caso de sucesso, contém o resultado da reconciliação da política de fronteira (`configured`, `boundary_date`, `report` — `configured` é `true` quando `policy.boundary` está configurado e a execução o aplica, o que só ocorre em uma execução que treina, e os dois últimos são `null` quando ele é `false`), além de `policy_load` (`mode`, `unused_stored_bases`) quando um carregamento de política está configurado; em caso de falha, contém um objeto `error` com a `phase` que falhou e a `message`. Os códigos de saída não mudam. |
+| `--output <DIR>` | Caminho | `<CASE_DIR>/output/` | O diretório de saída: o carregamento da política lê `<DIR>/<policy.path>`, e `policy.path` é verificado em relação a ele. |
+
+### Exemplos
+
+```bash
+# Validar um diretório de caso antes de executar
+novomodelo validate /data/cases/hydro_study
+
+# Uso em script: prosseguir somente se a validação passar
+novomodelo validate /data/cases/hydro_study && novomodelo run /data/cases/hydro_study
+
+# Resultado legível por máquina para uma etapa de pipeline
+novomodelo validate /data/cases/hydro_study --json
+```
+
+---
+
+## `novomodelo schema`
+
+Gerencia os arquivos JSON Schema dos tipos de entrada do diretório do caso. Seu único subcomando é
+`export`.
+
+### Subcomandos
+
+| Subcomando | Sinopse                                   | Descrição                                  |
+| ---------- | ------------------------------------------ | -------------------------------------------- |
+| `export`   | `novomodelo schema export [--output-dir <DIR>]` | Exporta os arquivos JSON Schema de todos os tipos de entrada |
+
+| Opção               | Tipo | Padrão | Descrição                                                                                |
+| -------------------- | ---- | ------- | ------------------------------------------------------------------------------------------ |
+| `--output-dir <DIR>` | Caminho | `.`     | Diretório em que os arquivos de schema são gravados. É criado se não existir. Schemas existentes são sobrescritos. |
+
+### Exemplos
+
+```bash
+# Exportar os schemas para o diretório corrente
+novomodelo schema export
+
+# Exportar os schemas para um diretório específico
+novomodelo schema export --output-dir /data/schemas
+```
+
+---
+
+## `novomodelo version`
+
+Imprime a versão do binário, os backends de solver e de comunicação ativos, o suporte a
+compressão, a arquitetura da máquina e o perfil de build.
+
+### Linhas da saída
+
+{/* capture: novomodelo version | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: none */}
+
+```
+novomodelo   v0.20.0
+solver: HiGHS 1.13.1
+comm:   local
+zstd:   enabled
+arch:   x86_64-linux
+build:  release (lto=thin)
+```
+
+| Linha                               | Descrição                                                             |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| `novomodelo v{version}`                 | A versão de release do novomodelo                                               |
+| `solver: {name} {version}`         | Backend de solver de PL ativo e a versão de sua biblioteca — `HiGHS 1.13.1` nos builds padrão; um build com CLP reporta `CLP <version>` |
+| `comm: local` ou `comm: mpi`       | Backend de comunicação (`mpi` somente quando compilado com a feature `mpi`) |
+| `zstd: enabled`                    | Suporte a compressão da saída                                              |
+| `arch: {arch}-{os}`                | Arquitetura da CPU e sistema operacional da máquina                              |
+| `build: release (lto=thin)` ou `build: debug` | Perfil de build                                                |
+
+### Argumentos
+
+Nenhum.
+
+### Opções
+
+Nenhuma.
+
+---
+
+## Códigos de saída
+
+| Código | Categoria   | Causa                                                                                                                |
+| ---- | ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Sucesso    | O comando foi concluído sem erros                                                                                 |
+| `1`  | Validação | Um caso ou uma política recusados em qualquer dos subcomandos: um erro registrado no relatório de validação; uma regra do `config.json`, incluídas as salvaguardas de `policy.path`; uma recusa na preparação do estudo (modelo estocástico, perfil do solver, critério de admissão); uma política recusada (outro software ou versão, formato, estado, grafo, escala de custos); um diretório de política ausente ou um arquivo de checkpoint ausente ou impossível de decodificar; um checkpoint `policy.boundary` recusado ou ilegível; uma recusa ocorrida durante o treinamento (número de threads, versão do formato de transmissão dos cortes) |
+| `2`  | E/S ou uso | Um diretório de caso inexistente (ambos os subcomandos); um checkpoint de política que o sistema operacional se recusa a ler; uma entrada estocástica que não pode ser lida, como um arquivo de árvore de aberturas declarado e ausente; disco cheio ou outra falha do sistema de arquivos ao gravar o checkpoint da política ou os resultados do treinamento ou da simulação final após o início do treinamento, exceto a gravação dos resultados de um cenário da simulação, que é registrada em log e mantém o código de saída `0` (`novomodelo run`); ou um erro de uso da linha de comando — subcomando ou opção desconhecidos, subcomando ou argumento ausente, argumento conflitante ou valor de opção inválido — reportado pelo analisador de argumentos antes da leitura de qualquer arquivo |
+| `3`  | Solver     | Um PL inviável ou uma falha do solver, no treinamento ou na simulação final, ou um backend de solver que não pode ser inicializado |
+| `4`  | Interno   | Uma falha de comunicação, um fechamento inesperado de canal ou outra falha interna; sob `novomodelo validate`, também o erro de carregamento que escapa do relatório de validação, uma divergência na contagem de coeficientes AR (`novomodelo run`: `1`) |
+| `5`  | Interrompido    | Somente `novomodelo run`: um SIGTERM ou SIGINT durante o treinamento interrompeu a execução em uma fronteira de iteração após gravar as saídas do treinamento e o checkpoint; a simulação final é pulada ([Critérios de parada — Solicitações de encerramento](/pt-br/math/stopping-rules/#solicitacoes-de-encerramento)) |
+| `101` | Pânico     | Uma falha interna que provocou pânico (panic); a mensagem de pânico vai para stderr. Sob MPI, o rank que entra em pânico imprime `rank {rank}: panicked; aborting the MPI job` e aborta todo o job com este código ([Erros em tempo de execução](/pt-br/reference/error-codes/#erros-de-execucao)) |
+
+Uma referência pendente (um ID de entidade que aponta para uma entidade inexistente) aparece
+como uma linha `InvalidReference` dentro de uma violação de restrição semântica (código de saída 1).
+
+As mensagens de erro são impressas em stderr com o prefixo `error:` e linhas de dica. Consulte
+[Códigos de erro](/pt-br/reference/error-codes/) para um catálogo detalhado, incluindo
+[Erros de carregamento da política](/pt-br/reference/error-codes/#erros-de-carga-da-politica). Para a causa e a correção das falhas que um estudo costuma encontrar, consulte [Solução de problemas](/pt-br/running/troubleshooting/).
+
+:::note
+Toda falha de carregamento anterior ao solver termina com o mesmo código nos dois
+subcomandos, exceto o erro de carregamento que só aparece depois que o relatório
+de validação está completo, um erro de schema na montagem dos cenários: `4` sob
+`novomodelo validate` e `1` sob `novomodelo run`. Os textos das mensagens e suas formas de exibição estão em
+[`StochasticPreparationError`](/pt-br/reference/error-codes/#stochasticpreparationerror).
+:::
+
+---
+
+## Variáveis de ambiente
+
+O Novo Modelo **não lê nenhuma configuração** de variáveis de ambiente. Todos os parâmetros vêm dos arquivos de configuração e de dados do caso e dos argumentos da CLI `novomodelo` — o número de threads de `--threads`, as cores de `--color` e o backend de comunicação de `--comm-backend`. A largura do terminal (para exibir o progresso quando stderr é encaminhado por pipe) e o nome da máquina registrado na rastreabilidade da execução são consultados diretamente no terminal e no sistema operacional. Dois sinais de tempo de execução são as únicas entradas do ambiente, e nenhum deles é um canal de configuração: se o processo foi iniciado por um lançador MPI (consultado apenas por `--comm-backend auto` para selecionar um backend) e `RUST_LOG`, que define o nível de detalhe do log de diagnóstico gravado em stderr. `RUST_LOG` tem padrão `warn`, que exibe avisos de descontinuação e de qualidade do modelo; `RUST_LOG=debug` (ou `trace`) acrescenta detalhes de diagnóstico — por exemplo, as linhas de reconciliação da política de fronteira por slot, que `novomodelo validate` e `novomodelo run` de outra forma condensam em um resumo de uma linha —, mas nunca altera os resultados do estudo, apenas o que é registrado em log.

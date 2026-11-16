@@ -1,0 +1,56 @@
+O Novo Modelo lê o grafo da política (policy graph) a partir do objeto `policy_graph` do `stages.json`.
+Esta aba apresenta a grafia dos nós, das transições e das probabilidades que
+[Grafos da política](/pt-br/math/policy-graphs) define acima, e a regra que verifica as
+probabilidades na carga; a tabela completa de campos está em
+[`stages.json`](/pt-br/reference/case-format/stages/#stagesjson).
+
+### Campos de nó e de transição
+
+Uma entrada de `policy_graph.nodes[]` tem as chaves `id`, `stage_id`, `scenario_id` e
+`label`. As chaves `id` e `stage_id` são obrigatórias, `label` é um nome opcional
+legível, e `scenario_id` só está presente em um nó cujo estágio
+recebe um cenário fornecido externamente.
+
+Uma entrada de `policy_graph.transitions[]` tem as chaves `source_id`, `target_id` e
+`probability`. As duas extremidades são ids de nós quando `nodes[]` é declarado e,
+caso contrário, ids de estágios. No dialeto de cadeia de estágios (sem `nodes[]`), uma transição
+também pode conter `annual_discount_rate_override`; com `nodes[]`, essa chave é rejeitada.
+As regras da sobrescrita estão na aba Configurar de
+[Formulação da taxa de desconto](/pt-br/math/discount-rate#implementacao-no-novo-modelo).
+
+A chave `scenario_id` só se aplica sob uma simulação forward enumerada. Nesse caso, ela é
+obrigatória em todo nó cujo estágio recebe um cenário fornecido externamente, e
+deve indexar uma coluna válida de cada uma dessas classes externas; é rejeitada em um
+nó cujo estágio não recebe nenhum. Uma simulação forward amostrada rejeita qualquer `scenario_id`
+na inicialização, indicando o primeiro nó que o declara e o respectivo estágio.
+
+O objeto `policy_graph` a seguir declara um leque terminal sob uma simulação forward
+enumerada: um nó-tronco no estágio 0, que fixa o único cenário externo do seu estágio, e
+três filhos no estágio 1, cada um fixando um de três cenários fornecidos externamente.
+
+```json
+{
+  "policy_graph": {
+    "type": "finite_horizon",
+    "annual_discount_rate": 0.06,
+    "nodes": [
+      { "id": 0, "stage_id": 0, "scenario_id": 0, "label": "trunk" },
+      { "id": 1, "stage_id": 1, "scenario_id": 0, "label": "dry" },
+      { "id": 2, "stage_id": 1, "scenario_id": 1, "label": "normal" },
+      { "id": 3, "stage_id": 1, "scenario_id": 2, "label": "wet" }
+    ],
+    "transitions": [
+      { "source_id": 0, "target_id": 1, "probability": 0.25 },
+      { "source_id": 0, "target_id": 2, "probability": 0.5 },
+      { "source_id": 0, "target_id": 3, "probability": 0.25 }
+    ]
+  }
+}
+```
+
+### Probabilidades de transição
+
+Os valores de `probability` de saída de cada origem devem somar 1 com tolerância de `1e-6`;
+uma origem cuja soma se afaste mais que isso faz a carga falhar, e o erro indica a
+origem e a soma. Quando a verificação é aprovada, o carregador reescala as probabilidades de saída de cada
+origem para que somem exatamente 1. Uma soma nula ou não finita é rejeitada.

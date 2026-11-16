@@ -88,9 +88,11 @@ npm run check:counts  # stated counts match their tables and files: column/field
 npm run check:version # novomodelo-version references vs the Synced-to anchor
 npm run check:narration # change narration, both zones (ratchet: scripts/doc-lint-allow.txt)
 npm run check:glossary # glossary: no file/path/config tokens, A–Z index complete (ratchet: scripts/doc-lint-allow.txt)
+npm run check:ptbr-case # pt-BR headings, frontmatter titles and sidebar labels in sentence case; exemptions in EXEMPT_TERMS (ratchet: scripts/doc-lint-allow.txt)
 npm run check:error-coverage # every emitted ErrorKind/LoadError variant has an error-codes section; unemitted ones are reserved
 npm run check:input-schemas # vendored input schemas match the case-format tables: names both ways, required flags, enums
 npm run check:python-api # every public novomodelo-python stub symbol has an anchor in reference/python-api (stubs: scripts/pystubs/)
+npm run check:ptbr-sync # each commit in origin/main..HEAD changes English pages with their pt-BR translations (also the commit-msg hook in .githooks/, installed by npm install)
 npm run check:d2      # D2 uses the ELK engine, never TALA
 npm run check:spdx    # 100% FOSS dependency audit
 npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.20.0 (NOVOMODELO_BIN or novomodelo on PATH)

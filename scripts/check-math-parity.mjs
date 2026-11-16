@@ -26,9 +26,9 @@ const contentRoot = fileURLToPath(
 );
 const distRoot = fileURLToPath(new URL("../dist/", import.meta.url));
 
-// Recursively collect every .md/.mdx file under src/content/docs/, excluding the
-// pt-br/ subtree (future locale; only the root English corpus is gated here) and
-// every index.mdx (the landing page and the reference section overviews, which
+// Recursively collect every .md/.mdx file under src/content/docs/, the pt-br/
+// twins included (a pt-br/ source maps to the built /pt-br/ page), excluding
+// every index.mdx (the landing pages and the reference section overviews, which
 // carry no display math).
 //
 // Exported so the underscore-basename exclusion (the
@@ -38,7 +38,6 @@ const distRoot = fileURLToPath(new URL("../dist/", import.meta.url));
 export function collectSourceFiles(dir) {
   const files = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === "pt-br") continue;
     // Skip underscore-prefixed entries (e.g. the math/_impl/_*.mdx interleave
     // partials): Starlight's docsLoader globs `**/[^_]*.{md,mdx}`, so these are
     // NOT routed pages and have no mirrored dist HTML to check parity against.

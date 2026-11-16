@@ -1,0 +1,896 @@
+---
+title: Convergência e diagnóstico
+description: Padrões práticos de análise para avaliar a convergência, extrair estatísticas de geração e de custo e solucionar problemas nos resultados da simulação final.
+---
+
+O [Formato de saída](/pt-br/reference/output/) documenta o conteúdo de cada
+arquivo de saída. Esta página vai um nível além: apresenta padrões práticos
+de análise para responder a perguntas do domínio a partir dos dados. Pressupõe-se
+familiaridade com a leitura de arquivos Parquet na ferramenta de sua preferência.
+
+O foco está no diagnóstico de convergência e na análise da simulação final. Ao final
+desta página, você saberá avaliar se uma execução convergiu,
+extrair estatísticas de geração e de custo entre cenários e identificar
+problemas comuns a partir dos dados de saída.
+
+---
+
+## Carregando resultados em Python
+
+O módulo `novomodelo.results` do `novomodelo-python` lê o diretório de saída de uma execução
+para o Python. O [Guia rápido em Python](/pt-br/getting-started/python-quickstart/) trata
+da instalação. Os trechos abaixo leem a saída de
+`novomodelo run my_study --output results`, em que `my_study` é o template 1dtoy
+gerado por `novomodelo init --template 1dtoy my_study`, e são executados a partir do diretório que
+contém `my_study/` e `results/`.
+
+`load_convergence` retorna um dict por iteração, indexado pelas colunas de
+`training/convergence.parquet`, listadas em
+[Leitura do histórico de convergência](#leitura-do-historico-de-convergencia).
+`load_convergence_arrow` retorna a mesma tabela como `pyarrow.Table`
+(`pyarrow` deve estar instalado), que `polars.from_arrow` consome.
+
+```python
+import novomodelo
+import polars as pl
+
+last = novomodelo.results.load_convergence("results")[-1]
+for key in ("iteration", "lower_bound", "upper_bound", "gap_percent"):
+    print(f"{key}: {last[key]:.6g}")
+
+conv = pl.from_arrow(novomodelo.results.load_convergence_arrow("results"))
+print(conv.select("iteration", "upper_bound", "upper_bound_kind", "gap_percent").tail(1))
+```
+
+{/* capture: python loading convergence (novomodelo.results) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on 1dtoy (novomodelo init --template 1dtoy) */}
+
+```text
+iteration: 128
+lower_bound: 2.06161e+07
+upper_bound: 579592
+gap_percent: -97.1886
+shape: (1, 4)
+┌───────────┬───────────────┬──────────────────┬─────────────┐
+│ iteration ┆ upper_bound   ┆ upper_bound_kind ┆ gap_percent │
+│ ---       ┆ ---           ┆ ---              ┆ ---         │
+│ i32       ┆ f64           ┆ str              ┆ f64         │
+╞═══════════╪═══════════════╪══════════════════╪═════════════╡
+│ 128       ┆ 579592.198622 ┆ statistical      ┆ -97.188649  │
+└───────────┴───────────────┴──────────────────┴─────────────┘
+```
+
+O limite superior é o custo médio das simulações forward amostradas da última
+iteração (`upper_bound_kind` é `"statistical"`); por isso, pode ficar abaixo do limite
+inferior, como mostra o `gap_percent` negativo. [Leitura do gap em
+`training/metadata.json`](#leitura-do-gap-em-trainingmetadatajson)
+explica como interpretar um gap amostrado.
+
+`load_simulation_arrow` lê um tipo de entidade de `simulation/`, aqui `hydros`, como
+uma única `pyarrow.Table` com todos os cenários, ordenada por `scenario_id`. A
+tabela identifica uma usina apenas por `hydro_id`; `system/hydros.json`, no diretório
+do caso, associa o `id` de cada usina ao seu `name`. O trecho une os dois,
+soma a geração dos patamares dentro de cada (`scenario_id`, `stage_id`,
+`hydro_id`) e calcula a média entre cenários por nome de usina e estágio. Essa é a
+ordem de agregação indicada na nota sobre a granularidade da tabela em
+[Análise dos resultados da simulação final](#analise-dos-resultados-da-simulacao-final). O template tem
+um patamar por estágio; portanto, aqui a soma por patamar não altera os valores.
+
+```python
+import json
+
+import novomodelo
+import polars as pl
+
+with open("my_study/system/hydros.json") as f:
+    names = pl.DataFrame(
+        [{"hydro_id": h["id"], "name": h["name"]} for h in json.load(f)["hydros"]]
+    )
+
+hydros = pl.from_arrow(
+    novomodelo.results.load_simulation_arrow("results", entity_type="hydros")
+)
+mean_generation = (
+    hydros
+    .group_by(["scenario_id", "stage_id", "hydro_id"])
+    .agg(pl.col("generation_mwh").sum())
+    .join(names, on="hydro_id")
+    .group_by(["name", "stage_id"])
+    .agg(pl.col("generation_mwh").mean().alias("mean_generation_mwh"))
+    .sort(["name", "stage_id"])
+)
+print(mean_generation)
+```
+
+{/* capture: python loading simulation with plant names (novomodelo.results) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on 1dtoy (novomodelo init --template 1dtoy) */}
+
+```text
+shape: (4, 3)
+┌──────┬──────────┬─────────────────────┐
+│ name ┆ stage_id ┆ mean_generation_mwh │
+│ ---  ┆ ---      ┆ ---                 │
+│ str  ┆ i32      ┆ f64                 │
+╞══════╪══════════╪═════════════════════╡
+│ UHE1 ┆ 0        ┆ 33480.0             │
+│ UHE1 ┆ 1        ┆ 31182.517095        │
+│ UHE1 ┆ 2        ┆ 34097.618278        │
+│ UHE1 ┆ 3        ┆ 34042.448549        │
+└──────┴──────────┴─────────────────────┘
+```
+
+`load_simulation` retorna as mesmas linhas como dicts do Python — uma lista, quando se informa um
+`entity_type`, ou, sem ele, um dict de listas indexado por tipo de entidade —, o que é adequado
+para leituras pequenas.
+
+Os valores de `hydro_id` são os ids declarados no `system/hydros.json` do caso.
+Para um caso convertido de outra ferramenta de planejamento, o conversor grava `conversion_manifest.json` no
+diretório do caso convertido, ao lado de `config.json`, como seu registro de rastreabilidade:
+a versão do conversor, o diretório de origem, os hashes dos arquivos de entrada e as
+contagens de entidades. A relação entre os ids das entidades convertidas e os
+códigos das usinas no modelo de origem está em [Conversão de um caso existente](/pt-br/running/case-conversion/).
+
+---
+
+## Diagnóstico de convergência
+
+### Leitura do gap em `training/metadata.json`
+
+`training/metadata.json` é o primeiro arquivo a verificar após qualquer execução — é o
+resumo da execução em JSON, que não deve ser confundido com o cabeçalho binário do checkpoint
+`policy/manifest.bin`. Os campos principais para avaliar a convergência são os objetos
+`iterations` e `convergence`. O trecho abaixo é de uma execução de `novomodelo run`
+com o template 1dtoy:
+
+{/* capture: excerpt of training/metadata.json after novomodelo run | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy (novomodelo init --template 1dtoy) */}
+
+```json
+{
+  "iterations": {
+    "completed": 128,
+    "converged_at": null
+  },
+  "convergence": {
+    "achieved": false,
+    "final_gap_percent": -97.18864856046982,
+    "termination_reason": "iteration_limit"
+  }
+}
+```
+
+| Campo                            | O que observar                                                                                         |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `convergence.achieved`           | `true` quando os critérios de parada encerraram a execução e um critério `gap` ou `bound_stalling` foi satisfeito naquela iteração; `false` quando apenas `iteration_limit` ou `time_limit` foram acionados, quando uma solicitação de encerramento, por si só, finalizou o treinamento (training) e após uma falha. |
+| `convergence.final_gap_percent`  | O gap relativo no término, em percentual: o limite superior menos o limite inferior, relativo ao limite inferior. Negativo quando o limite superior está abaixo do limite inferior; `null` quando o limite inferior final não é positivo. Ver orientações abaixo. |
+| `convergence.termination_reason` | O nome do critério de parada que encerrou a execução. Os valores estão listados em [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson). |
+| `iterations.converged_at`        | Igual a `iterations.completed` quando `achieved` é `true`; `null` caso contrário.                             |
+
+**Orientações sobre o gap.** Não há limiar universal — o gap aceitável depende
+da decisão em questão e do horizonte do estudo. Como orientação aproximada
+para um gap sem ruído amostral, proveniente de uma simulação forward enumerada
+(`bounds.final_upper_bound_kind` é `"exact"` e a medida de risco é a mesma em todos os estágios):
+
+- Abaixo de 1%: aceitável para a maioria das decisões.
+- De 1% a 5%: aceitável para estudos de planejamento de longo horizonte, em que a incerteza
+  do modelo já é grande.
+- Acima de 5%: merece investigação. A política pode estar significativamente
+  distante da ótima.
+
+Com um limite superior amostrado (`bounds.final_upper_bound_kind` é `"statistical"`),
+o [gap](/pt-br/math/stopping-rules/#gap-de-otimalidade) é uma estimativa, e não um
+certificado: compara o custo médio das simulações forward amostradas da última
+iteração com o limite inferior, contém ruído amostral e é negativo sempre que
+essa média fica abaixo do limite inferior, como no trecho acima. Os limiares
+acima não se aplicam a um gap amostrado, que muda de sinal e de magnitude de uma
+iteração para a seguinte: avalie uma execução amostrada verificando se o limite inferior
+se estabilizou ([Leitura do histórico de convergência](#leitura-do-historico-de-convergencia)). Com uma
+simulação forward enumerada (`"exact"`), o limite superior é exato e o gap não contém
+ruído amostral, mas o gap certifica a política somente quando a medida de risco
+é a mesma em todos os estágios;
+consulte [quando valem os limites e os
+certificados](/pt-br/math/cut-management/#quando-os-limites-e-certificados-valem).
+
+**O que fazer se o gap for grande:**
+
+1. Aumente `limit` no critério de parada
+   [`iteration_limit`](/pt-br/running/configuration/#iteration_limit).
+2. Aumente `training.selection.forward_passes`
+   ([`training.selection`](/pt-br/running/configuration/#trainingselection)) para reduzir
+   o ruído da estimativa do limite superior.
+3. Verifique `training/convergence.parquet` (ver a próxima seção) para saber se
+   o limite inferior ainda está subindo ou se estabilizou.
+4. Verifique `solve_stats.retried` e `solve_stats.failed` em
+   `training/metadata.json`: resoluções que precisaram de novas tentativas apontam para estágios
+   numericamente difíceis, e uma resolução que ainda falha após as novas tentativas encerra
+   o treinamento com erro.
+
+### Leitura do detalhamento `Time split`
+
+`novomodelo run` imprime um bloco `Time split` no resumo do treinamento quando este termina,
+decompondo o tempo de relógio total do treinamento em três parcelas — `Forward`,
+`Backward` e `Serial`. Consulte o [exemplo de Formato da saída
+de `novomodelo run`](/pt-br/reference/cli-reference/#formato-da-saida) para o bloco completo analisado
+nesta seção. Cada parcela de fase (`Forward`/`Backward`) traz uma
+divisão `solve · wait`; a parcela `Serial` traz uma divisão
+`bound · selection [· allreduce · sync] · other`.
+
+**Tempo da fase versus espera dos workers.** Um `wait` grande em relação ao tempo da fase —
+`forward_wait` ou `backward_wait` — indica **desbalanceamento de carga** entre
+workers: alguns workers concluem sua parcela de estados visitados bem antes de outros
+e ficam ociosos esperando a fase terminar. Sob MPI, `backward_wait`
+abrange os workers de todos os ranks; assim, também inclui o tempo em que um rank espera que
+ranks mais lentos concluam as resoluções de um estágio; `forward_wait` refere-se apenas ao rank 0.
+É exatamente isso que o
+escalonador backward `by_node` ([Escalonamento por
+nó](/pt-br/running/performance/#escalonamento-por-no)) existe para
+reduzir, diminuindo a unidade de trabalho de um estado visitado inteiro para um par `(estado
+visitado, bloco de aberturas)`, de modo que um worker ocioso possa assumir trabalho de granularidade mais fina
+em vez de esperar que um estado visitado inteiro seja liberado. A seleção de linhas vem
+desativada por padrão (`training.cut_selection.selection` é `null`,
+[`training.cut_selection`](/pt-br/running/configuration/#trainingcut_selection));
+quando seu `method` é `"dynamic"`, a simulação backward é escalonada por cenário a partir
+de sua `start_iteration`, qualquer que seja a configuração `by_node`.
+
+**As parcelas seriais limitam o ganho de velocidade alcançável.** `bound`, `selection`,
+`allreduce`, `sync` e `other` não diminuem com o acréscimo de ranks ou threads —
+são a fração serial da execução, no sentido da lei de Amdahl. `allreduce` e `sync`
+aparecem apenas em execuções MPI (uma execução de processo único nunca os preenche); `other`
+absorve o overhead de escalonamento do rayon mais qualquer resíduo não contabilizado. Uma parcela `Serial`
+que permanece grande à medida que o paralelismo cresce significa que ranks ou threads adicionais
+pouco ajudarão — verifique qual parcela serial predomina antes de acrescentar
+mais workers.
+
+**`solve` versus tempo da fase.** `solve` é o tempo de relógio médio por worker gasto resolvendo PLs
+naquela fase. Compará-lo ao tempo da fase mostra quanto da fase é
+efetivamente gasto resolvendo PLs e quanto em coordenação (escalonamento, espera, consolidação): um
+`solve` próximo do tempo da fase significa que a fase é limitada pela resolução; um `solve`
+bem abaixo do tempo da fase significa que a maior parte do tempo é overhead de coordenação,
+incluindo a parcela `wait` acima.
+
+---
+
+## Leitura do histórico de convergência
+
+`training/convergence.parquet` contém uma linha por iteração do treinamento com
+o histórico completo de convergência. Seu esquema:
+
+| Coluna             | Tipo    | Descrição                                                                            |
+| ------------------ | ------- | -------------------------------------------------------------------------------------- |
+| `iteration`        | Int32   | Número da iteração (começando em 1)                                                             |
+| `lower_bound`      | Float64 | Limite inferior do treinamento para o custo ajustado ao risco: o custo esperado quando a medida de risco do primeiro estágio é o valor esperado ([limite inferior](/pt-br/math/upper-bound-evaluation/#limite-inferior)) |
+| `upper_bound`      | Float64 | Estimativa do limite superior — média sobre as simulações forward, para um limite estatístico; caso contrário, o limite ponderado exato da enumeração |
+| `upper_bound_std`  | Float64 | Desvio-padrão da estimativa do limite superior. NULL nas linhas de limite exato (`upper_bound_kind` = `"exact"`) |
+| `upper_bound_kind` | Utf8    | Tipo de limite desta linha: `"exact"` (limite ponderado da enumeração) ou `"statistical"` (média das simulações forward amostradas) |
+| `gap_percent`      | Float64 | Gap relativo em percentual (null quando `lower_bound <= 0`)                            |
+| `cuts_added`       | Int32   | Cortes adicionados ao conjunto nesta iteração                                               |
+| `cuts_removed`     | Int32   | Cortes desativados nesta iteração pela etapa de seleção e pelo teto `max_active_per_stage`, somados sobre os conjuntos; as reativações não são subtraídas |
+| `cuts_active`      | Int64   | Cortes ativos somados sobre os conjuntos após o gerenciamento de linhas desta iteração, incluindo cortes carregados |
+| `time_forward_ms`  | Int64   | Tempo de relógio da simulação forward, em milissegundos                                   |
+| `time_backward_ms` | Int64   | Tempo de relógio da simulação backward, em milissegundos                                  |
+| `time_total_ms`    | Int64   | Tempo de relógio total da iteração, em milissegundos                                |
+| `forward_passes`   | Int32   | Número de cenários da simulação forward nesta iteração                                     |
+| `lp_solves`        | Int64   | Total de resoluções de PL em todos os ranks nesta iteração (forward + backward + limite)        |
+| `mean_rows_in_lp`  | Float64 | Média de cortes carregados por resolução preguiçosa (lazy) de PL nesta iteração sob o método `dynamic` (0 nos demais casos) |
+| `lazy_round_cap_hits` | Int64 | Resoluções preguiçosas do método `dynamic` nesta iteração que atingiram o limite de rodadas com um corte ainda violado (0 nos demais casos) |
+
+### Python (Polars)
+
+```python
+import polars as pl
+import matplotlib.pyplot as plt
+
+df = pl.read_parquet("results/training/convergence.parquet")
+
+# Plotar os limites de convergência ao longo das iterações
+plt.figure(figsize=(10, 4))
+plt.plot(df["iteration"], df["lower_bound"], label="Lower bound")
+plt.plot(df["iteration"], df["upper_bound"], label="Upper bound (mean)")
+# upper_bound_std é NULL nas linhas de convergência exata (upper_bound_kind == "exact");
+# substitui-se por 0 para que a faixa colapse sobre a linha em vez de produzir NaN.
+std = df["upper_bound_std"].fill_null(0.0)
+plt.fill_between(
+    df["iteration"].to_list(),
+    (df["upper_bound"] - std).to_list(),
+    (df["upper_bound"] + std).to_list(),
+    alpha=0.2,
+    label="Upper bound ± 1 std",
+)
+plt.xlabel("Iteration")
+plt.ylabel("Expected discounted cost (horizon total)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Verificar o gap final
+final = df.filter(pl.col("iteration") == df["iteration"].max())
+print(final.select(["iteration", "lower_bound", "upper_bound", "gap_percent"]))
+```
+
+{/* capture: python convergence snippet | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on 1dtoy */}
+
+```text
+shape: (1, 4)
+┌───────────┬─────────────┬───────────────┬─────────────┐
+│ iteration ┆ lower_bound ┆ upper_bound   ┆ gap_percent │
+│ ---       ┆ ---         ┆ ---           ┆ ---         │
+│ i32       ┆ f64         ┆ f64           ┆ f64         │
+╞═══════════╪═════════════╪═══════════════╪═════════════╡
+│ 128       ┆ 2.0616e7    ┆ 579592.198622 ┆ -97.188649  │
+└───────────┴─────────────┴───────────────┴─────────────┘
+```
+
+### R
+
+{/* not run: R and DuckDB are outside the capture environment (design/python-env.md); same plot and final-gap read as the captured Python snippet */}
+
+```r
+library(arrow)
+library(ggplot2)
+
+df <- read_parquet("results/training/convergence.parquet")
+
+# Plotar os limites de convergência
+# upper_bound_std é NULL nas linhas de convergência exata (upper_bound_kind == "exact");
+# substitui-se por 0 para que a faixa colapse sobre a linha em vez de produzir NA.
+ggplot(df, aes(x = iteration)) +
+  geom_line(aes(y = lower_bound, color = "Lower bound")) +
+  geom_line(aes(y = upper_bound, color = "Upper bound")) +
+  geom_ribbon(
+    aes(
+      ymin = upper_bound - dplyr::coalesce(upper_bound_std, 0),
+      ymax = upper_bound + dplyr::coalesce(upper_bound_std, 0)
+    ),
+    alpha = 0.2
+  ) +
+  labs(
+    x = "Iteration",
+    y = "Expected discounted cost (horizon total)",
+    color = NULL
+  ) +
+  theme_minimal()
+
+# Imprimir o gap final
+tail(df[, c("iteration", "lower_bound", "upper_bound", "gap_percent")], 1)
+```
+
+**O que observar no gráfico de convergência:**
+
+- O limite inferior sobe e se estabiliza. Com uma simulação forward amostrada
+  (`upper_bound_kind` = `"statistical"`), o limite superior é uma estimativa ruidosa
+  que pode ficar abaixo do limite inferior; assim, avalie a convergência pela estabilização
+  do limite inferior, e não pelo encontro dos dois limites. Com uma simulação forward
+  enumerada (`"exact"`), o limite superior não contém ruído amostral.
+- Um limite inferior que permanece constante após as primeiras iterações sugere que
+  os cortes da simulação backward não estão melhorando: verifique `cuts_added` para confirmar que cortes
+  estão sendo gerados.
+- Um limite superior que oscila amplamente sem se estreitar sugere que o
+  número de `forward_passes` é baixo demais para produzir uma estimativa estável.
+
+---
+
+## Análise dos resultados da simulação final
+
+A saída da simulação final é particionada no estilo Hive: os resultados são armazenados em um
+arquivo `data.parquet` por cenário, em `simulation/<category>/scenario_id=NNNN/`.
+Polars, Pandas, R arrow e DuckDB permitem ler o diretório inteiro
+como uma única tabela e filtrar por `scenario_id` na camada de armazenamento.
+
+:::note[Granularidade das tabelas]
+Cada linha de uma tabela de despacho (`hydros`, `thermals`, `buses`, `exchanges`,
+`hydro_bus_generation` e as demais famílias por patamar) corresponde a uma combinação
+(`scenario_id`, `stage_id`, `block_id`, id da entidade); `hydro_bus_generation`
+acrescenta `bus_id`. `costs` tem uma linha por (`scenario_id`, `stage_id`), com
+`block_id` nulo. `node_id` identifica o nó visitado do grafo da política (policy graph); `stage_id` e
+`block_id` são os ids de estágio e de patamar declarados em `stages.json`.
+
+Agregue primeiro dentro de cada (cenário, estágio) — some energia e custo sobre os patamares,
+pondere uma taxa por patamar, como `water_value_per_hm3`, pelas horas do patamar — e só então calcule estatísticas entre
+cenários. As colunas de cada tabela estão listadas no
+[Formato de saída](/pt-br/reference/output/).
+:::
+
+As saídas impressas nesta seção e em
+[Tarefas comuns de análise](#tarefas-comuns-de-analise) vêm de um único estudo: um caso 1dtoy
+modificado para ter dois patamares por estágio, `PEAK` e `OFFPEAK`, que dividem
+as horas do estágio (um número ímpar de horas dá a hora extra a `OFFPEAK`), executado com
+100 cenários de simulação. O template, tal como gerado, tem um patamar por estágio; portanto,
+seus números diferem. Os trechos são executados a partir do
+diretório do caso, que aqui contém tanto `results/` quanto `stages.json`.
+
+### Leitura de uma tabela inteira
+
+Cada diretório `simulation/<entity>/` é lido como uma tabela com todos os cenários;
+`scenario_id` é ao mesmo tempo o nome do diretório da partição e uma coluna dentro do arquivo (ver
+[Particionamento Hive](/pt-br/reference/output/#particionamento-hive)).
+
+```python
+# Polars — lê todos os cenários de uma vez e infere scenario_id a partir dos nomes dos diretórios
+import polars as pl
+
+df = pl.read_parquet("results/simulation/costs/")
+print(df.head())
+```
+
+{/* capture: python read-whole-table | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on 1dtoy (novomodelo init --template 1dtoy) */}
+
+```text
+shape: (5, 29)
+┌────────────┬──────────┬─────────┬──────────┬───┬────────────┬────────────┬───────────┬───────────┐
+│ scenario_i ┆ stage_id ┆ node_id ┆ block_id ┆ … ┆ turbined_c ┆ curtailmen ┆ exchange_ ┆ pumping_c │
+│ d          ┆ ---      ┆ ---     ┆ ---      ┆   ┆ ost        ┆ t_cost     ┆ cost      ┆ ost       │
+│ ---        ┆ i32      ┆ i32     ┆ i32      ┆   ┆ ---        ┆ ---        ┆ ---       ┆ ---       │
+│ i32        ┆          ┆         ┆          ┆   ┆ f64        ┆ f64        ┆ f64       ┆ f64       │
+╞════════════╪══════════╪═════════╪══════════╪═══╪════════════╪════════════╪═══════════╪═══════════╡
+│ 0          ┆ 0        ┆ 0       ┆ null     ┆ … ┆ 1674.0     ┆ 0.0        ┆ 0.0       ┆ 0.0       │
+│ 0          ┆ 1        ┆ 1       ┆ null     ┆ … ┆ 1566.0     ┆ 0.0        ┆ 0.0       ┆ 0.0       │
+│ 0          ┆ 2        ┆ 2       ┆ null     ┆ … ┆ 1674.0     ┆ 0.0        ┆ 0.0       ┆ 0.0       │
+│ 0          ┆ 3        ┆ 3       ┆ null     ┆ … ┆ 1639.46480 ┆ 0.0        ┆ 0.0       ┆ 0.0       │
+│            ┆          ┆         ┆          ┆   ┆ 8          ┆            ┆           ┆           │
+│ 1          ┆ 0        ┆ 0       ┆ null     ┆ … ┆ 1674.0     ┆ 0.0        ┆ 0.0       ┆ 0.0       │
+└────────────┴──────────┴─────────┴──────────┴───┴────────────┴────────────┴───────────┴───────────┘
+```
+
+{/* not run: pandas is outside the capture environment (design/python-env.md); it reads the same directory as the captured Polars snippet */}
+
+```python
+# Pandas com backend PyArrow
+import pandas as pd
+
+df = pd.read_parquet("results/simulation/costs/")
+```
+
+### Agregação entre cenários
+
+A operação mais comum é o cálculo de estatísticas sobre todos os cenários para
+uma dada entidade ou estágio.
+
+**Python (Polars) — média e percentis:**
+
+```python
+import polars as pl
+
+# Carregar todos os resultados das UHEs em todos os cenários
+hydros = pl.read_parquet("results/simulation/hydros/")
+
+# Geração total por UHE por estágio em cada cenário (soma sobre os patamares)
+by_scenario = (
+    hydros
+    .group_by(["scenario_id", "stage_id", "hydro_id"])
+    .agg(pl.col("generation_mwh").sum())
+)
+
+# Média e percentis entre cenários por UHE por estágio
+mean_gen = (
+    by_scenario
+    .group_by(["hydro_id", "stage_id"])
+    .agg(
+        pl.col("generation_mwh").mean().alias("mean_generation_mwh"),
+        pl.col("generation_mwh").quantile(0.10).alias("p10_generation_mwh"),
+        pl.col("generation_mwh").quantile(0.90).alias("p90_generation_mwh"),
+    )
+    .sort(["hydro_id", "stage_id"])
+)
+print(mean_gen)
+```
+
+{/* capture: python aggregating across scenarios (mean and percentiles) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+
+```text
+shape: (4, 5)
+┌──────────┬──────────┬─────────────────────┬────────────────────┬────────────────────┐
+│ hydro_id ┆ stage_id ┆ mean_generation_mwh ┆ p10_generation_mwh ┆ p90_generation_mwh │
+│ ---      ┆ ---      ┆ ---                 ┆ ---                ┆ ---                │
+│ i32      ┆ i32      ┆ f64                 ┆ f64                ┆ f64                │
+╞══════════╪══════════╪═════════════════════╪════════════════════╪════════════════════╡
+│ 0        ┆ 0        ┆ 33480.0             ┆ 33480.0            ┆ 33480.0            │
+│ 0        ┆ 1        ┆ 31182.517095        ┆ 31320.0            ┆ 31320.0            │
+│ 0        ┆ 2        ┆ 34097.618278        ┆ 33480.0            ┆ 37200.0            │
+│ 0        ┆ 3        ┆ 34042.448549        ┆ 29617.197969       ┆ 36000.0            │
+└──────────┴──────────┴─────────────────────┴────────────────────┴────────────────────┘
+```
+
+**R:**
+
+{/* not run: R and DuckDB are outside the capture environment (design/python-env.md); same aggregation as the captured Python snippet */}
+
+```r
+library(arrow)
+library(dplyr)
+
+# Carregar todos os resultados das UHEs
+hydros <- open_dataset("results/simulation/hydros/") |> collect()
+
+# Geração total por UHE por estágio em cada cenário (soma sobre os patamares)
+by_scenario <- hydros |>
+  group_by(scenario_id, stage_id, hydro_id) |>
+  summarise(generation_mwh = sum(generation_mwh), .groups = "drop")
+
+# Média e percentis entre cenários por UHE por estágio
+mean_gen <- by_scenario |>
+  group_by(hydro_id, stage_id) |>
+  summarise(
+    mean_generation_mwh = mean(generation_mwh),
+    p10_generation_mwh  = quantile(generation_mwh, 0.10),
+    p90_generation_mwh  = quantile(generation_mwh, 0.90),
+    .groups = "drop"
+  ) |>
+  arrange(hydro_id, stage_id)
+
+print(mean_gen)
+```
+
+### Filtragem de um único cenário
+
+Uma leitura preguiçosa (lazy scan) com um predicado sobre a coluna de partição `scenario_id` permite ao Polars
+ler apenas a partição correspondente, em vez dos arquivos de todos os cenários.
+
+```python
+# Polars — leitura preguiçosa; o filtro em scenario_id seleciona a partição do cenário 0
+import polars as pl
+
+costs_s0 = (
+    pl.scan_parquet("results/simulation/costs/", hive_partitioning=True)
+    .filter(pl.col("scenario_id") == 0)
+    .select("stage_id", "block_id", "immediate_cost", "future_cost", "total_cost")
+    .collect()
+)
+print(costs_s0)
+```
+
+{/* capture: python single-scenario read (scan_parquet, hive_partitioning=True) | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+
+```text
+shape: (4, 5)
+┌──────────┬──────────┬────────────────┬─────────────┬───────────────┐
+│ stage_id ┆ block_id ┆ immediate_cost ┆ future_cost ┆ total_cost    │
+│ ---      ┆ ---      ┆ ---            ┆ ---         ┆ ---           │
+│ i32      ┆ i32      ┆ f64            ┆ f64         ┆ f64           │
+╞══════════╪══════════╪════════════════╪═════════════╪═══════════════╡
+│ 0        ┆ null     ┆ 169074.0       ┆ 4.0070e7    ┆ 4.0239e7      │
+│ 1        ┆ null     ┆ 158166.0       ┆ 5.1836e7    ┆ 5.1994e7      │
+│ 2        ┆ null     ┆ 169074.0       ┆ 2.3080e7    ┆ 2.3249e7      │
+│ 3        ┆ null     ┆ 159746.503183  ┆ 0.0         ┆ 159746.503183 │
+└──────────┴──────────┴────────────────┴─────────────┴───────────────┘
+```
+
+{/* not run: R and DuckDB are outside the capture environment (design/python-env.md); same filter as the captured Python snippet */}
+
+```sql
+-- DuckDB
+SELECT * FROM read_parquet('results/simulation/costs/**/*.parquet')
+WHERE scenario_id = 0
+ORDER BY stage_id;
+```
+
+{/* not run: R is outside the capture environment (design/python-env.md); same scenario filter as the captured Polars snippet */}
+
+```r
+# R com o pacote arrow
+library(arrow)
+ds <- open_dataset("results/simulation/costs/")
+dplyr::collect(dplyr::filter(ds, scenario_id == 0))
+```
+
+---
+
+## Tarefas comuns de análise
+
+### (a) Geração esperada por UHE
+
+```python
+import polars as pl
+
+hydros = pl.read_parquet("results/simulation/hydros/")
+
+# Somar sobre estágios e patamares dentro de cada cenário e, depois, calcular a média entre cenários
+expected = (
+    hydros
+    .group_by(["scenario_id", "hydro_id"])
+    .agg(pl.col("generation_mwh").sum().alias("total_generation_mwh"))
+    .group_by("hydro_id")
+    .agg(pl.col("total_generation_mwh").mean().alias("expected_total_generation_mwh"))
+    .sort("hydro_id")
+)
+print(expected)
+```
+
+{/* capture: python common task (a) expected generation by hydro plant | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+
+```text
+shape: (1, 2)
+┌──────────┬───────────────────────────────┐
+│ hydro_id ┆ expected_total_generation_mwh │
+│ ---      ┆ ---                           │
+│ i32      ┆ f64                           │
+╞══════════╪═══════════════════════════════╡
+│ 0        ┆ 132802.583922                 │
+└──────────┴───────────────────────────────┘
+```
+
+### (b) Custo esperado da geração térmica
+
+```python
+import polars as pl
+
+thermals = pl.read_parquet("results/simulation/thermals/")
+
+# Somar sobre estágios e patamares dentro de cada cenário e, depois, calcular a média entre cenários
+thermal_cost = (
+    thermals
+    .group_by(["scenario_id", "thermal_id"])
+    .agg(pl.col("generation_cost").sum().alias("total_cost"))
+    .group_by("thermal_id")
+    .agg(pl.col("total_cost").mean().alias("mean_total_cost"))
+    .sort("thermal_id")
+)
+print(thermal_cost)
+```
+
+{/* capture: python common task (b) expected thermal generation cost | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+
+```text
+shape: (2, 2)
+┌────────────┬─────────────────┐
+│ thermal_id ┆ mean_total_cost │
+│ ---        ┆ ---             │
+│ i32        ┆ f64             │
+╞════════════╪═════════════════╡
+│ 0          ┆ 217800.0        │
+│ 1          ┆ 397665.053461   │
+└────────────┴─────────────────┘
+```
+
+Em R:
+
+{/* not run: R and DuckDB are outside the capture environment (design/python-env.md); same aggregation as the captured Python snippet */}
+
+```r
+library(arrow)
+library(dplyr)
+
+thermals <- open_dataset("results/simulation/thermals/") |> collect()
+
+# Somar sobre estágios e patamares dentro de cada cenário e, depois, calcular a média entre cenários
+thermal_cost <- thermals |>
+  group_by(scenario_id, thermal_id) |>
+  summarise(total_cost = sum(generation_cost), .groups = "drop") |>
+  group_by(thermal_id) |>
+  summarise(mean_total_cost = mean(total_cost), .groups = "drop") |>
+  arrange(thermal_id)
+
+print(thermal_cost)
+```
+
+### (c) Probabilidade de déficit por barramento
+
+Um cenário tem déficit em um dado barramento e estágio se `deficit_mwh > 0` em algum
+patamar desse estágio. A probabilidade de déficit é a fração de cenários em que
+isso ocorre. Retirar `bus_id` das duas listas de chaves de `group_by` fornece a
+probabilidade de que algum barramento tenha déficit.
+
+```python
+import polars as pl
+
+buses = pl.read_parquet("results/simulation/buses/")
+
+# Um (cenário, estágio, barramento) tem déficit se algum de seus patamares tiver;
+# a probabilidade é a média desse indicador entre cenários
+deficit_prob = (
+    buses
+    .group_by(["scenario_id", "stage_id", "bus_id"])
+    .agg((pl.col("deficit_mwh") > 0).any().alias("has_deficit"))
+    .group_by(["bus_id", "stage_id"])
+    .agg(pl.col("has_deficit").mean().alias("deficit_probability"))
+    .sort(["bus_id", "stage_id"])
+)
+print(deficit_prob)
+```
+
+{/* capture: python common task (c) deficit probability per bus | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+
+```text
+shape: (4, 3)
+┌────────┬──────────┬─────────────────────┐
+│ bus_id ┆ stage_id ┆ deficit_probability │
+│ ---    ┆ ---      ┆ ---                 │
+│ i32    ┆ i32      ┆ f64                 │
+╞════════╪══════════╪═════════════════════╡
+│ 0      ┆ 0        ┆ 0.0                 │
+│ 0      ┆ 1        ┆ 0.06                │
+│ 0      ┆ 2        ┆ 0.08                │
+│ 0      ┆ 3        ┆ 0.19                │
+└────────┴──────────┴─────────────────────┘
+```
+
+### (d) Valor da água (preço-sombra) a partir da saída das UHEs
+
+A coluna `water_value_per_hm3` em `simulation/hydros/` é o dual da
+linha de balanço hídrico da usina, em unidades monetárias por hm³: a variação do custo com
+um hm³ a mais de água no reservatório. Em um estágio paralelo, todas as linhas de patamar
+trazem o valor da linha do estágio; em um estágio cronológico, cada linha de patamar traz
+o valor do seu próprio patamar; assim, para agregar um estágio cronológico, pondere os patamares
+pela sua duração (as horas do patamar em `stages.json`).
+
+```python
+import json
+
+import polars as pl
+
+# Horas dos patamares, do stages.json do caso, indexadas como as linhas de saída
+with open("stages.json") as f:
+    stages = json.load(f)["stages"]
+hours = pl.DataFrame(
+    [
+        {"stage_id": s["id"], "block_id": b["id"], "hours": b["hours"]}
+        for s in stages
+        for b in s["blocks"]
+    ]
+)
+
+hydros = pl.read_parquet("results/simulation/hydros/")
+
+# Média ponderada pelas horas sobre os patamares dentro de cada (cenário, estágio)
+# e, depois, a média entre cenários
+water_value = (
+    hydros
+    .join(hours, on=["stage_id", "block_id"])
+    .group_by(["scenario_id", "stage_id", "hydro_id"])
+    .agg(
+        (
+            (pl.col("water_value_per_hm3") * pl.col("hours")).sum()
+            / pl.col("hours").sum()
+        ).alias("stage_water_value")
+    )
+    .group_by(["hydro_id", "stage_id"])
+    .agg(pl.col("stage_water_value").mean().alias("mean_water_value"))
+    .sort(["hydro_id", "stage_id"])
+)
+print(water_value)
+```
+
+{/* capture: python common task (d) water value, hours-weighted | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+
+```text
+shape: (4, 3)
+┌──────────┬──────────┬──────────────────┐
+│ hydro_id ┆ stage_id ┆ mean_water_value │
+│ ---      ┆ ---      ┆ ---              │
+│ i32      ┆ i32      ┆ f64              │
+╞══════════╪══════════╪══════════════════╡
+│ 0        ┆ 0        ┆ -553339.744546   │
+│ 0        ┆ 1        ┆ -552109.378477   │
+│ 0        ┆ 2        ┆ -435328.500311   │
+│ 0        ┆ 3        ┆ -396300.555556   │
+└──────────┴──────────┴──────────────────┘
+```
+
+O valor é nulo ou negativo sempre que um hm³ adicional reduz o custo, porque
+a água desloca geração térmica ou déficit, agora ou mais tarde; uma magnitude
+maior significa água mais escassa, que o solver preserva para estágios posteriores. Um
+valor próximo de zero significa que o reservatório está abundante e que a água tem pouco valor
+marginal naquele momento. Um valor positivo aparece quando a água adicional só pode
+sair do reservatório com custo, por exemplo por meio de uma penalidade de vertimento: um
+hm³ a mais, então, aumenta o custo.
+
+### (e) Despacho por barramento de uma UHE distribuída entre barramentos
+
+`simulation/hydros/` reporta uma linha por (`scenario_id`, `stage_id`,
+`block_id`, `hydro_id`) — o total da usina sobre seus grupos de unidades geradoras, independentemente de
+quantos `unit_groups` ela declara ou de quantos barramentos eles abrangem. Para a divisão
+por barramento, leia `simulation/hydro_bus_generation/`, indexado por (`scenario_id`,
+`stage_id`, `block_id`, `hydro_id`, `bus_id`):
+
+```python
+import polars as pl
+
+bus_gen = pl.read_parquet("results/simulation/hydro_bus_generation/")
+
+# Somar os patamares dentro de cada (cenário, estágio) e, depois, calcular a média entre cenários
+per_bus = (
+    bus_gen
+    .group_by(["scenario_id", "stage_id", "hydro_id", "bus_id"])
+    .agg(pl.col("generation_mwh").sum())
+    .group_by(["hydro_id", "bus_id", "stage_id"])
+    .agg(pl.col("generation_mwh").mean().alias("mean_generation_mwh"))
+    .sort(["hydro_id", "bus_id", "stage_id"])
+)
+print(per_bus)
+```
+
+{/* capture: python common task (e) per-bus dispatch for a hydro plant | novomodelo-python 0.20.0 (PyPI wheel sha256 313393a1) | python 3.12.3 | case: output of novomodelo run (novomodelo-cli sha256 ae88209f) on a temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block) */}
+
+```text
+shape: (4, 4)
+┌──────────┬────────┬──────────┬─────────────────────┐
+│ hydro_id ┆ bus_id ┆ stage_id ┆ mean_generation_mwh │
+│ ---      ┆ ---    ┆ ---      ┆ ---                 │
+│ i32      ┆ i32    ┆ i32      ┆ f64                 │
+╞══════════╪════════╪══════════╪═════════════════════╡
+│ 0        ┆ 0      ┆ 0        ┆ 33480.0             │
+│ 0        ┆ 0      ┆ 1        ┆ 31182.517095        │
+│ 0        ┆ 0      ┆ 2        ┆ 34097.618278        │
+│ 0        ┆ 0      ┆ 3        ┆ 34042.448549        │
+└──────────┴────────┴──────────┴─────────────────────┘
+```
+
+As linhas de `turbined_m3s` somam, bit a bit, exatamente a linha da usina em `simulation/hydros/` em
+todo modelo de produção. As linhas de `generation_mw` somam exatamente bit a bit apenas para usinas com FPHA ou
+de célula única, e as linhas de `generation_mwh` apenas para usinas de célula única, já que
+cada linha multiplica seu próprio `generation_mw` pela duração do patamar. A divisão da
+vazão de uma célula entre seus grupos no mesmo barramento não tem dual que a determine; por isso,
+não é reportada — apenas o total por barramento o é.
+
+---
+
+## Solução de problemas
+
+### Gap sem convergir
+
+O limite inferior continua subindo após muitas iterações, ou o gap permanece grande.
+Com um limite superior amostrado, o gap é uma estimativa ruidosa que pode ser negativa
+(ver [Leitura do gap em `training/metadata.json`](#leitura-do-gap-em-trainingmetadatajson));
+por isso, verifique se o limite inferior se estabilizou antes de interpretar o gap.
+
+Causas possíveis:
+
+- **Poucas iterações.** A causa mais comum. Aumente o `iteration_limit`.
+- **Poucas simulações forward.** Um valor de `forward_passes` igual a 1 (como no
+  tutorial 1dtoy) produz alta variância na estimativa do limite superior. Aumentar
+  `forward_passes` faz a estimativa ser a média de mais cenários por iteração.
+- **Estágios numericamente difíceis.** Verifique em `training/convergence.parquet`
+  as iterações em que `cuts_added` é zero — isso pode indicar estágios em que a
+  simulação backward não está gerando cortes que melhorem a aproximação.
+- **Problemas no horizonte da política.** Verifique se `stages.json` tem a ordenação
+  correta dos estágios e se `policy_graph.type` está configurado corretamente.
+
+### Déficit inesperado
+
+Os cenários da simulação final apresentam `deficit_mwh` não nulo em `simulation/buses/`, mas
+o sistema deveria ter capacidade suficiente.
+
+Causas possíveis:
+
+- **Capacidade térmica insuficiente.** Compare a carga total (`load_mw` somado
+  sobre os barramentos) com a capacidade térmica total. Se a carga excede a capacidade
+  de geração em alguns cenários, o déficit é inevitável.
+- **Reservatório da UHE esvaziado.** Verifique `storage_final_hm3` em
+  `simulation/hydros/`. Se ele atinge o armazenamento mínimo da usina nos primeiros
+  estágios, os estágios seguintes não têm geração hidráulica e podem recorrer ao
+  déficit.
+- **Penalidade de déficit muito baixa.** Se os `deficit_segments` em `penalties.json`
+  tiverem preço abaixo do custo da geração térmica, o solver preferirá o déficit
+  à geração. Aumente o custo de déficit.
+
+### Geração nula de uma usina
+
+Uma UTE ou UHE apresenta geração nula em todos os cenários.
+
+Causas possíveis:
+
+- **A usina é mais cara que o déficit.** Compare o custo da usina com
+  a penalidade de déficit do barramento. Se o custo excede a penalidade, o déficit é
+  mais barato e o solver evita despachar a usina.
+- **Conexão ao barramento.** Verifique se a usina está conectada a um barramento que de fato
+  tem carga. Para uma UTE, fonte não despachável, usina elevatória ou
+  contrato de energia, verifique o `bus_id` de nível superior da entidade; uma UHE não tem
+  `bus_id` de nível superior — verifique, em vez disso, o `bus_id` de cada uma de suas entradas
+  `unit_groups[]`. Uma usina conectada a um barramento sem carga nunca será
+  despachada.
+- **UHE: restrições de reservatório muito apertadas.** Se `min_storage_hm3` está próximo
+  do armazenamento inicial, o solver não consegue turbinar água sem
+  arriscar uma violação de armazenamento. Revise `initial_conditions.json` e os limites de
+  armazenamento em `hydros.json`. Os valores `min_storage_hm3` e
+  `max_storage_hm3` por estágio em `constraints/hydro_bounds.parquet` limitam o armazenamento
+  ao final de um estágio e não alteram o armazenamento inicial. Quando o
+  armazenamento inicial está abaixo do mínimo vigente ao final do primeiro estágio
+  de operação da usina, esse estágio precisa atingir o mínimo com sua própria
+  afluência, o que deixa menos água para turbinar, e `novomodelo validate` emite um
+  aviso [`ModelQuality`](/pt-br/reference/error-codes/#modelquality) indicando a
+  UHE e o estágio. Um armazenamento inicial fora do intervalo
+  `[min_storage_hm3, max_storage_hm3]` da própria usina em `hydros.json` é recusado no carregamento.
+
+---
+
+## Páginas relacionadas
+
+- **Teoria:** [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation/) — o estimador estatístico do limite superior por trás das métricas de convergência analisadas nesta página.
+- [Formato de saída](/pt-br/reference/output/) — esquema completo, campo a campo, de todos os arquivos de saída
+- [Configuração](/pt-br/running/configuration/) — todos os campos de `config.json`, incluindo critérios de parada e semente

@@ -92,3 +92,23 @@ test("collects exactly keep.mdx and _impl/routed.mdx, excluding the two undersco
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("walks the pt-br/ twin subtree and still excludes its index.mdx", () => {
+  const root = buildFixture();
+  try {
+    mkdirSync(join(root, "pt-br"));
+    writeFileSync(join(root, "pt-br", "keep.mdx"), "# Manter\n\n$$x = 1$$\n");
+    writeFileSync(join(root, "pt-br", "index.mdx"), "# Início\n");
+    const files = collectSourceFiles(root).map((f) => f.slice(root.length));
+    assert.ok(
+      files.includes("pt-br/keep.mdx"),
+      `expected pt-br/keep.mdx to be collected, got: ${JSON.stringify(files)}`,
+    );
+    assert.ok(
+      !files.includes("pt-br/index.mdx"),
+      `expected pt-br/index.mdx to be excluded, got: ${JSON.stringify(files)}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
