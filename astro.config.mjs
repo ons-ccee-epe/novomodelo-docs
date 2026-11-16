@@ -377,6 +377,7 @@ export default defineConfig({
               items: [
                 "math/sddp-algorithm",
                 "math/cut-management",
+                "math/par-folding",
                 "math/lp-layout-and-scaling",
                 "math/lp-warm-start",
                 "math/risk-measures",

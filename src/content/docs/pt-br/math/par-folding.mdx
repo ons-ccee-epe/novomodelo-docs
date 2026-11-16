@@ -1,0 +1,251 @@
+---
+title: Folding do PAR(p)
+description: Como o PL do estágio mantém o modelo de afluências PAR(p) fora do solver — a afluência realizada como constante do lado direito, o lado direito dos cortes em duas partes, a regra da cadeia que dá os coeficientes dos cortes nas defasagens de afluência e o que permanece exato.
+---
+
+## Objetivo
+
+Cada PL do estágio depende do modelo de afluências PAR(p) ([Modelo de afluências PAR(p)](/math/par-inflow-model)) pela afluência realizada de cada usina hidrelétrica: o modelo a calcula a partir das defasagens de afluência de entrada e do ruído da abertura, e o balanço hídrico e as linhas que leem a afluência a utilizam. Este capítulo descreve como o Novo Modelo mantém o modelo de afluências fora do PL do estágio, **dobrando** (folding) seus termos para dentro do lado direito das linhas, e como calcula os coeficientes dos cortes nas defasagens de afluência, que o PL não fornece nessa forma. O PL do estágio mantém o valor ótimo de cada resolução, e os cortes possíveis continuam os mesmos ([§5](#5-exatidao-e-limites)).
+
+## 1. Duas formulações do mesmo PL
+
+A **formulação expandida** escreve o modelo de afluências dentro do PL do estágio. Para cada usina hidrelétrica $h$, ela tem:
+
+- uma coluna por defasagem de afluência de entrada $a_{h,\ell}$, $\ell = 1, \ldots, P^{\max}$, fixada no valor visitado $\hat{a}_{h,\ell}$ por seus limites de coluna;
+- uma coluna livre e de custo nulo $z_h$ para a afluência realizada, definida pela linha $z_h - \sum_{\ell} \psi_{m(t),\ell} \, a_{h,\ell} = b_{h,m(t)} + \sigma_{m(t)} \, \varepsilon_t$;
+- a coluna $z_h$ nas linhas de balanço hídrico e nas linhas de restrições genéricas que leem a afluência;
+- em cada linha de corte, o coeficiente da defasagem 1 sobre $z_h$ e o coeficiente da defasagem $\ell$ sobre $a_{h,\ell-1}$; os coeficientes de defasagem de um corte novo são os custos reduzidos das colunas de defasagem fixadas.
+
+A **formulação compacta**, que o Novo Modelo monta e resolve em todo estágio do treinamento (training) e da simulação, parte de uma observação: antes da resolução, as defasagens de entrada são o estado visitado e o ruído é o da abertura, de modo que a afluência realizada é um número conhecido,
+
+$$
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{P^{\max}} \psi_{m(t),\ell} \, \hat{a}_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t
+$$
+
+em que $\psi_{m(t),\ell}$ é nulo para uma defasagem que o modelo da usina $h$ não usa. O PL compacto não tem coluna de defasagem, nem coluna nem linha de afluência realizada. $\hat{z}_h$ entra em toda linha que a lê como uma constante no lado direito (§2). Cada linha de corte mantém seus termos nas colunas do PL (armazenamento, parcelas de água em trânsito (in-transit buckets) e posições do anel de despacho antecipado (commitment ring slots)), e seus termos de defasagem, avaliados em $\hat{z}$ e $\hat{a}$, passam para o seu lado direito (§3).
+
+A figura desenha o PL do estágio de cada formulação em blocos, fora de escala: colunas na horizontal, linhas na vertical, o lado direito à direita. Os blocos em azul são os que o modelo de afluências preenche. No PL expandido, são as colunas de defasagem e de afluência realizada, as linhas de definição e os termos de defasagem dos cortes. No PL compacto, as mesmas grandezas chegam ao lado direito como números, calculados fora do PL.
+
+```d2
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+  hdr: {shape: text; style: {font-size: 14; italic: true}}
+  cell: {width: 175; height: 52}
+  blank: {width: 175; height: 52; style: {opacity: 0.35; stroke-dash: 3}}
+}
+direction: down
+
+expanded: "PL expandido" {
+  grid-rows: 4
+  grid-columns: 3
+  grid-gap: 6
+  h_op: "Colunas da operação" {class: hdr}
+  h_in: "Colunas de defasagem e z" {class: hdr}
+  h_rhs: "Lado direito" {class: hdr}
+  op_op: "Linhas da operação" {class: cell}
+  op_in: "z no balanço hídrico" {class: cell; style.stroke: "#4a90b8"}
+  op_rhs: "Limites" {class: cell}
+  par_op: " " {class: blank}
+  par_in: "Linhas do PAR(p):\nz − ψ·a" {class: cell; style.stroke: "#4a90b8"}
+  par_rhs: "b + σε" {class: cell; style.stroke: "#4a90b8"}
+  cut_op: "Cortes: θ e armazenamento" {class: cell}
+  cut_in: "Cortes: z e defasagens" {class: cell; style.stroke: "#4a90b8"}
+  cut_rhs: "β₀" {class: cell}
+}
+
+compact: "PL compacto" {
+  grid-rows: 3
+  grid-columns: 2
+  grid-gap: 6
+  h_op: "Colunas da operação" {class: hdr}
+  h_rhs: "Lado direito" {class: hdr}
+  op_op: "Linhas da operação" {class: cell}
+  op_rhs: "Limites − Γ·ẑ" {class: cell; style.stroke: "#4a90b8"}
+  cut_op: "Cortes: θ e armazenamento" {class: cell}
+  cut_rhs: "β₀ + termos de defasagem" {class: cell; style.stroke: "#4a90b8"}
+}
+
+par: "PAR(p), fora do PL:\nẑ = b + ψ·â + σε" {class: hydro}
+
+expanded -> compact: "z fixada em ẑ\ne eliminada"
+par -> compact: "ẑ e â como números"
+```
+
+O PL compacto é o PL expandido com cada coluna $z_h$ fixada em $\hat{z}_h$ e eliminada para os limites das linhas em que aparece, e sem as linhas de definição e as colunas de defasagem fixadas: a eliminação que um pré-processamento (presolve) faria, feita na montagem do PL. As colunas de defasagem e de afluência realizada têm coeficiente $0$ na função objetivo, de modo que o valor ótimo $Q_t$ de cada resolução é o mesmo nas duas formulações. Com $N = \lvert\mathcal{H}\rvert$ usinas hidrelétricas, o PL compacto tem $N (P^{\max} + 1)$ colunas e $N$ linhas a menos por estágio, e nenhuma linha de corte tem entrada nas defasagens de afluência.
+
+Os cortes em si são os mesmos nas duas formulações: um corte mantém um coeficiente por componente do estado sobre o qual se projeta, incluídas as defasagens de afluência quando a projeção do estágio as mantém ([Gerenciamento de cortes §1](/math/cut-management#1-definicao-do-corte), [Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)). Só a linha do corte no PL fica mais curta.
+
+## 2. A afluência realizada fora do PL
+
+A afluência realizada se divide em uma parte fixada pelo estado visitado e uma parte fixada pela abertura:
+
+$$
+\hat{z}_h = \underbrace{b_{h,m(t)} + \sum_{\ell=1}^{P^{\max}} \psi_{m(t),\ell} \, \hat{a}_{h,\ell}}_{\hat{z}^{x}_h} + \underbrace{\sigma_{m(t)} \, \varepsilon_t}_{\hat{z}^{\varepsilon}_h}
+$$
+
+- $\hat{z}^{x}_h$ é calculada uma vez por estado visitado, e $\hat{z}_h$ uma vez por resolução. Os termos são somados em uma ordem fixa (a base, os termos de defasagem em $\ell$ crescente e, por fim, o termo do ruído), de modo que $\hat{z}_h$ tem os mesmos bits qualquer que seja o reaproveitamento das suas partes.
+- $\psi_{m(t),\ell}$ são os coeficientes em unidades originais de [Modelo de afluências PAR(p) §2.3](/math/par-inflow-model#23-forma-pronta-para-o-pl); para uma usina com a componente anual, eles também carregam o termo anual ([Modelo de afluências PAR(p) §7.4](/math/par-inflow-model#74-conversao-de-unidades-em-execucao)).
+
+Seja $\Gamma_{r,h}$ o coeficiente da afluência realizada da usina $h$ na linha $r$ do PL expandido, e $0$ onde a linha não a lê:
+
+- $-\zeta$ na linha de balanço hídrico de $h$ em um estágio paralelo, e $-\zeta_k$ na linha do patamar $k$ em um estágio cronológico ([Formulação do PL §4](/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas)); para uma usina em pré-enchimento, nas linhas da primeira usina a jusante que não esteja em pré-enchimento ([Formulação do PL — Repasse em pré-enchimento](/math/lp-formulation#repasse-em-pre-enchimento));
+- o coeficiente de cada termo de restrição genérica que lê a afluência de $h$ ([Formulação do PL — Afluência das usinas hidrelétricas](/math/lp-formulation#afluencia-das-usinas-hidreletricas)).
+
+No PL compacto, cada limite finito $b_r$ da linha $r$ passa a ser
+
+$$
+b_r - \sum_{h \in \mathcal{H}} \Gamma_{r,h} \, \hat{z}_h
+$$
+
+$\Gamma$ é o único caminho pelo qual uma linha do PL compacto lê a afluência realizada, e nenhum coeficiente da matriz depende de $\hat{z}$ nem do estado de entrada: os hiperplanos da FPHA, as inclinações da evaporação e as metas de enchimento são fixados para o estágio ([Modelos de função de produção hidrelétrica](/math/hydro-production-models), [Formulação do PL — Linha de evaporação](/math/lp-formulation#linha-de-evaporacao)). O estado de entrada entra no PL compacto apenas pelos lados direitos e pelos limites de coluna.
+
+A mesma $\hat{z}_h$ é a afluência realizada em todo o restante da resolução:
+
+- o montante de truncamento $a^-_h = \max(0, -\hat{z}_h)$ que limita a folga de não negatividade da afluência ([Métodos de tratamento de afluências negativas §2](/math/inflow-nonnegativity#2-a-folga-de-nao-negatividade-da-afluencia));
+- o estado de saída das defasagens de afluência, que a acumulação das defasagens forma a partir de $\hat{z}$ e das defasagens de entrada ([Estudos com múltiplas resoluções §2](/math/multi-resolution-studies#2-acumulacao-das-defasagens)), enquanto o armazenamento, as parcelas de água em trânsito e as posições do anel de saída são lidos da solução do PL ([Aumento do espaço de estados §3](/math/state-augmentation#3-estado-de-saida-e-a-linha-de-corte));
+- a afluência realizada que a simulação informa.
+
+## 3. O lado direito dos cortes
+
+O corte $i$ do PL do estágio $t$ limita $V_{t+1}$, cujas defasagens de entrada são a afluência realizada do estágio $t$ (defasagem $1$) e as defasagens de entrada do estágio $t$ deslocadas de uma posição (defasagem $\ell \ge 2$) ([Formulação do PL §11](/math/lp-formulation#11-cortes-de-benders)). No PL compacto, esses valores são números, e a linha de corte fica
+
+$$
+\theta - \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h - \cdots \ge R_i
+$$
+
+$$
+R_i = \beta_{0,i} + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{i,h,1} \, \hat{z}_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell-1} \Big)
+$$
+
+em que $\cdots$ representa os termos nas colunas de saída das parcelas de água em trânsito e das posições do anel ([Aumento do espaço de estados §3](/math/state-augmentation#3-estado-de-saida-e-a-linha-de-corte)). O lado direito se divide como a afluência realizada:
+
+$$
+R_i = R^{x}_i + R^{\varepsilon}_i
+$$
+
+$$
+R^{x}_i = \beta_{0,i} + \sum_{h \in \mathcal{H}} \Big( \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell-1} + \beta^{lag}_{i,h,1} \, \hat{z}^{x}_h \Big), \qquad R^{\varepsilon}_i = \sum_{h \in \mathcal{H}} \beta^{lag}_{i,h,1} \, \hat{z}^{\varepsilon}_h
+$$
+
+- **A parte do estado** depende do estado visitado, do nó filho e do corte, e não da abertura. Ela é calculada uma vez por estado visitado e nó filho, e todas as aberturas da simulação backward nesse estado a compartilham; a simulação backward pode tomá-la da simulação forward no mesmo estado visitado em vez de calculá-la de novo. A fixação do estado de entrada também é feita uma vez por estado visitado, e não uma vez por abertura.
+- **A parte do ruído** depende da abertura e do corte, e não do estado visitado. Ela é calculada uma vez por nó e abertura, para todos os estados visitados no nó.
+- **Em cada abertura**, resta uma soma: $R_i = R^{x}_i + R^{\varepsilon}_i$.
+
+A figura mostra o reaproveitamento em um estado visitado da simulação backward.
+
+```d2
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+  n: {shape: circle; width: 46; height: 46}
+}
+direction: down
+
+trial: "Estado visitado x̂"
+noise: "Ruídos ε das\naberturas do nó" {class: hydro}
+
+state: "Parte do estado, uma vez por estado visitado:\nβ₀ + termos de defasagem + β₁·ẑˣ"
+noisepart: "Parte do ruído, uma vez por abertura:\nβ₁·σε, para todos os estados visitados" {class: hydro}
+
+openings: "Aberturas da simulação backward em x̂" {
+  o1: "1" {class: n}
+  o2: "2" {class: n}
+  o3: "…" {class: n}
+  oN: "Ω" {class: n}
+}
+
+rhs: "Lado direito do corte em cada abertura:\nparte do estado + parte do ruído"
+
+trial -> state
+noise -> noisepart
+state -> openings: "compartilhada"
+noisepart -> openings: "por abertura"
+openings -> rhs
+```
+
+Cada parte é somada em uma ordem fixa, e uma parte guardada é o valor que a mesma conta daria no lugar, de modo que o reaproveitamento não altera nenhum bit: o resultado é o mesmo com ou sem ele, em qualquer número de threads e de processos (rank MPI) ([Determinismo e rastreabilidade](/math/determinism-guarantees)). O método dinâmico verifica um corte omitido contra o mesmo lado direito ([Gerenciamento de cortes §8](/math/cut-management#8-o-metodo-dinamico)).
+
+## 4. Os coeficientes das defasagens pela regra da cadeia
+
+No PL expandido, os coeficientes de defasagem de um corte novo são os custos reduzidos das colunas de defasagem fixadas ([Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos)). O PL compacto não tem essas colunas, e o Novo Modelo calcula os coeficientes depois da resolução, a partir das suas variáveis duais, pela regra da cadeia. O valor ótimo $Q_t$ depende da defasagem de entrada $\hat{a}_{h,\ell}$ por dois caminhos:
+
+1. por $\hat{z}^{x}_h$, com derivada $\psi_{m(t),\ell}$, e, a partir de $\hat{z}_h$, pelos limites deslocados das linhas (§2) e pelos termos da defasagem 1 das linhas de corte (§3);
+2. pelo termo da defasagem $\ell+1$ de cada linha de corte, que avalia o corte sucessor em $\hat{a}_{h,\ell}$.
+
+Com $\pi_r$ a variável dual da linha $r$ e $\pi^{cut}_i$ a variável dual da linha de corte $i$, o valor da afluência realizada da usina $h$ é
+
+$$
+\pi^z_h = -\sum_{r} \Gamma_{r,h} \, \pi_r + \sum_{i} \pi^{cut}_i \, \beta^{lag}_{i,h,1}
+$$
+
+e os coeficientes de defasagem do corte novo são
+
+$$
+\beta^{lag}_{h,\ell} = \psi_{m(t),\ell} \, \pi^z_h + \sum_{i} \pi^{cut}_i \, \beta^{lag}_{i,h,\ell+1} \quad (\ell < P^{\max}), \qquad \beta^{lag}_{h,P^{\max}} = \psi_{m(t),P^{\max}} \, \pi^z_h
+$$
+
+$\pi^z_h$ é igual à variável dual da linha de definição da afluência realizada de $h$ no PL expandido. $\Gamma$ e as variáveis duais são tomados em unidades sem escalonamento ([Estrutura e escalonamento do PL §2](/math/lp-layout-and-scaling#2-escalonamento-do-pl)), de modo que os coeficientes dispensam outra remoção de escala. A figura acompanha a regra para uma usina.
+
+```d2
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+}
+direction: down
+
+duals: "Variáveis duais da resolução" {
+  rows: "Linhas que leem\na afluência: −Σ Γ·π"
+  cut1: "Cortes sucessores na defasagem 1:\nΣ π(corte)·β₁"
+}
+
+piz: "Valor da afluência realizada π(z)" {class: hydro}
+
+succ: "Cortes sucessores na defasagem ℓ+1:\nΣ π(corte)·β(ℓ+1)"
+
+newcut: "Corte novo" {
+  grid-columns: 1
+  grid-gap: 10
+  b1: "Defasagem 1: ψ₁·π(z) + Σ π(corte)·β₂"
+  b2: "Defasagem 2: ψ₂·π(z) + Σ π(corte)·β₃"
+  bd: "…" {shape: text}
+  bP: "Defasagem mais antiga P: ψ(P)·π(z)"
+}
+
+duals.rows -> piz
+duals.cut1 -> piz
+piz -> newcut: "× ψ(ℓ), defasagem a defasagem"
+succ -> newcut: "+, na defasagem ℓ"
+```
+
+- **Coeficientes de armazenamento, das parcelas de água em trânsito e das posições do anel** são os custos reduzidos das colunas de entrada fixadas, como no PL expandido ([Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos)).
+- **O termo independente** é calculado depois dos coeficientes de defasagem, $\beta_0 = Q_t - \beta^{\top} \hat{x}$ sobre todos os componentes em que o corte se projeta ([Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos)).
+- **Projeção.** Um componente que o corte deixa fora da projeção não tem coeficiente ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)): um corte sucessor sem a defasagem $\ell+1$ não acrescenta termo na defasagem $\ell$, e o corte novo mantém os coeficientes de defasagem que a projeção do seu próprio estágio seleciona.
+- **Completude.** O estado de entrada entra no PL compacto apenas pelos lados direitos e pelos limites de coluna (§2), de modo que os dois caminhos são os únicos e a regra deriva o PL que é resolvido. O montante de truncamento $a^-_h$ é um limite de coluna calculado a partir de $\hat{z}_h$, e a regra não o deriva; o PL expandido também não, pois nele o montante é igualmente um limite de coluna, de modo que a limitação de [Métodos de tratamento de afluências negativas §7](/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior) vale nas duas formulações.
+- **Agregação.** A regra é linear nas variáveis duais, e os pesos de [Gerenciamento de cortes §3](/math/cut-management#3-agregacao-em-corte-unico), sob o valor esperado ou sob uma medida de risco, dependem apenas dos valores objetivo das aberturas. O Novo Modelo agrega as variáveis duais das aberturas de cada nó filho com esses pesos e aplica a regra uma vez por nó filho, com os coeficientes $\psi$ desse filho; em aritmética exata, o resultado é a agregação dos cortes de cada abertura.
+
+## 5. Exatidão e limites
+
+**Idêntico em aritmética exata**: o conjunto viável projetado nas colunas mantidas e em $\theta$; o valor ótimo $Q_t$; a face dual ótima nas linhas mantidas, em unidades sem escalonamento; portanto, o conjunto de cortes possíveis; os coeficientes de armazenamento, das parcelas de água em trânsito e das posições do anel em um dado vértice; e o termo independente dados os coeficientes. O coeficiente de defasagem que o PL expandido dá como custo reduzido difere do valor da regra da cadeia em $\psi_{m(t),\ell}$ vezes o custo reduzido da coluna $z_h$, que o solver deixa dentro da sua tolerância dual; a regra da cadeia não carrega esse resíduo.
+
+**Não idêntico**:
+
+- Em um ótimo degenerado, o simplex pode parar em outro vértice ótimo. O PL compacto é menor, e as linhas que leem a afluência perdem a entrada de $z_h$ e podem receber outra escala de linha ([Estrutura e escalonamento do PL §2](/math/lp-layout-and-scaling#2-escalonamento-do-pl)), de modo que o caminho de pivoteamento muda. Outro vértice dá outro corte da mesma face ótima, e todas as iterações seguintes decorrem dele.
+- Todo valor calculado difere no nível do arredondamento.
+
+Uma execução com o PL compacto e uma com o PL expandido concordam, portanto, no valor ótimo de cada resolução e nos cortes possíveis, mas não bit a bit.
+
+**A troca de flexibilidade.** As duas formulações dividem o trabalho de formas diferentes:
+
+- **Expandida.** O próprio PL dá o corte de qualquer modelo de afluências cuja afluência realizada seja linear no estado: o modelo é escrito como linhas, e os custos reduzidos das colunas fixadas dão os coeficientes de defasagem sem nenhum passo específico do modelo.
+- **Compacta.** Cada modelo de afluências precisa da sua própria regra da cadeia, a derivada da afluência realizada e dos termos de defasagem do corte em relação a cada defasagem de entrada, e toda linha que lê a afluência realizada a lê por $\Gamma$. Uma linha que a lesse de outra forma definiria outro PL, cujos cortes a regra não reproduziria.
+
+O Novo Modelo resolve a formulação compacta: um PL menor em todo estágio, linhas de corte sem entradas de defasagem e um lado direito dos cortes que se divide em uma parte por estado visitado e uma parte por abertura. O preço é um método especializado na família PAR(p) (PAR(p) e PAR(p)-A, lineares nas defasagens por $\psi$), cujas linhas precisam todas ler a afluência por um único caminho.
+
+## Referências cruzadas
+
+- [Modelo de afluências PAR(p)](/math/par-inflow-model) — o modelo de afluências cuja realização o PL compacto recebe como número
+- [Formulação do PL](/math/lp-formulation) — as linhas que leem a afluência realizada e as linhas de corte do PL do estágio
+- [Estrutura e escalonamento do PL](/math/lp-layout-and-scaling) — a estrutura de colunas e linhas do PL compacto e as escalas das linhas que leem a afluência
+- [Aumento do espaço de estados](/math/state-augmentation) — o vetor de estado, sua fixação por limites de coluna e o estado de saída
+- [Gerenciamento de cortes](/math/cut-management) — a definição do corte, a extração dos demais coeficientes pelos custos reduzidos e a agregação
+- [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity) — a folga de afluência limitada pelo montante de truncamento de $\hat{z}$
+- [Estudos com múltiplas resoluções](/math/multi-resolution-studies) — a acumulação das defasagens que forma as defasagens de saída a partir de $\hat{z}$
+- [Determinismo e rastreabilidade](/math/determinism-guarantees) — resultados idênticos bit a bit em qualquer número de threads e de processos MPI, com ou sem o reaproveitamento da §3

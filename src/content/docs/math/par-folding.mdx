@@ -1,0 +1,251 @@
+---
+title: PAR(p) Folding
+description: How the stage LP keeps the PAR(p) inflow model outside the solver — the realized inflow as a right-hand-side constant, the two-part cut right-hand side, the chain rule that gives the inflow-lag cut coefficients, and what stays exact.
+---
+
+## Purpose
+
+Each stage LP depends on the PAR(p) inflow model ([PAR(p) Inflow Model](/en/math/par-inflow-model)) through the realized inflow of each hydro: the model gives it from the incoming inflow lags and the noise of the opening, and the water balance and the rows that read the inflow use it. This chapter describes how Novomodelo keeps the inflow model outside the stage LP, **folding** its terms into the right-hand side of the rows, and how it computes the cut coefficients on the inflow lags, which the LP does not give in this form. The stage LP keeps its optimal value at every solve, and the attainable cuts stay the same ([§5](#5-exactness-and-limits)).
+
+## 1. Two Formulations of the Same LP
+
+The **expanded formulation** writes the inflow model inside the stage LP. For each hydro $h$ it has:
+
+- one column per incoming inflow lag $a_{h,\ell}$, $\ell = 1, \ldots, P^{\max}$, pinned at the trial value $\hat{a}_{h,\ell}$ by its column bounds;
+- one free, zero-cost column $z_h$ for the realized inflow, defined by the row $z_h - \sum_{\ell} \psi_{m(t),\ell} \, a_{h,\ell} = b_{h,m(t)} + \sigma_{m(t)} \, \varepsilon_t$;
+- the column $z_h$ in the water-balance rows and in the generic-constraint rows that read the inflow;
+- in each cut row, the lag-1 coefficient on $z_h$ and the lag-$\ell$ coefficient on $a_{h,\ell-1}$; the lag coefficients of a new cut are the reduced costs of the pinned lag columns.
+
+The **compact formulation**, which Novomodelo builds and solves at every stage of training and simulation, rests on one observation: before the solve, the incoming lags are the trial state and the noise is the opening's, so the realized inflow is a known number,
+
+$$
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{P^{\max}} \psi_{m(t),\ell} \, \hat{a}_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t
+$$
+
+where $\psi_{m(t),\ell}$ is zero for a lag the model of hydro $h$ does not use. The compact LP has no lag column, no realized-inflow column and no realized-inflow row. $\hat{z}_h$ enters every row that reads it as a constant on the right-hand side (§2). Each cut row keeps its terms on the columns of the LP (storage, in-transit buckets and commitment-ring slots), and its lag terms, evaluated at $\hat{z}$ and $\hat{a}$, join its right-hand side (§3).
+
+The figure draws the stage LP of each formulation in blocks, not to scale: columns across, rows down, the right-hand side on the right. The blocks drawn in blue are the ones the inflow model fills. In the expanded LP they are the lag and realized-inflow columns, the definition rows and the lag terms of the cuts. In the compact LP the same quantities reach the right-hand side as numbers, computed outside the LP.
+
+```d2
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+  hdr: {shape: text; style: {font-size: 14; italic: true}}
+  cell: {width: 175; height: 52}
+  blank: {width: 175; height: 52; style: {opacity: 0.35; stroke-dash: 3}}
+}
+direction: down
+
+expanded: "Expanded LP" {
+  grid-rows: 4
+  grid-columns: 3
+  grid-gap: 6
+  h_op: "Operation columns" {class: hdr}
+  h_in: "Lag and z columns" {class: hdr}
+  h_rhs: "Right-hand side" {class: hdr}
+  op_op: "Operation rows" {class: cell}
+  op_in: "z in the water balance" {class: cell; style.stroke: "#4a90b8"}
+  op_rhs: "Bounds" {class: cell}
+  par_op: " " {class: blank}
+  par_in: "PAR(p) rows:\nz − ψ·a" {class: cell; style.stroke: "#4a90b8"}
+  par_rhs: "b + σε" {class: cell; style.stroke: "#4a90b8"}
+  cut_op: "Cuts: θ and storage" {class: cell}
+  cut_in: "Cuts: z and lags" {class: cell; style.stroke: "#4a90b8"}
+  cut_rhs: "β₀" {class: cell}
+}
+
+compact: "Compact LP" {
+  grid-rows: 3
+  grid-columns: 2
+  grid-gap: 6
+  h_op: "Operation columns" {class: hdr}
+  h_rhs: "Right-hand side" {class: hdr}
+  op_op: "Operation rows" {class: cell}
+  op_rhs: "Bounds − Γ·ẑ" {class: cell; style.stroke: "#4a90b8"}
+  cut_op: "Cuts: θ and storage" {class: cell}
+  cut_rhs: "β₀ + lag terms" {class: cell; style.stroke: "#4a90b8"}
+}
+
+par: "PAR(p), outside the LP:\nẑ = b + ψ·â + σε" {class: hydro}
+
+expanded -> compact: "z fixed at ẑ\nand eliminated"
+par -> compact: "ẑ and â as numbers"
+```
+
+The compact LP is the expanded LP with each column $z_h$ fixed at $\hat{z}_h$ and eliminated into the bounds of the rows it touches, and with the definition rows and the pinned lag columns dropped: the elimination a presolve would perform, done when the LP is built. The lag and realized-inflow columns have objective coefficient $0$, so the optimal value $Q_t$ of every solve is the same in both formulations. With $N = \lvert\mathcal{H}\rvert$ hydros, the compact LP has $N (P^{\max} + 1)$ fewer columns and $N$ fewer rows per stage, and no cut row has an entry on the inflow lags.
+
+The cuts themselves are the same in both formulations: a cut keeps one coefficient per state component it projects onto, the inflow lags included when the stage's projection keeps them ([Cut Management §1](/en/math/cut-management#1-cut-definition), [State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)). Only the cut's row in the LP is shorter.
+
+## 2. The Realized Inflow Outside the LP
+
+The realized inflow splits into a part fixed by the trial point and a part fixed by the opening:
+
+$$
+\hat{z}_h = \underbrace{b_{h,m(t)} + \sum_{\ell=1}^{P^{\max}} \psi_{m(t),\ell} \, \hat{a}_{h,\ell}}_{\hat{z}^{x}_h} + \underbrace{\sigma_{m(t)} \, \varepsilon_t}_{\hat{z}^{\varepsilon}_h}
+$$
+
+- $\hat{z}^{x}_h$ is computed once per trial point, and $\hat{z}_h$ once per solve. The terms are summed in a fixed order (the base, the lag terms in ascending $\ell$, then the noise term), so $\hat{z}_h$ has the same bits however its parts are reused.
+- $\psi_{m(t),\ell}$ are the original-unit coefficients of [PAR(p) Inflow Model §2.3](/en/math/par-inflow-model#23-lp-ready-form); for a hydro with the annual component they also carry the annual term ([PAR(p) Inflow Model §7.4](/en/math/par-inflow-model#74-runtime-unit-conversion)).
+
+Let $\Gamma_{r,h}$ be the coefficient of the realized inflow of hydro $h$ in row $r$ of the expanded LP, and $0$ where the row does not read it:
+
+- $-\zeta$ on the water-balance row of $h$ on a parallel stage, and $-\zeta_k$ on the row of block $k$ on a chronological stage ([LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance)); for a PreFilling hydro, on the rows of its short-circuit target ([LP Formulation — PreFilling Pass-Through](/en/math/lp-formulation#prefilling-pass-through));
+- the coefficient of each generic-constraint term that reads the inflow of $h$ ([LP Formulation — Hydro Inflow](/en/math/lp-formulation#hydro-inflow)).
+
+In the compact LP each finite bound $b_r$ of row $r$ becomes
+
+$$
+b_r - \sum_{h \in \mathcal{H}} \Gamma_{r,h} \, \hat{z}_h
+$$
+
+$\Gamma$ is the only route by which a row of the compact LP reads the realized inflow, and no matrix coefficient depends on $\hat{z}$ or on the incoming state: the FPHA planes, the evaporation slopes and the filling targets are fixed for the stage ([Hydro Production Function Models](/en/math/hydro-production-models), [LP Formulation — Evaporation Row](/en/math/lp-formulation#evaporation-row)). The incoming state enters the compact LP only through right-hand sides and column bounds.
+
+The same $\hat{z}_h$ is the realized inflow everywhere else in the solve:
+
+- the truncation amount $a^-_h = \max(0, -\hat{z}_h)$ that bounds the inflow non-negativity slack ([Inflow Non-Negativity §2](/en/math/inflow-nonnegativity#2-the-inflow-non-negativity-slack));
+- the outgoing inflow-lag state, which the lag accumulation forms from $\hat{z}$ and the incoming lags ([Multi-Resolution Studies §2](/en/math/multi-resolution-studies#2-lag-accumulation)), while the outgoing storage, buckets and ring slots are read from the LP solution ([State Augmentation §3](/en/math/state-augmentation#3-outgoing-state-and-the-cut-row));
+- the realized inflow the simulation reports.
+
+## 3. The Cut Right-Hand Side
+
+Cut $i$ of the stage-$t$ LP bounds $V_{t+1}$, whose incoming lags are the realized inflow of stage $t$ (lag $1$) and the incoming lags of stage $t$ shifted by one (lag $\ell \ge 2$) ([LP Formulation §11](/en/math/lp-formulation#11-benders-cuts)). In the compact LP these are numbers, so the cut row is
+
+$$
+\theta - \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h - \cdots \ge R_i
+$$
+
+$$
+R_i = \beta_{0,i} + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{i,h,1} \, \hat{z}_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell-1} \Big)
+$$
+
+where $\cdots$ stands for the terms on the outgoing bucket and ring-slot columns ([State Augmentation §3](/en/math/state-augmentation#3-outgoing-state-and-the-cut-row)). The right-hand side splits like the realized inflow:
+
+$$
+R_i = R^{x}_i + R^{\varepsilon}_i
+$$
+
+$$
+R^{x}_i = \beta_{0,i} + \sum_{h \in \mathcal{H}} \Big( \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell-1} + \beta^{lag}_{i,h,1} \, \hat{z}^{x}_h \Big), \qquad R^{\varepsilon}_i = \sum_{h \in \mathcal{H}} \beta^{lag}_{i,h,1} \, \hat{z}^{\varepsilon}_h
+$$
+
+- **The state part** depends on the trial point, the child node and the cut, not on the opening. It is computed once per trial point and child, and every backward opening at that point shares it; the backward pass can take it from the forward pass at the same trial point instead of computing it again. The incoming-state pins are also set once per trial point, not once per opening.
+- **The noise part** depends on the opening and the cut, not on the trial point. It is computed once per node and opening, for every trial point at the node.
+- **At each opening**, one sum remains: $R_i = R^{x}_i + R^{\varepsilon}_i$.
+
+The figure shows the reuse at one trial point of the backward pass.
+
+```d2
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+  n: {shape: circle; width: 46; height: 46}
+}
+direction: down
+
+trial: "Trial point x̂"
+noise: "Opening noises ε\nof the node" {class: hydro}
+
+state: "State part, once per trial point:\nβ₀ + lag terms + β₁·ẑˣ"
+noisepart: "Noise part, once per opening:\nβ₁·σε, for every trial point" {class: hydro}
+
+openings: "Backward openings at x̂" {
+  o1: "1" {class: n}
+  o2: "2" {class: n}
+  o3: "…" {class: n}
+  oN: "Ω" {class: n}
+}
+
+rhs: "Each opening's cut right-hand side:\nstate part + noise part"
+
+trial -> state
+noise -> noisepart
+state -> openings: "shared"
+noisepart -> openings: "per opening"
+openings -> rhs
+```
+
+Each part is summed in a fixed order, and a stored part is the value the same arithmetic gives in place, so the reuse changes no bit: the result is the same with or without it, at any thread and MPI rank count ([Determinism & Provenance](/en/math/determinism-guarantees)). The dynamic method checks an omitted cut against the same right-hand side ([Cut Management §8](/en/math/cut-management#8-the-dynamic-method)).
+
+## 4. The Inflow-Lag Coefficients by the Chain Rule
+
+In the expanded LP, the lag coefficients of a new cut are the reduced costs of the pinned lag columns ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction)). The compact LP has no such column, so Novomodelo computes the coefficients after the solve, from its duals, by the chain rule. The optimal value $Q_t$ depends on the incoming lag $\hat{a}_{h,\ell}$ through two routes:
+
+1. through $\hat{z}^{x}_h$, with derivative $\psi_{m(t),\ell}$, and from $\hat{z}_h$ through the shifted row bounds (§2) and the lag-1 terms of the cut rows (§3);
+2. through the term at lag $\ell+1$ of every cut row, which evaluates the successor cut at $\hat{a}_{h,\ell}$.
+
+With $\pi_r$ the dual of row $r$ and $\pi^{cut}_i$ the dual of cut row $i$, the value of the realized inflow of hydro $h$ is
+
+$$
+\pi^z_h = -\sum_{r} \Gamma_{r,h} \, \pi_r + \sum_{i} \pi^{cut}_i \, \beta^{lag}_{i,h,1}
+$$
+
+and the lag coefficients of the new cut are
+
+$$
+\beta^{lag}_{h,\ell} = \psi_{m(t),\ell} \, \pi^z_h + \sum_{i} \pi^{cut}_i \, \beta^{lag}_{i,h,\ell+1} \quad (\ell < P^{\max}), \qquad \beta^{lag}_{h,P^{\max}} = \psi_{m(t),P^{\max}} \, \pi^z_h
+$$
+
+$\pi^z_h$ equals the dual of the realized-inflow definition row of $h$ in the expanded LP. $\Gamma$ and the duals are taken in unscaled units ([LP Layout and Scaling §2](/en/math/lp-layout-and-scaling#2-lp-scaling)), so the coefficients need no further unscaling. The figure follows the rule for one hydro.
+
+```d2
+classes: {
+  hydro: {style: {stroke: "#4a90b8"}}
+}
+direction: down
+
+duals: "Duals of the solve" {
+  rows: "Rows that read\nthe inflow: −Σ Γ·π"
+  cut1: "Successor cuts at lag 1:\nΣ π(cut)·β₁"
+}
+
+piz: "Value of the realized inflow π(z)" {class: hydro}
+
+succ: "Successor cuts at lag ℓ+1:\nΣ π(cut)·β(ℓ+1)"
+
+newcut: "New cut" {
+  grid-columns: 1
+  grid-gap: 10
+  b1: "Lag 1: ψ₁·π(z) + Σ π(cut)·β₂"
+  b2: "Lag 2: ψ₂·π(z) + Σ π(cut)·β₃"
+  bd: "…" {shape: text}
+  bP: "Deepest lag P: ψ(P)·π(z)"
+}
+
+duals.rows -> piz
+duals.cut1 -> piz
+piz -> newcut: "× ψ(ℓ), lag by lag"
+succ -> newcut: "+, at lag ℓ"
+```
+
+- **Storage, bucket and ring-slot coefficients** are the reduced costs of the pinned incoming columns, as in the expanded LP ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction)).
+- **The intercept** is computed after the lag coefficients, $\beta_0 = Q_t - \beta^{\top} \hat{x}$ over every component the cut projects onto ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction)).
+- **Projection.** A component a cut projects out carries no coefficient ([State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)): a successor cut without lag $\ell+1$ adds no term at lag $\ell$, and the new cut keeps the lag coefficients its own stage's projection selects.
+- **Completeness.** The incoming state enters the compact LP only through right-hand sides and column bounds (§2), so the two routes are the only ones and the rule differentiates the LP that is solved. The truncation amount $a^-_h$ is a column bound computed from $\hat{z}_h$, and the rule does not differentiate it; neither does the expanded LP, where it is a column bound too, so the limitation of [Inflow Non-Negativity §7](/en/math/inflow-nonnegativity#7-truncation-and-the-lower-bound) holds in both formulations.
+- **Aggregation.** The rule is linear in the duals, and the weights of [Cut Management §3](/en/math/cut-management#3-single-cut-aggregation), under the expectation or a risk measure, depend on the opening objectives only. Novomodelo aggregates the duals of each child's openings under those weights and applies the rule once per child, with that child's coefficients $\psi$; in exact arithmetic the result is the aggregate of the per-opening cuts.
+
+## 5. Exactness and Limits
+
+**Identical in exact arithmetic**: the feasible set projected on the kept columns and $\theta$; the optimal value $Q_t$; the optimal dual face on the kept rows, in unscaled units; hence the set of attainable cuts; the storage, bucket and ring-slot coefficients at a given vertex; and the intercept given the coefficients. The lag coefficient the expanded LP gives as a reduced cost differs from the chain-rule value by $\psi_{m(t),\ell}$ times the reduced cost of the column $z_h$, which the solver leaves within its dual tolerance; the chain rule carries no such residual.
+
+**Not identical**:
+
+- At a degenerate optimum the simplex can stop at another optimal vertex. The compact LP is smaller, and the rows that read the inflow lose their $z_h$ entry and can take a different row scale ([LP Layout and Scaling §2](/en/math/lp-layout-and-scaling#2-lp-scaling)), so the pivot path differs. Another vertex gives another cut of the same optimal face, and every later iterate follows from it.
+- Every computed value differs at rounding level.
+
+A compact-LP run and an expanded-LP run therefore agree on the optimal value of each solve and on the attainable cuts, not bit for bit.
+
+**The flexibility trade-off.** The two formulations divide the work differently:
+
+- **Expanded.** The LP itself gives the cut of any inflow model whose realized inflow is linear in the state: the model is written as rows, and the reduced costs of the pinned columns give the lag coefficients with no step specific to the model.
+- **Compact.** Each inflow model needs its own chain rule, the derivative of the realized inflow and of the cut's lag terms with respect to each incoming lag, and every row that reads the realized inflow reads it through $\Gamma$. A row that read it any other way would define a different LP, whose cuts the rule would not match.
+
+Novomodelo solves the compact formulation: a smaller LP at every stage, cut rows without lag entries, and a cut right-hand side that splits into a part per trial point and a part per opening. The price is a method specialized to the PAR(p) family (PAR(p) and PAR(p)-A, linear in the lags through $\psi$), whose rows must all read the inflow through one route.
+
+## Cross-References
+
+- [PAR(p) Inflow Model](/en/math/par-inflow-model) — the inflow model whose realization the compact LP takes as a number
+- [LP Formulation](/en/math/lp-formulation) — the rows that read the realized inflow and the cut rows of the stage LP
+- [LP Layout and Scaling](/en/math/lp-layout-and-scaling) — the column and row layout of the compact LP and the row scales of the rows that read the inflow
+- [State Augmentation](/en/math/state-augmentation) — the state vector, its pinning by column bounds and the outgoing state
+- [Cut Management](/en/math/cut-management) — the cut definition, the reduced-cost extraction of the other coefficients and the aggregation
+- [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity) — the inflow slack bounded by the truncation amount of $\hat{z}$
+- [Multi-Resolution Studies](/en/math/multi-resolution-studies) — the lag accumulation that forms the outgoing lags from $\hat{z}$
+- [Determinism & Provenance](/en/math/determinism-guarantees) — bit-identical results across thread and MPI rank counts, with or without the reuse of §3
