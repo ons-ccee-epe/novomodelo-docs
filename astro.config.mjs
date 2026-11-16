@@ -484,6 +484,9 @@ export default defineConfig({
       // pt-br) is untouched — the two coexist in the header.
       components: {
         SocialIcons: "./src/components/VersionPicker.astro",
+        // SiteTitle override: the hotsite's wordmark and institutional logos on
+        // the graphite header (docs/design/design-system.md §9, D4).
+        SiteTitle: "./src/components/SiteTitle.astro",
         // Footer override (E10 ticket-031): appends third-party notices link;
         // ticket-034 extended this same component with the content-license line.
         Footer: "./src/components/Footer.astro",
@@ -520,6 +523,8 @@ export default defineConfig({
         // column floors and the right-sidebar TOC width, so its order among them
         // is arbitrary.
         "./src/styles/layout.css",
+        // header.css paints the header graphite in the light theme (D4).
+        "./src/styles/header.css",
         "./src/components/entity/entity.css",
       ],
       // pt-BR is the root locale, served at the docs base, and English is
