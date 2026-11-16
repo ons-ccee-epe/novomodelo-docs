@@ -30,8 +30,8 @@ The figure draws the stage LP of each formulation in blocks, not to scale: colum
 classes: {
   hydro: {style: {stroke: "#4a90b8"}}
   hdr: {shape: text; style: {font-size: 14; italic: true}}
-  cell: {width: 175; height: 52}
-  blank: {width: 175; height: 52; style: {opacity: 0.35; stroke-dash: 3}}
+  cell: {height: 52}
+  blank: {height: 52; style: {opacity: 0.35; stroke-dash: 3}}
 }
 direction: down
 
@@ -43,13 +43,13 @@ expanded: "Expanded LP" {
   h_in: "Lag and z columns" {class: hdr}
   h_rhs: "Right-hand side" {class: hdr}
   op_op: "Operation rows" {class: cell}
-  op_in: "z in the water balance" {class: cell; style.stroke: "#4a90b8"}
+  op_in: "z in the water balance" {class: [cell; hydro]}
   op_rhs: "Bounds" {class: cell}
   par_op: " " {class: blank}
-  par_in: "PAR(p) rows:\nz − ψ·a" {class: cell; style.stroke: "#4a90b8"}
-  par_rhs: "b + σε" {class: cell; style.stroke: "#4a90b8"}
+  par_in: "PAR(p) rows:\nz − ψ·a" {class: [cell; hydro]}
+  par_rhs: "b + σε" {class: [cell; hydro]}
   cut_op: "Cuts: θ and storage" {class: cell}
-  cut_in: "Cuts: z and lags" {class: cell; style.stroke: "#4a90b8"}
+  cut_in: "Cuts: z and lags" {class: [cell; hydro]}
   cut_rhs: "β₀" {class: cell}
 }
 
@@ -60,15 +60,16 @@ compact: "Compact LP" {
   h_op: "Operation columns" {class: hdr}
   h_rhs: "Right-hand side" {class: hdr}
   op_op: "Operation rows" {class: cell}
-  op_rhs: "Bounds − Γ·ẑ" {class: cell; style.stroke: "#4a90b8"}
+  op_rhs: "Bounds − Γ·ẑ" {class: [cell; hydro]}
   cut_op: "Cuts: θ and storage" {class: cell}
-  cut_rhs: "β₀ + lag terms" {class: cell; style.stroke: "#4a90b8"}
+  cut_rhs: "β₀ + lag terms" {class: [cell; hydro]}
 }
 
 par: "PAR(p), outside the LP:\nẑ = b + ψ·â + σε" {class: hydro}
 
-expanded -> compact: "z fixed at ẑ\nand eliminated"
+expanded -> par: "PAR(p) rows\ntaken out of the LP"
 par -> compact: "ẑ and â as numbers"
+expanded -> compact: "z fixed at ẑ\nand eliminated"
 ```
 
 The compact LP is the expanded LP with each column $z_h$ fixed at $\hat{z}_h$ and eliminated into the bounds of the rows it touches, and with the definition rows and the pinned lag columns dropped: the elimination a presolve would perform, done when the LP is built. The lag and realized-inflow columns have objective coefficient $0$, so the optimal value $Q_t$ of every solve is the same in both formulations. With $N = \lvert\mathcal{H}\rvert$ hydros, the compact LP has $N (P^{\max} + 1)$ fewer columns and $N$ fewer rows per stage, and no cut row has an entry on the inflow lags.

@@ -30,8 +30,8 @@ A figura desenha o PL do estágio de cada formulação em blocos, fora de escala
 classes: {
   hydro: {style: {stroke: "#4a90b8"}}
   hdr: {shape: text; style: {font-size: 14; italic: true}}
-  cell: {width: 175; height: 52}
-  blank: {width: 175; height: 52; style: {opacity: 0.35; stroke-dash: 3}}
+  cell: {height: 52}
+  blank: {height: 52; style: {opacity: 0.35; stroke-dash: 3}}
 }
 direction: down
 
@@ -43,13 +43,13 @@ expanded: "PL expandido" {
   h_in: "Colunas de defasagem e z" {class: hdr}
   h_rhs: "Lado direito" {class: hdr}
   op_op: "Linhas da operação" {class: cell}
-  op_in: "z no balanço hídrico" {class: cell; style.stroke: "#4a90b8"}
+  op_in: "z no balanço hídrico" {class: [cell; hydro]}
   op_rhs: "Limites" {class: cell}
   par_op: " " {class: blank}
-  par_in: "Linhas do PAR(p):\nz − ψ·a" {class: cell; style.stroke: "#4a90b8"}
-  par_rhs: "b + σε" {class: cell; style.stroke: "#4a90b8"}
+  par_in: "Linhas do PAR(p):\nz − ψ·a" {class: [cell; hydro]}
+  par_rhs: "b + σε" {class: [cell; hydro]}
   cut_op: "Cortes: θ e armazenamento" {class: cell}
-  cut_in: "Cortes: z e defasagens" {class: cell; style.stroke: "#4a90b8"}
+  cut_in: "Cortes: z e defasagens" {class: [cell; hydro]}
   cut_rhs: "β₀" {class: cell}
 }
 
@@ -60,15 +60,16 @@ compact: "PL compacto" {
   h_op: "Colunas da operação" {class: hdr}
   h_rhs: "Lado direito" {class: hdr}
   op_op: "Linhas da operação" {class: cell}
-  op_rhs: "Limites − Γ·ẑ" {class: cell; style.stroke: "#4a90b8"}
+  op_rhs: "Limites − Γ·ẑ" {class: [cell; hydro]}
   cut_op: "Cortes: θ e armazenamento" {class: cell}
-  cut_rhs: "β₀ + termos de defasagem" {class: cell; style.stroke: "#4a90b8"}
+  cut_rhs: "β₀ + termos de defasagem" {class: [cell; hydro]}
 }
 
 par: "PAR(p), fora do PL:\nẑ = b + ψ·â + σε" {class: hydro}
 
-expanded -> compact: "z fixada em ẑ\ne eliminada"
+expanded -> par: "linhas do PAR(p)\nretiradas do PL"
 par -> compact: "ẑ e â como números"
+expanded -> compact: "z fixada em ẑ\ne eliminada"
 ```
 
 O PL compacto é o PL expandido com cada coluna $z_h$ fixada em $\hat{z}_h$ e eliminada para os limites das linhas em que aparece, e sem as linhas de definição e as colunas de defasagem fixadas: a eliminação que um pré-processamento (presolve) faria, feita na montagem do PL. As colunas de defasagem e de afluência realizada têm coeficiente $0$ na função objetivo, de modo que o valor ótimo $Q_t$ de cada resolução é o mesmo nas duas formulações. Com $N = \lvert\mathcal{H}\rvert$ usinas hidrelétricas, o PL compacto tem $N (P^{\max} + 1)$ colunas e $N$ linhas a menos por estágio, e nenhuma linha de corte tem entrada nas defasagens de afluência.
