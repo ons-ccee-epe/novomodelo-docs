@@ -87,7 +87,7 @@ Cada coordenada do estado de entrada é fixada em sua própria coluna do PL — 
 
 ## 2. Escalonamento do PL
 
-O PL do estágio é condicionado numericamente por um procedimento de escalonamento em três etapas, aplicado uma única vez na construção do modelo-base (template). O escalonamento melhora a convergência do solver ao reduzir o número de condição da matriz de restrições, sem alterar o argmin da otimização.
+O PL do estágio é condicionado numericamente por um procedimento de escalonamento em três etapas, aplicado uma única vez na construção do modelo-base (template). O escalonamento estreita a dispersão das magnitudes dos coeficientes da matriz de restrições, o que costuma melhorar o comportamento numérico do método simplex, sem alterar o argmin da otimização; ele não dá nenhuma garantia sobre o número de condição da matriz.
 
 ### 2.1 Escalonamento de custos
 
@@ -101,7 +101,7 @@ A variável $\theta$ mantém um coeficiente não escalonado, o fator de desconto
 
 ### 2.2 Escalonamento de colunas (média geométrica)
 
-Após o escalonamento de custos, cada coluna $j$ recebe um fator de escala por equilibração matricial pela média geométrica em uma única passagem (cf. [Curtis & Reid, 1972](/pt-br/reference/bibliography/#metodos-numericos)):
+Após o escalonamento de custos, cada coluna $j$ recebe um fator de escala por uma passagem de escalonamento pela média geométrica ([Tomlin, 1975](/pt-br/reference/bibliography/#metodos-numericos); [Elble & Sahinidis, 2012](/pt-br/reference/bibliography/#metodos-numericos)), que torna a maior e a menor magnitude não nula da coluna recíprocas uma da outra:
 
 $$
 d_j^{col} = \frac{1}{\sqrt{\max_i |A_{ij}| \cdot \min_i |A_{ij}|}}

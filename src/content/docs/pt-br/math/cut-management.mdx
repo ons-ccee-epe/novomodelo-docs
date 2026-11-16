@@ -56,7 +56,7 @@ $$
 
 onde $Q_t(\hat{x}_{t-1}, \omega_t)$ é o valor ótimo da função objetivo do subproblema do estágio $t$, e o produto $\beta_t^{\top} \hat{x}_{t-1}$ percorre as componentes sobre as quais o corte se projeta (§1), cada coeficiente pareado com o valor visitado de sua própria componente: armazenamento e defasagens de afluência quando o estágio as mantém, parcelas de água em trânsito e posições do anel de despacho antecipado sempre. Uma componente que o corte elimina na projeção não contribui com termo no produto; seu termo linear no valor visitado é incorporado ao termo independente ([§4](#4-validade-dos-cortes), condição 4). O estado visitado $\hat{x}_{t-1}$ no qual esse termo independente se ancora é o estado de saída canonicalizado (relido e limitado) da resolução forward do estágio anterior — o primal do PL projetado sobre seus limites admissíveis —, de modo que as colunas de estado de entrada fixadas e o termo independente compartilham uma mesma âncora dentro da caixa (veja [Algoritmo da PDDE §3.1](/pt-br/math/sddp-algorithm#31-simulacao-forward)).
 
-**Convenção de sinais**: pelo teorema do envelope em PL, $\partial Q_t / \partial \hat{x}_j = \beta_j$, a sensibilidade do valor ótimo em relação ao estado de entrada fixado. Para uma coluna fixada em $\underline{x}_j = \bar{x}_j = \hat{x}_j$, essa sensibilidade é exatamente o custo reduzido da coluna — igual, pela paridade KKT, ao multiplicador que a restrição de igualdade equivalente $x^{in}_j = \hat{x}_j$ teria —, de modo que o coeficiente do corte é tomado diretamente do custo reduzido, sem inversão de sinal (após o desfazimento do escalonamento por coluna descrito acima). O custo reduzido captura automaticamente todos os efeitos a jusante: para o armazenamento, isso inclui as contribuições do balanço hídrico, dos hiperplanos da FPHA, da restrição de evaporação e de quaisquer restrições genéricas que referenciem a variável de armazenamento de entrada $v^{in}_h$ (veja [Formulação do PL](/pt-br/math/lp-formulation)).
+**Convenção de sinais**: pela dualidade em PL, o valor ótimo $Q_t$ é convexo e linear por partes no estado de entrada fixado, e o vetor $\beta$ lido em uma base ótima é um subgradiente dele em $\hat{x}$: $Q_t(x) \geq Q_t(\hat{x}) + \beta^\top (x - \hat{x})$ para todo estado de entrada $x$. Onde $Q_t$ é diferenciável em $\hat{x}$, $\beta_j = \partial Q_t / \partial \hat{x}_j$; onde o PL do estágio tem várias soluções duais ótimas, $Q_t$ pode ter uma quebra (um ponto não diferenciável) em $\hat{x}$, e $\beta$ é o subgradiente dado pela base final. Para uma coluna fixada em $\underline{x}_j = \bar{x}_j = \hat{x}_j$, o custo reduzido é a componente $j$ desse subgradiente — igual, pela paridade KKT, ao multiplicador que a restrição de igualdade equivalente $x^{in}_j = \hat{x}_j$ teria —, de modo que o coeficiente do corte é tomado diretamente do custo reduzido, sem inversão de sinal (após o desfazimento do escalonamento por coluna descrito acima). O custo reduzido captura automaticamente todos os efeitos a jusante: para o armazenamento, isso inclui as contribuições do balanço hídrico, dos hiperplanos da FPHA, da restrição de evaporação e de quaisquer restrições genéricas que referenciem a variável de armazenamento de entrada $v^{in}_h$ (veja [Formulação do PL](/pt-br/math/lp-formulation)).
 
 **Sinal do coeficiente de armazenamento**: mais armazenamento de entrada reduz $Q_t$ sempre que a água adicional desloca geração térmica ou déficit, neste estágio ou em um posterior, de modo que o coeficiente de armazenamento é não positivo nesses casos; ele pode tornar-se positivo quando a água adicional só pode deixar o reservatório a um custo, como um custo de vertimento ou uma penalidade por limite de vazão defluente.
 
@@ -97,7 +97,7 @@ Quando o problema usa taxas de desconto dependentes do estágio, o desconto é a
 :::
 
 :::note[Formulação multicorte]
-O Novo Modelo implementa a formulação de corte único acima, com uma variável de custo futuro por estágio; não implementa nenhuma variante multicorte (multi-cut).
+O Novo Modelo implementa a formulação de corte único acima, com uma variável de custo futuro por estágio; não implementa nenhuma variante multicorte (multi-cut), o método de [Birge & Louveaux (1988)](/pt-br/reference/bibliography/#fundamentos-da-pdde-sddp) que mantém um corte por realização.
 :::
 
 ## 4. Validade dos cortes
@@ -182,13 +182,13 @@ $$
 \text{owner}(\hat{x}) = \min \left\{ i \in \mathcal{L} : \beta_{0,i} + \beta_i^\top \hat{x} = V^*(\hat{x}) \right\}
 $$
 
-Um corte no máximo por estado é aquele sobre o qual a variável de custo futuro $\theta$ repousa em $\hat{x}$, de modo que um corte que detém a posse de um estado é a contrapartida, na avaliação de valor, de um corte ativo na solução nesse ponto. Como a ordem das posições segue a ordem de geração, a posição mais baixa é a do mais antigo dos cortes empatados.
+Um corte no máximo por estado é aquele sobre o qual a variável de custo futuro $\theta$ repousa em $\hat{x}$, de modo que um corte que detém a posse de um estado é a contrapartida, na avaliação de valor, de um corte ativo na solução nesse ponto. Como a ordem das posições segue a ordem de geração, a posição mais baixa é a do mais antigo dos cortes empatados: manter apenas o mais antigo dos cortes empatados é a regra do Nível 1 com memória limitada (Limited-Memory Level 1, LML1) de [Guigues (2017)](/pt-br/reference/bibliography/#gerenciamento-de-cortes-e-convergencia).
 
 Estar ativo em uma solução do PL é uma grandeza diferente: uma linha de corte **está ativa na solução** de uma resolução quando seu multiplicador dual excede um limiar (§10). Esse registro é lido apenas pelo limite de cortes ativos (§5) e pela janela de semeadura do método dinâmico (§8.1); não tem papel algum na posse.
 
 ## 7. Seleção Nível 1
 
-A seleção Nível 1 segue o Nível 1 de [de Matos, Philpott & Finardi (2015)](/pt-br/reference/bibliography/#gerenciamento-de-cortes-e-convergencia): cada estado visitado armazenado tem um único detentor (§6), e uma execução da seleção mantém os cortes que detêm a posse de algum estado. Ela avalia o conjunto de cortes de todo nó estritamente entre o primeiro e o último estágio; o conjunto do primeiro estágio e o conjunto final compartilhado nunca passam por seleção.
+A seleção Nível 1 segue o Nível 1 de [de Matos, Philpott & Finardi (2015)](/pt-br/reference/bibliography/#gerenciamento-de-cortes-e-convergencia), com a regra de desempate do Nível 1 com memória limitada ([Guigues, 2017](/pt-br/reference/bibliography/#gerenciamento-de-cortes-e-convergencia)): cada estado visitado armazenado tem um único detentor (§6), e uma execução da seleção mantém os cortes que detêm a posse de algum estado. Ela avalia o conjunto de cortes de todo nó estritamente entre o primeiro e o último estágio; o conjunto do primeiro estágio e o conjunto final compartilhado nunca passam por seleção.
 
 **A regra.** A cada $n_{\text{sel}}$ iterações, após a simulação backward:
 
@@ -207,7 +207,7 @@ Nenhum valor de corte é comparado com uma tolerância, de modo que o conjunto a
 
 1. O conjunto do primeiro estágio nunca passa por seleção.
 2. A seleção é executada a cada $n_{\text{sel}}$ iterações, e não toda vez que um corte é adicionado.
-3. O artigo não define regra para um empate exato; a posição mais baixa é uma escolha do Novo Modelo.
+3. O artigo não define regra para um empate exato; a posição mais baixa, a do mais antigo dos cortes empatados, é a regra do LML1 ([Guigues, 2017](/pt-br/reference/bibliography/#gerenciamento-de-cortes-e-convergencia)).
 
 **Custo**: $\mathcal{O}(|\text{new cuts}| \times |\text{stored states}| + |\text{cuts}| \times |\text{new states}|)$ multiplicações-adições por conjunto e passagem: o registro de posse é atualizado incrementalmente, avaliando os cortes e estados gravados desde a passagem anterior contra os demais, como um produto de matrizes em blocos.
 
@@ -278,7 +278,7 @@ Veja [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees).
 
 **Ideia central**: remover cortes que nunca estão no máximo em nenhum estado visitado não altera a aproximação externa nesses pontos, e o argumento de convergência usa a aproximação apenas neles. Com um número finito de cenários, só pode surgir um número finito de cortes e estados visitados distintos, cada um lido de uma solução básica de um problema de estágio, de modo que o argumento não exige densidade dos estados visitados: a convergência é alcançada após um número finito de iterações.
 
-**A seleção Nível 1 tal como o Novo Modelo a executa** afasta-se da regra coberta pelo teorema: é executada a cada $n_{\text{sel}}$ iterações, deixa sem seleção o conjunto do primeiro estágio, resolve um empate exato pela posição mais baixa e, com uma janela, avalia apenas os estados visitados dentro dela (§7). Nenhum resultado de convergência é reivindicado para ela, e de Matos, Philpott & Finardi (2015) não enunciam nenhum para o seu Nível 1.
+**A seleção Nível 1 tal como o Novo Modelo a executa** resolve um empate exato como o LML1, mantendo o mais antigo dos cortes empatados (§6), e afasta-se da regra coberta pelo teorema de três maneiras: é executada a cada $n_{\text{sel}}$ iterações, deixa sem seleção o conjunto do primeiro estágio e, com uma janela, avalia apenas os estados visitados dentro dela (§7). Nenhum resultado de convergência é reivindicado para ela, e de Matos, Philpott & Finardi (2015) não enunciam nenhum para o seu Nível 1.
 
 **O método dinâmico e a exatidão**: uma resolução do método dinâmico retorna, no passo 5 da §8.1, o ótimo sobre seus candidatos a menos da tolerância relativa de violação. Com $k_1 = \infty$, os candidatos são todos os cortes ativos e, como o método não desativa nenhum corte, os cortes ativos são o próprio conjunto, exceto os cortes carregados que uma execução de origem deixou inativos. Um $k_1$ finito sacrifica essa propriedade.
 

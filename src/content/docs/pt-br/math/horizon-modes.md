@@ -300,14 +300,22 @@ algoritmo no qual o modo finito opera, e no qual o projeto cíclico reservado
 é especificado para operar, é descrito em
 [Algoritmo da PDDE](/pt-br/math/sddp-algorithm).
 
-## 6. Referência
+## 6. Referências
 
+- [Birge & Zhao (2007)](/pt-br/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
+- [Shapiro & Ding (2020)](/pt-br/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
+- [Dowson (2020)](/pt-br/reference/bibliography/#fundamentos-da-pdde-sddp)
 - [Costa et al. (2025)](/pt-br/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
 
+Programas estocásticos de horizonte infinito com desconto, resolvidos por planos de
+corte sobre uma função de valor estacionária, são tratados por Birge & Zhao (2007);
+programas multiestágio periódicos, cujas funções de valor se repetem com o período e
+cuja PDDE compartilha cortes entre os estágios de um mesmo período, por Shapiro & Ding
+(2020); e um grafo da política cíclico, com uma aresta de retorno, por Dowson (2020).
 A estrutura formal do modo cíclico na seção 3 — a função de período sazonal,
 a desigualdade de convergência do ciclo, o conjunto de cortes indexado por período sazonal com sua
 equação de compartilhamento de cortes e o operador de Bellman de ponto fixo — segue
-este artigo; a hipótese de estacionariedade e a contração do
+a apresentação de Costa et al. (2025) para o planejamento da operação hidrotérmica; a hipótese de estacionariedade e a contração do
 encadeamento de operadores constituem o argumento padrão de programação dinâmica
 periódica com desconto.
 

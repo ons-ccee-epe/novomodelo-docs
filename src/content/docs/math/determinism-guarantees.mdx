@@ -117,8 +117,10 @@ degenerate, several distinct bases attain that same value, and the simplex
 halts at whichever one its pivot path reaches. Because a cut's coefficients are
 read from the reduced costs of the pinned incoming-state columns, they are
 properties of the terminating basis rather than of the optimal value: at a
-degenerate optimum the subproblem's marginal values form an interval, and a
-solve returns one endpoint of it.
+degenerate optimum the subproblem's value function can have a kink at the trial
+point, its subgradients there form a convex set (an interval when the state has
+one component), and a solve returns the subgradient its terminating basis
+gives.
 
 Every such choice yields an equally valid cut. Each reduced-cost vector
 obtained at an optimal basis is a subgradient of the subproblem's value
@@ -171,10 +173,14 @@ projection onto the resolved admissible bounds — each bounded coordinate
 its interval, the unbounded inflow lags passed through unchanged; the projection
 is the identity for an in-box optimum. Because a bound-pinned coordinate can
 settle a hair outside its interval on a degenerate or numerically drifting
-solve, this read-back projection is what makes the trial point $\hat{x}$ a
-function of the stage's optimal value and its resolved bounds — not of the
-terminating vertex or of round-off — the same property the reduced-cost cut
-reading relies on. It is applied once, at read-back, and read by every consumer.
+solve, this read-back projection keeps that drift out of the trial point
+$\hat{x}$, so the next stage's pinned incoming-state columns and the cut
+intercept share one in-box anchor ([Cut Management §2](/math/cut-management#2-reduced-cost-extraction)).
+It does not make $\hat{x}$ independent of the terminating vertex: where the
+stage problem has several optimal solutions, $\hat{x}$ is the one the
+terminating basis gives, and it is reproducible because the solve's inputs and
+starting basis are pinned (above). It is applied once, at read-back, and read
+by every consumer.
 See [SDDP Algorithm §3.1](/math/sddp-algorithm#31-forward-pass) for the
 projection stated in full.
 

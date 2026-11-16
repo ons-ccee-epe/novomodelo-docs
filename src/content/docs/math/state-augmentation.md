@@ -49,7 +49,7 @@ The incoming state is pinned by **column bounds**, not by an explicit equality _
 
 **Cut coefficient**: the storage cut coefficient $\beta^v_h$ is the **reduced cost** of the pinned incoming-storage column (unscaled by its prescaler column factor — see [LP Layout and Scaling §2](/math/lp-layout-and-scaling#2-lp-scaling) and [Cut Management](/math/cut-management)). No fixing-constraint dual is involved.
 
-**Why this design**: By LP duality, when a column is pinned at $\underline{x} = \bar{x}$ its reduced cost equals the sensitivity $\partial Q_t / \partial \hat{v}_h$ of the optimal value to the pinned bound — exactly the multiplier the equivalent equality row $v^{in}_h = \hat{v}_h$ would have carried (KKT parity). This sensitivity automatically accounts for all downstream effects through water balance, FPHA, evaporation and generic constraints, so a single reduced-cost value suffices — no combination of duals from multiple constraint types is needed. The AR lags (§4), in-transit buckets (§6) and commitment-ring slots (§5) are pinned the same way.
+**Why this design**: By LP duality, when a column is pinned at $\underline{x} = \bar{x}$ its reduced cost is a subgradient of the optimal value in the pinned bound — the sensitivity $\partial Q_t / \partial \hat{v}_h$ where that derivative exists ([Cut Management §2](/math/cut-management#2-reduced-cost-extraction)) — and exactly the multiplier the equivalent equality row $v^{in}_h = \hat{v}_h$ would have carried (KKT parity). This sensitivity automatically accounts for all downstream effects through water balance, FPHA, evaporation and generic constraints, so a single reduced-cost value suffices — no combination of duals from multiple constraint types is needed. The AR lags (§4), in-transit buckets (§6) and commitment-ring slots (§5) are pinned the same way.
 
 **Column count**: $N$ pinned incoming-storage columns, where $N = |\mathcal{H}|$ is the number of hydros, whatever their lifecycle phase. There are no state-fixing rows: every incoming-state column is pinned by its bounds.
 
@@ -98,7 +98,7 @@ The lag slots a hydro does not read are structurally zero and are left out of th
 
 ## 5. Anticipated Thermal Commitments
 
-An anticipated thermal plant decides the commitment of each delivery before its delivery stage and holds every decided, undelivered commitment as state in a per-plant commitment ring (see [System Element Modeling Overview §4](/math/system-elements#anticipated-thermal-plants)). Its lead is a stage count or a physical lead time. The decision stage of the delivery at stage $m$ is $t_i(m) = m - K_i$ for a stage-count lead; for a physical lead it is the stage containing the instant one lead time before the end of stage $m$, where an instant on a stage boundary belongs to the earlier stage. A delivery whose decision falls before the study ($m \leq K_i$ under a stage-count lead, an instant at or before the study start under a physical lead) is decided before the study and has no decision stage. A delivery with $t_i(m) = m$ is not anticipated: at that stage the plant dispatches as an ordinary thermal. Every commitment is bounded, costed, and commissioning-gated at its delivery stage, not at its decision stage.
+An anticipated thermal plant decides the commitment of each delivery before its delivery stage and holds every decided, undelivered commitment as state in a per-plant commitment ring (see [System Element Modeling Overview §4](/math/system-elements#anticipated-thermal-plants)). Its lead is a stage count or a physical lead time. The decision stage of the delivery at stage $m$ is $t_i(m) = m - K_i$ for a stage-count lead; for a physical lead it is the stage containing the instant one lead time before the end of stage $m$, where an instant on a stage boundary belongs to the earlier stage. A delivery whose decision falls before the study ($m \leq K_i$ under a stage-count lead, an instant at or before the study start under a physical lead) is decided before the study and has no decision stage. A delivery with $t_i(m) = m$ is not anticipated: at that stage the plant dispatches as an ordinary thermal. Every commitment is bounded, costed, and commissioning-gated at its delivery stage, not at its decision stage. Carrying dispatch that is decided stages before its delivery as state of the stage problems follows the multi-lag Benders decomposition of [Diniz & Maceira (2013)](/reference/bibliography/#state-augmentation).
 
 ### Hold Ring
 
@@ -206,7 +206,7 @@ Each upstream release is written into the outgoing lags it reaches, scaled by th
 
 ### Cut coefficient
 
-Because the incoming bucket column is pinned at equal bounds, its reduced cost is the sensitivity $\partial Q_t / \partial \hat{b}_{h,d}$ of the optimal stage cost to the in-transit volume, unscaled by the column prescaler ([LP Layout and Scaling §2](/math/lp-layout-and-scaling#2-lp-scaling)):
+Because the incoming bucket column is pinned at equal bounds, its reduced cost is a subgradient of the optimal stage cost in the in-transit volume, the sensitivity $\partial Q_t / \partial \hat{b}_{h,d}$ where that derivative exists, unscaled by the column prescaler ([LP Layout and Scaling §2](/math/lp-layout-and-scaling#2-lp-scaling)):
 
 $$
 \beta^{b}_{h,d} = \bar{c}^{\,b}_{h,d} / d^{col}_{h,d}

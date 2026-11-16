@@ -311,7 +311,7 @@ $$
 \hat{s}_m = \sqrt{\frac{1}{N_m} \sum_{t: m(t) = m} (a_{h,t} - \bar{a}_m)^2}
 $$
 
-The estimator uses the **population divisor** $1/N_m$, not the Bessel-corrected $1/(N_m - 1)$. This matches the [Maceira & Damázio (2006)](/reference/bibliography/#inflow-modelling) convention and is shared by the classical PAR(p) and PAR(p)-A paths. The population divisor is required for self-consistent conditional FACP values and selected orders on the PAR(p)-A path — under a Bessel correction the sample-vs-population scale factor leaks through every Z⊗A cross-correlation. Using the same divisor for the classical path keeps the two paths' seasonal-stats output reusable across configurations.
+The estimator uses the **population divisor** $1/N_m$, not the Bessel-corrected $1/(N_m - 1)$. This is the divisor of the sample autocovariance estimator of [Box & Jenkins (1976)](/reference/bibliography/#inflow-modelling) and is shared by the classical PAR(p) and PAR(p)-A paths. The population divisor is required for self-consistent conditional FACP values and selected orders on the PAR(p)-A path — under a Bessel correction the sample-vs-population scale factor leaks through every Z⊗A cross-correlation. Using the same divisor for the classical path keeps the two paths' seasonal-stats output reusable across configurations.
 
 ### 3.3 Historical Bucket Classification
 
@@ -613,12 +613,12 @@ The stages of season $m$ use $\hat{C}_m$ when every pair of hydros has at least 
 
 ### 6.2 The Problem with Cholesky
 
-The classical approach applies Cholesky factorisation: given $C = L L^\top$ with $L$ lower-triangular, correlated noise is obtained as $L z$ where $z \sim \mathcal{N}(0, I)$. Cholesky requires $C$ to be **strictly positive-definite**. In practice, estimated correlation matrices from hydro inflow series are frequently near-singular or rank-deficient for two reasons:
+The classical approach applies Cholesky factorisation: given $C = L L^\top$ with $L$ lower-triangular, correlated noise is obtained as $L z$ where $z \sim \mathcal{N}(0, I)$. The unpivoted factorisation requires $C$ to be **strictly positive-definite**; a positive-semidefinite, rank-deficient $C$ needs a pivoted variant, and an **indefinite** $C$, which the pairwise-complete estimate of §6.1 can produce, has no Cholesky factor at all. In practice, estimated correlation matrices from hydro inflow series are frequently near-singular or rank-deficient for two reasons:
 
 - **Short sample records**: hydro inflow records often span only a few decades, yielding a historical record length $N^{\text{hist}}$ that is comparable to the number of hydro plants in some subsystems. When $N^{\text{hist}}$ is close to the matrix dimension, the sample eigenvalues of $C$ cluster near zero.
 - **Heterogeneous series**: Plants with near-identical hydrological regimes (upstream–downstream pairs, same river basin) produce columns that are nearly linearly dependent, reducing the effective rank of $C$ below its nominal dimension.
 
-A near-singular $C$ causes Cholesky to fail or to produce numerically degenerate lower triangular factors. A separate filtering pass to remove "degenerate" hydros would be required before the factorisation, discarding information and introducing a non-transparent pre-processing decision.
+A near-singular $C$ causes unpivoted Cholesky to fail or to produce numerically degenerate lower triangular factors. A separate filtering pass to remove "degenerate" hydros would be required before the factorisation, discarding information and introducing a non-transparent pre-processing decision.
 
 ### 6.3 Eigendecomposition with Clipped Square Root
 
@@ -640,7 +640,7 @@ $$
 \tilde{\Lambda}^{1/2} = \mathrm{diag}\!\left(\sqrt{\max(\lambda_1, 0)},\, \ldots,\, \sqrt{\max(\lambda_n, 0)}\right)
 $$
 
-Clipping negative eigenvalues to zero is the spectral projection of the sample matrix onto the positive-semidefinite cone — the nearest positive-semidefinite matrix in Frobenius norm; see [Higham (2002)](/reference/bibliography/#numerical-methods) for the related nearest-correlation-matrix problem.
+Clipping negative eigenvalues to zero is the spectral projection of the sample matrix onto the positive-semidefinite cone — the nearest positive-semidefinite matrix in Frobenius norm ([Higham, 1988](/reference/bibliography/#numerical-methods)); see [Higham (2002)](/reference/bibliography/#numerical-methods) for the related nearest-correlation-matrix problem, which also keeps the unit diagonal.
 
 Correlated noise is then generated as $C^{1/2} z$ where $z \sim \mathcal{N}(0, I)$.
 
@@ -662,9 +662,10 @@ The clipping rule is fixed and transparent — exactly the strictly negative eig
 
 | Property                        | Eigendecomposition (Novomodelo)       | Cholesky                            |
 | ------------------------------- | -------------------------------- | ----------------------------------- |
-| Handles rank-deficient $C$      | Yes — clipping makes it robust   | No — requires positive-definiteness |
+| Handles rank-deficient $C$      | Yes — clipping makes it robust   | Only with pivoting                  |
+| Handles indefinite $C$          | Yes — clipping projects it onto the positive-semidefinite cone | No — needs a prior repair |
 | Computational cost              | Higher (full eigendecomposition) | Lower on well-conditioned matrices  |
-| Degenerate-hydro filtering pass | Not required                     | Required for near-singular $C$      |
+| Degenerate-hydro filtering pass | Not required                     | Required for near-singular $C$ without pivoting |
 | Transparency of approximation   | Clips exactly the negative eigenvalues; the generated variance can exceed one | Opaque numerical failure or pivot   |
 
 The higher computational cost is acceptable because the factorisation is performed once per study configuration and not on the hot path of the forward pass.

@@ -248,7 +248,9 @@ downstream study needs only the archived upstream policy. Each study draws its
 own scenario tree, and the downstream stages may be finer than the upstream's
 — weekly stages under a monthly policy, for example. One study whose own
 stages mix resolutions is a different case, covered in
-[Multi-Resolution Studies](/math/multi-resolution-studies).
+[Multi-Resolution Studies](/math/multi-resolution-studies). The coupling of a
+medium-term study to the cuts of a long-term policy is the published scheme
+of [Maceira et al. (2002)](/reference/bibliography/#inflow-modelling).
 
 ### 5.1 Source Pool
 
@@ -332,6 +334,13 @@ system, and the difference biases the downstream policy near the horizon;
 training does not correct it, because the terminal pool never changes (§1).
 Running with the zero terminal value instead decouples the two studies, at the
 price of the end-of-world effect ([Horizon Modes §1](/math/horizon-modes)).
+
+The imported cuts also carry the upstream study's discounting of every cost
+past the downstream horizon. The conditions of §5.2 include no agreement on
+discount rates, and a pool's cut file records the cost scale factor of the
+study that wrote it but no discount rate, so a downstream study that declares
+other rates discounts its own stages at its rates and the post-horizon costs at
+the upstream ones ([Discount Rate Formulation](/math/discount-rate)).
 
 ## 6. Lag Seeding
 

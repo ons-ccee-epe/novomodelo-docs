@@ -248,7 +248,9 @@ estudo posterior requer apenas a política de origem arquivada. Cada estudo sort
 própria árvore de cenários, e os estágios do estudo posterior podem ser mais finos que os do estudo de origem
 — por exemplo, estágios semanais sob uma política mensal. Um único estudo cujos próprios
 estágios misturam resoluções é um caso diferente, tratado em
-[Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies).
+[Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies). O acoplamento de
+um estudo de médio prazo aos cortes de uma política de longo prazo é o esquema
+publicado de [Maceira et al. (2002)](/pt-br/reference/bibliography/#modelagem-de-afluencias).
 
 ### 5.1 Conjunto de origem
 
@@ -332,6 +334,14 @@ diferente, e a diferença enviesa a política do estudo posterior perto do horiz
 o treinamento não a corrige, pois o conjunto final nunca muda (§1).
 Executar com valor terminal nulo, em vez disso, desacopla os dois estudos, ao
 custo do efeito de fim de mundo ([Modos de horizonte §1](/pt-br/math/horizon-modes)).
+
+Os cortes importados também carregam o desconto que o estudo de origem aplica a todo
+custo posterior ao horizonte do estudo posterior. As condições da §5.2 não incluem
+nenhuma concordância entre taxas de desconto, e o arquivo de cortes de um conjunto
+registra o fator de escala de custo do estudo que o gravou, mas nenhuma taxa de
+desconto; assim, um estudo posterior que declara outras taxas desconta seus próprios
+estágios às suas taxas e os custos posteriores ao horizonte às taxas do estudo de
+origem ([Formulação da taxa de desconto](/pt-br/math/discount-rate)).
 
 ## 6. Inicialização das defasagens
 

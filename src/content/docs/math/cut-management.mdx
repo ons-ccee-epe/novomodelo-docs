@@ -56,7 +56,7 @@ $$
 
 where $Q_t(\hat{x}_{t-1}, \omega_t)$ is the optimal objective value of the stage $t$ subproblem and the product $\beta_t^{\top} \hat{x}_{t-1}$ runs over the components the cut projects onto (§1), each coefficient paired with the trial value of its own component: storage and inflow lags when the stage keeps them, buckets and ring slots always. A component the cut projects out contributes no product term; its linear term at the trial value is folded into the intercept ([§4](#4-cut-validity), condition 4). The trial state $\hat{x}_{t-1}$ this intercept is anchored at is the canonicalized (read-back-clamped) outgoing state of the previous stage's forward solve — its LP primal projected onto its admissible bounds — so the pinned incoming-state columns and the intercept share one in-box anchor (see [SDDP Algorithm §3.1](/math/sddp-algorithm#31-forward-pass)).
 
-**Sign convention**: By the LP envelope theorem, $\partial Q_t / \partial \hat{x}_j = \beta_j$, the sensitivity of the optimal value to the pinned incoming state. For a column pinned at $\underline{x}_j = \bar{x}_j = \hat{x}_j$, that sensitivity is exactly the column's reduced cost — equal, by KKT parity, to the multiplier the equivalent equality row $x^{in}_j = \hat{x}_j$ would have carried — so the cut coefficient is taken directly from the reduced cost with no sign flip (after the per-column unscaling above). The reduced cost automatically captures all downstream effects: for storage, this includes contributions from the water balance, FPHA hyperplanes, the evaporation row, and any generic constraints that reference the incoming storage variable $v^{in}_h$ (see [LP Formulation](/math/lp-formulation)).
+**Sign convention**: By LP duality, the optimal value $Q_t$ is convex and piecewise linear in the pinned incoming state, and the vector $\beta$ read at an optimal basis is a subgradient of it at $\hat{x}$: $Q_t(x) \geq Q_t(\hat{x}) + \beta^\top (x - \hat{x})$ for every incoming state $x$. Where $Q_t$ is differentiable at $\hat{x}$, $\beta_j = \partial Q_t / \partial \hat{x}_j$; where the stage LP has several optimal dual solutions, $Q_t$ can have a kink at $\hat{x}$, and $\beta$ is the subgradient the terminating basis gives. For a column pinned at $\underline{x}_j = \bar{x}_j = \hat{x}_j$, the reduced cost is that subgradient's component $j$ — equal, by KKT parity, to the multiplier the equivalent equality row $x^{in}_j = \hat{x}_j$ would have carried — so the cut coefficient is taken directly from the reduced cost with no sign flip (after the per-column unscaling above). The reduced cost automatically captures all downstream effects: for storage, this includes contributions from the water balance, FPHA hyperplanes, the evaporation row, and any generic constraints that reference the incoming storage variable $v^{in}_h$ (see [LP Formulation](/math/lp-formulation)).
 
 **Storage coefficient sign**: more incoming storage lowers $Q_t$ wherever the extra water displaces thermal generation or deficit, in this stage or a later one, so the storage coefficient is non-positive there; it can turn positive where the extra water can only leave the reservoir at a cost, such as a spillage cost or an outflow-limit penalty.
 
@@ -97,7 +97,7 @@ When the problem uses stage-dependent discount rates, discounting is applied to 
 :::
 
 :::note[Multi-cut formulation]
-Novomodelo implements the single-cut formulation above, with one future-cost variable per stage; it implements no multi-cut variant.
+Novomodelo implements the single-cut formulation above, with one future-cost variable per stage; it implements no multi-cut variant, the method of [Birge & Louveaux (1988)](/reference/bibliography/#sddp-foundations) that keeps one cut per outcome.
 :::
 
 ## 4. Cut Validity
@@ -140,7 +140,7 @@ At every iteration $k$, $\underline{z}^k$ is at most the optimal value of the mo
 
 #### Tier 2: Convergence
 
-Under an expectation measure at every stage, $\underline{z}^k$ converges to the optimal value of the model as trained with probability 1. It requires the hypotheses below; [§9](#9-convergence-guarantee) states the theorem, which is proved for that case. Under a risk-averse measure at any stage, Tier 1 still bounds the optimal value from below, but the cited theorem does not establish the convergence of $\underline{z}^k$.
+Under an expectation measure at every stage, $\underline{z}^k$ converges to the optimal value of the model as trained with probability 1. It requires the hypotheses below; [§9](#9-convergence-guarantee) states the theorem, which is proved for that case. Under a risk-averse measure at any stage, Tier 1 still bounds the optimal value from below, but the cited theorem does not establish the convergence of $\underline{z}^k$. The convergence of risk-averse SDDP without cut selection is proved under the hypotheses of [Guigues & Römisch (2012)](/reference/bibliography/#cut-management-and-convergence), [Philpott, de Matos & Finardi (2013)](/reference/bibliography/#risk-measures) and [Guigues (2016)](/reference/bibliography/#cut-management-and-convergence); this page states no convergence result for the risk-averse case.
 
 - Tier 1 holds, and every node has finitely many openings.
 - The forward pass either draws the backward pass's own scenario paths, each with positive probability, or enumerates them. A forward pass that draws from another distribution, such as out-of-sample noise, historical records or external scenarios, is outside the theorem's hypotheses.
@@ -182,13 +182,13 @@ $$
 \text{owner}(\hat{x}) = \min \left\{ i \in \mathcal{L} : \beta_{0,i} + \beta_i^\top \hat{x} = V^*(\hat{x}) \right\}
 $$
 
-A cut at the per-state maximum is the one the future-cost variable $\theta$ rests on at $\hat{x}$, so a cut that owns a state is the value-evaluation counterpart of a binding cut there. Because slot order follows generation order, the lowest slot is the oldest of the tied cuts.
+A cut at the per-state maximum is the one the future-cost variable $\theta$ rests on at $\hat{x}$, so a cut that owns a state is the value-evaluation counterpart of a binding cut there. Because slot order follows generation order, the lowest slot is the oldest of the tied cuts: keeping only the oldest of the tied cuts is the Limited-Memory Level 1 (LML1) rule of [Guigues (2017)](/reference/bibliography/#cut-management-and-convergence).
 
 Binding at an LP solution is a different quantity: a cut row **binds** in a solve when its dual multiplier exceeds a threshold (§10). That record is read only by the active-cut cap (§5) and by the seed window of the dynamic method (§8.1); it plays no part in ownership.
 
 ## 7. Level 1 Selection
 
-Level 1 selection follows Level 1 of [de Matos, Philpott & Finardi (2015)](/reference/bibliography/#cut-management-and-convergence): each stored trial state has one owner (§6), and a selection run keeps the cuts that own a state. It scores the pool of every node strictly between the first stage and the last; the first stage's pool and the shared terminal pool are never selected.
+Level 1 selection follows Level 1 of [de Matos, Philpott & Finardi (2015)](/reference/bibliography/#cut-management-and-convergence), with the tie rule of Limited-Memory Level 1 ([Guigues, 2017](/reference/bibliography/#cut-management-and-convergence)): each stored trial state has one owner (§6), and a selection run keeps the cuts that own a state. It scores the pool of every node strictly between the first stage and the last; the first stage's pool and the shared terminal pool are never selected.
 
 **The rule.** Every $n_{\text{sel}}$ iterations, after the backward pass:
 
@@ -207,7 +207,7 @@ No cut value is compared against a tolerance, so the active set after a pass is 
 
 1. The first stage's pool is never selected.
 2. Selection runs every $n_{\text{sel}}$ iterations, not each time a cut is added.
-3. The paper names no rule for an exact tie; the lowest slot is Novomodelo's choice.
+3. The paper names no rule for an exact tie; the lowest slot, the oldest of the tied cuts, is the rule of LML1 ([Guigues, 2017](/reference/bibliography/#cut-management-and-convergence)).
 
 **Cost**: $\mathcal{O}(|\text{new cuts}| \times |\text{stored states}| + |\text{cuts}| \times |\text{new states}|)$ multiply-adds per pool and pass: the ownership record is updated incrementally, evaluating the cuts and states written since the previous pass against the others as a blocked matrix product.
 
@@ -278,7 +278,7 @@ See [Determinism & Provenance](/math/determinism-guarantees).
 
 **Key insight**: Removing cuts that are never at the maximum at any trial point does not change the outer approximation at those points, and the convergence argument uses the approximation only there. With finitely many scenarios, only finitely many distinct cuts and trial points can arise, each read from a basic solution of a stage problem, so the argument needs no density of the trial points: convergence is reached after finitely many iterations.
 
-**Level 1 selection as Novomodelo runs it** departs from the rule the theorem covers: it runs every $n_{\text{sel}}$ iterations, leaves the first stage's pool unselected, resolves an exact tie by the lowest slot, and, with a window, scores only the trial states inside it (§7). No convergence result is claimed for it, and de Matos, Philpott & Finardi (2015) state none for their Level 1.
+**Level 1 selection as Novomodelo runs it** resolves an exact tie as LML1 does, keeping the oldest of the tied cuts (§6), and departs from the rule the theorem covers in three ways: it runs every $n_{\text{sel}}$ iterations, leaves the first stage's pool unselected, and, with a window, scores only the trial states inside it (§7). No convergence result is claimed for it, and de Matos, Philpott & Finardi (2015) state none for their Level 1.
 
 **The dynamic method and exactness**: a solve of the dynamic method returns, at §8.1 step 5, the optimum over its candidates up to the relative violation tolerance. With $k_1 = \infty$ the candidates are every active cut, and since the method deactivates no cut, the active cuts are the pool, bar loaded cuts that a source run left inactive. A finite $k_1$ sacrifices this.
 

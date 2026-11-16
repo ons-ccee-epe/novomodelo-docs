@@ -116,8 +116,10 @@ degenerado, várias bases distintas atingem esse mesmo valor, e o simplex
 para naquela que seu caminho de pivoteamento alcançar. Como os coeficientes de um corte são
 lidos dos custos reduzidos das colunas fixadas do estado de entrada, eles são
 propriedades da base final, e não do valor ótimo: em um ótimo
-degenerado, os valores marginais do subproblema formam um intervalo, e uma
-resolução retorna um de seus extremos.
+degenerado, a função de valor do subproblema pode ter uma quebra no estado
+visitado, seus subgradientes nesse ponto formam um conjunto convexo (um intervalo
+quando o estado tem uma única componente), e uma resolução retorna o subgradiente
+dado por sua base final.
 
 Toda escolha desse tipo produz um corte igualmente válido. Cada vetor de custos reduzidos
 obtido em uma base ótima é um subgradiente da função de valor do subproblema
@@ -170,10 +172,13 @@ projeção sobre os limites admissíveis resolvidos — cada coordenada limitada
 seu intervalo, e as defasagens de afluência, não limitadas, passam inalteradas; a projeção
 é a identidade para um ótimo dentro da caixa. Como uma coordenada fixada em um limite pode
 terminar ligeiramente fora de seu intervalo em uma resolução degenerada ou com deriva
-numérica, essa projeção na leitura é o que torna o estado visitado $\hat{x}$ uma
-função do valor ótimo do estágio e de seus limites resolvidos — e não do
-vértice final nem de erros de arredondamento —, a mesma propriedade de que depende a leitura do corte a partir
-dos custos reduzidos. Ela é aplicada uma única vez, na leitura, e usada por todos os consumidores.
+numérica, essa projeção na leitura mantém essa deriva fora do estado visitado
+$\hat{x}$, de modo que as colunas fixadas do estado de entrada do estágio seguinte e o
+termo independente do corte compartilham uma mesma âncora dentro da caixa
+([Gerenciamento de cortes §2](/pt-br/math/cut-management#2-extracao-pelos-custos-reduzidos)).
+Ela não torna $\hat{x}$ independente do vértice final: quando o problema do estágio
+tem várias soluções ótimas, $\hat{x}$ é o estado dado pela base final, e é reprodutível
+porque as entradas da resolução e sua base inicial são fixadas (acima). Ela é aplicada uma única vez, na leitura, e usada por todos os consumidores.
 Veja [Algoritmo da PDDE §3.1](/pt-br/math/sddp-algorithm#31-simulacao-forward) para a
 projeção descrita por completo.
 

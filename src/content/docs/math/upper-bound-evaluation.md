@@ -118,7 +118,7 @@ For stopping rules that use the gap, see [Stopping Rules](/math/stopping-rules),
 
 ### Convergence
 
-As $k \to \infty$, $\text{gap}^k \to 0$ for convex problems with finitely many scenarios, provided the upper bound is exact. Under a sampled forward pass, $\bar{z}^k$ carries sampling error, so a small reported gap reflects that noise as well as genuine convergence.
+As $k \to \infty$, $\text{gap}^k \to 0$ when the upper bound is exact and the hypotheses of [Tier 2](/math/cut-management#tier-2-convergence) hold, among them an expectation measure at every stage and a cut selection that keeps the approximation the convergence theorem assumes; under other settings Novomodelo claims no convergence of the gap. Under a sampled forward pass, $\bar{z}^k$ carries sampling error, so a small reported gap reflects that noise as well as genuine convergence.
 
 ## 4 Estimators by Scheme
 
@@ -232,7 +232,7 @@ This chapter owns the methodology of both the training-phase forward-pass bound 
 
 ## Appendix: Inner Approximation (Reserved)
 
-This appendix describes a reserved design that Novomodelo does not compute: a vertex-based inner approximation of the cost-to-go function (SIDP), which would evaluate the upper bound independently of the forward pass's sampling mode.
+This appendix describes a reserved design that Novomodelo does not compute: a vertex-based inner approximation of the cost-to-go function (SIDP), which would evaluate the upper bound independently of the forward pass's sampling mode. The inner approximation of the cost-to-go by convex combinations of visited state-value pairs, and the deterministic upper bound evaluated from it, are due to [Philpott, de Matos & Finardi (2013)](/reference/bibliography/#risk-measures); [Costa & Leclère (2023)](/reference/bibliography/#upper-bound-evaluation) give the duality framework for such bounds.
 
 ### Vertex-Based Inner Approximation
 
