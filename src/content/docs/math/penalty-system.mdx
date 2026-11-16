@@ -47,7 +47,7 @@ Relatively complete recourse holds for an incoming storage between $F_{in}(t)$ a
 - (a) the inflow method can lift a negative local inflow to 0;
 - (b) no hard forced release applies: no positive `min_spillage_m3s` or `min_diversion_m3s`, and no positive `min_flow_m3s` of a pumping station whose `source_hydro_id` is the hydro;
 - (c) the hard storage floor of stage $t$ does not rise above $F_{in}(t)$;
-- (d) excess water can leave the reservoir when `max_spillage_m3s` is finite. In a month whose evaporation coefficient is negative, the ceiling on net evaporation $e_h$ keeps evaporation from removing water, so water above the stage's ceiling leaves through turbining, spillage, diversion, a pumping station's draw and the over-withdrawal slack $\sigma^{w+}_h$. That slack is unbounded only while the effective withdrawal $T^{eff}_h$ ([LP Formulation, Row Terms](/en/math/lp-formulation#row-terms)) is positive; otherwise it is capped so that the realized withdrawal removes no water, and a finite `max_spillage_m3s` can leave the excess no outlet;
+- (d) excess water can leave the reservoir when `max_spillage_m3s` is finite. In a month whose evaporation coefficient is negative, the ceiling on net evaporation $e_h$ keeps evaporation from removing water, so water above the stage's ceiling leaves through turbining where a cell has turbine capacity, spillage, diversion, a pumping station's draw and the over-withdrawal slack $\sigma^{w+}_h$. That slack is unbounded only while the effective withdrawal $T^{eff}_h$ ([LP Formulation, Row Terms](/en/math/lp-formulation#row-terms)) is positive; otherwise it is capped so that the realized withdrawal removes no water, and a finite `max_spillage_m3s` can leave the excess no outlet;
 - (e) every generic constraint on water or hydro generation carries a slack.
 
 The inflow method decides which conditions hold on its own:
@@ -244,7 +244,7 @@ Filling is governed by a **minimum accumulation rate** rather than a single end-
 
 **Operational constraints during filling**:
 
-- **No generation**: turbined flow and generation are $0$ (hard constraint — turbines not installed/operational, so the plant is excluded from the production-function constraints); a positive turbined or generation floor of the plant then falls wholly on its slack ([Lifecycle Phases](/en/math/lp-formulation#lifecycle-phases))
+- **No generation**: turbined flow and generation are $0$ (hard constraint — turbines not installed/operational, so the plant is excluded from the production-function constraints); the plant's turbined-flow and generation minima are dropped while it fills, since it cannot produce ([Plant Minimum and Maximum](/en/math/lp-formulation#plant-minimum-and-maximum))
 - **Outflow via spillage only**: the turbines and the diversion are pinned to zero while the plant fills, so it releases water only by spilling; spillage is a free decision within its bounds, whatever the storage level.
 - **Min outflow requirement**: a minimum outflow is met through spillage; when the reservoir cannot release enough water, the outflow-below slack absorbs the shortfall at its penalty.
 - **Natural inflow flows freely**: incremental inflow and upstream cascade releases enter the reservoir through the ordinary water balance — there is no retention or impound cap that diverts inflow to storage. Whatever nature provides is what fills the reservoir.

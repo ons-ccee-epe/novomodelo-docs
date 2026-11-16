@@ -174,10 +174,10 @@ nenhuma folga é precificada por um custo simétrico.
 | Variável | Limite inferior | Limite superior | Folga inferior | Folga superior |
 | --- | --- | --- | --- | --- |
 | `storage` | `min_storage_hm3`; `0` para uma usina com fase de enchimento em todas as fases e para uma usina fora de sua janela de operação | `max_storage_hm3`; enquanto a usina está em pré-enchimento (PreFilling), nunca abaixo de seu próprio `reservoir.max_storage_hm3` | Rígida (flexível para uma usina com fase de enchimento depois que entra em operação) | Vertimento |
-| `turbined_flow` | `0`; o mínimo `min_turbined_m3s`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_turbined_m3s` próprio da usina excede essa soma | `max_turbined_m3s`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
+| `turbined_flow` | `0`; o mínimo `min_turbined_m3s`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_turbined_m3s` próprio da usina excede essa soma; ambas são descartadas onde a usina não pode produzir ([Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina)) | `max_turbined_m3s`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
 | `spillage` | `min_spillage_m3s` (padrão `0`) | `max_spillage_m3s` (padrão: ilimitado) | Rígida | Rígida |
 | `outflow` | `min_outflow_m3s` | `max_outflow_m3s` (opcional) | Com penalidade, quando esse mínimo é `> 0` | Com penalidade, quando esse máximo é definido |
-| `generation` | `0`; o mínimo `min_generation_mw`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_generation_mw` próprio da usina excede essa soma | `max_generation_mw`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
+| `generation` | `0`; o mínimo `min_generation_mw`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_generation_mw` próprio da usina excede essa soma; ambas são descartadas onde a usina não pode produzir ([Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina)) | `max_generation_mw`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
 | `evaporation` | menos o limite por estágio de [Evaporação líquida com sinal](#evaporacao-liquida-com-sinal) | mais esse limite | Com penalidade | Com penalidade |
 | `withdrawal` (nível do estágio) | `water_withdrawal_m3s` | `water_withdrawal_m3s` | Com penalidade | Com penalidade |
 
@@ -194,6 +194,8 @@ flexível cuja folga é precificada a `generation_violation_below_cost`; um
 mínimo nulo da célula mantém essa folga fixada em `0`. Uma restrição de mínimo
 do total da usina precifica sua própria folga ao mesmo custo, e uma insuficiência é
 cobrada uma única vez.
+Onde a usina não pode produzir, o mínimo da célula é `0`, com sua folga fixada em
+`0`, e a restrição do total da usina é livre ([Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina)).
 :::
 
 Relação: `outflow = turbined_flow + spillage`,
