@@ -1,8 +1,8 @@
-You set the sampling scheme, the opening-tree method and the seeds in `config.json` and `stages.json`, and supply the input files named below. This tab maps the concepts of the methodology above to those keys and files; [Configuration](/running/configuration/#trainingscenario_source) and [Case Format](/reference/case-format/) own the field tables.
+You set the sampling scheme, the opening-tree method and the seeds in `config.json` and `stages.json`, and supply the input files named below. This tab maps the concepts of the methodology above to those keys and files; [Configuration](/en/running/configuration/#trainingscenario_source) and [Case Format](/en/reference/case-format/) own the field tables.
 
 ### Sampling schemes
 
-[§3.2](/math/scenario-generation#32-forward-sampling-schemes) defines the four forward sampling schemes. Each stochastic class (`inflow`, `load`, `ncs`) takes its own `scheme` value in `training.scenario_source`, and a class without one is `in_sample`.
+[§3.2](/en/math/scenario-generation#32-forward-sampling-schemes) defines the four forward sampling schemes. Each stochastic class (`inflow`, `load`, `ncs`) takes its own `scheme` value in `training.scenario_source`, and a class without one is `in_sample`.
 
 | Scheme      | Per-class `scheme` value   | Required inputs                                                                                                                                                              |
 | ----------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -13,11 +13,11 @@ You set the sampling scheme, the opening-tree method and the seeds in `config.js
 
 For `out_of_sample`, the forward draw is fresh noise from a seed independent of the tree's, drawn with the stage's `sampling_method` (plain Monte Carlo at `selective` and `historical_residuals` stages), with correlation applied to every draw.
 
-`historical` is valid for the `inflow` class only. The key `training.scenario_source.historical_years` restricts the pool of historical windows; see [scenario_source](/running/configuration/#trainingscenario_source). `simulation.scenario_source` sets the simulation schemes in the same way, and when it is absent simulation uses `training.scenario_source`. `out_of_sample` and `external` need the section's `scenario_source.seed`, and `historical` needs none; `simulation.scenario_source.seed` seeds the simulation's out-of-sample draws (see [Seeds](#seeds)).
+`historical` is valid for the `inflow` class only. The key `training.scenario_source.historical_years` restricts the pool of historical windows; see [scenario_source](/en/running/configuration/#trainingscenario_source). `simulation.scenario_source` sets the simulation schemes in the same way, and when it is absent simulation uses `training.scenario_source`. `out_of_sample` and `external` need the section's `scenario_source.seed`, and `historical` needs none; `simulation.scenario_source.seed` seeds the simulation's out-of-sample draws (see [Seeds](#seeds)).
 
 ### Opening-tree methods
 
-[§2.3a](/math/scenario-generation#23a-sampling-method-and-opening-tree-generation) defines the methods. Each study stage selects one with `sampling_method` in `stages.json`.
+[§2.3a](/en/math/scenario-generation#23a-sampling-method-and-opening-tree-generation) defines the methods. Each study stage selects one with `sampling_method` in `stages.json`.
 
 | Method               | `stages[].sampling_method` | Requires                                                                                                                                 |
 | -------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,7 +30,7 @@ For `out_of_sample`, the forward draw is fresh noise from a seed independent of 
 
 ### Moment matching
 
-Step 4 of [§2.3](/math/scenario-generation#23-opening-tree) defines the moment matching of a generated opening tree. `training.scenario_source.openings.moment_matching` selects it: `"per_coordinate"`, the default and the mode when `openings` is absent, matches the inflow openings of every generated stage, and `"none"` keeps them as drawn. A tree read from `scenarios/noise_openings.parquet` is used as supplied and takes no `moment_matching`. The tree that `exports.stochastic` writes to `stochastic/noise_openings.parquet` holds the matched openings. [`training.scenario_source.openings`](/running/configuration/#trainingscenario_sourceopenings) owns the field table.
+Step 4 of [§2.3](/en/math/scenario-generation#23-opening-tree) defines the moment matching of a generated opening tree. `training.scenario_source.openings.moment_matching` selects it: `"per_coordinate"`, the default and the mode when `openings` is absent, matches the inflow openings of every generated stage, and `"none"` keeps them as drawn. A tree read from `scenarios/noise_openings.parquet` is used as supplied and takes no `moment_matching`. The tree that `exports.stochastic` writes to `stochastic/noise_openings.parquet` holds the matched openings. [`training.scenario_source.openings`](/en/running/configuration/#trainingscenario_sourceopenings) owns the field table.
 
 ### Seeds
 
@@ -40,14 +40,14 @@ Step 4 of [§2.3](/math/scenario-generation#23-opening-tree) defines the moment 
 | `training.scenario_source.seed` | The out-of-sample draws of training, and of simulation when `simulation.scenario_source` is absent | None; required when a class is `out_of_sample` or `external`     |
 | `simulation.scenario_source.seed` | The simulation's out-of-sample draws                   | None; required when a class of that section is `out_of_sample` or `external` |
 
-Historical-window and external-scenario selection use no seed. [Seed resolution](/running/configuration/#seed-resolution) owns the rules.
+Historical-window and external-scenario selection use no seed. [Seed resolution](/en/running/configuration/#seed-resolution) owns the rules.
 
 ### Inputs
 
-- `scenarios/correlation.json` holds the correlation profiles and an optional `schedule` that maps `stage_id` values to profile names; its `method` accepts only `"spectral"`. A stage the schedule does not list uses the profile named `default`, or the only profile when the file holds one. The full schema and an example are in the Configure tab of [PAR(p) Inflow Model](/math/par-inflow-model/#implementation-in-novomodelo).
-- `scenarios/inflow_seasonal_stats.parquet` and `scenarios/inflow_ar_coefficients.parquet` hold the PAR parameters, described under [PAR(p) Inflow Model](/math/par-inflow-model).
-- `scenarios/load_seasonal_stats.parquet` holds the load mean and standard deviation of [§5.1](/math/scenario-generation#51-load-uncertainty-model), and `scenarios/load_factors.json` the block factors of [§5.2](/math/scenario-generation#52-block-load-factors); where a block factor is absent it is one.
-- `scenarios/non_controllable_stats.parquet` holds the availability moments of [§5.4](/math/scenario-generation#54-non-controllable-source-availability).
-- `scenarios/external_inflow_scenarios.parquet`, `scenarios/external_load_scenarios.parquet` and `scenarios/external_ncs_scenarios.parquet` hold the external scenarios of [§4.1](/math/scenario-generation#41-external-scenario-sources), one file per class with class-specific entity id and value columns.
-- `scenarios/inflow_history.parquet` holds the inflow record, and `season_definitions` in `stages.json` maps season ids to calendar periods. `recent_observations` in `initial_conditions.json` shadows the history day by day where both cover a date; the result is the derived inflow-lag seed of [§4.5](/math/scenario-generation#45-x-consistency-under-historical-replay).
+- `scenarios/correlation.json` holds the correlation profiles and an optional `schedule` that maps `stage_id` values to profile names; its `method` accepts only `"spectral"`. A stage the schedule does not list uses the profile named `default`, or the only profile when the file holds one. The full schema and an example are in the Configure tab of [PAR(p) Inflow Model](/en/math/par-inflow-model/#implementation-in-novomodelo).
+- `scenarios/inflow_seasonal_stats.parquet` and `scenarios/inflow_ar_coefficients.parquet` hold the PAR parameters, described under [PAR(p) Inflow Model](/en/math/par-inflow-model).
+- `scenarios/load_seasonal_stats.parquet` holds the load mean and standard deviation of [§5.1](/en/math/scenario-generation#51-load-uncertainty-model), and `scenarios/load_factors.json` the block factors of [§5.2](/en/math/scenario-generation#52-block-load-factors); where a block factor is absent it is one.
+- `scenarios/non_controllable_stats.parquet` holds the availability moments of [§5.4](/en/math/scenario-generation#54-non-controllable-source-availability).
+- `scenarios/external_inflow_scenarios.parquet`, `scenarios/external_load_scenarios.parquet` and `scenarios/external_ncs_scenarios.parquet` hold the external scenarios of [§4.1](/en/math/scenario-generation#41-external-scenario-sources), one file per class with class-specific entity id and value columns.
+- `scenarios/inflow_history.parquet` holds the inflow record, and `season_definitions` in `stages.json` maps season ids to calendar periods. `recent_observations` in `initial_conditions.json` shadows the history day by day where both cover a date; the result is the derived inflow-lag seed of [§4.5](/en/math/scenario-generation#45-x-consistency-under-historical-replay).
 - `scenarios/noise_openings.parquet` holds a supplied opening tree, read when `training.scenario_source.openings` is `{"source": "file"}`.

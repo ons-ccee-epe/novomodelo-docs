@@ -79,7 +79,7 @@ tree, consecutive stages in one noise group reuse one draw) are pure functions
 of globally known inputs — the base seed and the stage calendar of the
 broadcast system — and moment matching sums over the openings in a fixed
 order, every MPI rank generates the same tree bit-identically. See
-[Scenario Generation](/math/scenario-generation)
+[Scenario Generation](/en/math/scenario-generation)
 for the seed derivation procedure and opening-tree construction.
 
 **Out of scope.** Wall-clock time, peak memory, the stopping iteration under a
@@ -106,7 +106,7 @@ in the chain warm-continue from the factorization the previous opening left in
 place, advancing along the pinned solve order, since only the noise-dependent
 bounds change from one opening to the next. A phase that starts cold starts
 every solve from no basis, so its starting point is the same in every run. See
-[LP Warm-Start](/math/lp-warm-start) for the per-phase setting, the basis store
+[LP Warm-Start](/en/math/lp-warm-start) for the per-phase setting, the basis store
 and the reconstruction mechanism in full.
 
 Warm-starting is compatible with the guarantee, but for a more specific reason
@@ -162,7 +162,7 @@ three. The in-transit buckets are ordered by `(plant, lag)` — the receiving
 plant in the same canonical entity order every other state block uses, then
 ascending maturity lag — consistent with the storage and inflow-lag block
 orderings. See
-[LP Layout and Scaling](/math/lp-layout-and-scaling#1-column-and-row-layout)
+[LP Layout and Scaling](/en/math/lp-layout-and-scaling#1-column-and-row-layout)
 for the column and row layout that this construction produces.
 
 **Trial-point values canonicalized onto bounds.** Canonical layout is only half
@@ -175,13 +175,13 @@ is the identity for an in-box optimum. Because a bound-pinned coordinate can
 settle a hair outside its interval on a degenerate or numerically drifting
 solve, this read-back projection keeps that drift out of the trial point
 $\hat{x}$, so the next stage's pinned incoming-state columns and the cut
-intercept share one in-box anchor ([Cut Management §2](/math/cut-management#2-reduced-cost-extraction)).
+intercept share one in-box anchor ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction)).
 It does not make $\hat{x}$ independent of the terminating vertex: where the
 stage problem has several optimal solutions, $\hat{x}$ is the one the
 terminating basis gives, and it is reproducible because the solve's inputs and
 starting basis are pinned (above). It is applied once, at read-back, and read
 by every consumer.
-See [SDDP Algorithm §3.1](/math/sddp-algorithm#31-forward-pass) for the
+See [SDDP Algorithm §3.1](/en/math/sddp-algorithm#31-forward-pass) for the
 projection stated in full.
 
 **Solve order pinned; completion order irrelevant.** Two orders matter in the
@@ -198,7 +198,7 @@ lands: the dual values, intercept, and objective produced for opening $\omega$
 are stored under $\omega$'s own canonical identity, never under the position at
 which the solve happened to run. Aggregation reads those results back in
 canonical order over $\omega$, combining them as the probability-weighted
-average defined in [Cut Management](/math/cut-management) — because
+average defined in [Cut Management](/en/math/cut-management) — because
 floating-point addition is not associative, a sum's computed value depends on
 the order its terms are added, which is exactly why that order is pinned to the
 canonical one rather than left to solve-completion order. Separating the two
@@ -231,7 +231,7 @@ The lower bound is evaluated on one rank from the first stage's openings in
 canonical order and broadcast, and simulation costs are likewise gathered in
 canonical scenario order and reduced there. None of these reductions therefore
 depends on how work is partitioned. See
-[Performance Accelerators — Parallel Execution Model](/running/performance/#parallel-execution-model)
+[Performance Accelerators — Parallel Execution Model](/en/running/performance/#parallel-execution-model)
 for the rank partition and the collectives.
 
 **Deterministic seed derivation across MPI ranks.** Each draw is produced by a
@@ -255,7 +255,7 @@ Because the derivation uses only
 globally known constants and an identical deterministic hash, every rank
 independently computes the same seed for any given tuple without communicating.
 There are no broadcast races, no per-rank entropy, and no dependence on MPI
-message ordering. See [Scenario Generation](/math/scenario-generation) for
+message ordering. See [Scenario Generation](/en/math/scenario-generation) for
 the hash input encoding and the little-endian byte layout that ensures
 cross-platform stability.
 
@@ -263,7 +263,7 @@ cross-platform stability.
 terminal function from a boundary policy, the imported cut set is reconciled
 onto the study's own terminal state **once** — the dated, hour-weighted fan-out
 and per-family reconciliation described in
-[Post-Study Boundary & Chained Studies §4](/math/post-study-boundary) — and the single reconciled
+[Post-Study Boundary & Chained Studies §4](/en/math/post-study-boundary) — and the single reconciled
 result is injected identically at the terminal stage on **every** rank. That
 reconciliation is a pure function of globally known inputs: the imported source
 policy, together with the current study's own stage calendar and state layout —
@@ -293,7 +293,7 @@ the omitted-cut violation scores come from a bit-deterministic batched product,
 and the order in which violated cuts are added is fixed by a total ordering on
 violation magnitude with an ascending-slot-index tie-break. The resident set —
 and therefore the solve result — is consequently identical across thread and MPI
-rank counts. See [Cut Management](/math/cut-management).
+rank counts. See [Cut Management](/en/math/cut-management).
 
 **Order-stable parallel model fitting.** The study-setup phase fits two families
 of per-entity models in parallel: the periodic autoregressive (PAR(p)) inflow
@@ -304,7 +304,7 @@ models are a function of the inputs alone — independent of how many threads ru
 or how the entities are distributed. Two supporting disciplines keep the fits
 bit-identical: the convex-hull stage sorts its input cloud and output facets into
 a canonical order, so the emitted hyperplanes do not depend on point ordering or
-MPI rank count (see [Hydro Production Function Models](/math/hydro-production-models)); and
+MPI rank count (see [Hydro Production Function Models](/en/math/hydro-production-models)); and
 the optional similar-hyperplane reduction draws its samples from a generator
 seeded only from stable entity/plane identity, never from the wall clock, the
 thread, or the rank. A single-threaded fit and a fully parallel fit therefore
@@ -320,7 +320,7 @@ MPI library implementation — none of which are under Novomodelo's control.
 **System load.** Background processes, thermal throttling, NUMA placement, and
 other system-state effects change timing, not the numerical result of any
 iteration, and are not recorded. Under a wall-clock stopping criterion
-([Stopping Rules §3](/math/stopping-rules#3-time-limit)), elapsed time decides
+([Stopping Rules §3](/en/math/stopping-rules#3-time-limit)), elapsed time decides
 the iteration at which training stops, so system load and thread count can
 change how many iterations a single-process run completes; two such runs agree
 iteration by iteration up to the earlier stop. Under such a criterion the ranks
@@ -363,7 +363,7 @@ bit-identically on every run.
 **Policy reuse across software versions.** A stored policy loads only in the
 software version that wrote it, so the guarantee covers re-deriving a policy
 from its recorded inputs, not loading a stored policy in another version (see
-[Version gate](/running/policy-management/#version-gate)).
+[Version gate](/en/running/policy-management/#version-gate)).
 
 ## 5. Provenance
 
@@ -383,13 +383,13 @@ not file bytes. The files that carry the record are a software-layer concern.
   correlation, and the opening tree — and, for a fitted model, the
   order-selection method and the largest order selected. For how opening-tree
   entries are generated from these parts, see
-  [Scenario Generation](/math/scenario-generation).
+  [Scenario Generation](/en/math/scenario-generation).
 - **Random-seed lineage.** The base seed: the run metadata records it as the
   study configures it, or records none when the study configures none and the
   run uses a fixed default, and a stored policy records the base seed in effect.
   Every derived seed follows from a root seed — the base seed, or the separate
   seed of an out-of-sample forward pass — by the fixed rule of
-  [Scenario Generation](/math/scenario-generation); the out-of-sample seed is
+  [Scenario Generation](/en/math/scenario-generation); the out-of-sample seed is
   read from the study's configuration and is not recorded.
 - **Solver and library identifiers.** The LP solver and its version, the MPI
   library of an MPI run, and the software version. A different solver version
@@ -434,14 +434,14 @@ the tab below lists the output files and field names that carry that record.
 
 ## Cross-References
 
-- [Scenario Generation](/math/scenario-generation) — Deterministic seed derivation
+- [Scenario Generation](/en/math/scenario-generation) — Deterministic seed derivation
   for the opening tree and forward pass; the bit-identical tree property stated
   at section 2.3 that this chapter formalises
-- [Cut Management](/math/cut-management) — Append-only cut monotonicity; cut
+- [Cut Management](/en/math/cut-management) — Append-only cut monotonicity; cut
   order is deterministic across iterations and is a precondition for the
   bit-identical lower-bound sequence guarantee
-- [LP Layout and Scaling](/math/lp-layout-and-scaling) — LP construction
+- [LP Layout and Scaling](/en/math/lp-layout-and-scaling) — LP construction
   determinism; the column and row ordering that the canonical state-block layout
   preserves
-- [LP Warm-Start](/math/lp-warm-start) — The basis store whose chain order §3
+- [LP Warm-Start](/en/math/lp-warm-start) — The basis store whose chain order §3
   pins

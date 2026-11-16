@@ -14,7 +14,7 @@ continua emitindo suas linhas de saída, zeradas em vez de ausentes, com o mesmo
 
 Um contrato de energia contribui com exatamente uma coluna do PL por patamar e por
 sentido e **não possui variável de estado** — não faz parte da recursão de Bellman
-e não contribui com nenhum termo para os cortes de Benders ([Formulações específicas por equipamento §3](/pt-br/math/equipment-formulations#3-contratos-de-importacaoexportacao)). Essa é
+e não contribui com nenhum termo para os cortes de Benders ([Formulações específicas por equipamento §3](/math/equipment-formulations#3-contratos-de-importacaoexportacao)). Essa é
 uma diferença estrutural em relação às usinas hidrelétricas e às termelétricas com
 antecipação de despacho, cujas variáveis de estado de armazenamento e do anel de despacho antecipado
 (commitment ring) contribuem com um termo nos cortes. Um `min_mw` não nulo nos estágios
@@ -28,7 +28,7 @@ lado de `thermal_cost`.
 ### Usinas elevatórias não têm custo explícito na função objetivo
 
 A variável de vazão de uma usina elevatória **não tem termo direto na função
-objetivo** ([Formulações específicas por equipamento §4](/pt-br/math/equipment-formulations#4-usinas-elevatorias)). O custo do bombeamento é
+objetivo** ([Formulações específicas por equipamento §4](/math/equipment-formulations#4-usinas-elevatorias)). O custo do bombeamento é
 inteiramente implícito: o bombeamento consome potência no barramento conectado, em
 proporção à vazão bombeada, e esse consumo é valorado pelo custo marginal do
 barramento naquele estágio e cenário — barato quando há excedente hidrelétrico ou
@@ -43,7 +43,7 @@ estágio `t` depende apenas dos limites e do preço do próprio estágio. Uma
 termelétrica com antecipação de despacho (`anticipated_config`) é a única exceção —
 seu compromisso de despacho, decidido em um estágio anterior ou antes do estudo, é
 mantido como estado do anel de despacho antecipado até o seu estágio de entrega, no qual a
-geração da usina deve cumpri-lo ([Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho)). A
+geração da usina deve cumpri-lo ([Visão geral da modelagem dos elementos do sistema §4](/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho)). A
 expressão de restrição genérica `anticipated_decision(N)` permite ao autor do caso
 impor diretamente um teto ou um piso a esse compromisso antecipado; referenciar com
 essa expressão uma termelétrica sem antecipação é um erro fatal na carga, e
@@ -54,7 +54,7 @@ antecipado.
 ### Compromisso excessivo é rejeitado na carga do caso, não reconciliado a cada resolução
 
 O valor antecipado de um compromisso entregue é mantido como estado do anel de despacho
-antecipado; assim, no seu estágio de entrega, a linha de saída do ring ([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#linhas-do-ring)) lê o valor calculado pelo
+antecipado; assim, no seu estágio de entrega, a linha de saída do ring ([Aumento do espaço de estados §5](/math/state-augmentation#linhas-do-ring)) lê o valor calculado pelo
 solver — exato apenas até a tolerância de viabilidade do backend de PL, não
 exatamente. O Novo Modelo **não** executa nenhuma etapa de reconciliação a cada
 resolução. Em vez disso, o estado de saída é **canonicalizado sobre seus limites
@@ -64,8 +64,8 @@ fração fora do seu teto é trazido de volta para dentro dos limites antes de s
 propagado, de modo que o treinamento (training) prossegue normalmente em vez de
 apresentar um PL inviável espúrio. Esse é o único ponto de canonicalização na
 leitura de volta que a metodologia enuncia uma única vez — veja
-[Algoritmo da PDDE §3.1](/pt-br/math/sddp-algorithm#31-simulacao-forward) e
-[Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos).
+[Algoritmo da PDDE §3.1](/math/sddp-algorithm#31-simulacao-forward) e
+[Determinismo e rastreabilidade §3](/math/determinism-guarantees#3-mecanismos-metodologicos).
 
 Um compromisso **de fato** além dos limites de geração da usina não é um artefato
 do solver e não é absorvido por esse ajuste. Ele é detectado **na carga do caso**,
@@ -74,7 +74,7 @@ quando são validadas as janelas `past_anticipated_commitments` de
 admissíveis em um estágio de entrega coberto é um erro nomeado de carga que
 identifica a termelétrica, a janela problemática, o `value_mw` e os limites que ele
 viola — e não um PL inviável sem explicação surgindo no meio da resolução. Veja
-[Códigos de erro](/pt-br/reference/error-codes) para a classe da falha.
+[Códigos de erro](/reference/error-codes) para a classe da falha.
 
 ### NCS com geração compulsória e a armadilha do desconto em dobro
 

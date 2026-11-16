@@ -1,20 +1,20 @@
-This is a topic-scoped index of the files the penalty system ([Penalty System §1](/math/penalty-system#1-cascade-resolution)–[§3](/math/penalty-system#3-penalty-defaults-and-overrides)) touches — it
+This is a topic-scoped index of the files the penalty system ([Penalty System §1](/en/math/penalty-system#1-cascade-resolution)–[§3](/en/math/penalty-system#3-penalty-defaults-and-overrides)) touches — it
 names each file and its role, it does not repeat their field-by-field
 schemas. The exhaustive, field-by-field case-directory and output reference
-is owned by the [Case Format](/reference/case-format/) and [Output Format](/reference/output/) pages.
+is owned by the [Case Format](/en/reference/case-format/) and [Output Format](/en/reference/output/) pages.
 
 ### Inputs
 
 | File                                        | Role                                                                                                                                                                    |
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `penalties.json`                             | Case-wide penalty defaults — required in every case; the four sections (`bus`, `line`, `hydro`, `non_controllable_source`) are listed under [`penalties.json`](/reference/case-format/penalties/#penaltiesjson) in Case Format; the Configure tab covers the example, the resolution cascade and the load-time checks. |
+| `penalties.json`                             | Case-wide penalty defaults — required in every case; the four sections (`bus`, `line`, `hydro`, `non_controllable_source`) are listed under [`penalties.json`](/en/reference/case-format/penalties/#penaltiesjson) in Case Format; the Configure tab covers the example, the resolution cascade and the load-time checks. |
 | `constraints/penalty_overrides_bus.parquet`  | Sparse per-`(bus_id, stage_id)` override of `excess_cost`. Deficit segments are not stage-varying, so they have no row here.                                          |
 | `constraints/penalty_overrides_line.parquet` | Sparse per-`(line_id, stage_id)` override of `exchange_cost`.                                                                                                          |
 | `constraints/penalty_overrides_hydro.parquet` | Sparse per-`(hydro_id, stage_id)` override of the hydro penalty fields — a **superset** of the entity-level `penalties` block: the same twelve symmetric costs (including `inflow_nonnegativity_cost`) **plus** the four directional variants (water-withdrawal above/below, evaporation above/below) that the entity `penalties` block does not accept. Every column is optional and sparse. |
 | `constraints/penalty_overrides_ncs.parquet`  | Sparse per-`(ncs_id, stage_id)` override of `curtailment_cost`.                                                                                                        |
 | `system/buses.json` (`deficit_segments`)    | Bus entity registry; only its `deficit_segments` field is penalty configuration (covered in the Configure tab) — the rest of the bus schema belongs to the network topology chapter. |
 | `system/lines.json` (`exchange_cost`)       | Transmission line registry; only its `exchange_cost` field is penalty configuration (covered in the Configure tab) — the rest of the line schema belongs to the network topology chapter. |
-| `system/hydros.json` (`penalties` block)    | Hydro plant registry; the entity-level `penalties` block is documented in the [System Element Modeling Overview](/math/system-elements#implementation-in-novomodelo) Configure tab, not repeated here. |
+| `system/hydros.json` (`penalties` block)    | Hydro plant registry; the entity-level `penalties` block is documented in the [System Element Modeling Overview](/en/math/system-elements#implementation-in-novomodelo) Configure tab, not repeated here. |
 
 All penalty-override parquet files use **sparse storage**: only rows for
 `(entity_id, stage_id)` pairs where a cost differs from the entity-level or
@@ -27,7 +27,7 @@ positive and finite.
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `simulation/costs/`                     | Per-stage monetary cost breakdown, including one column per penalty category — `deficit_cost`, `excess_cost`, `storage_violation_cost`, `filling_target_cost`, `hydro_violation_cost`, the outflow/turbined/generation/evaporation/withdrawal violation costs, `inflow_penalty_cost`, and `generic_violation_cost` — alongside the thermal, anticipated-thermal and contract cost columns. `storage_violation_cost` and `filling_target_cost` are always `0`: the storage-floor and filling-target slack costs are included in `immediate_cost`. |
 | `simulation/violations/generic/`        | One row per active generic-constraint row at each stage, whether or not its slack fired (`0` where it did not). The reported `slack_value` is the **signed net** `s⁺−s⁻` of the two slack columns; its monetary cost charges **both** (`s⁺+s⁻`). |
-| Per-hydro violation columns            | Slack magnitudes (e.g. `storage_violation_below_hm3`, `filling_target_violation_hm3`, the evaporation and water-withdrawal directional slacks) reported alongside every other hydro dispatch column — see the [Hydro Production Function Models](/math/hydro-production-models#implementation-in-novomodelo) Inputs & Outputs tab for the hydro output file this belongs to. |
+| Per-hydro violation columns            | Slack magnitudes (e.g. `storage_violation_below_hm3`, `filling_target_violation_hm3`, the evaporation and water-withdrawal directional slacks) reported alongside every other hydro dispatch column — see the [Hydro Production Function Models](/en/math/hydro-production-models#implementation-in-novomodelo) Inputs & Outputs tab for the hydro output file this belongs to. |
 
 For the complete output schema (columns, types, file layout), see the
-[Output Format](/reference/output/) reference page.
+[Output Format](/en/reference/output/) reference page.

@@ -26,12 +26,12 @@ com uma regra `gap` ou `bound_stalling` acionada naquela iteração. Para a
 simulação, consulte `scenarios.failed`.
 
 Ambos os arquivos são JSON simples, de modo que o `jq` os lê diretamente. Para um script ou verificação
-de CI, veja [Formato de saída](/pt-br/reference/cli-reference/#formato-da-saida) na Referência
+de CI, veja [Formato de saída](/reference/cli-reference/#formato-da-saida) na Referência
 da CLI.
 
 A partir do Python, `novomodelo.results.load_results(output_dir)` retorna ambos os documentos
 de metadados em um único dict, juntamente com um indicador `complete` por fase — veja o
-[Guia rápido em Python](/pt-br/getting-started/python-quickstart/).
+[Guia rápido em Python](/getting-started/python-quickstart/).
 
 ---
 
@@ -42,7 +42,7 @@ Ele reúne em um único arquivo o contexto da execução, a configuração, o re
 as estatísticas do conjunto de linhas (cortes), os limites da função objetivo, as estatísticas do solver de PL e as
 informações de distribuição. O bloco `convergence` registra como a execução terminou.
 
-**Metodologia:** [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) · [Critérios de parada](/pt-br/math/stopping-rules)
+**Metodologia:** [Determinismo e rastreabilidade](/math/determinism-guarantees) · [Critérios de parada](/math/stopping-rules)
 
 **Exemplo (um `novomodelo run` do modelo 1dtoy; hostname e marcas de tempo substituídos):**
 
@@ -177,8 +177,8 @@ informações de distribuição. O bloco `convergence` registra como a execuçã
 | Nome                             | Tipo    | Anulável | Unidades | Descrição                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | -------------------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `convergence.achieved`           | boolean | Não      | —     | `true` quando os critérios de parada configurados terminaram o treinamento e uma regra `gap` ou `bound_stalling` foi acionada naquela iteração, mesmo que `termination_reason` indique outra regra acionada na mesma iteração; `false` quando apenas `iteration_limit` ou `time_limit` foram acionados, quando apenas uma solicitação de encerramento terminou o treinamento e após uma falha.                                                                                                                                            |
-| `convergence.final_gap_percent`  | number  | Sim      | %     | [Gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) entre os limites inferior e superior no término, em porcentagem. `null` quando o limite inferior final não é positivo.                                                                                                                                                                                                                                                                                                                    |
-| `convergence.termination_reason` | string  | Não      | —     | Nome do critério de parada que terminou a execução: `"iteration_limit"`, `"time_limit"`, `"bound_stalling"` ou `"gap"` (sob `"all"`, a primeira regra diferente de `iteration_limit`, ou `"iteration_limit"` quando o maior limite encerrou a execução); `"error"` quando o treinamento parou por falha, caso em que `novomodelo run` termina com código diferente de zero; `"graceful_shutdown"` quando uma solicitação de encerramento terminou o treinamento e nem os critérios de parada nem o limite de iterações o terminaram naquela iteração (um SIGTERM ou SIGINT enviado a `novomodelo run`, ou um callback `on_iteration` de [`novomodelo.Study.train`](/pt-br/reference/python-api/#novomodelostudytrain) ou [`novomodelo.run.run`](/pt-br/reference/python-api/#novomodelorunrun) que retorna um valor verdadeiro ou lança uma exceção). |
+| `convergence.final_gap_percent`  | number  | Sim      | %     | [Gap de otimalidade](/math/stopping-rules#gap-de-otimalidade) entre os limites inferior e superior no término, em porcentagem. `null` quando o limite inferior final não é positivo.                                                                                                                                                                                                                                                                                                                    |
+| `convergence.termination_reason` | string  | Não      | —     | Nome do critério de parada que terminou a execução: `"iteration_limit"`, `"time_limit"`, `"bound_stalling"` ou `"gap"` (sob `"all"`, a primeira regra diferente de `iteration_limit`, ou `"iteration_limit"` quando o maior limite encerrou a execução); `"error"` quando o treinamento parou por falha, caso em que `novomodelo run` termina com código diferente de zero; `"graceful_shutdown"` quando uma solicitação de encerramento terminou o treinamento e nem os critérios de parada nem o limite de iterações o terminaram naquela iteração (um SIGTERM ou SIGINT enviado a `novomodelo run`, ou um callback `on_iteration` de [`novomodelo.Study.train`](/reference/python-api/#novomodelostudytrain) ou [`novomodelo.run.run`](/reference/python-api/#novomodelorunrun) que retorna um valor verdadeiro ou lança uma exceção). |
 
 **Campos de `row_pool`:**
 
@@ -186,7 +186,7 @@ informações de distribuição. O bloco `convergence` registra como a execuçã
 | --------------------------------- | ------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `row_pool.total_generated`        | integer | Não      | —     | Total de linhas de corte geradas ao longo de toda a execução.                                                                                |
 | `row_pool.total_active`           | integer | Não      | —     | Linhas de corte ainda ativas no conjunto de cortes ao término.                                                                               |
-| `row_pool.peak_active`            | integer | Não      | —     | Maior número de linhas de corte ativas, somado sobre os conjuntos, na troca de cortes de uma iteração ou após sua etapa de seleção e limite. É no mínimo o maior `cuts_active` em [`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet), que conta apenas após a gestão de linhas. |
+| `row_pool.peak_active`            | integer | Não      | —     | Maior número de linhas de corte ativas, somado sobre os conjuntos, na troca de cortes de uma iteração ou após sua etapa de seleção e limite. É no mínimo o maior `cuts_active` em [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet), que conta apenas após a gestão de linhas. |
 | `row_pool.cuts_active`            | integer | Não      | —     | Linhas de corte ativas ao término; o mesmo valor de `total_active`.                                                                          |
 | `row_pool.rows_in_lp_total`       | integer | Não      | —     | Soma das linhas residentes no PL sobre todas as resoluções com seleção preguiçosa (lazy) da execução. Zero quando não houve seleção preguiçosa. |
 | `row_pool.rows_in_lp_solve_count` | integer | Não      | —     | Número de resoluções com seleção preguiçosa na execução. Zero quando não houve seleção preguiçosa.                                           |
@@ -200,7 +200,7 @@ informações de distribuição. O bloco `convergence` registra como a execuçã
 | `bounds.final_lower_bound`      | number | Não      | —     | Limite inferior final da função objetivo no término.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `bounds.final_upper_bound`      | number | Sim      | —     | Valor final do limite superior; sempre um número em um arquivo gravado por `novomodelo run`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `bounds.final_upper_bound_std`  | number | Sim      | —     | Desvio-padrão amostral dos custos dos cenários da simulação forward da última iteração concluída. `null` quando `final_upper_bound_kind` é `"exact"`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `bounds.final_upper_bound_kind` | string | Não      | —     | Regime do limite superior da execução: `"exact"` sob a seleção `enumerated`, `"statistical"` sob a seleção `sampled`; o mesmo valor de `upper_bound_kind` em todas as linhas de [`training/convergence.parquet`](/pt-br/reference/output/training/#trainingconvergenceparquet). Sob `"exact"`, o gap entre os limites é um certificado de otimalidade válido apenas quando a medida de risco é a mesma em todos os estágios; sob uma medida que varia por estágio, `final_upper_bound` é o custo esperado da política, que pode ficar abaixo de `final_lower_bound` (veja [Gerenciamento de cortes — quando os limites e certificados são válidos](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem)). |
+| `bounds.final_upper_bound_kind` | string | Não      | —     | Regime do limite superior da execução: `"exact"` sob a seleção `enumerated`, `"statistical"` sob a seleção `sampled`; o mesmo valor de `upper_bound_kind` em todas as linhas de [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet). Sob `"exact"`, o gap entre os limites é um certificado de otimalidade válido apenas quando a medida de risco é a mesma em todos os estágios; sob uma medida que varia por estágio, `final_upper_bound` é o custo esperado da política, que pode ficar abaixo de `final_lower_bound` (veja [Gerenciamento de cortes — quando os limites e certificados são válidos](/math/cut-management#quando-os-limites-e-certificados-valem)). |
 
 **Campos de `solve_stats`:**
 
@@ -283,7 +283,7 @@ simulação é então pulada, e o arquivo registra `status` `"partial"`,
 Ele contém o contexto da execução, as contagens de cenários concluídos, estatísticas agregadas de custo,
 estatísticas do solver de PL e informações de distribuição.
 
-**Metodologia:** [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees)
+**Metodologia:** [Determinismo e rastreabilidade](/math/determinism-guarantees)
 
 **Exemplo (o mesmo `novomodelo run` do modelo 1dtoy; hostname e marcas de tempo substituídos):**
 
@@ -386,7 +386,7 @@ Registra quais fontes de dados alimentaram os modelos de afluência e de produç
 em todo `novomodelo run`, antes do início do treinamento; tem finalidade de diagnóstico. Objeto de nível superior com
 dois subobjetos, `inflow` e `hydro_production`.
 
-**Metodologia:** [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) · [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model)
+**Metodologia:** [Determinismo e rastreabilidade](/math/determinism-guarantees) · [Modelo de afluências PAR(p)](/math/par-inflow-model)
 
 **Campos de `inflow`:**
 

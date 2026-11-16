@@ -7,7 +7,7 @@ description: Uma função terminal fixa importada de um conjunto de cortes de um
 
 No modo de horizonte finito (acíclico), a condição final é $V_{T+1} = 0$:
 nenhum estado transportado além do último estágio $T$ tem valor no modelo (veja
-[Modos de horizonte §1](/pt-br/math/horizon-modes)). Em vez disso, um estudo pode importar uma **fronteira
+[Modos de horizonte §1](/math/horizon-modes)). Em vez disso, um estudo pode importar uma **fronteira
 direita**, no sentido de que ela precifica o horizonte a partir de sua extremidade final. Os
 cortes de um conjunto de uma política de origem (§5.1) tornam-se o conjunto de cortes do
 estágio terminal, que contém exatamente esses cortes e ao qual o treinamento (training) nunca acrescenta
@@ -39,18 +39,18 @@ extremidade do horizonte, em vez de serem transportadas adiante e precificadas:
   é então uma decisão efetiva, limitada e custeada pela capacidade e pelo custo
   declarados do estágio pós-estudo, e transportada em sua posição do anel de despacho antecipado (commitment ring slot) até o
   estágio terminal (veja
-  [Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho) e
-  [Aumento do espaço de estados — Linhas do ring](/pt-br/math/state-augmentation#linhas-do-ring)). Uma entrega
+  [Visão geral da modelagem dos elementos do sistema §4](/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho) e
+  [Aumento do espaço de estados — Linhas do ring](/math/state-augmentation#linhas-do-ring)). Uma entrega
   além de $T$ fora desse calendário não tem decisão. Sem uma fronteira carregada,
   o compromisso transportado tem valor terminal nulo, enquanto seu combustível continua sendo
   cobrado na coluna de decisão, e a preparação do estudo emite um aviso a respeito.
 - **Parcelas de água em trânsito (in-transit buckets) com defasagem profunda no estágio terminal.** A água liberada no final do horizonte
   pode ainda estar em trânsito em $T$ (veja
-  [Visão geral da modelagem dos elementos do sistema — Tempo de viagem na cascata](/pt-br/math/system-elements#tempo-de-viagem-na-cascata)).
+  [Visão geral da modelagem dos elementos do sistema — Tempo de viagem na cascata](/math/system-elements#tempo-de-viagem-na-cascata)).
   Com uma fronteira carregada, toda defasagem alcançada pelas defluências de um estágio é mantida ativa até
   o estágio terminal; sem ela, uma defasagem que amadureceria além do horizonte é
   truncada e sua água é descartada (veja
-  [Aumento do espaço de estados — Limitação do horizonte](/pt-br/math/state-augmentation#limitacao-de-horizonte)).
+  [Aumento do espaço de estados — Limitação do horizonte](/math/state-augmentation#limitacao-de-horizonte)).
 
 As duas famílias são condicionadas de formas diferentes: o calendário pós-estudo decide
 se um compromisso pós-horizonte é assumido, e a fronteira decide se uma
@@ -104,13 +104,13 @@ $$
 $$
 
 avaliado pela mesma **linha** de corte usada por todos os outros cortes de Benders (veja
-[Algoritmo da PDDE (SDDP) §6](/pt-br/math/sddp-algorithm) para a forma de corte único). O
+[Algoritmo da PDDE (SDDP) §6](/math/sddp-algorithm) para a forma de corte único). O
 coeficiente de uma posição do anel de despacho antecipado ou de uma parcela de água em trânsito multiplica a coluna de saída do estágio terminal
 para essa coordenada, que a linha de depósito ou de transporte do compromisso,
 ou a linha de definição da parcela de água em trânsito, vincula à decisão ou à defluência que
 a produziu
-([Aumento do espaço de estados — Coeficiente do corte das posições do anel de despacho antecipado](/pt-br/math/state-augmentation#coeficiente-de-corte-das-posicoes-do-anel-de-despacho-antecipado);
-[Aumento do espaço de estados — Linhas de definição das parcelas de água em trânsito](/pt-br/math/state-augmentation#linhas-de-definicao-das-parcelas-de-agua-em-transito)).
+([Aumento do espaço de estados — Coeficiente do corte das posições do anel de despacho antecipado](/math/state-augmentation#coeficiente-de-corte-das-posicoes-do-anel-de-despacho-antecipado);
+[Aumento do espaço de estados — Linhas de definição das parcelas de água em trânsito](/math/state-augmentation#linhas-de-definicao-das-parcelas-de-agua-em-transito)).
 Uma fronteira direita não acrescenta um segundo mecanismo de precificação; ela fornece os
 coeficientes do estado mantido ativo no estágio terminal.
 
@@ -119,8 +119,8 @@ separada da precificação do combustível consumido por um compromisso antecipa
 um compromisso pós-horizonte é contabilizado em sua coluna de decisão, no estágio de
 decisão, ao custo declarado do estágio pós-estudo e descontado a partir do
 estágio de entrega
-([Aumento do espaço de estados — Contribuições para a função objetivo](/pt-br/math/state-augmentation#contribuicoes-a-funcao-objetivo);
-[Formulação da taxa de desconto — Extensão pós-estudo](/pt-br/math/discount-rate#extensao-pos-estudo)),
+([Aumento do espaço de estados — Contribuições para a função objetivo](/math/state-augmentation#contribuicoes-a-funcao-objetivo);
+[Formulação da taxa de desconto — Extensão pós-estudo](/math/discount-rate#extensao-pos-estudo)),
 enquanto $\beta^{\top} x_T$ precifica o _estado_ que o compromisso deixa em
 sua posição do anel de despacho antecipado. A valoração do estado e a contabilização do combustível ocorrem em colunas disjuntas: uma é um
 termo de $\beta^{\top} x_T$ na coluna de saída da posição, a outra é o próprio
@@ -132,14 +132,14 @@ internos ao estudo já aplicam às entregas dentro do horizonte.
 Um compromisso decidido **antes do estudo** para uma entrega além do horizonte é
 fixo: não tem coluna de decisão, posição do anel de despacho antecipado nem coordenada em $\beta$.
 Seu combustível é custo afundado e não entra em nenhuma função objetivo. Quando uma fronteira é carregada
-([Cortes de fronteira](/pt-br/running/policy-management/#cortes-de-fronteira)), sua contribuição
+([Cortes de fronteira](/running/policy-management/#cortes-de-fronteira)), sua contribuição
 de estado — o valor que o corte de fronteira atribui à taxa comprometida sobre as
 posições de origem com que sua janela de entrega se sobrepõe, ponderado por horas — é somada uma única vez,
 na carga, ao termo independente $\beta_0$ de todo corte de fronteira; nenhum coeficiente
 muda. Sem fronteira carregada, ela não entra em nenhum termo, e a preparação do estudo emite um aviso
 quando sua taxa comprometida é não nula. Em ambos os casos, ela é informada em sua
 data real de entrega
-([Saídas da simulação](/pt-br/reference/output/simulation/#anticipatedfixed_deliveriesparquet)).
+([Saídas da simulação](/reference/output/simulation/#anticipatedfixed_deliveriesparquet)).
 
 ## 4. Reconciliação de calendários (distribuição)
 
@@ -175,7 +175,7 @@ sem intervalo de origem sobreposto recebe coeficiente nulo. Existe uma admissão
 estrita que, em vez disso, **rejeita** uma origem que seja um superconjunto — que
 precifica estado que o estudo atual não modela — em vez de descartá-lo e
 relatá-lo; veja
-[Requisitos de compatibilidade](/pt-br/running/policy-management/#requisitos-de-compatibilidade)
+[Requisitos de compatibilidade](/running/policy-management/#requisitos-de-compatibilidade)
 para saber como a camada de software a exige.
 
 A distribuição é produzida uma única vez, na carga, e seu resultado é resumido, em vez
@@ -199,7 +199,7 @@ O estado da origem vem do único conjunto do estudo de origem que o §5.1 seleci
 
 Uma entrega além do horizonte decidida pelo estudo tem exatamente um estágio de
 decisão $t_i(m)$
-([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao)).
+([Aumento do espaço de estados §5](/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao)).
 Nesse estágio, cada cenário a decide como qualquer outra decisão de estágio e a
 transporta em sua posição do anel de despacho antecipado até o estágio terminal, e a fronteira precifica o
 valor transportado pelos cortes de fronteira do PL do estágio terminal desse cenário.
@@ -248,9 +248,9 @@ estudo posterior requer apenas a política de origem arquivada. Cada estudo sort
 própria árvore de cenários, e os estágios do estudo posterior podem ser mais finos que os do estudo de origem
 — por exemplo, estágios semanais sob uma política mensal. Um único estudo cujos próprios
 estágios misturam resoluções é um caso diferente, tratado em
-[Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies). O acoplamento de
+[Estudos com múltiplas resoluções](/math/multi-resolution-studies). O acoplamento de
 um estudo de médio prazo aos cortes de uma política de longo prazo é o esquema
-publicado de [Maceira et al. (2002)](/pt-br/reference/bibliography/#modelagem-de-afluencias).
+publicado de [Maceira et al. (2002)](/reference/bibliography/#modelagem-de-afluencias).
 
 ### 5.1 Conjunto de origem
 
@@ -303,7 +303,7 @@ posterior:
   ambos os lados a datam, se refere ao mesmo período passado; caso contrário, a carga é
   recusada. Um conjunto só precifica uma dimensão de armazenamento ou de defasagem AR quando a
   projeção do corte que define sua dimensão, a seleção de seu estágio sucessor, a inclui
-  ([Aumento do espaço de estados — Projeção do estado dos cortes](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte));
+  ([Aumento do espaço de estados — Projeção do estado dos cortes](/math/state-augmentation#7-projecao-de-estado-do-corte));
   o conjunto final sempre a inclui, de modo que um conjunto de origem intermediário escolhido sob uma
   projeção somente de armazenamento não tem contraparte de defasagem AR.
 - (d) **Profundidade das defasagens.** O estado de defasagens do estudo é estendido até a defasagem mais profunda
@@ -321,7 +321,7 @@ de calendário pós-estudo, pois essas coordenadas são associadas por identidad
 somente as coordenadas com data futura do §4 são datadas nele.
 
 A ordem das verificações e as mensagens de recusa estão em
-[Gerenciamento da política — Requisitos de compatibilidade](/pt-br/running/policy-management/#requisitos-de-compatibilidade).
+[Gerenciamento da política — Requisitos de compatibilidade](/running/policy-management/#requisitos-de-compatibilidade).
 
 ### 5.3 Consistência
 
@@ -333,7 +333,7 @@ modela ou em suas penalidades — recebe um valor terminal precificado para um s
 diferente, e a diferença enviesa a política do estudo posterior perto do horizonte;
 o treinamento não a corrige, pois o conjunto final nunca muda (§1).
 Executar com valor terminal nulo, em vez disso, desacopla os dois estudos, ao
-custo do efeito de fim de mundo ([Modos de horizonte §1](/pt-br/math/horizon-modes)).
+custo do efeito de fim de mundo ([Modos de horizonte §1](/math/horizon-modes)).
 
 Os cortes importados também carregam o desconto que o estudo de origem aplica a todo
 custo posterior ao horizonte do estudo posterior. As condições da §5.2 não incluem
@@ -341,7 +341,7 @@ nenhuma concordância entre taxas de desconto, e o arquivo de cortes de um conju
 registra o fator de escala de custo do estudo que o gravou, mas nenhuma taxa de
 desconto; assim, um estudo posterior que declara outras taxas desconta seus próprios
 estágios às suas taxas e os custos posteriores ao horizonte às taxas do estudo de
-origem ([Formulação da taxa de desconto](/pt-br/math/discount-rate)).
+origem ([Formulação da taxa de desconto](/math/discount-rate)).
 
 ## 6. Inicialização das defasagens
 
@@ -357,11 +357,11 @@ sobre os dias cobertos desse período.
 Quando o estudo começa no meio de um período sazonal, a parte já decorrida desse período
 inicializa a acumulação parcial do período, e os primeiros estágios completam o
 período pela acumulação de defasagens de
-[Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies). Um período
+[Estudos com múltiplas resoluções](/math/multi-resolution-studies). Um período
 em andamento coberto apenas parcialmente pelo histórico é aceito, com um aviso.
 
 A ordem autorregressiva — fornecida ou escolhida pela seleção de ordem de
-[Modelo de afluências PAR(p) §3.6](/pt-br/math/par-inflow-model#36-selecao-de-ordem) — é o
+[Modelo de afluências PAR(p) §3.6](/math/par-inflow-model#36-selecao-de-ordem) — é o
 número de defasagens que os coeficientes autorregressivos de cada estágio leem. Quando o estudo
 fornece seus coeficientes autorregressivos, o valor inicial de toda defasagem até a
 maior dessas ordens deve estar integralmente coberto pelo histórico, ou o caso é
@@ -376,28 +376,28 @@ encadeado, o estudo posterior inicializa suas próprias defasagens dessa forma, 
 fornece apenas a função terminal (§1). A estimação, no ajuste, das
 estatísticas dos períodos sazonais das defasagens fora da janela do estudo é um mecanismo diferente;
 veja
-[Modelo de afluências PAR(p) §3.8](/pt-br/math/par-inflow-model#38-estudos-que-cobrem-parte-do-ano-e-a-janela-de-defasagens-pre-estudo).
+[Modelo de afluências PAR(p) §3.8](/math/par-inflow-model#38-estudos-que-cobrem-parte-do-ano-e-a-janela-de-defasagens-pre-estudo).
 
 ## Referências cruzadas
 
-- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — §5 o anel de despacho antecipado (commitment ring)
+- [Aumento do espaço de estados](/math/state-augmentation) — §5 o anel de despacho antecipado (commitment ring)
   (hold ring, linhas do ring, coeficiente do corte das posições do anel de despacho antecipado, contribuições para a função objetivo);
   §6 estado das parcelas de água em trânsito, fixação e o truncamento por limitação do horizonte que uma
   fronteira direita remove.
-- [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) — §4 o anel de despacho antecipado
+- [Visão geral da modelagem dos elementos do sistema](/math/system-elements) — §4 o anel de despacho antecipado
   das termelétricas com antecipação de despacho e §5 o tempo de viagem na cascata, a origem, no nível dos elementos, das
   duas famílias transportadas.
-- [Modos de horizonte](/pt-br/math/horizon-modes) — o valor terminal nulo que uma fronteira
+- [Modos de horizonte](/math/horizon-modes) — o valor terminal nulo que uma fronteira
   direita substitui e o contexto de horizonte finito ao qual o segmento pós-estudo
   se acopla.
-- [Formulação da taxa de desconto](/pt-br/math/discount-rate) — o fator acumulado estendido aos
+- [Formulação da taxa de desconto](/math/discount-rate) — o fator acumulado estendido aos
   estágios pós-estudo.
-- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — §7 o resumo da fronteira terminal.
-- [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies) — um único estudo com
+- [Algoritmo da PDDE](/math/sddp-algorithm) — §7 o resumo da fronteira terminal.
+- [Estudos com múltiplas resoluções](/math/multi-resolution-studies) — um único estudo com
   resoluções mistas; a acumulação de defasagens e a acumulação parcial do
   período que os primeiros estágios de um estudo completam, inicializada pelo §6 deste capítulo.
-- [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — seleção de ordem; a
+- [Modelo de afluências PAR(p)](/math/par-inflow-model) — seleção de ordem; a
   janela de defasagens pré-estudo do ajuste.
 - **Execução do Novo Modelo:**
-  [Gerenciamento da política](/pt-br/running/policy-management/#cortes-de-fronteira) — configuração
+  [Gerenciamento da política](/running/policy-management/#cortes-de-fronteira) — configuração
   da fronteira e requisitos de compatibilidade.

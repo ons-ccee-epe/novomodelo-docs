@@ -1,7 +1,7 @@
 This is a topic-scoped index of the files thermals, contracts, pumping
 stations, and non-controllable sources touch — it names each file and its
 role, it does not repeat their field-by-field schemas. The exhaustive,
-field-by-field case-directory and output reference is owned by the [Case Format](/reference/case-format/) and [Output Format](/reference/output/) pages.
+field-by-field case-directory and output reference is owned by the [Case Format](/en/reference/case-format/) and [Output Format](/en/reference/output/) pages.
 
 ### Inputs
 
@@ -13,14 +13,14 @@ field-by-field case-directory and output reference is owned by the [Case Format]
 | `system/non_controllable_sources.json` | NCS registry — installed capacity, curtailment flag and cost override. |
 | `constraints/thermal_bounds.parquet` | Sparse per-(thermal, stage) overrides of `min_generation_mw`, `max_generation_mw`, and `cost_per_mwh`, with an optional per-block axis on the generation bounds only (see Configure tab). |
 | `constraints/pumping_bounds.parquet` | Sparse per-(station, stage) overrides of `min_m3s`/`max_m3s`, with an optional per-block axis (see Configure tab). |
-| `constraints/ncs_bounds.parquet` | Per-`(ncs_id, stage_id)` available generation of a source with no stochastic availability model, in place of its `max_generation_mw`; a source with `scenarios/non_controllable_stats.parquet` rows, or one that draws from `scenarios/external_ncs_scenarios.parquet` under the `external` scheme, ignores its rows ([Equipment-Specific Formulations §6](/math/equipment-formulations#6-non-controllable-generation-sources)). |
+| `constraints/ncs_bounds.parquet` | Per-`(ncs_id, stage_id)` available generation of a source with no stochastic availability model, in place of its `max_generation_mw`; a source with `scenarios/non_controllable_stats.parquet` rows, or one that draws from `scenarios/external_ncs_scenarios.parquet` under the `external` scheme, ignores its rows ([Equipment-Specific Formulations §6](/en/math/equipment-formulations#6-non-controllable-generation-sources)). |
 | `scenarios/non_controllable_factors.json` / `scenarios/non_controllable_stats.parquet` | Deterministic block factors or stochastic availability statistics for NCS. |
 | `constraints/contract_bounds.parquet` | Sparse per-(contract, stage) overrides of `min_mw`, `max_mw`, and `price_per_mwh`, with an optional per-block axis on all three (see Configure tab). |
 | `initial_conditions.json` (`past_anticipated_commitments`) | Commitments each anticipated thermal decided before the study, delivering inside the horizon or past it (system elements §4). |
 | `constraints/generic_constraint_bounds.parquet` | The two-sided interval (`bound_lower`/`bound_upper`) that also serves as the generic-constraint **activation grid** — one row per `(constraint_id, stage_id[, block_id])` cell, including any `anticipated_decision(N)` expression. |
 
 For the complete field-by-field schema of each file above, see the
-[Case Format](/reference/case-format/) reference page.
+[Case Format](/en/reference/case-format/) reference page.
 
 ### Outputs
 
@@ -31,9 +31,9 @@ For the complete field-by-field schema of each file above, see the
 | `simulation/pumping_stations/` | Per-(stage, block, station) pumped-flow results and a `pumping_cost` column that is always `0`: pumping carries no objective cost, and its power enters the bus balance (see the Implementation notes tab). |
 | `simulation/non_controllables/` | Per-(stage, block, source) `generation_mw`, `available_mw`, `curtailment_mw`, `curtailment_cost`. |
 | `simulation/costs/` | Per-stage cost breakdown; thermal fuel cost, contract cost, and curtailment cost each contribute their own column. |
-| `generic_constraints/resolved_echo.parquet` | The flat, desugared form of every generic constraint the solver actually built — written whenever the study has generic constraints. See [Generic Constraints](/reference/generic-constraints/) for the resolved-echo shape. |
-| `simulation/anticipated_lanes/` | Post-horizon commitments the study decides, one row per scenario and decision at its decision stage; written only when the study declares `post_study_stages` (schema: [Simulation Output](/reference/output/simulation/#simulationanticipated_lanes)). |
-| `anticipated/fixed_deliveries.parquet` | Run-level echo of every commitment **decided before the study** and delivered past the horizon (for the equivalent term in other planning tools, see the [Glossary](/reference/glossary)); no cost column, since that fuel is sunk and enters no objective (schema and write conditions: [Simulation Output](/reference/output/simulation/#anticipatedfixed_deliveriesparquet)). |
+| `generic_constraints/resolved_echo.parquet` | The flat, desugared form of every generic constraint the solver actually built — written whenever the study has generic constraints. See [Generic Constraints](/en/reference/generic-constraints/) for the resolved-echo shape. |
+| `simulation/anticipated_lanes/` | Post-horizon commitments the study decides, one row per scenario and decision at its decision stage; written only when the study declares `post_study_stages` (schema: [Simulation Output](/en/reference/output/simulation/#simulationanticipated_lanes)). |
+| `anticipated/fixed_deliveries.parquet` | Run-level echo of every commitment **decided before the study** and delivered past the horizon (for the equivalent term in other planning tools, see the [Glossary](/en/reference/glossary)); no cost column, since that fuel is sunk and enters no objective (schema and write conditions: [Simulation Output](/en/reference/output/simulation/#anticipatedfixed_deliveriesparquet)). |
 
 For the complete output schema (columns, types, file layout), see the
-[Output Format](/reference/output/) reference page.
+[Output Format](/en/reference/output/) reference page.

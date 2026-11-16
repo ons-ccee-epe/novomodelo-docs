@@ -3,7 +3,7 @@ title: Convergência e diagnóstico
 description: Padrões práticos de análise para avaliar a convergência, extrair estatísticas de geração e de custo e solucionar problemas nos resultados da simulação final.
 ---
 
-O [Formato de saída](/pt-br/reference/output/) documenta o conteúdo de cada
+O [Formato de saída](/reference/output/) documenta o conteúdo de cada
 arquivo de saída. Esta página vai um nível além: apresenta padrões práticos
 de análise para responder a perguntas do domínio a partir dos dados. Pressupõe-se
 familiaridade com a leitura de arquivos Parquet na ferramenta de sua preferência.
@@ -18,7 +18,7 @@ problemas comuns a partir dos dados de saída.
 ## Carregando resultados em Python
 
 O módulo `novomodelo.results` do `novomodelo-python` lê o diretório de saída de uma execução
-para o Python. O [Guia rápido em Python](/pt-br/getting-started/python-quickstart/) trata
+para o Python. O [Guia rápido em Python](/getting-started/python-quickstart/) trata
 da instalação. Os trechos abaixo leem a saída de
 `novomodelo run my_study --output results`, em que `my_study` é o template 1dtoy
 gerado por `novomodelo init --template 1dtoy my_study`, e são executados a partir do diretório que
@@ -126,7 +126,7 @@ Para um caso convertido de outra ferramenta de planejamento, o conversor grava `
 diretório do caso convertido, ao lado de `config.json`, como seu registro de rastreabilidade:
 a versão do conversor, o diretório de origem, os hashes dos arquivos de entrada e as
 contagens de entidades. A relação entre os ids das entidades convertidas e os
-códigos das usinas no modelo de origem está em [Conversão de um caso existente](/pt-br/running/case-conversion/).
+códigos das usinas no modelo de origem está em [Conversão de um caso existente](/running/case-conversion/).
 
 ---
 
@@ -160,7 +160,7 @@ com o template 1dtoy:
 | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `convergence.achieved`           | `true` quando os critérios de parada encerraram a execução e um critério `gap` ou `bound_stalling` foi satisfeito naquela iteração; `false` quando apenas `iteration_limit` ou `time_limit` foram acionados, quando uma solicitação de encerramento, por si só, finalizou o treinamento (training) e após uma falha. |
 | `convergence.final_gap_percent`  | O gap relativo no término, em percentual: o limite superior menos o limite inferior, relativo ao limite inferior. Negativo quando o limite superior está abaixo do limite inferior; `null` quando o limite inferior final não é positivo. Ver orientações abaixo. |
-| `convergence.termination_reason` | O nome do critério de parada que encerrou a execução. Os valores estão listados em [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson). |
+| `convergence.termination_reason` | O nome do critério de parada que encerrou a execução. Os valores estão listados em [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson). |
 | `iterations.converged_at`        | Igual a `iterations.completed` quando `achieved` é `true`; `null` caso contrário.                             |
 
 **Orientações sobre o gap.** Não há limiar universal — o gap aceitável depende
@@ -175,7 +175,7 @@ para um gap sem ruído amostral, proveniente de uma simulação forward enumerad
   distante da ótima.
 
 Com um limite superior amostrado (`bounds.final_upper_bound_kind` é `"statistical"`),
-o [gap](/pt-br/math/stopping-rules/#gap-de-otimalidade) é uma estimativa, e não um
+o [gap](/math/stopping-rules/#gap-de-otimalidade) é uma estimativa, e não um
 certificado: compara o custo médio das simulações forward amostradas da última
 iteração com o limite inferior, contém ruído amostral e é negativo sempre que
 essa média fica abaixo do limite inferior, como no trecho acima. Os limiares
@@ -186,14 +186,14 @@ simulação forward enumerada (`"exact"`), o limite superior é exato e o gap n�
 ruído amostral, mas o gap certifica a política somente quando a medida de risco
 é a mesma em todos os estágios;
 consulte [quando valem os limites e os
-certificados](/pt-br/math/cut-management/#quando-os-limites-e-certificados-valem).
+certificados](/math/cut-management/#quando-os-limites-e-certificados-valem).
 
 **O que fazer se o gap for grande:**
 
 1. Aumente `limit` no critério de parada
-   [`iteration_limit`](/pt-br/running/configuration/#iteration_limit).
+   [`iteration_limit`](/running/configuration/#iteration_limit).
 2. Aumente `training.selection.forward_passes`
-   ([`training.selection`](/pt-br/running/configuration/#trainingselection)) para reduzir
+   ([`training.selection`](/running/configuration/#trainingselection)) para reduzir
    o ruído da estimativa do limite superior.
 3. Verifique `training/convergence.parquet` (ver a próxima seção) para saber se
    o limite inferior ainda está subindo ou se estabilizou.
@@ -207,7 +207,7 @@ certificados](/pt-br/math/cut-management/#quando-os-limites-e-certificados-valem
 `novomodelo run` imprime um bloco `Time split` no resumo do treinamento quando este termina,
 decompondo o tempo de relógio total do treinamento em três parcelas — `Forward`,
 `Backward` e `Serial`. Consulte o [exemplo de Formato da saída
-de `novomodelo run`](/pt-br/reference/cli-reference/#formato-da-saida) para o bloco completo analisado
+de `novomodelo run`](/reference/cli-reference/#formato-da-saida) para o bloco completo analisado
 nesta seção. Cada parcela de fase (`Forward`/`Backward`) traz uma
 divisão `solve · wait`; a parcela `Serial` traz uma divisão
 `bound · selection [· allreduce · sync] · other`.
@@ -220,12 +220,12 @@ abrange os workers de todos os ranks; assim, também inclui o tempo em que um ra
 ranks mais lentos concluam as resoluções de um estágio; `forward_wait` refere-se apenas ao rank 0.
 É exatamente isso que o
 escalonador backward `by_node` ([Escalonamento por
-nó](/pt-br/running/performance/#escalonamento-por-no)) existe para
+nó](/running/performance/#escalonamento-por-no)) existe para
 reduzir, diminuindo a unidade de trabalho de um estado visitado inteiro para um par `(estado
 visitado, bloco de aberturas)`, de modo que um worker ocioso possa assumir trabalho de granularidade mais fina
 em vez de esperar que um estado visitado inteiro seja liberado. A seleção de linhas vem
 desativada por padrão (`training.cut_selection.selection` é `null`,
-[`training.cut_selection`](/pt-br/running/configuration/#trainingcut_selection));
+[`training.cut_selection`](/running/configuration/#trainingcut_selection));
 quando seu `method` é `"dynamic"`, a simulação backward é escalonada por cenário a partir
 de sua `start_iteration`, qualquer que seja a configuração `by_node`.
 
@@ -255,7 +255,7 @@ o histórico completo de convergência. Seu esquema:
 | Coluna             | Tipo    | Descrição                                                                            |
 | ------------------ | ------- | -------------------------------------------------------------------------------------- |
 | `iteration`        | Int32   | Número da iteração (começando em 1)                                                             |
-| `lower_bound`      | Float64 | Limite inferior do treinamento para o custo ajustado ao risco: o custo esperado quando a medida de risco do primeiro estágio é o valor esperado ([limite inferior](/pt-br/math/upper-bound-evaluation/#limite-inferior)) |
+| `lower_bound`      | Float64 | Limite inferior do treinamento para o custo ajustado ao risco: o custo esperado quando a medida de risco do primeiro estágio é o valor esperado ([limite inferior](/math/upper-bound-evaluation/#limite-inferior)) |
 | `upper_bound`      | Float64 | Estimativa do limite superior — média sobre as simulações forward, para um limite estatístico; caso contrário, o limite ponderado exato da enumeração |
 | `upper_bound_std`  | Float64 | Desvio-padrão da estimativa do limite superior. NULL nas linhas de limite exato (`upper_bound_kind` = `"exact"`) |
 | `upper_bound_kind` | Utf8    | Tipo de limite desta linha: `"exact"` (limite ponderado da enumeração) ou `"statistical"` (média das simulações forward amostradas) |
@@ -384,7 +384,7 @@ acrescenta `bus_id`. `costs` tem uma linha por (`scenario_id`, `stage_id`), com
 Agregue primeiro dentro de cada (cenário, estágio) — some energia e custo sobre os patamares,
 pondere uma taxa por patamar, como `water_value_per_hm3`, pelas horas do patamar — e só então calcule estatísticas entre
 cenários. As colunas de cada tabela estão listadas no
-[Formato de saída](/pt-br/reference/output/).
+[Formato de saída](/reference/output/).
 :::
 
 As saídas impressas nesta seção e em
@@ -399,7 +399,7 @@ diretório do caso, que aqui contém tanto `results/` quanto `stages.json`.
 
 Cada diretório `simulation/<entity>/` é lido como uma tabela com todos os cenários;
 `scenario_id` é ao mesmo tempo o nome do diretório da partição e uma coluna dentro do arquivo (ver
-[Particionamento Hive](/pt-br/reference/output/#particionamento-hive)).
+[Particionamento Hive](/reference/output/#particionamento-hive)).
 
 ```python
 # Polars — lê todos os cenários de uma vez e infere scenario_id a partir dos nomes dos diretórios
@@ -883,7 +883,7 @@ Causas possíveis:
   armazenamento inicial está abaixo do mínimo vigente ao final do primeiro estágio
   de operação da usina, esse estágio precisa atingir o mínimo com sua própria
   afluência, o que deixa menos água para turbinar, e `novomodelo validate` emite um
-  aviso [`ModelQuality`](/pt-br/reference/error-codes/#modelquality) indicando a
+  aviso [`ModelQuality`](/reference/error-codes/#modelquality) indicando a
   UHE e o estágio. Um armazenamento inicial fora do intervalo
   `[min_storage_hm3, max_storage_hm3]` da própria usina em `hydros.json` é recusado no carregamento.
 
@@ -891,6 +891,6 @@ Causas possíveis:
 
 ## Páginas relacionadas
 
-- **Teoria:** [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation/) — o estimador estatístico do limite superior por trás das métricas de convergência analisadas nesta página.
-- [Formato de saída](/pt-br/reference/output/) — esquema completo, campo a campo, de todos os arquivos de saída
-- [Configuração](/pt-br/running/configuration/) — todos os campos de `config.json`, incluindo critérios de parada e semente
+- **Teoria:** [Avaliação do limite superior](/math/upper-bound-evaluation/) — o estimador estatístico do limite superior por trás das métricas de convergência analisadas nesta página.
+- [Formato de saída](/reference/output/) — esquema completo, campo a campo, de todos os arquivos de saída
+- [Configuração](/running/configuration/) — todos os campos de `config.json`, incluindo critérios de parada e semente

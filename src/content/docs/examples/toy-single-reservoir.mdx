@@ -16,7 +16,7 @@ pass, backward pass, cut construction, and lower-bound update tangible.
 
 Novomodelo ships a reference case, `examples/1dtoy/` in the novomodelo
 repository, that `novomodelo init --template 1dtoy <dir>` scaffolds and the
-[Quickstart](/getting-started/quickstart) runs end to end. That case
+[Quickstart](/en/getting-started/quickstart) runs end to end. That case
 has one bus, one hydro plant, two thermal plants, four monthly stages
 (January to April 2024), ten openings per stage and an annual discount
 rate of 0.12. The walkthrough keeps the single bus, the single hydro
@@ -31,7 +31,7 @@ shows them working. It does not cover multi-reservoir effects, spatial
 inflow correlation, the FPHA production model, risk-measure weighting,
 or autoregressive inflow memory. Those topics belong to the chapters
 cited in section 10 and to the multi-reservoir companion in
-[Toy Four-Reservoir Walkthrough](/examples/toy-four-reservoir).
+[Toy Four-Reservoir Walkthrough](/en/examples/toy-four-reservoir).
 
 ---
 
@@ -94,7 +94,7 @@ output in MW and its energy in MWh. Demand and thermal output are in MW
 and costs are in \$: a stage's thermal output $g_{th}$ costs
 $50\, g_{th}$. A novomodelo case derives $\zeta$ from the stage's block
 hours, in hm³ per m³/s
-([Notation Conventions](/overview/notation-conventions#31-time-and-conversion)).
+([Notation Conventions](/en/overview/notation-conventions#31-time-and-conversion)).
 :::
 
 ---
@@ -102,7 +102,7 @@ hours, in hm³ per m³/s
 ## 2. Stage LP for This Case
 
 Each stage $t$ solves the following LP (specialised from the general
-formulation in [LP Formulation](/math/lp-formulation) to one hydro,
+formulation in [LP Formulation](/en/math/lp-formulation) to one hydro,
 one thermal, one demand block, and a 0-order inflow):
 
 **Objective**:
@@ -166,14 +166,14 @@ $$
 
 with $\mu = 30$ and $\sigma = 10$ for every stage in this walkthrough.
 The draws across stages are independent. This is the degenerate $p = 0$
-case of the [PAR(p) Inflow Model](/math/par-inflow-model): no lag
+case of the [PAR(p) Inflow Model](/en/math/par-inflow-model): no lag
 terms, no AR coefficients, no initial-lag state. A novomodelo case expresses
 it by supplying `scenarios/inflow_seasonal_stats.parquet` ($\mu_t$ and
 $\sigma_t$ per hydro and per stage) with neither
 `inflow_history.parquet` nor `inflow_ar_coefficients.parquet`: novomodelo
 then applies the seasonal statistics as white noise, $p_m = 0$ for
 every season, and runs no order selection (the order selection of
-[PAR(p) Inflow Model §3.6](/math/par-inflow-model#36-order-selection) needs
+[PAR(p) Inflow Model §3.6](/en/math/par-inflow-model#36-order-selection) needs
 an inflow history). The shipped `1dtoy` is built this way, and
 `novomodelo run` reports its estimation path as `user_stats_white_noise`.
 
@@ -223,7 +223,7 @@ This is one realisation of total cost, a statistical estimate. It falls
 below the iteration-1 lower bound of section 6, $5000/9 \approx 555.6$,
 as a single sampled trajectory can; averaging many trajectories reduces
 the sampling error, and only an exact upper bound certifies the optimality gap
-([Cut Management — Tier 3](/math/cut-management#tier-3-gap-certificate)).
+([Cut Management — Tier 3](/en/math/cut-management#tier-3-gap-certificate)).
 
 ---
 
@@ -233,9 +233,9 @@ The backward pass walks stages $4 \to 2$. At each stage $t$ it pins the
 incoming storage to the forward pass's trial point $\hat{v}_{t-1}$,
 solves all three openings, reads the reduced cost of the pinned
 incoming-storage column
-([Reduced-Cost Extraction](/math/cut-management#2-reduced-cost-extraction)),
+([Reduced-Cost Extraction](/en/math/cut-management#2-reduced-cost-extraction)),
 computes per-opening intercepts, and aggregates them into one cut on
-stage $t-1$ ([Single-Cut Aggregation](/math/cut-management#3-single-cut-aggregation)).
+stage $t-1$ ([Single-Cut Aggregation](/en/math/cut-management#3-single-cut-aggregation)).
 The stage-1 solves are the lower-bound evaluation of section 6.
 
 **Kinks.** When an opening's available water exactly meets demand, or
@@ -289,7 +289,7 @@ With $\hat{v}_3 = 0$ this simplifies to $\beta_{0,4}(\omega) = Q_4(\omega)$:
 $\beta_{0,4} = (1000,\, 500,\, 0)$.
 
 **Single-cut aggregation** (uniform probability $p = 1/3$; see
-[Cut Management](/math/cut-management) section 3):
+[Cut Management](/en/math/cut-management) section 3):
 
 $$
 \bar{\beta}_0 = \tfrac{1}{3}(1000 + 500 + 0) = 500, \qquad
@@ -421,7 +421,7 @@ bound solves the stage-1 LP for every opening with that cut active, from
 the fixed initial storage $x_0 = v_0 = 30$, and takes the
 probability-weighted expectation of the opening objectives (the
 risk-neutral case of the
-[lower bound](/math/upper-bound-evaluation#lower-bound)):
+[lower bound](/en/math/upper-bound-evaluation#lower-bound)):
 
 $$
 \underline{z}^1 = \mathbb{E}_{\omega}\bigl[\, Q_1^1(x_0, \omega) \,\bigr]
@@ -442,7 +442,7 @@ $$
 
 The lower bound rises from $0$ (before the first iteration, no cuts) to
 $5000/9$. It does not decrease across iterations, because cuts are only
-added; [Cut Management — Tier 1](/math/cut-management#tier-1-valid-lower-bound)
+added; [Cut Management — Tier 1](/en/math/cut-management#tier-1-valid-lower-bound)
 states when it is a valid lower bound. Here it stays below the optimal
 expected cost of section 9.
 
@@ -560,20 +560,20 @@ unit of thermal output, so turbining up to demand is optimal at every
 stage, and averaging that policy's cost over the $3^4 = 81$ equally
 likely inflow sequences from $v_0 = 30$ gives the value. Later
 iterations keep or raise the lower bound, and under the hypotheses of
-[Cut Management — Tier 2](/math/cut-management#tier-2-convergence) it
+[Cut Management — Tier 2](/en/math/cut-management#tier-2-convergence) it
 converges to this value.
 
 The two trajectory costs, $500$ and $0$, are single-sample estimates of
 the policy's expected cost; both fall below the lower bound of their
 iteration and neither certifies anything. A gap certificate needs an
 exact upper bound from an enumerated forward pass (Tier 3); the percent
-form of the [optimality gap](/math/stopping-rules#optimality-gap) then
+form of the [optimality gap](/en/math/stopping-rules#optimality-gap) then
 divides the gap by the magnitude of the lower bound. The shipped `1dtoy`
 runs one sampled forward pass per iteration and stops at its iteration
 limit of 128; novomodelo rejects a `gap` stopping rule at setup under a
-sampled forward pass (see [Stopping Rules](/math/stopping-rules)). The
+sampled forward pass (see [Stopping Rules](/en/math/stopping-rules)). The
 upper-bound mechanisms are compared in
-[Upper Bound Evaluation](/math/upper-bound-evaluation).
+[Upper Bound Evaluation](/en/math/upper-bound-evaluation).
 
 ---
 
@@ -584,28 +584,28 @@ illustrate:
 
 - **Multi-reservoir effects**: the cut becomes a hyperplane with one
   storage coefficient per reservoir; the
-  [Toy Four-Reservoir Walkthrough](/examples/toy-four-reservoir) shows
+  [Toy Four-Reservoir Walkthrough](/en/examples/toy-four-reservoir) shows
   one on four decoupled reservoirs. Trading water between reservoirs
   needs a coupling (transmission, a cascade or a shared constraint)
   that neither walkthrough includes.
 - **Spatial inflow correlation**: when multiple plants share a wet/dry
   signal, their innovations $\varepsilon$ must be drawn from a
   correlated multivariate normal via the spectral factorisation
-  described in [PAR(p) Inflow Model §6](/math/par-inflow-model#6-spatial-correlation-factorisation).
+  described in [PAR(p) Inflow Model §6](/en/math/par-inflow-model#6-spatial-correlation-factorisation).
 - **Autoregressive inflow memory**: a PAR(p) model with $p \geq 1$ adds
   one lag state variable per lag; whether a stage's cuts carry a
   coefficient for each lag is that stage's cut-state projection
-  ([State Augmentation §7](/math/state-augmentation#7-cut-state-projection)).
-  See [PAR(p) Inflow Model](/math/par-inflow-model).
+  ([State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)).
+  See [PAR(p) Inflow Model](/en/math/par-inflow-model).
 - **FPHA production model**: nonlinear head-dependent efficiency
   approximated by piecewise-linear hyperplanes; one of the planes can
   bind, contributing to the storage cut coefficient. See
-  [Hydro Production Function Models](/math/hydro-production-models).
+  [Hydro Production Function Models](/en/math/hydro-production-models).
 - **Risk-measure effects**: CVaR weighting that shifts cut aggregation
   probabilities away from uniform $p = 1/N_t$. See
-  [Risk Measures](/math/risk-measures).
+  [Risk Measures](/en/math/risk-measures).
 
-The [Toy Four-Reservoir Walkthrough](/examples/toy-four-reservoir) extends
+The [Toy Four-Reservoir Walkthrough](/en/examples/toy-four-reservoir) extends
 this case to four independent reservoirs at four buses with no
 transmission, illustrating how the cut hyperplane and the per-bus
 dispatch mechanics scale up.
@@ -614,11 +614,11 @@ dispatch mechanics scale up.
 
 ## Cross-References
 
-- [SDDP Algorithm](/math/sddp-algorithm) — Forward and backward pass structure, lower-bound computation, convergence monitoring
-- [LP Formulation](/math/lp-formulation) — Complete stage LP: load balance, water balance, objective taxonomy
-- [State Augmentation](/math/state-augmentation) — Column-bound state pinning
-- [Cut Management](/math/cut-management) — Dual extraction, per-opening intercepts, single-cut aggregation, cut validity, sign convention
-- [PAR(p) Inflow Model](/math/par-inflow-model) — Inflow model definition; the $p = 0$ degenerate case (white noise) used in this walkthrough; stored vs computed quantities
-- [Stopping Rules](/math/stopping-rules) — Iteration limit, gap threshold, bound-stalling criteria
-- [Upper Bound Evaluation](/math/upper-bound-evaluation) — Simulation-based and inner-approximation upper bounds
-- [Toy Four-Reservoir Walkthrough](/examples/toy-four-reservoir) — Multi-reservoir extension at 4 buses with no transmission and independent 0-order inflows
+- [SDDP Algorithm](/en/math/sddp-algorithm) — Forward and backward pass structure, lower-bound computation, convergence monitoring
+- [LP Formulation](/en/math/lp-formulation) — Complete stage LP: load balance, water balance, objective taxonomy
+- [State Augmentation](/en/math/state-augmentation) — Column-bound state pinning
+- [Cut Management](/en/math/cut-management) — Dual extraction, per-opening intercepts, single-cut aggregation, cut validity, sign convention
+- [PAR(p) Inflow Model](/en/math/par-inflow-model) — Inflow model definition; the $p = 0$ degenerate case (white noise) used in this walkthrough; stored vs computed quantities
+- [Stopping Rules](/en/math/stopping-rules) — Iteration limit, gap threshold, bound-stalling criteria
+- [Upper Bound Evaluation](/en/math/upper-bound-evaluation) — Simulation-based and inner-approximation upper bounds
+- [Toy Four-Reservoir Walkthrough](/en/examples/toy-four-reservoir) — Multi-reservoir extension at 4 buses with no transmission and independent 0-order inflows

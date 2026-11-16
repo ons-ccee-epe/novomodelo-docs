@@ -260,10 +260,13 @@ export default defineConfig({
       // (b) `src/content/docs/pt-br/` mirrors the English pages with full
       //     translations, following the guide in
       //     `.claude/rules/glossario-traducao-ptbr.md` (outside the content
-      //     tree, so it is never published). Starlight falls back to the
-      //     English source for a page with no pt-br counterpart. Do not add
-      //     empty/stub pt-br `.md`/`.mdx` files — they would render as broken
-      //     pages and skew the dashboard's status.
+      //     tree, so it is never published). The English sources stay the
+      //     translation source even though pt-BR is the root locale (see
+      //     `locales` below): Starlight would serve the root (pt-BR) content at
+      //     the /en/ URL of an English page that is missing, so every page
+      //     keeps its twin in the other locale. Do not add empty/stub pt-br
+      //     `.md`/`.mdx` files — they would render as broken pages and skew the
+      //     dashboard's status.
       plugins: [lunaria({ configPath: "./lunaria.config.json", route: "/lunaria" })],
       // Curated sidebar, NOT `autogenerate`: the TOC crosses content folders
       // (`overview/`, `entities/`, `math/`, `getting-started/`, `running/`,
@@ -278,8 +281,10 @@ export default defineConfig({
       // Running studies. Running studies follows the steps of a study: the
       // Case Format group sits under "Preparing the case" and the Output Format
       // group under "Analysing results". Every section and subsection label
-      // carries its pt-BR translation. The landing page (index.mdx -> `/`) is the
-      // site root and is intentionally NOT a sidebar entry.
+      // carries its pt-BR translation (Starlight shows `translations[lang]` and
+      // falls back to `label`, which stays English). The home pages
+      // (pt-br/index.mdx -> `/`, index.mdx -> `/en/`) are intentionally NOT
+      // sidebar entries.
       sidebar: [
         {
           label: "Get Started", translations: { "pt-BR": "Comece aqui" },
@@ -503,10 +508,15 @@ export default defineConfig({
         "./src/styles/layout.css",
         "./src/components/entity/entity.css",
       ],
+      // pt-BR is the root locale, served at the docs base, and English is
+      // served under en/. The sources keep English at the root of
+      // src/content/docs/ and pt-BR in pt-br/: the content ids
+      // (scripts/locale-id.mjs, src/content.config.ts) map pt-br/<p> to <p>
+      // and every other <p> to en/<p>.
       defaultLocale: "root",
       locales: {
-        root: { label: "English", lang: "en" },
-        "pt-br": { label: "Português do Brasil", lang: "pt-BR" },
+        root: { label: "Português do Brasil", lang: "pt-BR" },
+        en: { label: "English", lang: "en" },
       },
       pagefind: false,
     }),

@@ -16,7 +16,7 @@ forward, da simulação backward, da construção de cortes e da atualização d
 
 O Novo Modelo inclui um caso de referência, `examples/1dtoy/` no repositório do
 novomodelo, que `novomodelo init --template 1dtoy <dir>` gera e que o
-[Guia rápido](/pt-br/getting-started/quickstart) executa de ponta a ponta. Esse caso
+[Guia rápido](/getting-started/quickstart) executa de ponta a ponta. Esse caso
 tem um barramento, uma usina hidrelétrica, duas usinas termelétricas, quatro estágios mensais
 (janeiro a abril de 2024), dez aberturas por estágio e uma taxa de desconto anual
 de 0,12. O exemplo mantém o barramento único, a usina hidrelétrica
@@ -31,7 +31,7 @@ os mostra em funcionamento. Não trata de efeitos de múltiplos reservatórios, 
 das afluências, do modelo de produção FPHA, da ponderação por medida de risco
 nem da memória autorregressiva das afluências. Esses temas cabem aos capítulos
 citados na seção 10 e ao exemplo complementar com múltiplos reservatórios em
-[Exemplo didático com quatro reservatórios](/pt-br/examples/toy-four-reservoir).
+[Exemplo didático com quatro reservatórios](/examples/toy-four-reservoir).
 
 ---
 
@@ -94,7 +94,7 @@ geração hidrelétrica em MW e sua energia em MWh. A demanda e a geração tér
 e os custos em \$: a geração térmica $g_{th}$ de um estágio custa
 $50\, g_{th}$. Um caso do novomodelo deriva $\zeta$ das horas dos patamares
 do estágio, em hm³ por m³/s
-([Convenções de notação](/pt-br/overview/notation-conventions#31-tempo-e-conversao)).
+([Convenções de notação](/overview/notation-conventions#31-tempo-e-conversao)).
 :::
 
 ---
@@ -102,7 +102,7 @@ do estágio, em hm³ por m³/s
 ## 2. PL do estágio para este caso
 
 Cada estágio $t$ resolve o seguinte PL (particularizado a partir da
-formulação geral em [Formulação do PL](/pt-br/math/lp-formulation) para uma usina hidrelétrica,
+formulação geral em [Formulação do PL](/math/lp-formulation) para uma usina hidrelétrica,
 uma térmica, um patamar de carga e uma afluência de ordem 0):
 
 **Função objetivo**:
@@ -166,14 +166,14 @@ $$
 
 com $\mu = 30$ e $\sigma = 10$ em todos os estágios deste exemplo.
 Os sorteios entre estágios são independentes. Este é o caso degenerado $p = 0$
-do [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model): sem termos de
+do [Modelo de afluências PAR(p)](/math/par-inflow-model): sem termos de
 defasagem, sem coeficientes AR, sem estado de defasagens iniciais. Um caso do novomodelo o expressa
 fornecendo `scenarios/inflow_seasonal_stats.parquet` ($\mu_t$ e
 $\sigma_t$ por usina hidrelétrica e por estágio), sem
 `inflow_history.parquet` nem `inflow_ar_coefficients.parquet`: o novomodelo
 então aplica as estatísticas sazonais como ruído branco, $p_m = 0$ para
 todo período sazonal, e não executa seleção de ordem (a seleção de ordem do
-[Modelo de afluências PAR(p) §3.6](/pt-br/math/par-inflow-model#36-selecao-de-ordem) exige
+[Modelo de afluências PAR(p) §3.6](/math/par-inflow-model#36-selecao-de-ordem) exige
 um histórico de vazões). O `1dtoy` distribuído é construído dessa forma, e
 `novomodelo run` informa seu caminho de estimação como `user_stats_white_noise`.
 
@@ -223,7 +223,7 @@ Trata-se de uma realização do custo total, uma estimativa estatística. Ela fi
 abaixo do limite inferior da iteração 1 da seção 6, $5000/9 \approx 555.6$,
 como pode ocorrer com uma única trajetória amostrada; calcular a média de muitas trajetórias reduz
 o erro amostral, e apenas um limite superior exato certifica o gap de otimalidade
-([Gerenciamento de cortes — Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)).
+([Gerenciamento de cortes — Camada 3](/math/cut-management#camada-3-certificado-do-gap)).
 
 ---
 
@@ -233,9 +233,9 @@ A simulação backward percorre os estágios $4 \to 2$. Em cada estágio $t$, el
 armazenamento de entrada no estado visitado da simulação forward $\hat{v}_{t-1}$,
 resolve as três aberturas, lê o custo reduzido da coluna fixada de
 armazenamento de entrada
-([Extração dos custos reduzidos](/pt-br/math/cut-management#2-extracao-pelos-custos-reduzidos)),
+([Extração dos custos reduzidos](/math/cut-management#2-extracao-pelos-custos-reduzidos)),
 calcula os termos independentes por abertura e os agrega em um único corte no
-estágio $t-1$ ([Agregação em corte único](/pt-br/math/cut-management#3-agregacao-em-corte-unico)).
+estágio $t-1$ ([Agregação em corte único](/math/cut-management#3-agregacao-em-corte-unico)).
 As resoluções do estágio 1 constituem a avaliação do limite inferior da seção 6.
 
 **Pontos de quebra.** Quando a água disponível de uma abertura atende exatamente à demanda, ou
@@ -289,7 +289,7 @@ Com $\hat{v}_3 = 0$, isso se simplifica para $\beta_{0,4}(\omega) = Q_4(\omega)$
 $\beta_{0,4} = (1000,\, 500,\, 0)$.
 
 **Agregação em corte único** (probabilidade uniforme $p = 1/3$; veja
-a seção 3 de [Gerenciamento de cortes](/pt-br/math/cut-management)):
+a seção 3 de [Gerenciamento de cortes](/math/cut-management)):
 
 $$
 \bar{\beta}_0 = \tfrac{1}{3}(1000 + 500 + 0) = 500, \qquad
@@ -421,7 +421,7 @@ da iteração 1 resolve o PL do estágio 1 para cada abertura com esse corte ati
 do armazenamento inicial fixo $x_0 = v_0 = 30$, e toma o valor esperado
 ponderado pelas probabilidades das funções objetivo das aberturas (o
 caso neutro ao risco do
-[limite inferior](/pt-br/math/upper-bound-evaluation#limite-inferior)):
+[limite inferior](/math/upper-bound-evaluation#limite-inferior)):
 
 $$
 \underline{z}^1 = \mathbb{E}_{\omega}\bigl[\, Q_1^1(x_0, \omega) \,\bigr]
@@ -442,7 +442,7 @@ $$
 
 O limite inferior sobe de $0$ (antes da primeira iteração, sem cortes) para
 $5000/9$. Ele não diminui ao longo das iterações, pois cortes são apenas
-acrescentados; [Gerenciamento de cortes — Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido)
+acrescentados; [Gerenciamento de cortes — Camada 1](/math/cut-management#camada-1-limite-inferior-valido)
 indica quando ele é um limite inferior válido. Aqui, ele permanece abaixo do custo esperado
 ótimo da seção 9.
 
@@ -560,20 +560,20 @@ unidade de geração térmica, de modo que turbinar até atender à demanda é �
 estágios, e a média do custo dessa política sobre as $3^4 = 81$ sequências de afluências
 equiprováveis a partir de $v_0 = 30$ fornece esse valor. Iterações
 posteriores mantêm ou elevam o limite inferior e, sob as hipóteses de
-[Gerenciamento de cortes — Camada 2](/pt-br/math/cut-management#camada-2-convergencia), ele
+[Gerenciamento de cortes — Camada 2](/math/cut-management#camada-2-convergencia), ele
 converge para esse valor.
 
 Os dois custos de trajetória, $500$ e $0$, são estimativas de amostra única do
 custo esperado da política; ambos ficam abaixo do limite inferior de sua
 iteração e nenhum deles certifica coisa alguma. Um certificado de gap exige um
 limite superior exato, obtido de uma simulação forward enumerada (Camada 3); a forma
-percentual do [gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) então
+percentual do [gap de otimalidade](/math/stopping-rules#gap-de-otimalidade) então
 divide o gap pela magnitude do limite inferior. O `1dtoy` distribuído
 executa uma simulação forward amostrada por iteração e para no seu limite de
 128 iterações; o novomodelo rejeita, na preparação, um critério de parada `gap` com uma
-simulação forward amostrada (veja [Critérios de parada](/pt-br/math/stopping-rules)). Os
+simulação forward amostrada (veja [Critérios de parada](/math/stopping-rules)). Os
 mecanismos de limite superior são comparados em
-[Avaliação do limite superior](/pt-br/math/upper-bound-evaluation).
+[Avaliação do limite superior](/math/upper-bound-evaluation).
 
 ---
 
@@ -584,28 +584,28 @@ ilustrar:
 
 - **Efeitos de múltiplos reservatórios**: o corte passa a ser um hiperplano com um
   coeficiente de armazenamento por reservatório; o
-  [Exemplo didático com quatro reservatórios](/pt-br/examples/toy-four-reservoir) mostra
+  [Exemplo didático com quatro reservatórios](/examples/toy-four-reservoir) mostra
   um deles com quatro reservatórios desacoplados. A troca de água entre reservatórios
   exige um acoplamento (transmissão, uma cascata ou uma restrição compartilhada)
   que nenhum dos dois exemplos inclui.
 - **Correlação espacial das afluências**: quando várias usinas compartilham um sinal de período úmido/seco,
   seus ruídos $\varepsilon$ devem ser sorteados de uma
   normal multivariada correlacionada, por meio da fatoração espectral
-  descrita em [Modelo de afluências PAR(p) §6](/pt-br/math/par-inflow-model#6-fatoracao-da-correlacao-espacial).
+  descrita em [Modelo de afluências PAR(p) §6](/math/par-inflow-model#6-fatoracao-da-correlacao-espacial).
 - **Memória autorregressiva das afluências**: um modelo PAR(p) com $p \geq 1$ acrescenta
   uma variável de estado por defasagem; se os cortes de um estágio contêm um
   coeficiente para cada defasagem é definido pela projeção do estado nos cortes desse estágio
-  ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)).
-  Veja [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model).
+  ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)).
+  Veja [Modelo de afluências PAR(p)](/math/par-inflow-model).
 - **Modelo de produção FPHA**: rendimento não linear dependente da queda,
   aproximado por hiperplanos lineares por partes; um dos planos pode ficar
   ativo, contribuindo para o coeficiente do corte em relação ao armazenamento. Veja
-  [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models).
+  [Modelos de função de produção hidrelétrica](/math/hydro-production-models).
 - **Efeitos da medida de risco**: a ponderação pelo CVaR, que afasta as probabilidades de agregação
   dos cortes da distribuição uniforme $p = 1/N_t$. Veja
-  [Medidas de risco](/pt-br/math/risk-measures).
+  [Medidas de risco](/math/risk-measures).
 
-O [Exemplo didático com quatro reservatórios](/pt-br/examples/toy-four-reservoir) estende
+O [Exemplo didático com quatro reservatórios](/examples/toy-four-reservoir) estende
 este caso a quatro reservatórios independentes em quatro barramentos, sem
 transmissão, ilustrando como o hiperplano de corte e a mecânica de despacho por
 barramento se ampliam.
@@ -614,11 +614,11 @@ barramento se ampliam.
 
 ## Referências cruzadas
 
-- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — Estrutura das simulações forward e backward, cálculo do limite inferior, monitoramento da convergência
-- [Formulação do PL](/pt-br/math/lp-formulation) — PL completo do estágio: atendimento à demanda, balanço hídrico, taxonomia da função objetivo
-- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — Fixação do estado por limites das colunas
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — Extração das variáveis duais, termos independentes por abertura, agregação em corte único, validade dos cortes, convenção de sinais
-- [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — Definição do modelo de afluências; o caso degenerado $p = 0$ (ruído branco) usado neste exemplo; grandezas armazenadas vs. calculadas
-- [Critérios de parada](/pt-br/math/stopping-rules) — Limite de iterações, limiar do gap, critérios de estagnação do limite (bound stalling)
-- [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) — Limites superiores baseados em simulação e por aproximação interna
-- [Exemplo didático com quatro reservatórios](/pt-br/examples/toy-four-reservoir) — Extensão com múltiplos reservatórios em 4 barramentos, sem transmissão e com afluências independentes de ordem 0
+- [Algoritmo da PDDE](/math/sddp-algorithm) — Estrutura das simulações forward e backward, cálculo do limite inferior, monitoramento da convergência
+- [Formulação do PL](/math/lp-formulation) — PL completo do estágio: atendimento à demanda, balanço hídrico, taxonomia da função objetivo
+- [Aumento do espaço de estados](/math/state-augmentation) — Fixação do estado por limites das colunas
+- [Gerenciamento de cortes](/math/cut-management) — Extração das variáveis duais, termos independentes por abertura, agregação em corte único, validade dos cortes, convenção de sinais
+- [Modelo de afluências PAR(p)](/math/par-inflow-model) — Definição do modelo de afluências; o caso degenerado $p = 0$ (ruído branco) usado neste exemplo; grandezas armazenadas vs. calculadas
+- [Critérios de parada](/math/stopping-rules) — Limite de iterações, limiar do gap, critérios de estagnação do limite (bound stalling)
+- [Avaliação do limite superior](/math/upper-bound-evaluation) — Limites superiores baseados em simulação e por aproximação interna
+- [Exemplo didático com quatro reservatórios](/examples/toy-four-reservoir) — Extensão com múltiplos reservatórios em 4 barramentos, sem transmissão e com afluências independentes de ordem 0

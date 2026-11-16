@@ -10,17 +10,17 @@ import { Content as DiscountConfigure } from './_impl/_discount.configure.mdx';
 
 This chapter defines how discount rates are incorporated into the Novomodelo SDDP solver: the discounted Bellman equation, stage-dependent discount factors, effect on the future cost variable $\theta$, cumulative discounting, and the effect on lower/upper bound computation.
 
-For the reserved cyclic-mode formulation (where discounting would be required for convergence), see [Horizon Modes](/math/horizon-modes).
+For the reserved cyclic-mode formulation (where discounting would be required for convergence), see [Horizon Modes](/en/math/horizon-modes).
 
-For notation conventions (index sets, parameters, decision variables, dual variables), see [Notation Conventions](/overview/notation-conventions).
+For notation conventions (index sets, parameters, decision variables, dual variables), see [Notation Conventions](/en/overview/notation-conventions).
 
-For the entity view of this chapter, see [Horizon, stages and load blocks](/entities/time-structure/).
+For the entity view of this chapter, see [Horizon, stages and load blocks](/en/entities/time-structure/).
 
 ## 1 Motivation
 
 The discount factor $d_{t \to t+1} \in (0, 1]$ captures the time value of money, where future costs are valued less than present costs. This is essential for:
 
-1. **Infinite horizon problems**: Ensuring convergence of the value function in cyclic (infinite-horizon) policy graphs, a reserved design (see [Horizon Modes](/math/horizon-modes))
+1. **Infinite horizon problems**: Ensuring convergence of the value function in cyclic (infinite-horizon) policy graphs, a reserved design (see [Horizon Modes](/en/math/horizon-modes))
 2. **Economic consistency**: Reflecting opportunity cost of capital
 
 ## 2 Discounted Bellman Equation
@@ -72,7 +72,7 @@ $$
 \theta \geq \beta_{0,i} + \sum_{h} \beta^v_{i,h} \cdot v_h + \sum_{h,\ell} \beta^{lag}_{i,h,\ell} \cdot a_{h,\ell} \quad \forall i
 $$
 
-The cut coefficients $(\beta_{0,i}, \beta^v_{i,h}, \beta^{lag}_{i,h,\ell})$ are the **undiscounted** values from the backward pass. When the study has in-transit water or anticipated thermals, the cut also carries terms on the in-transit buckets and the commitment-ring slots, undiscounted in the same way. Cuts are stored and managed in undiscounted form — the discount factor appears only in the objective coefficient of $\theta$. See [Cut Management](/math/cut-management) for cut generation and aggregation details.
+The cut coefficients $(\beta_{0,i}, \beta^v_{i,h}, \beta^{lag}_{i,h,\ell})$ are the **undiscounted** values from the backward pass. When the study has in-transit water or anticipated thermals, the cut also carries terms on the in-transit buckets and the commitment-ring slots, undiscounted in the same way. Cuts are stored and managed in undiscounted form — the discount factor appears only in the objective coefficient of $\theta$. See [Cut Management](/en/math/cut-management) for cut generation and aggregation details.
 
 :::note[Why discount on θ, not on cuts]
 Applying the discount factor to the $\theta$ variable rather than scaling each cut individually is simpler and avoids modifying cut coefficients. The mathematical result is identical — if $\theta \geq \beta_0 + \beta^\top x$ and $d_{t \to t+1} \cdot \theta$ appears in the objective, it is equivalent to having $\theta' \geq d_{t \to t+1} \cdot (\beta_0 + \beta^\top x)$ with $\theta'$ in the objective.
@@ -96,11 +96,11 @@ $$
 d_{t_1 \to t_2} = d_{1 \to t_2} / d_{1 \to t_1}
 $$
 
-In this arrow form, $d_{t \to t+1}$ is the one-step factor of §3 and $d_{1 \to t}$ the cumulative factor. A cost incurred at stage $t_2$ and charged in the stage-$t_1$ objective is multiplied by $d_{t_1 \to t_2}$. An anticipated thermal's commitment cost is charged at its decision stage and discounted from its delivery stage in this way ([State Augmentation §5](/math/state-augmentation#objective-contributions)).
+In this arrow form, $d_{t \to t+1}$ is the one-step factor of §3 and $d_{1 \to t}$ the cumulative factor. A cost incurred at stage $t_2$ and charged in the stage-$t_1$ objective is multiplied by $d_{t_1 \to t_2}$. An anticipated thermal's commitment cost is charged at its decision stage and discounted from its delivery stage in this way ([State Augmentation §5](/en/math/state-augmentation#objective-contributions)).
 
 ### Post-Study Extension
 
-Past the last study stage $T$, the cumulative factor continues over the declared post-study stages, at the global rate $r_{annual}$ on each post-study stage's duration. The horizon is bridged by the last study stage's one-step factor, $d_{1 \to T+1} = d_{1 \to T} \, d_{T \to T+1}$, so the continuation equals the factor a horizon covering the post-study stages would give. [Post-Study Boundary & Chained Studies](/math/post-study-boundary) prices deliveries past the horizon with this extended factor.
+Past the last study stage $T$, the cumulative factor continues over the declared post-study stages, at the global rate $r_{annual}$ on each post-study stage's duration. The horizon is bridged by the last study stage's one-step factor, $d_{1 \to T+1} = d_{1 \to T} \, d_{T \to T+1}$, so the continuation equals the factor a horizon covering the post-study stages would give. [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) prices deliveries past the horizon with this extended factor.
 
 ### Consistency with the Bellman Recursion
 
@@ -108,7 +108,7 @@ Each stage objective multiplies $\theta$ by its one-step factor $d_{t \to t+1}$ 
 
 ## 6 Lower Bound with Discounting
 
-The lower bound $\underline{z}^k$ at iteration $k$ is the first stage's risk-adjusted value over its openings at the initial state $x_0$ ([Upper Bound Evaluation — Lower bound](/math/upper-bound-evaluation#lower-bound)). In each opening's first-stage problem the future cost variable $\theta_1$ enters the objective with the one-step factor $d_{1 \to 2}$, and each later stage's factor carries its cost to stage 1 once (§4), so the lower bound is stated in stage 1 present value.
+The lower bound $\underline{z}^k$ at iteration $k$ is the first stage's risk-adjusted value over its openings at the initial state $x_0$ ([Upper Bound Evaluation — Lower bound](/en/math/upper-bound-evaluation#lower-bound)). In each opening's first-stage problem the future cost variable $\theta_1$ enters the objective with the one-step factor $d_{1 \to 2}$, and each later stage's factor carries its cost to stage 1 once (§4), so the lower bound is stated in stage 1 present value.
 
 ## 7 Upper Bound (Simulation) with Discounting
 
@@ -120,7 +120,7 @@ $$
 
 Each stage's immediate cost is explicitly discounted to stage 1 present value using the cumulative discount factor.
 
-For stopping rules that use these bounds, see [Stopping Rules](/math/stopping-rules).
+For stopping rules that use these bounds, see [Stopping Rules](/en/math/stopping-rules).
 
 ## 8 Reporting
 
@@ -128,7 +128,7 @@ Both the lower bound $\underline{z}$ and upper bound $\bar{z}$ represent total e
 
 - A cost $c_t$ incurred at stage $t$ enters both bounds as $d_{1 \to t}\, c_t$
 - Comparisons between bounds and between iterations are valid because they use consistent discounting
-- The simulation output records each stage's immediate cost in that stage's own monetary units (not discounted to stage 1) together with its cumulative factor $d_{1 \to t}$ ([Simulation Output](/reference/output/simulation/#simulationcosts))
+- The simulation output records each stage's immediate cost in that stage's own monetary units (not discounted to stage 1) together with its cumulative factor $d_{1 \to t}$ ([Simulation Output](/en/reference/output/simulation/#simulationcosts))
 
 ## Implementation in Novomodelo
 
@@ -140,9 +140,9 @@ The methodology above defines the stage discount factor and the cumulative disco
 
 ## Cross-References
 
-- [SDDP Algorithm](/math/sddp-algorithm) — Core Bellman equation and forward/backward pass structure that discount rates modify
-- [Cut Management](/math/cut-management) — Cut coefficients remain undiscounted; discount applied to $\theta$ in objective
-- [Stopping Rules](/math/stopping-rules) — Convergence criteria using discounted lower/upper bounds
-- [Upper Bound Evaluation](/math/upper-bound-evaluation) — Inner approximation uses discounted vertex values
-- [Horizon Modes](/math/horizon-modes) — Finite (supported) vs. reserved cyclic policy graphs; the reserved cyclic-mode formal structure (season function, cycle convergence inequality, season-indexed cut pool, fixed-point Bellman operator)
-- [Notation Conventions](/overview/notation-conventions) — Index sets, parameters, decision variables, and dual variables used throughout
+- [SDDP Algorithm](/en/math/sddp-algorithm) — Core Bellman equation and forward/backward pass structure that discount rates modify
+- [Cut Management](/en/math/cut-management) — Cut coefficients remain undiscounted; discount applied to $\theta$ in objective
+- [Stopping Rules](/en/math/stopping-rules) — Convergence criteria using discounted lower/upper bounds
+- [Upper Bound Evaluation](/en/math/upper-bound-evaluation) — Inner approximation uses discounted vertex values
+- [Horizon Modes](/en/math/horizon-modes) — Finite (supported) vs. reserved cyclic policy graphs; the reserved cyclic-mode formal structure (season function, cycle convergence inequality, season-indexed cut pool, fixed-point Bellman operator)
+- [Notation Conventions](/en/overview/notation-conventions) — Index sets, parameters, decision variables, and dual variables used throughout

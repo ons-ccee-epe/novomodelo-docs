@@ -4,14 +4,14 @@ description: The initial_conditions.json file, field by field — the initial re
 ---
 
 This page documents `initial_conditions.json`, which holds the reservoir storage and the pre-study records at the start of
-a study. The [File summary](/reference/case-format/#file-summary) maps every case file to its page, and
-[Conventions](/reference/case-format/#conventions) states the rules shared by all of them.
+a study. The [File summary](/en/reference/case-format/#file-summary) maps every case file to its page, and
+[Conventions](/en/reference/case-format/#conventions) states the rules shared by all of them.
 
 ---
 
 ## `initial_conditions.json`
 
-**Methodology:** [State Augmentation](/math/state-augmentation/) · [System Element Modeling Overview](/math/system-elements/)
+**Methodology:** [State Augmentation](/en/math/state-augmentation/) · [System Element Modeling Overview](/en/math/system-elements/)
 
 Initial reservoir storage, pre-study releases already in transit on declared
 travel-time arcs, and recent observations at the start of the study.
@@ -41,18 +41,18 @@ load. A `storage` value outside the hydro's own storage range
 tolerance of `1e-9`, including for a hydro that enters service later in the
 study. The value is the storage at the start of the first stage and is used as
 declared: the stage `min_storage_hm3` and `max_storage_hm3` of
-[`constraints/hydro_bounds.parquet`](/reference/case-format/constraints/#constraintshydro_boundsparquet)
+[`constraints/hydro_bounds.parquet`](/en/reference/case-format/constraints/#constraintshydro_boundsparquet)
 bound the storage at the end of their stage, not the initial storage. When the
 value lies outside those end-of-stage bounds at the hydro's first operating
 stage, validation warns and names the stage, because that stage must reach the
 bound from its own inflow or release the excess. A hydro dormant at the start
 of the study keeps this storage at every stage before it enters service or
-starts filling ([System Element Modeling Overview](/math/system-elements#not-yet-commissioned-hydros-prefilling)).
+starts filling ([System Element Modeling Overview](/en/math/system-elements#not-yet-commissioned-hydros-prefilling)).
 A hydro listed in neither array starts at its `min_storage_hm3`, or at `0` when
 it has a `filling` configuration or is out of service at the first study stage,
 and an entry whose `hydro_id` names no hydro is ignored; neither draws a
 diagnostic. The `filling_storage` rules are listed under **Validation** on
-[Hydro Plant Files](/reference/case-format/hydros/).
+[Hydro Plant Files](/en/reference/case-format/hydros/).
 
 The PAR lag chain and the mid-period accumulator are seeded from
 `scenarios/inflow_history.parquet`'s windowed record, shadowed day-wise by
@@ -94,7 +94,7 @@ Date ranges for the same hydro must not overlap; adjacent ranges
 negative value is accepted — the quantity is incremental inflow (a plant's
 natural flow minus its upstream plants'), so a negative window is real
 hydrology, and the configured
-[inflow non-negativity](/math/inflow-nonnegativity) method decides how the water
+[inflow non-negativity](/en/math/inflow-nonnegativity) method decides how the water
 balance treats it.
 Semantic validation reports one warning per file naming the negative count
 and the most-negative value's hydro, so a genuinely sign-flipped series still
@@ -105,7 +105,7 @@ rate for an anticipated thermal plant — every delivery the plant **decided
 before the study begins**, whether that delivery matures inside the horizon
 (seeding its ring slot at the first stage) or past it (a commitment decided
 before the study and delivered past the horizon; for the equivalent term in
-other planning tools, see the [Glossary](/reference/glossary)). Each entry is a
+other planning tools, see the [Glossary](/en/reference/glossary)). Each entry is a
 dated window carrying a constant rate:
 
 | Name                                        | Type    | Required | Default | Units | Description                                                                                   |
@@ -136,7 +136,7 @@ Optional; defaults to an empty
 array when no anticipated thermals are present.
 
 See
-[System Element Modeling Overview §4](/math/system-elements#anticipated-thermal-plants) for
+[System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants) for
 the delivery-stage mechanics the windows tile against.
 
 ```json
@@ -155,11 +155,11 @@ the delivery-stage mechanics the windows tile against.
 :::note[Post-horizon deliveries have two declaration surfaces]
 A commitment **decided in-study** whose delivery matures after the horizon is
 bounded and costed **solely** by a `thermal_bounds[]` cell in
-[`post_study_stages.json`](/reference/case-format/stages/#post_study_stagesjson) — the study itself
+[`post_study_stages.json`](/en/reference/case-format/stages/#post_study_stagesjson) — the study itself
 decides the MW, so only its price and capability need declaring. A commitment
 **decided before the study** and delivered past the horizon is instead a
 `past_anticipated_commitments` window extending past the horizon end (above).
-See [Post-Study Boundary & Chained Studies](/math/post-study-boundary) for the boundary
+See [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) for the boundary
 formulation both feed.
 :::
 

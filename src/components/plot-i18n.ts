@@ -84,8 +84,12 @@ function walk(root: Element) {
     if (t !== null && t !== n.nodeValue) n.nodeValue = t;
   }
 }
+// True when the page's <html lang> is a Portuguese one.
+export function isPtPage(lang: string): boolean {
+  return lang.toLowerCase().startsWith("pt");
+}
 export function initPlotI18n() {
-  if (!location.pathname.includes("/pt-br")) return;
+  if (!isPtPage(document.documentElement.lang)) return;
   const sel = '[role="img"][aria-label]';
   const run = () => document.querySelectorAll(sel).forEach((e) => walk(e));
   run();

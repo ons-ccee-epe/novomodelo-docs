@@ -13,19 +13,19 @@ modelos hidrelétricos.
 
 Registro de convergência por iteração. Uma linha por iteração do treinamento (training). 16 colunas.
 
-**Metodologia:** [Critérios de parada](/pt-br/math/stopping-rules) · [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation)
+**Metodologia:** [Critérios de parada](/math/stopping-rules) · [Avaliação do limite superior](/math/upper-bound-evaluation)
 
 | Nome               | Tipo    | Anulável | Unidades | Descrição |
 | ------------------ | ------- | -------- | -------- | --------- |
 | `iteration`        | Int32   | Não      | —        | Número da iteração do treinamento (a partir de 1). |
-| `lower_bound`      | Float64 | Não      | —        | Limite inferior do custo ajustado ao risco após esta iteração: o valor ajustado ao risco do primeiro estágio sobre suas aberturas, com os cortes atuais ([limite inferior](/pt-br/math/upper-bound-evaluation/#limite-inferior)). |
-| `upper_bound`      | Float64 | Não      | —        | Limite superior desta iteração. Sob uma simulação forward estatística (amostrada), a média sobre os cenários da simulação forward. Sob uma simulação forward exata (enumerada), o custo esperado dos caminhos enumerados ponderado por suas probabilidades; quando a medida de risco é o mesmo CVaR em todos os estágios, o valor na raiz da recursão aninhada ajustada ao risco (veja [Gerenciamento de cortes — quando os limites e certificados valem](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem)). |
+| `lower_bound`      | Float64 | Não      | —        | Limite inferior do custo ajustado ao risco após esta iteração: o valor ajustado ao risco do primeiro estágio sobre suas aberturas, com os cortes atuais ([limite inferior](/math/upper-bound-evaluation/#limite-inferior)). |
+| `upper_bound`      | Float64 | Não      | —        | Limite superior desta iteração. Sob uma simulação forward estatística (amostrada), a média sobre os cenários da simulação forward. Sob uma simulação forward exata (enumerada), o custo esperado dos caminhos enumerados ponderado por suas probabilidades; quando a medida de risco é o mesmo CVaR em todos os estágios, o valor na raiz da recursão aninhada ajustada ao risco (veja [Gerenciamento de cortes — quando os limites e certificados valem](/math/cut-management#quando-os-limites-e-certificados-valem)). |
 | `upper_bound_std`  | Float64 | Sim      | —        | Desvio-padrão amostral dos custos dos cenários da simulação forward desta iteração. `null` em todas as linhas quando `upper_bound_kind` é `"exact"`. |
 | `upper_bound_kind` | Utf8    | Não      | —        | Regime do limite superior no nível da execução, igual em todas as linhas: `"exact"` sob seleção `enumerated`, `"statistical"` sob seleção `sampled`. |
 | `gap_percent`      | Float64 | Sim      | %        | Gap relativo entre os limites inferior e superior, em porcentagem. `null` quando o limite inferior é zero ou negativo. |
 | `cuts_added`       | Int32   | Não      | —        | Número de novos cortes adicionados ao conjunto de cortes durante a simulação backward desta iteração. |
 | `cuts_removed`     | Int32   | Não      | —        | Cortes desativados nesta iteração, somados sobre os conjuntos: os desativados pela etapa de seleção mais os removidos por `max_active_per_stage`. As reativações não são subtraídas; [`training/cut_selection/iterations.parquet`](#trainingcut_selectioniterationsparquet) as informa por conjunto. `0` quando não há método de seleção nem limite configurado. |
-| `cuts_active`      | Int64   | Não      | —        | Cortes ativos somados sobre os conjuntos ao final da gestão de linhas desta iteração: após o limite, quando ele se aplica; caso contrário, após a etapa de seleção. Os cortes carregados estão incluídos. `row_pool.peak_active` em [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson) é no mínimo o maior valor desta coluna, porque também conta os cortes ativos na troca de cortes de cada iteração, antes da etapa de seleção. |
+| `cuts_active`      | Int64   | Não      | —        | Cortes ativos somados sobre os conjuntos ao final da gestão de linhas desta iteração: após o limite, quando ele se aplica; caso contrário, após a etapa de seleção. Os cortes carregados estão incluídos. `row_pool.peak_active` em [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson) é no mínimo o maior valor desta coluna, porque também conta os cortes ativos na troca de cortes de cada iteração, antes da etapa de seleção. |
 | `time_forward_ms`  | Int64   | Não      | ms       | Tempo de relógio gasto na simulação forward, em milissegundos. |
 | `time_backward_ms` | Int64   | Não      | ms       | Tempo de relógio gasto na simulação backward, em milissegundos. |
 | `time_total_ms`    | Int64   | Não      | ms       | Tempo de relógio total desta iteração, em milissegundos. |
@@ -104,7 +104,7 @@ apenas em uma linha de simulação. 20 colunas. `iteration`, `scenario_id`, `sta
 `opening_index`, `rank` e `worker_id` são Int32 anuláveis; todas as demais colunas
 são não anuláveis.
 
-**Metodologia:** [Aproveitamento de base do PL](/pt-br/math/lp-warm-start)
+**Metodologia:** [Aproveitamento de base do PL](/math/lp-warm-start)
 
 | Nome                         | Tipo    | Anulável | Unidades | Descrição |
 | ---------------------------- | ------- | -------- | -------- | --------- |
@@ -119,7 +119,7 @@ são não anuláveis.
 | `lp_successes`               | UInt32  | Não      | —        | Número de resoluções que retornaram ótimo. |
 | `lp_retries`                 | UInt32  | Não      | —        | Número de resoluções que exigiram pelo menos uma nova tentativa. |
 | `lp_failures`                | UInt32  | Não      | —        | Número de resoluções que falharam após esgotar todos os níveis de nova tentativa. |
-| `lp_row_violations`          | UInt32  | Não      | —        | Número de resoluções cuja solução primal devolvida viola um limite de linha em mais que a tolerância de viabilidade primal mais `1e-11` vezes a magnitude da linha (tomada como no mínimo 1). `0` em uma execução correta; veja [Resoluções que violam um limite de linha](/pt-br/reference/error-codes/#resolucoes-que-violam-um-limite-de-linha). |
+| `lp_row_violations`          | UInt32  | Não      | —        | Número de resoluções cuja solução primal devolvida viola um limite de linha em mais que a tolerância de viabilidade primal mais `1e-11` vezes a magnitude da linha (tomada como no mínimo 1). `0` em uma execução correta; veja [Resoluções que violam um limite de linha](/reference/error-codes/#resolucoes-que-violam-um-limite-de-linha). |
 | `retry_attempts`             | UInt32  | Não      | —        | Total de novas tentativas em todas as resoluções de PL deste agrupamento. |
 | `basis_offered`              | UInt32  | Não      | —        | Número de resoluções às quais se ofereceu uma base inicial (tentativas de aproveitamento de base). No backend HiGHS, `0` em toda resolução de uma fase cujo perfil de solver define `use_warm_start: false`, como faz o perfil embutido de simulação. |
 | `basis_consistency_failures` | UInt32  | Não      | —        | Número de resoluções com aproveitamento de base cuja base o solver rejeitou por ser inconsistente com o modelo. Uma base com menos linhas que o modelo é rejeitada antes de chegar ao solver; essa resolução é contada aqui, mas não em `basis_offered`. |
@@ -147,7 +147,7 @@ não geram linhas; suas novas tentativas aparecem apenas em `lp_retries` e
 | `iteration`   | UInt32 | Não      | —        | Número da iteração do treinamento (a partir de 1). |
 | `phase`       | Utf8   | Não      | —        | Fase do algoritmo: `"backward"` ou `"lower_bound"`. |
 | `stage_id`    | Int32  | Sim      | —        | Id declarado do estágio (de `stages.json`) nas linhas `backward`; `null` nas linhas `lower_bound`. |
-| `retry_level` | UInt32 | Não      | —        | Nível de escalada das novas tentativas: `0` a `11` no HiGHS; o backend CLP não registra contagens por nível, de modo que uma execução com CLP não grava linhas. Veja a seção [Salvaguardas do solver](/pt-br/running/performance/#salvaguardas-do-solver) do guia Aceleradores de desempenho. |
+| `retry_level` | UInt32 | Não      | —        | Nível de escalada das novas tentativas: `0` a `11` no HiGHS; o backend CLP não registra contagens por nível, de modo que uma execução com CLP não grava linhas. Veja a seção [Salvaguardas do solver](/running/performance/#salvaguardas-do-solver) do guia Aceleradores de desempenho. |
 | `count`       | UInt64 | Não      | —        | Número de PLs recuperados neste nível. As contagens não são somadas entre processos nem entre workers. |
 
 ---
@@ -159,7 +159,7 @@ Documenta as faixas de coeficientes antes e depois do escalonamento de colunas/l
 cada estágio, além das distribuições dos fatores de escala aplicados. Útil para
 diagnosticar problemas de condicionamento numérico.
 
-**Metodologia:** [Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling)
+**Metodologia:** [Estrutura e escalonamento do PL](/math/lp-layout-and-scaling)
 
 O JSON é um único objeto de nível superior:
 
@@ -259,7 +259,7 @@ ou `max_active_per_stage` está configurado; caso contrário, o arquivo não exi
 colunas. Uma coluna anulável é nula quando a etapa que ela informa não foi executada no
 conjunto.
 
-**Metodologia:** [Gerenciamento de cortes](/pt-br/math/cut-management)
+**Metodologia:** [Gerenciamento de cortes](/math/cut-management)
 
 | Nome                  | Tipo    | Anulável | Unidades | Descrição |
 | --------------------- | ------- | -------- | -------- | --------- |

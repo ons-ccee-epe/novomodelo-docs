@@ -16,12 +16,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { defaultSlug } from "./locale-id.mjs";
 
 // Where a page link is written: an inline Markdown link (a title may follow),
-// a reference definition, an href attribute, a frontmatter `link:` line. Group
-// 1 is everything before the target, group 2 the root-relative target.
+// a reference definition, an href attribute, the href property of an MDX
+// object literal (the entity pages' link lists), a frontmatter `link:` line.
+// Group 1 is everything before the target, group 2 the root-relative target.
 const LINK_PATTERNS = [
   /(\]\()(\/[^\s)]*)/g,
   /(^\s*\[[^\]]+\]:\s+)(\/\S*)/g,
   /(\shref=["'])(\/[^"'\s]*)/g,
+  /(\bhref:\s*["'`])(\/[^"'`\s]*)/g,
   /(^\s*link:\s+)(\/\S*)/g,
 ];
 const FENCE = /^\s*(```|~~~)/;

@@ -9,13 +9,13 @@ import CvarPlot from "../../../components/CvarPlot.astro";
 
 ## Purpose
 
-This chapter gives a reader new to stochastic dynamic programming the minimum context needed to follow the rest of this site. It covers the SDDP idea in one page; the chapters it links, starting with [SDDP Algorithm](/math/sddp-algorithm), develop each claim in detail.
+This chapter gives a reader new to stochastic dynamic programming the minimum context needed to follow the rest of this site. It covers the SDDP idea in one page; the chapters it links, starting with [SDDP Algorithm](/en/math/sddp-algorithm), develop each claim in detail.
 
 ## 1. The Core Idea
 
 Optimal dispatch over a multi-stage horizon cannot be solved by enumerating all scenarios: the number of scenario paths grows exponentially with the number of stages. SDDP avoids enumeration by exploiting the structure of the problem.
 
-The stages and scenario paths introduced here are the special case of a more general **policy graph** of nodes and transitions; see [Policy Graphs](/math/policy-graphs) for the general structure.
+The stages and scenario paths introduced here are the special case of a more general **policy graph** of nodes and transitions; see [Policy Graphs](/en/math/policy-graphs) for the general structure.
 
 At each stage, the future is summarised by a **cost-to-go function** $V_t$ — the minimum expected cost from that stage forward, as a function of the incoming state (reservoir levels, inflow lags). The dispatch problem obeys a stagewise (Bellman) recursion: the cost-to-go at stage $t$ is the expected cost of the best decision now plus the cost-to-go of the state that decision leaves behind:
 
@@ -35,9 +35,9 @@ In the stage problem the future cost is carried by an epigraph variable $\theta_
 
 The approximation improves iteratively. Starting with no cuts, the algorithm alternates two passes:
 
-**Forward pass**: Starting from the initial state, simulate a batch of scenario paths forward through all stages under the current **policy** — the rule that sets each stage's decisions by solving the stage problem with the current cuts — recording the state each path reaches at every stage. These states are the [**trial points**](/reference/glossary/#sddp-algorithm).
+**Forward pass**: Starting from the initial state, simulate a batch of scenario paths forward through all stages under the current **policy** — the rule that sets each stage's decisions by solving the stage problem with the current cuts — recording the state each path reaches at every stage. These states are the [**trial points**](/en/reference/glossary/#sddp-algorithm).
 
-**Backward pass**: Starting from the last stage and working back to the second, solve each stage's subproblem at every trial point under each of the stage's [**openings**](/reference/glossary/#stochastic-modelling), its pre-generated noise realizations, and aggregate the resulting dual information into one new cut per trial point for the previous stage: the [**single-cut**](/reference/glossary/#sddp-algorithm) formulation. The cut encodes how the cost-to-go changes as the incoming state changes.
+**Backward pass**: Starting from the last stage and working back to the second, solve each stage's subproblem at every trial point under each of the stage's [**openings**](/en/reference/glossary/#stochastic-modelling), its pre-generated noise realizations, and aggregate the resulting dual information into one new cut per trial point for the previous stage: the [**single-cut**](/en/reference/glossary/#sddp-algorithm) formulation. The cut encodes how the cost-to-go changes as the incoming state changes.
 
 ```d2
 direction: down
@@ -69,19 +69,19 @@ _The convex cost-to-go $V(x)$ approximated from below by Benders cuts. Each cut 
 
 SDDP maintains two bounds on the optimal (risk-adjusted) cost:
 
-**Lower bound** $\underline{z}$: The first stage's risk-adjusted value over its openings with the current cuts ([definition](/math/upper-bound-evaluation#lower-bound)). Under the hypotheses of [Cut Management — when bounds and certificates hold](/math/cut-management#when-bounds-and-certificates-hold), this value is a valid lower bound on the optimal (risk-adjusted) cost, and it does not decrease as cuts are added.
+**Lower bound** $\underline{z}$: The first stage's risk-adjusted value over its openings with the current cuts ([definition](/en/math/upper-bound-evaluation#lower-bound)). Under the hypotheses of [Cut Management — when bounds and certificates hold](/en/math/cut-management#when-bounds-and-certificates-hold), this value is a valid lower bound on the optimal (risk-adjusted) cost, and it does not decrease as cuts are added.
 
-**Upper bound** $\bar{z}$: an enumerated forward pass, which visits every scenario path once, gives the policy's exact risk-adjusted cost, an upper bound on the optimal value, when the risk measure is uniform across stages; a sampled forward pass gives the mean cost of its sampled paths, a statistical estimate with a confidence interval that certifies nothing ([Upper Bound Evaluation](/math/upper-bound-evaluation), [Tier 3](/math/cut-management#tier-3-gap-certificate)).
+**Upper bound** $\bar{z}$: an enumerated forward pass, which visits every scenario path once, gives the policy's exact risk-adjusted cost, an upper bound on the optimal value, when the risk measure is uniform across stages; a sampled forward pass gives the mean cost of its sampled paths, a statistical estimate with a confidence interval that certifies nothing ([Upper Bound Evaluation](/en/math/upper-bound-evaluation), [Tier 3](/en/math/cut-management#tier-3-gap-certificate)).
 
-The **optimality gap** is the upper bound minus the lower bound; its percent form normalises that difference by the magnitude of the lower bound, floored at one currency unit (see [Optimality gap](/math/stopping-rules#optimality-gap)).
+The **optimality gap** is the upper bound minus the lower bound; its percent form normalises that difference by the magnitude of the lower bound, floored at one currency unit (see [Optimality gap](/en/math/stopping-rules#optimality-gap)).
 
-Training stops when its stopping rules are met: an iteration or time limit, a stalled lower bound, or, with an exact upper bound, a gap within tolerance ([Stopping Rules](/math/stopping-rules)).
+Training stops when its stopping rules are met: an iteration or time limit, a stalled lower bound, or, with an exact upper bound, a gap within tolerance ([Stopping Rules](/en/math/stopping-rules)).
 
 <ConvergencePlot />
 
 _A non-decreasing lower bound and a sampled upper-bound estimate with its 95% confidence band approach each other across iterations. The band describes the sampled cost and certifies nothing; the gap rule compares the lower bound with an exact upper bound._
 
-Under an expectation measure at every stage and the hypotheses of [Tier 2](/math/cut-management#tier-2-convergence), which also names the cut-selection settings that leave them, the lower bound converges to the optimal value with probability 1 as iterations accumulate. Under a risk-averse measure, convergence of SDDP without cut selection is proved in the literature ([Guigues & Römisch, 2012](/reference/bibliography/#cut-management-and-convergence); [Philpott, de Matos & Finardi, 2013](/reference/bibliography/#risk-measures); [Guigues, 2016](/reference/bibliography/#cut-management-and-convergence)), each under its own hypotheses; Tier 2 states no result for that case.
+Under an expectation measure at every stage and the hypotheses of [Tier 2](/en/math/cut-management#tier-2-convergence), which also names the cut-selection settings that leave them, the lower bound converges to the optimal value with probability 1 as iterations accumulate. Under a risk-averse measure, convergence of SDDP without cut selection is proved in the literature ([Guigues & Römisch, 2012](/en/reference/bibliography/#cut-management-and-convergence); [Philpott, de Matos & Finardi, 2013](/en/reference/bibliography/#risk-measures); [Guigues, 2016](/en/reference/bibliography/#cut-management-and-convergence)), each under its own hypotheses; Tier 2 states no result for that case.
 
 ## 3. Risk Measures
 
@@ -97,7 +97,7 @@ $$
 \rho^{\lambda, \alpha}[Z] = (1 - \lambda)\, \mathbb{E}[Z] + \lambda \cdot \text{CVaR}_\alpha[Z]
 $$
 
-with risk-aversion weight $\lambda \in [0, 1]$ ($\lambda = 0$ recovers the risk-neutral mean, $\lambda = 1$ is pure CVaR). The measure is applied inside the backward pass: cut coefficients are aggregated using risk-weighted averages rather than simple expectations. See [Risk Measures](/math/risk-measures) for the formulation.
+with risk-aversion weight $\lambda \in [0, 1]$ ($\lambda = 0$ recovers the risk-neutral mean, $\lambda = 1$ is pure CVaR). The measure is applied inside the backward pass: cut coefficients are aggregated using risk-weighted averages rather than simple expectations. See [Risk Measures](/en/math/risk-measures) for the formulation.
 
 <CvarPlot />
 
@@ -107,13 +107,13 @@ _Cost distribution with the mean, $\mathrm{VaR}_\alpha$ and $\mathrm{CVaR}_\alph
 
 This overview omits the implementation detail: the LP layout, cut storage, the scenario tree and the warm-start strategy. The System Modelling, Stochastic Modelling and The SDDP Algorithm groups cover them.
 
-For the full algorithm, with stage LP formulation, cut coefficient derivation, and convergence monitoring, see [SDDP Algorithm](/math/sddp-algorithm).
+For the full algorithm, with stage LP formulation, cut coefficient derivation, and convergence monitoring, see [SDDP Algorithm](/en/math/sddp-algorithm).
 
-For the cut mechanics — how cuts are generated, stored, and pruned — see [Cut Management](/math/cut-management).
+For the cut mechanics — how cuts are generated, stored, and pruned — see [Cut Management](/en/math/cut-management).
 
 ## Cross-References
 
-- [SDDP Algorithm](/math/sddp-algorithm) — complete algorithmic treatment: stage LP formulation, cut generation, convergence monitoring
-- [Cut Management](/math/cut-management) — cut storage, Level 1 selection, the dynamic method, and the active-cut cap
-- [Risk Measures](/math/risk-measures) — CVaR and nested risk measure formulations for risk-averse SDDP
-- [Stopping Rules](/math/stopping-rules) — iteration and time limits, bound stalling, the gap rule and how rules combine
+- [SDDP Algorithm](/en/math/sddp-algorithm) — complete algorithmic treatment: stage LP formulation, cut generation, convergence monitoring
+- [Cut Management](/en/math/cut-management) — cut storage, Level 1 selection, the dynamic method, and the active-cut cap
+- [Risk Measures](/en/math/risk-measures) — CVaR and nested risk measure formulations for risk-averse SDDP
+- [Stopping Rules](/en/math/stopping-rules) — iteration and time limits, bound stalling, the gap rule and how rules combine

@@ -14,7 +14,7 @@ emits its output rows, zeroed rather than absent, with the same
 
 An energy contract contributes exactly one LP column per block per direction
 and carries **no state variable** — it is not part of the Bellman recursion
-and contributes no term to the Benders cuts ([Equipment-Specific Formulations §3](/math/equipment-formulations#3-importexport-contracts)). This is a
+and contributes no term to the Benders cuts ([Equipment-Specific Formulations §3](/en/math/equipment-formulations#3-importexport-contracts)). This is a
 structural difference from hydro plants and anticipated thermals, whose
 storage and commitment-ring state variables do carry a cut term. A non-zero
 `min_mw` at a contract's active stages is a hard take-or-pay floor: the LP
@@ -26,7 +26,7 @@ the per-stage cost breakdown of `simulation/costs/`, next to `thermal_cost`.
 ### Pumping stations carry no explicit objective cost
 
 A pumping station's flow variable has **no direct term in the objective
-function** ([Equipment-Specific Formulations §4](/math/equipment-formulations#4-pumping-stations)). The cost of pumping is entirely implicit:
+function** ([Equipment-Specific Formulations §4](/en/math/equipment-formulations#4-pumping-stations)). The cost of pumping is entirely implicit:
 pumping draws power at the connected bus in proportion to pumped flow, and
 that draw is priced by whatever the bus's marginal cost happens to be at
 that stage and scenario — cheap when hydro/renewable surplus is on the
@@ -41,7 +41,7 @@ stage `t` depends only on that stage's own bounds and price. An anticipated
 thermal (`anticipated_config`) is the one exception — its commitment, decided
 at an earlier stage or before the study, is held as commitment-ring state until
 its delivery stage,
-where the plant's generation must deliver it ([System Element Modeling Overview §4](/math/system-elements#anticipated-thermal-plants)). The
+where the plant's generation must deliver it ([System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants)). The
 `anticipated_decision(N)` generic-constraint expression lets a case author
 cap or floor that forward commitment directly; referencing a non-anticipated
 thermal with this expression is a hard load-time error, and referencing an
@@ -51,7 +51,7 @@ accepted but flagged, since it does not read the forward commitment.
 ### Over-commitment is rejected at case load, not reconciled per solve
 
 A delivered commitment's forward value is held as commitment-ring state, so at
-its delivery stage the fish row ([State Augmentation §5](/math/state-augmentation#ring-rows)) reads the solver's computed value
+its delivery stage the fish row ([State Augmentation §5](/en/math/state-augmentation#ring-rows)) reads the solver's computed value
 — accurate only to the LP backend's feasibility tolerance, not exact. Novomodelo runs
 **no** per-solve reconciliation pass. Instead, the outgoing state is
 **canonicalized onto its admissible bounds when it is read back** from each
@@ -60,8 +60,8 @@ commitment that settles a hair outside its cap is clamped back in-box before it
 is carried forward, so training continues normally instead of surfacing a
 spurious infeasible LP. This is the single read-back canonicalization seam the
 methodology states once — see
-[SDDP Algorithm §3.1](/math/sddp-algorithm#31-forward-pass) and
-[Determinism & Provenance §3](/math/determinism-guarantees#3-methodology-mechanisms).
+[SDDP Algorithm §3.1](/en/math/sddp-algorithm#31-forward-pass) and
+[Determinism & Provenance §3](/en/math/determinism-guarantees#3-methodology-mechanisms).
 
 A commitment **genuinely** beyond the plant's generation bounds is not a solver
 artifact and is not absorbed by that clamp. It is caught **at case load**, when
@@ -69,7 +69,7 @@ artifact and is not absorbed by that clamp. It is caught **at case load**, when
 (see the Configure tab). A `value_mw` outside the bounds admissible at a covered
 delivery stage is a named load-time error that identifies the thermal, the
 offending window, the `value_mw`, and the bounds it violates — not a bare
-infeasible LP surfacing mid-solve. See [Error Codes](/reference/error-codes) for
+infeasible LP surfacing mid-solve. See [Error Codes](/en/reference/error-codes) for
 the failure class.
 
 ### Must-run NCS and the double-discount trap

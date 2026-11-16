@@ -131,12 +131,12 @@ computed evaporation coefficient — volume slope or intercept — that is not
 finite (the signature of a degenerate area-volume curve). The calendar month
 that selects each stage's monthly evaporation coefficient is taken from that
 stage's start date. See
-[Penalty System — Signed Net Evaporation](/math/penalty-system#signed-net-evaporation)
+[Penalty System — Signed Net Evaporation](/en/math/penalty-system#signed-net-evaporation)
 for the water-balance treatment of the resulting flux.
 
 ### Commissioning: the PreFilling state
 
-A hydro's `entry_stage_id`/`exit_stage_id` commissioning window is honored even for a **non-filling** hydro (one with no `filling` block). At any stage outside its window — before `entry_stage_id`, or from `exit_stage_id` onward — the plant is **PreFilling**: the site is not in service, so its turbine, spillage, and diversion columns are pinned to zero, its storage is frozen by the identity $v_h = v^{in}_h$, and its local inflow with its inflow non-negativity slack, the upstream releases, the flows diverted in and the in-transit water maturing into it are routed past the site to the first downstream plant that is not PreFilling (or leaves the modelled system if there is none). A plant dormant before its `entry_stage_id` therefore keeps its `initial_conditions.json` storage at every dormant stage. At a PreFilling stage the storage column has a floor of `0` and a ceiling never below the plant's own `max_storage_hm3`, so a stage `max_storage_hm3` in `constraints/hydro_bounds.parquet` below the kept storage does not make that stage infeasible. Unlike the generic outside-window zero-pin used for the other entity types, the river is never trapped or duplicated at a site that is not in service. See [LP Formulation — Lifecycle Phases](/math/lp-formulation#lifecycle-phases) for every phase and [Penalty System](/math/penalty-system) for the spillage-frozen-versus-costed distinction.
+A hydro's `entry_stage_id`/`exit_stage_id` commissioning window is honored even for a **non-filling** hydro (one with no `filling` block). At any stage outside its window — before `entry_stage_id`, or from `exit_stage_id` onward — the plant is **PreFilling**: the site is not in service, so its turbine, spillage, and diversion columns are pinned to zero, its storage is frozen by the identity $v_h = v^{in}_h$, and its local inflow with its inflow non-negativity slack, the upstream releases, the flows diverted in and the in-transit water maturing into it are routed past the site to the first downstream plant that is not PreFilling (or leaves the modelled system if there is none). A plant dormant before its `entry_stage_id` therefore keeps its `initial_conditions.json` storage at every dormant stage. At a PreFilling stage the storage column has a floor of `0` and a ceiling never below the plant's own `max_storage_hm3`, so a stage `max_storage_hm3` in `constraints/hydro_bounds.parquet` below the kept storage does not make that stage infeasible. Unlike the generic outside-window zero-pin used for the other entity types, the river is never trapped or duplicated at a site that is not in service. See [LP Formulation — Lifecycle Phases](/en/math/lp-formulation#lifecycle-phases) for every phase and [Penalty System](/en/math/penalty-system) for the spillage-frozen-versus-costed distinction.
 
 ### Water travel time: in-transit seed and validation
 
@@ -165,18 +165,18 @@ Load-time validation of a declared arc:
   the downstream plant and the conflicting arcs; align the arcs'
   `travel_time_hours`, or keep every study stage in parallel block mode. Equal
   travel times into a confluence, or a study with no chronological stage, are
-  unaffected. See [Error Codes — `NotImplemented`](/reference/error-codes/#notimplemented).
+  unaffected. See [Error Codes — `NotImplemented`](/en/reference/error-codes/#notimplemented).
 - **Zero, absent, or invalid travel time.** A zero or absent `travel_time_hours`
   is treated as undeclared — an instantaneous transfer that creates no
   cross-stage arc, adds no in-transit bucket, and needs no `past_defluences`
   seed. An **explicit** `0.0` additionally logs a **model-quality warning** that
   it is being read as undeclared, so a deliberate zero is flagged while an
   omitted field stays silent. A **negative or non-finite** `travel_time_hours`
-  is a hard load-time error. See [Error Codes](/reference/error-codes).
+  is a hard load-time error. See [Error Codes](/en/reference/error-codes).
 - **Model-quality warnings (non-blocking).** Two further conditions on a
   declared arc are reported as `warning:` lines after `Valid case: …`; the case
   still loads and runs. See
-  [Error Codes — `ModelQuality`](/reference/error-codes/#modelquality).
+  [Error Codes — `ModelQuality`](/en/reference/error-codes/#modelquality).
   - **Negligible travel time.** When `travel_time_hours` is below 1 % of every
     study stage's length (`travel_time_hours / stage hours < 0.01` on every
     stage), the arc carries a negligible cross-stage fraction; the warning
@@ -194,8 +194,8 @@ leaves the modelled system only when no such plant exists.
 **Horizon limitation.** Without a loaded terminal boundary, in-transit water
 that would mature after the last stage is dropped; with one, it is carried to
 the terminal stage and priced there ([State Augmentation — Horizon
-limitation](/math/state-augmentation#horizon-limitation), [Post-Study
-Boundary & Chained Studies](/math/post-study-boundary)).
+limitation](/en/math/state-augmentation#horizon-limitation), [Post-Study
+Boundary & Chained Studies](/en/math/post-study-boundary)).
 
 ### Bus-partitioned hydro: cell collapse and the generation-sum caveat
 

@@ -10,9 +10,9 @@ import { Content as BlocksNotes } from './_impl/_blocks.notes.mdx';
 
 This chapter defines the two block formulations supported by Novomodelo — parallel and chronological — which determine how intra-stage time periods (e.g., peak, off-peak, or hourly resolution) are handled in the LP. The choice of block formulation affects water balance constraints, LP size, and the ability to model intra-stage storage dynamics.
 
-For the variable and set definitions used here, see [Notation Conventions](/overview/notation-conventions). For how blocks integrate into the full LP, see [LP Formulation](/math/lp-formulation). For the system elements that participate in block constraints, see [System Element Modeling Overview](/math/system-elements).
+For the variable and set definitions used here, see [Notation Conventions](/en/overview/notation-conventions). For how blocks integrate into the full LP, see [LP Formulation](/en/math/lp-formulation). For the system elements that participate in block constraints, see [System Element Modeling Overview](/en/math/system-elements).
 
-For the entity view of this chapter, see [Horizon, stages and load blocks](/entities/time-structure/).
+For the entity view of this chapter, see [Horizon, stages and load blocks](/en/entities/time-structure/).
 
 ## 1. Parallel Blocks (Default)
 
@@ -35,7 +35,7 @@ where:
 - $r_h$ is the stage-level withdrawal target
 - $\text{net\_flows}_{h,k}$ is the net flow of block $k$: the turbined and spilled release credited from upstream and the flows diverted and pumped in, minus the plant's own turbined, spilled and diverted flow and its pumped-out flow
 
-This formulation assumes the reservoir can freely redistribute water across blocks within the stage. The canonical row with every term — the in-transit arrivals, the travel-time shares and the withdrawal and inflow slacks — is [LP Formulation §4](/math/lp-formulation#4-hydro-water-balance).
+This formulation assumes the reservoir can freely redistribute water across blocks within the stage. The canonical row with every term — the in-transit arrivals, the travel-time shares and the withdrawal and inflow slacks — is [LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance).
 
 ### 1.2 Characteristics
 
@@ -44,7 +44,7 @@ This formulation assumes the reservoir can freely redistribute water across bloc
 | LP size          | Smaller: one water-balance row per hydro and one evaporation row per evaporating hydro |
 | Storage dynamics | End-of-stage only                                                            |
 | Use case         | Long-term strategic planning                                                 |
-| Configuration    | Selected per stage in the case's stage definitions ([Stage Files](/reference/case-format/stages/#stagesjson)) |
+| Configuration    | Selected per stage in the case's stage definitions ([Stage Files](/en/reference/case-format/stages/#stagesjson)) |
 
 ## 2. Chronological Blocks
 
@@ -54,7 +54,7 @@ In chronological blocks mode, blocks are **sequential** within each stage, enabl
 
 | Variable  | Domain                         | Units | Description                 |
 | --------- | ------------------------------ | ----- | --------------------------- |
-| $v_{h,k}$ | The bounds of $v_h$, $[\underline{V}_h, \bar{V}_h]$ with the floor and ceiling of [LP Formulation §8](/math/lp-formulation#8-variable-bounds-and-minimum-constraints) | hm³   | Storage at end of block $k$ |
+| $v_{h,k}$ | The bounds of $v_h$, $[\underline{V}_h, \bar{V}_h]$ with the floor and ceiling of [LP Formulation §8](/en/math/lp-formulation#8-variable-bounds-and-minimum-constraints) | hm³   | Storage at end of block $k$ |
 
 The end-of-stage storage (state variable) is: $v_h = v_{h,|\mathcal{K}|}$
 
@@ -66,7 +66,7 @@ $$
 v_{h,k} = v_{h,k-1} + \zeta_k \, \big( a_h - e_{h,k} - r_h + \text{net\_flows}_{h,k} \big)
 $$
 
-$\text{net\_flows}_{h,k}$ credits the upstream release of block $k$ in full; for an upstream plant on a travel-time arc into $h$, the row of block $k$ instead credits the per-block same-stage shares of that plant's release in blocks $k' \le k$ ([LP Formulation — Chronological-Stage Rows](/math/lp-formulation#chronological-stage-rows)).
+$\text{net\_flows}_{h,k}$ credits the upstream release of block $k$ in full; for an upstream plant on a travel-time arc into $h$, the row of block $k$ instead credits the per-block same-stage shares of that plant's release in blocks $k' \le k$ ([LP Formulation — Chronological-Stage Rows](/en/math/lp-formulation#chronological-stage-rows)).
 
 Block $k$ receives $\zeta_k\,a_h = w_k\,\zeta\,a_h$ of the stage's inflow and the share $w_k \zeta \sigma_{m(t)} \varepsilon_t$ of its innovation. Each block chains its storage from the previous block's end storage $v_{h,k-1}$, so the per-block boundaries $v_{h,0} = \hat{v}_h, v_{h,1}, \ldots, v_{h,|\mathcal{K}|}$ form a within-stage storage trajectory.
 
@@ -78,10 +78,10 @@ $$
 v_h = v^{in}_h + \zeta \, (a_h - r_h) - \sum_{k \in \mathcal{K}} \zeta_k \, e_{h,k} + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
 $$
 
-This is the §1.1 row with the per-block evaporation $\sum_{k \in \mathcal{K}} \zeta_k\,e_{h,k}$ in place of $\zeta\,e_h$ and, on a travel-time arc, per-block same-stage shares of the upstream release (see [LP Formulation — Summing the Block Rows](/math/lp-formulation#summing-the-block-rows)).
+This is the §1.1 row with the per-block evaporation $\sum_{k \in \mathcal{K}} \zeta_k\,e_{h,k}$ in place of $\zeta\,e_h$ and, on a travel-time arc, per-block same-stage shares of the upstream release (see [LP Formulation — Summing the Block Rows](/en/math/lp-formulation#summing-the-block-rows)).
 
 :::note[Pre-commissioning hydros]
-A PreFilling hydro — a filling hydro before its filling start stage, or a hydro without a filling period at any stage outside its commissioning window — freezes each block's storage identity in chronological mode — $v_{h,k} - v_{h,k-1} = 0$ for every block — holding storage constant while the site does not yet exist. See [System Element Modeling Overview](/math/system-elements) for the full commissioning lifecycle.
+A PreFilling hydro — a filling hydro before its filling start stage, or a hydro without a filling period at any stage outside its commissioning window — freezes each block's storage identity in chronological mode — $v_{h,k} - v_{h,k-1} = 0$ for every block — holding storage constant while the site does not yet exist. See [System Element Modeling Overview](/en/math/system-elements) for the full commissioning lifecycle.
 :::
 
 ### 2.4 Per-Block Production and Evaporation
@@ -105,13 +105,13 @@ Inter-block storages $v_{h,k}$ for $k < |\mathcal{K}|$ are internal LP variables
 
 ### 2.6 Cut Coefficient Extraction
 
-In chronological mode, the incoming storage LP variable $v^{in}_h$ is pinned to its trial value $\hat{v}_h$ by equal column bounds (see [State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds)). The **reduced cost** of that pinned column gives the storage cut coefficient directly:
+In chronological mode, the incoming storage LP variable $v^{in}_h$ is pinned to its trial value $\hat{v}_h$ by equal column bounds (see [State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)). The **reduced cost** of that pinned column gives the storage cut coefficient directly:
 
 $$
 \beta^v_h = \bar{c}^{in}_h / d^{col}_h
 $$
 
-As a subgradient of the stage's optimal value in the pinned incoming storage ([Cut Management §2](/math/cut-management#2-reduced-cost-extraction)), this reduced cost automatically captures all downstream effects through the chain of inter-block water balances ($v^{in}_h \to v_{h,1} \to \ldots \to v_{h,|\mathcal{K}|}$), FPHA constraints, and generic constraints. No special handling or dual combination is required. See [Cut Management](/math/cut-management).
+As a subgradient of the stage's optimal value in the pinned incoming storage ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction)), this reduced cost automatically captures all downstream effects through the chain of inter-block water balances ($v^{in}_h \to v_{h,1} \to \ldots \to v_{h,|\mathcal{K}|}$), FPHA constraints, and generic constraints. No special handling or dual combination is required. See [Cut Management](/en/math/cut-management).
 
 ### 2.7 Characteristics
 
@@ -120,7 +120,7 @@ As a subgradient of the stage's optimal value in the pinned incoming storage ([C
 | LP size          | Larger: $N_{hydro} \times (\lvert\mathcal{K}\rvert - 1)$ more storage columns and water-balance rows, and $\lvert\mathcal{K}\rvert$ evaporation rows (each with its evaporation column and two slack columns) per evaporating hydro instead of one |
 | Storage dynamics | Intra-stage cycling modeled                                                       |
 | Use case         | Short-term planning with storage cycling                                          |
-| Configuration    | Selected per stage in the case's stage definitions ([Stage Files](/reference/case-format/stages/#stagesjson)) |
+| Configuration    | Selected per stage in the case's stage definitions ([Stage Files](/en/reference/case-format/stages/#stagesjson)) |
 
 ## 3. Comparison Summary
 
@@ -171,11 +171,11 @@ Only end-of-stage storage $v_h$ is carried as storage state (§2.5); the interio
 
 ### 4.2 What a cut means under another partition
 
-A cut is a valid lower approximation of the cost-to-go of the model it was trained on ([Cut Management — when bounds and certificates hold](/math/cut-management#when-bounds-and-certificates-hold)). A different block partition, different block durations, or the other formulation defines a different stage model, with its own stage costs and feasible sets and therefore its own cost-to-go. The trained cuts need not lie below that cost-to-go; depending on how the two models differ, they can underestimate or overestimate it.
+A cut is a valid lower approximation of the cost-to-go of the model it was trained on ([Cut Management — when bounds and certificates hold](/en/math/cut-management#when-bounds-and-certificates-hold)). A different block partition, different block durations, or the other formulation defines a different stage model, with its own stage costs and feasible sets and therefore its own cost-to-go. The trained cuts need not lie below that cost-to-go; depending on how the two models differ, they can underestimate or overestimate it.
 
-A policy evaluated under another partition is therefore a heuristic with no bound guarantee. The lower bound reached in training bounds the optimal value of the trained model; it need not bound the other model's optimal value from below, and the [optimality gap](/math/stopping-rules#optimality-gap) between it and a cost simulated under the other partition certifies nothing. The simulated cost estimates what the policy costs in the other model, and nothing bounds how far that lies from the other model's optimum. Training under a coarse partition and simulating under a finer one is a use of this kind.
+A policy evaluated under another partition is therefore a heuristic with no bound guarantee. The lower bound reached in training bounds the optimal value of the trained model; it need not bound the other model's optimal value from below, and the [optimality gap](/en/math/stopping-rules#optimality-gap) between it and a cost simulated under the other partition certifies nothing. The simulated cost estimates what the policy costs in the other model, and nothing bounds how far that lies from the other model's optimum. Training under a coarse partition and simulating under a finer one is a use of this kind.
 
-Cuts injected as a terminal boundary ([Post-Study Boundary & Chained Studies](/math/post-study-boundary)) from a study trained under another partition have the same status: they lower-approximate the source model's cost-to-go and carry no bound guarantee for a continuation modeled under the current partition.
+Cuts injected as a terminal boundary ([Post-Study Boundary & Chained Studies](/en/math/post-study-boundary)) from a study trained under another partition have the same status: they lower-approximate the source model's cost-to-go and carry no bound guarantee for a continuation modeled under the current partition.
 
 ## 5. Note on Fine-Grained Temporal Resolution
 
@@ -191,8 +191,8 @@ The methodology above defines the two block formulations and what a cut means ac
 
 ## Cross-References
 
-- [Notation Conventions](/overview/notation-conventions) — variable and set definitions ($v_h$, $v^{in}_h$, $\hat{v}_h$, $\mathcal{K}$, $\tau_k$, $w_k$, $\zeta_k$)
-- [System Element Modeling Overview](/math/system-elements) — hydro plant element description and decision variables
-- [LP Formulation](/math/lp-formulation) — how block formulations integrate into the assembled LP
-- [Cut Management](/math/cut-management) — cut coefficient extraction from pinned-column reduced costs
-- [Hydro Production Function Models](/math/hydro-production-models) — production function constraints that operate within each block
+- [Notation Conventions](/en/overview/notation-conventions) — variable and set definitions ($v_h$, $v^{in}_h$, $\hat{v}_h$, $\mathcal{K}$, $\tau_k$, $w_k$, $\zeta_k$)
+- [System Element Modeling Overview](/en/math/system-elements) — hydro plant element description and decision variables
+- [LP Formulation](/en/math/lp-formulation) — how block formulations integrate into the assembled LP
+- [Cut Management](/en/math/cut-management) — cut coefficient extraction from pinned-column reduced costs
+- [Hydro Production Function Models](/en/math/hydro-production-models) — production function constraints that operate within each block

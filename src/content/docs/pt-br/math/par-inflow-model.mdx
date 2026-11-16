@@ -13,7 +13,7 @@ import AcfPacfPlot from "../../../../components/AcfPacfPlot.astro";
 
 Este capítulo define o modelo autorregressivo periódico de ordem $p$ (PAR(p)) usado para capturar a correlação temporal das séries de afluências. Ele apresenta o modelo, seus parâmetros e as grandezas armazenadas para ele (§1); a forma consumida pelo subproblema do estágio no PL (§2); a estimação dos parâmetros a partir do histórico de vazões, incluindo a seleção de ordem (§3); o fechamento que deriva a escala do ruído (inovação) a partir dos coeficientes AR (§4); os invariantes de validação (§5); a estimação e a fatoração da correlação espacial entre usinas hidrelétricas (§6); e a extensão opcional PAR(p)-A, que acrescenta um único coeficiente anual à estrutura AR periódica para capturar a persistência hidrológica plurianual (§7).
 
-Para a visão por entidade deste capítulo, veja [Afluências e modelo PAR(p)](/pt-br/entities/inflows/inflows/).
+Para a visão por entidade deste capítulo, veja [Afluências e modelo PAR(p)](/entities/inflows/inflows/).
 
 ## 1. Definição do modelo
 
@@ -27,10 +27,10 @@ em que:
 
 - $a_{h,t}$: vazão incremental no estágio $t$ (m³/s)
 - $\mu_{m(t)}$: média sazonal do período sazonal $m(t)$
-- [$\psi_{m(t),\ell}$](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias): coeficiente autorregressivo da defasagem $\ell$ no período sazonal $m(t)$
+- [$\psi_{m(t),\ell}$](/overview/notation-conventions#35-parametros-do-modelo-de-afluencias): coeficiente autorregressivo da defasagem $\ell$ no período sazonal $m(t)$
 - $\sigma_{m(t)}$: desvio-padrão do ruído do período sazonal $m(t)$ (**derivado** na carga — veja §4)
-- [$\varepsilon_t$](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias) $\sim \mathcal{N}(0, 1)$: ruído (inovação) padronizado
-- $m(t)$: o período sazonal resolvido do estágio $t$; os períodos sazonais das defasagens são os antecessores no calendário (veja [Convenções de notação](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias))
+- [$\varepsilon_t$](/overview/notation-conventions#35-parametros-do-modelo-de-afluencias) $\sim \mathcal{N}(0, 1)$: ruído (inovação) padronizado
+- $m(t)$: o período sazonal resolvido do estágio $t$; os períodos sazonais das defasagens são os antecessores no calendário (veja [Convenções de notação](/overview/notation-conventions#35-parametros-do-modelo-de-afluencias))
 
 A ordem $p$ do modelo pode variar por período sazonal e por usina hidrelétrica.
 
@@ -116,9 +116,9 @@ Outras implementações do PAR(p) podem seguir convenções diferentes:
 
 - é comum escreverem os coeficientes autorregressivos como $\phi$, que este capítulo escreve como $\psi$ (unidades originais) e $\psi^*$ (padronizado);
 - algumas armazenam o desvio-padrão do ruído, enquanto este modelo armazena o desvio-padrão amostral sazonal $s_m$ e deriva o desvio-padrão do ruído $\sigma_m = s_m\, r_m$ na carga (§4);
-- algumas sorteiam os resíduos de uma distribuição lognormal, enquanto os ruídos deste modelo são gaussianos e as realizações negativas são tratadas como em [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity).
+- algumas sorteiam os resíduos de uma distribuição lognormal, enquanto os ruídos deste modelo são gaussianos e as realizações negativas são tratadas como em [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity).
 
-Para termos equivalentes em outras ferramentas de planejamento, veja o [Glossário](/pt-br/reference/glossary).
+Para termos equivalentes em outras ferramentas de planejamento, veja o [Glossário](/reference/glossary).
 :::
 
 ## 2. Forma no PL
@@ -188,7 +188,7 @@ Em estudos que cobrem parte do ano, as médias dos períodos sazonais das defasa
 
 ### 2.5 Afluências defasadas fixadas por limites das colunas
 
-As afluências defasadas $a_{h,\ell}$ são **variáveis do PL**, e não valores substituídos. No PL, elas aparecem com coeficientes $-\psi_{m(t),\ell}$ na linha de restrição da dinâmica AR, e cada coluna de defasagem de entrada é fixada no valor de defasagem da trajetória $\hat{a}_{h,\ell}$ definindo ambos os seus limites de coluna com esse valor: não há linhas de fixação, como ocorre com toda variável de estado em [Aumento do espaço de estados §2](/pt-br/math/state-augmentation#2-fixacao-por-limites-de-coluna). O valor $\hat{a}_{h,\ell}$ é atualizado por cenário a partir do registro da trajetória.
+As afluências defasadas $a_{h,\ell}$ são **variáveis do PL**, e não valores substituídos. No PL, elas aparecem com coeficientes $-\psi_{m(t),\ell}$ na linha de restrição da dinâmica AR, e cada coluna de defasagem de entrada é fixada no valor de defasagem da trajetória $\hat{a}_{h,\ell}$ definindo ambos os seus limites de coluna com esse valor: não há linhas de fixação, como ocorre com toda variável de estado em [Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna). O valor $\hat{a}_{h,\ell}$ é atualizado por cenário a partir do registro da trajetória.
 
 Como a contribuição das defasagens $\sum_\ell \psi_{m(t),\ell} \cdot a_{h,\ell}$ é representada na matriz de restrições (e não no lado direito), o lado direito da restrição da dinâmica AR se reduz a:
 
@@ -206,7 +206,7 @@ Os coeficientes $\psi_{m(t),\ell}$ são gravados na matriz de restrições **uma
 
 Nenhuma divisão, nenhuma subtração de médias, nenhuma transformação repetida de coeficientes — os três componentes pré-calculados do PL eliminam toda a aritmética redundante do caminho crítico.
 
-A inclusão das afluências defasadas nos cortes de um estágio é uma escolha por estágio; um corte que as projeta para fora incorpora sua contribuição ao termo independente, avaliada nos valores de defasagem do estado visitado (veja [Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)).
+A inclusão das afluências defasadas nos cortes de um estágio é uma escolha por estágio; um corte que as projeta para fora incorpora sua contribuição ao termo independente, avaliada nos valores de defasagem do estado visitado (veja [Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)).
 
 ### 2.6 Resumo dos componentes do PL
 
@@ -218,7 +218,7 @@ A inclusão das afluências defasadas nos cortes de um estágio é uma escolha p
 
 ## 3. Estimação
 
-Em estudos com múltiplas resoluções (agregação mensal→trimestral), o mesmo procedimento de ajuste se aplica após a agregação ponderada pela duração; veja [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies).
+Em estudos com múltiplas resoluções (agregação mensal→trimestral), o mesmo procedimento de ajuste se aplica após a agregação ponderada pela duração; veja [Estudos com múltiplas resoluções](/math/multi-resolution-studies).
 
 Esta seção documenta o procedimento de ajuste dos parâmetros do PAR(p) a partir do histórico de vazões. O ajuste é feito quando o sistema deriva os parâmetros do histórico de vazões. Quando estatísticas sazonais e coeficientes AR previamente calculados são fornecidos diretamente, esse procedimento não é executado. A escala do ruído deliberadamente **não** faz parte do ajuste: ela é derivada dos coeficientes armazenados na carga (§4.1), de forma idêntica para modelos ajustados e fornecidos pelo usuário (§4.2).
 
@@ -311,7 +311,7 @@ $$
 \hat{s}_m = \sqrt{\frac{1}{N_m} \sum_{t: m(t) = m} (a_{h,t} - \bar{a}_m)^2}
 $$
 
-O estimador usa o **divisor populacional** $1/N_m$, e não o divisor com correção de Bessel $1/(N_m - 1)$. Esse é o divisor do estimador da autocovariância amostral de [Box & Jenkins (1976)](/pt-br/reference/bibliography/#modelagem-de-afluencias) e é compartilhado pelos caminhos do PAR(p) clássico e do PAR(p)-A. O divisor populacional é necessário para que os valores da FACP condicional e as ordens selecionadas no caminho do PAR(p)-A sejam autoconsistentes — com a correção de Bessel, o fator de escala amostral vs. populacional se propaga para todas as correlações cruzadas Z⊗A. Usar o mesmo divisor no caminho clássico mantém a saída de estatísticas sazonais dos dois caminhos reutilizável entre configurações.
+O estimador usa o **divisor populacional** $1/N_m$, e não o divisor com correção de Bessel $1/(N_m - 1)$. Esse é o divisor do estimador da autocovariância amostral de [Box & Jenkins (1976)](/reference/bibliography/#modelagem-de-afluencias) e é compartilhado pelos caminhos do PAR(p) clássico e do PAR(p)-A. O divisor populacional é necessário para que os valores da FACP condicional e as ordens selecionadas no caminho do PAR(p)-A sejam autoconsistentes — com a correção de Bessel, o fator de escala amostral vs. populacional se propaga para todas as correlações cruzadas Z⊗A. Usar o mesmo divisor no caminho clássico mantém a saída de estatísticas sazonais dos dois caminhos reutilizável entre configurações.
 
 ### 3.3 Classificação dos grupos históricos
 
@@ -417,7 +417,7 @@ $$
 \end{pmatrix}
 $$
 
-em que os índices de período sazonal são tomados módulo $M$ em $\{1, \ldots, M\}$, de modo que o período sazonal $0$ é o período sazonal $M$ (veja [Convenções de notação](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias)).
+em que os índices de período sazonal são tomados módulo $M$ em $\{1, \ldots, M\}$, de modo que o período sazonal $0$ é o período sazonal $M$ (veja [Convenções de notação](/overview/notation-conventions#35-parametros-do-modelo-de-afluencias)).
 
 Em notação matricial: $\mathbf{R}_m \boldsymbol{\psi}_m^* = \hat{\boldsymbol{\rho}}_m$
 
@@ -441,7 +441,7 @@ O sistema é resolvido por eliminação gaussiana com pivoteamento parcial, nume
 **Sistema singular.** Quando o sistema periódico de Yule-Walker é singular na ordem $k$, a FACP da §3.6 para na defasagem $k-1$, de modo que apenas defasagens inferiores a $k$ podem ser selecionadas e o ajuste na ordem selecionada não encontra sistema singular.
 
 :::note[Formulação de referência]
-Este é o sistema periódico de Yule-Walker clássico da literatura de modelos PAR ([Hipel & McLeod, 1994](/pt-br/reference/bibliography/#modelagem-de-afluencias), cap. 14), escrito na forma de correlações. A apresentação canônica o enuncia em autocovariâncias $\gamma$, com coeficientes em unidades originais $\psi_{m,\ell}$; dividir cada linha $\ell'$ desse sistema por $s_m\,s_{m-\ell'}$ e substituir $\psi^*_{m,\ell} = \psi_{m,\ell}\,s_{m-\ell}/s_m$ resulta exatamente na matriz acima. A linha da defasagem 0 da mesma dedução — a identidade da variância $\gamma_m(0) = \sum_\ell \psi_{m,\ell}\,\gamma_m(\ell) + \sigma_m^2$ —, dividida por $s_m^2$, torna-se a decomposição da variância unitária $1 = \sum_\ell \psi^*_{m,\ell}\,\rho_m(\ell) + r_m^2$ que o fechamento da §4.1 avalia sobre a FAC implícita do modelo.
+Este é o sistema periódico de Yule-Walker clássico da literatura de modelos PAR ([Hipel & McLeod, 1994](/reference/bibliography/#modelagem-de-afluencias), cap. 14), escrito na forma de correlações. A apresentação canônica o enuncia em autocovariâncias $\gamma$, com coeficientes em unidades originais $\psi_{m,\ell}$; dividir cada linha $\ell'$ desse sistema por $s_m\,s_{m-\ell'}$ e substituir $\psi^*_{m,\ell} = \psi_{m,\ell}\,s_{m-\ell}/s_m$ resulta exatamente na matriz acima. A linha da defasagem 0 da mesma dedução — a identidade da variância $\gamma_m(0) = \sum_\ell \psi_{m,\ell}\,\gamma_m(\ell) + \sigma_m^2$ —, dividida por $s_m^2$, torna-se a decomposição da variância unitária $1 = \sum_\ell \psi^*_{m,\ell}\,\rho_m(\ell) + r_m^2$ que o fechamento da §4.1 avalia sobre a FAC implícita do modelo.
 :::
 
 ### 3.6 Seleção de ordem
@@ -471,7 +471,7 @@ A figura abaixo aplica a regra a uma série sintética: um processo PAR(1) com d
 
 <AcfPacfPlot />
 
-**Validação pós-seleção — redução iterativa de ordem ([Maceira & Damázio, 2006](/pt-br/reference/bibliography/#modelagem-de-afluencias))**: após a seleção pela FACP, calcula-se para cada período sazonal a influência composta de cada defasagem sobre a afluência corrente, ao longo da cadeia periódica, mantendo fixas as afluências anteriores a $t-\ell$ e os ruídos:
+**Validação pós-seleção — redução iterativa de ordem ([Maceira & Damázio, 2006](/reference/bibliography/#modelagem-de-afluencias))**: após a seleção pela FACP, calcula-se para cada período sazonal a influência composta de cada defasagem sobre a afluência corrente, ao longo da cadeia periódica, mantendo fixas as afluências anteriores a $t-\ell$ e os ruídos:
 
 $$
 \frac{\partial a_{h,t}}{\partial a_{h,t-\ell}} = \psi_{m(t),\ell} + \sum_{\ell'=1}^{\ell-1} \psi_{m(t),\ell'}\, \frac{\partial a_{h,t-\ell'}}{\partial a_{h,t-\ell}}, \qquad \ell = 1, \ldots, p_{m(t)}
@@ -640,7 +640,7 @@ $$
 \tilde{\Lambda}^{1/2} = \mathrm{diag}\!\left(\sqrt{\max(\lambda_1, 0)},\, \ldots,\, \sqrt{\max(\lambda_n, 0)}\right)
 $$
 
-Truncar em zero os autovalores negativos é a projeção espectral da matriz amostral sobre o cone das matrizes semidefinidas positivas — a matriz semidefinida positiva mais próxima na norma de Frobenius ([Higham, 1988](/pt-br/reference/bibliography/#metodos-numericos)); veja [Higham (2002)](/pt-br/reference/bibliography/#metodos-numericos) para o problema relacionado da matriz de correlação mais próxima, que também mantém a diagonal unitária.
+Truncar em zero os autovalores negativos é a projeção espectral da matriz amostral sobre o cone das matrizes semidefinidas positivas — a matriz semidefinida positiva mais próxima na norma de Frobenius ([Higham, 1988](/reference/bibliography/#metodos-numericos)); veja [Higham (2002)](/reference/bibliography/#metodos-numericos) para o problema relacionado da matriz de correlação mais próxima, que também mantém a diagonal unitária.
 
 O ruído correlacionado é então gerado como $C^{1/2} z$, em que $z \sim \mathcal{N}(0, I)$.
 
@@ -672,7 +672,7 @@ O custo computacional maior é aceitável porque a fatoração é feita uma vez 
 
 ## 7. Extensão com componente anual (PAR(p)-A)
 
-O PAR(p) clássico da §1 captura a dependência temporal em defasagens até uma ordem $p$ pequena (mantida baixa em ciclos mensais, pois o sistema periódico de Yule-Walker se torna mal condicionado em ordens mais altas). Em séries longas de afluências, isso basta para reproduzir a persistência dentro do ano, mas não a persistência plurianual visível nos superperíodos secos/úmidos do histórico. A extensão **PAR(p)-A** ([Treistman et al., 2020](/pt-br/reference/bibliography/#modelagem-de-afluencias)) acrescenta um único coeficiente anual à estrutura AR periódica para capturar essa persistência de longo alcance sem aumentar a ordem AR.
+O PAR(p) clássico da §1 captura a dependência temporal em defasagens até uma ordem $p$ pequena (mantida baixa em ciclos mensais, pois o sistema periódico de Yule-Walker se torna mal condicionado em ordens mais altas). Em séries longas de afluências, isso basta para reproduzir a persistência dentro do ano, mas não a persistência plurianual visível nos superperíodos secos/úmidos do histórico. A extensão **PAR(p)-A** ([Treistman et al., 2020](/reference/bibliography/#modelagem-de-afluencias)) acrescenta um único coeficiente anual à estrutura AR periódica para capturar essa persistência de longo alcance sem aumentar a ordem AR.
 
 A extensão é selecionada pela regra de seleção de ordem com componente anual (§3.6). Quando ativa, o modelo inclui uma tripla adicional por (usina hidrelétrica, período sazonal), além do conjunto de parâmetros clássico.
 
@@ -802,8 +802,8 @@ A metodologia acima define o modelo de afluências PAR(p); as abas abaixo mostra
 
 ## Referências cruzadas
 
-- [Formulação do PL](/pt-br/math/lp-formulation) — As linhas de vazão afluente realizada do PL do estágio
-- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — Dinâmica AR das afluências: expansão do estado, fixação das colunas de defasagem, extração dos custos reduzidos
-- [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity) — Métodos para tratar realizações negativas produzidas pelo modelo PAR(p)
-- [Geração de cenários](/pt-br/math/scenario-generation) — Quando cenários externos de afluência são usados no treinamento (training), a simulação backward transforma o ruído da árvore de aberturas em afluências com o modelo PAR aplicado, no qual as usinas hidrelétricas com ordem AR 0 e sem componente anual assumem a média e o desvio-padrão das amostras externas.
-- [Convenções de notação](/pt-br/overview/notation-conventions) — Define os símbolos das afluências ($a_{h,t}$, $\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) e as convenções de unidades
+- [Formulação do PL](/math/lp-formulation) — As linhas de vazão afluente realizada do PL do estágio
+- [Aumento do espaço de estados](/math/state-augmentation) — Dinâmica AR das afluências: expansão do estado, fixação das colunas de defasagem, extração dos custos reduzidos
+- [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity) — Métodos para tratar realizações negativas produzidas pelo modelo PAR(p)
+- [Geração de cenários](/math/scenario-generation) — Quando cenários externos de afluência são usados no treinamento (training), a simulação backward transforma o ruído da árvore de aberturas em afluências com o modelo PAR aplicado, no qual as usinas hidrelétricas com ordem AR 0 e sem componente anual assumem a média e o desvio-padrão das amostras externas.
+- [Convenções de notação](/overview/notation-conventions) — Define os símbolos das afluências ($a_{h,t}$, $\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) e as convenções de unidades

@@ -26,12 +26,12 @@ with a `gap` or `bound_stalling` rule triggered at that iteration. For
 simulation, read `scenarios.failed`.
 
 Both files are plain JSON, so `jq` reads them directly. For a script or CI
-check, see [Output format](/reference/cli-reference/#output-format) in the CLI
+check, see [Output format](/en/reference/cli-reference/#output-format) in the CLI
 Reference.
 
 From Python, `novomodelo.results.load_results(output_dir)` returns both metadata
 documents in one dict, together with a per-phase `complete` flag — see the
-[Python Quickstart](/getting-started/python-quickstart/).
+[Python Quickstart](/en/getting-started/python-quickstart/).
 
 ---
 
@@ -42,7 +42,7 @@ It merges run context, configuration, convergence outcome, row-pool statistics,
 objective bounds, LP solver statistics, and distribution information into a
 single file. The `convergence` block records how the run stopped.
 
-**Methodology:** [Determinism & Provenance](/math/determinism-guarantees) · [Stopping Rules](/math/stopping-rules)
+**Methodology:** [Determinism & Provenance](/en/math/determinism-guarantees) · [Stopping Rules](/en/math/stopping-rules)
 
 **Example (a `novomodelo run` of the 1dtoy template; hostname and timestamps replaced):**
 
@@ -177,8 +177,8 @@ single file. The `convergence` block records how the run stopped.
 | Name                             | Type    | Nullable | Units | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | -------------------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `convergence.achieved`           | boolean | No       | —     | `true` when the configured stopping rules ended training and a `gap` or `bound_stalling` rule triggered at that iteration, even when `termination_reason` names another rule triggered at the same iteration; `false` when only `iteration_limit` or `time_limit` triggered, when a shutdown request alone ended training, and after a failure.                                                                                                                                            |
-| `convergence.final_gap_percent`  | number  | Yes      | %     | [Optimality gap](/math/stopping-rules#optimality-gap) between lower and upper bounds at termination as a percentage. `null` when the final lower bound is not positive.                                                                                                                                                                                                                                                                                                                    |
-| `convergence.termination_reason` | string  | No       | —     | Name of the stopping rule that ended the run: `"iteration_limit"`, `"time_limit"`, `"bound_stalling"`, or `"gap"` (under `"all"`, the first rule other than `iteration_limit`, or `"iteration_limit"` when the largest limit capped the run); `"error"` when training stopped on a failure, in which case `novomodelo run` exits non-zero; `"graceful_shutdown"` when a shutdown request ended training and neither the stopping rules nor the iteration budget ended it at that iteration (a SIGTERM or SIGINT to `novomodelo run`, or an `on_iteration` callback of [`novomodelo.Study.train`](/reference/python-api/#novomodelostudytrain) or [`novomodelo.run.run`](/reference/python-api/#novomodelorunrun) that returns a truthy value or raises). |
+| `convergence.final_gap_percent`  | number  | Yes      | %     | [Optimality gap](/en/math/stopping-rules#optimality-gap) between lower and upper bounds at termination as a percentage. `null` when the final lower bound is not positive.                                                                                                                                                                                                                                                                                                                    |
+| `convergence.termination_reason` | string  | No       | —     | Name of the stopping rule that ended the run: `"iteration_limit"`, `"time_limit"`, `"bound_stalling"`, or `"gap"` (under `"all"`, the first rule other than `iteration_limit`, or `"iteration_limit"` when the largest limit capped the run); `"error"` when training stopped on a failure, in which case `novomodelo run` exits non-zero; `"graceful_shutdown"` when a shutdown request ended training and neither the stopping rules nor the iteration budget ended it at that iteration (a SIGTERM or SIGINT to `novomodelo run`, or an `on_iteration` callback of [`novomodelo.Study.train`](/en/reference/python-api/#novomodelostudytrain) or [`novomodelo.run.run`](/en/reference/python-api/#novomodelorunrun) that returns a truthy value or raises). |
 
 **`row_pool` fields:**
 
@@ -186,7 +186,7 @@ single file. The `convergence` block records how the run stopped.
 | --------------------------------- | ------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `row_pool.total_generated`        | integer | No       | —     | Total cut rows generated over the entire run.                                                                                                |
 | `row_pool.total_active`           | integer | No       | —     | Cut rows still active in the pool at termination.                                                                                            |
-| `row_pool.peak_active`            | integer | No       | —     | Highest number of active cut rows, summed over the pools, at an iteration's cut exchange or after its selection pass and cap. At least the largest `cuts_active` in [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet), which counts after row management only. |
+| `row_pool.peak_active`            | integer | No       | —     | Highest number of active cut rows, summed over the pools, at an iteration's cut exchange or after its selection pass and cap. At least the largest `cuts_active` in [`training/convergence.parquet`](/en/reference/output/training/#trainingconvergenceparquet), which counts after row management only. |
 | `row_pool.cuts_active`            | integer | No       | —     | Cut rows active at termination; the same value as `total_active`.                                                                            |
 | `row_pool.rows_in_lp_total`       | integer | No       | —     | Sum of resident rows-in-LP over every lazy-selection solve in the run. Zero when no lazy selection ran.                                      |
 | `row_pool.rows_in_lp_solve_count` | integer | No       | —     | Number of lazy-selection solves in the run. Zero when no lazy selection ran.                                                                 |
@@ -200,7 +200,7 @@ single file. The `convergence` block records how the run stopped.
 | `bounds.final_lower_bound`      | number | No       | —     | Final lower bound on the objective at termination.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `bounds.final_upper_bound`      | number | Yes      | —     | Final upper-bound value; always a number in a file `novomodelo run` writes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `bounds.final_upper_bound_std`  | number | Yes      | —     | Sample standard deviation of the last completed iteration's forward-pass scenario costs. `null` when `final_upper_bound_kind` is `"exact"`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `bounds.final_upper_bound_kind` | string | No       | —     | Upper-bound regime of the run: `"exact"` under `enumerated` selection, `"statistical"` under `sampled` selection; the same value as `upper_bound_kind` on every row of [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet). Under `"exact"`, the gap between the bounds is a valid optimality certificate only when the risk measure is the same at every stage; under a stage-varying measure `final_upper_bound` is the policy's expected cost, which can fall below `final_lower_bound` (see [Cut Management — when bounds and certificates hold](/math/cut-management#when-bounds-and-certificates-hold)). |
+| `bounds.final_upper_bound_kind` | string | No       | —     | Upper-bound regime of the run: `"exact"` under `enumerated` selection, `"statistical"` under `sampled` selection; the same value as `upper_bound_kind` on every row of [`training/convergence.parquet`](/en/reference/output/training/#trainingconvergenceparquet). Under `"exact"`, the gap between the bounds is a valid optimality certificate only when the risk measure is the same at every stage; under a stage-varying measure `final_upper_bound` is the policy's expected cost, which can fall below `final_lower_bound` (see [Cut Management — when bounds and certificates hold](/en/math/cut-management#when-bounds-and-certificates-hold)). |
 
 **`solve_stats` fields:**
 
@@ -283,7 +283,7 @@ simulation is then skipped, and the file records `status` `"partial"`,
 It captures run context, scenario completion counts, aggregate cost statistics,
 LP solver statistics, and distribution information.
 
-**Methodology:** [Determinism & Provenance](/math/determinism-guarantees)
+**Methodology:** [Determinism & Provenance](/en/math/determinism-guarantees)
 
 **Example (the same `novomodelo run` of the 1dtoy template; hostname and timestamps replaced):**
 
@@ -386,7 +386,7 @@ Records which data sources fed the inflow and hydro-production models. Written
 on every `novomodelo run`, before training starts; diagnostic. Top-level object with
 two sub-objects, `inflow` and `hydro_production`.
 
-**Methodology:** [Determinism & Provenance](/math/determinism-guarantees) · [PAR(p) Inflow Model](/math/par-inflow-model)
+**Methodology:** [Determinism & Provenance](/en/math/determinism-guarantees) · [PAR(p) Inflow Model](/en/math/par-inflow-model)
 
 **`inflow` fields:**
 

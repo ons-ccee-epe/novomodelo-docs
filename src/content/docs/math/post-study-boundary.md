@@ -7,7 +7,7 @@ description: A fixed terminal function imported from one pool of an upstream pol
 
 In finite (acyclic) horizon mode the terminal condition is $V_{T+1} = 0$: no
 state carried past the last stage $T$ has any value in the model (see
-[Horizon Modes §1](/math/horizon-modes)). A study may instead import a **right
+[Horizon Modes §1](/en/math/horizon-modes)). A study may instead import a **right
 boundary**, in the sense that it prices the horizon from its far edge. The
 cuts of one pool of an upstream policy (§5.1) become the terminal stage's cut
 pool, which holds exactly those cuts and to which training never adds or
@@ -39,18 +39,18 @@ horizon edge instead of being carried forward and priced:
   it is then a genuine decision, bounded and costed by the post-study stage's
   declared capability and cost, and carried in its ring slot to the terminal
   stage (see
-  [System Element Modeling Overview §4](/math/system-elements#anticipated-thermal-plants) and
-  [State Augmentation — Ring Rows](/math/state-augmentation#ring-rows)). A delivery
+  [System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants) and
+  [State Augmentation — Ring Rows](/en/math/state-augmentation#ring-rows)). A delivery
   past $T$ outside that calendar has no decision. Without a loaded boundary
   the carried commitment has zero terminal value while its fuel is still
   charged on its decision column, and the study setup warns about it.
 - **Terminal deep-lag in-transit buckets.** Water released late in the horizon
   may still be in transit at $T$ (see
-  [System Element Modeling Overview — Cascade Travel Time](/math/system-elements#cascade-travel-time)).
+  [System Element Modeling Overview — Cascade Travel Time](/en/math/system-elements#cascade-travel-time)).
   With a boundary loaded, every lag a stage's releases reach is held live to
   the terminal stage; without one, a lag that would mature past the horizon is
   capped away and its water is dropped (see
-  [State Augmentation — Horizon limitation](/math/state-augmentation#horizon-limitation)).
+  [State Augmentation — Horizon limitation](/en/math/state-augmentation#horizon-limitation)).
 
 The two families are gated differently: the post-study calendar decides
 whether a post-horizon commitment is made, and the boundary decides whether a
@@ -104,13 +104,13 @@ $$
 $$
 
 evaluated through the same cut **row** every other Benders cut uses (see
-[SDDP Algorithm §6](/math/sddp-algorithm) for the single-cut form). The
+[SDDP Algorithm §6](/en/math/sddp-algorithm) for the single-cut form). The
 coefficient of a ring slot or a bucket multiplies the terminal stage's
 outgoing column for that coordinate, which the commitment's deposit or carry
 row, or the bucket's definition row, ties to the decision or release that
 produced it
-([State Augmentation — Ring-Slot Cut Coefficient](/math/state-augmentation#ring-slot-cut-coefficient);
-[State Augmentation — Bucket definition rows](/math/state-augmentation#bucket-definition-rows)).
+([State Augmentation — Ring-Slot Cut Coefficient](/en/math/state-augmentation#ring-slot-cut-coefficient);
+[State Augmentation — Bucket definition rows](/en/math/state-augmentation#bucket-definition-rows)).
 A right boundary adds no second pricing mechanism; it supplies the
 coefficients of the state held live at the terminal stage.
 
@@ -119,8 +119,8 @@ separate from pricing the fuel an anticipated commitment consumes. The fuel of
 a post-horizon commitment is booked on its decision column at its decision
 stage, at the post-study stage's declared cost and discounted from the
 delivery stage
-([State Augmentation — Objective contributions](/math/state-augmentation#objective-contributions);
-[Discount Rate Formulation — Post-Study Extension](/math/discount-rate#post-study-extension)),
+([State Augmentation — Objective contributions](/en/math/state-augmentation#objective-contributions);
+[Discount Rate Formulation — Post-Study Extension](/en/math/discount-rate#post-study-extension)),
 while $\beta^{\top} x_T$ prices the _state_ the commitment leaves behind in
 its ring slot. State valuation and fuel booking are disjoint columns: one is a
 term in $\beta^{\top} x_T$ on the outgoing slot column, the other is the
@@ -132,14 +132,14 @@ machinery already applies to delivery inside the horizon.
 A commitment decided **before the study** for a delivery past the horizon is
 fixed: it has no decision column, no ring slot and no coordinate of $\beta$.
 Its fuel is sunk and enters no objective. When a boundary is loaded
-([Boundary Cuts](/running/policy-management/#boundary-cuts)), its state
+([Boundary Cuts](/en/running/policy-management/#boundary-cuts)), its state
 contribution — the value the boundary cut assigns to the committed rate over
 the source slots its delivery window overlaps, hour-weighted — is added once,
 at load, to the intercept $\beta_0$ of every boundary cut; no coefficient
 changes. With no boundary loaded it enters no term, and the study setup warns
 about it when its committed rate is non-zero. Either way it is reported at its
 real delivery date
-([Simulation Output](/reference/output/simulation/#anticipatedfixed_deliveriesparquet)).
+([Simulation Output](/en/reference/output/simulation/#anticipatedfixed_deliveriesparquet)).
 
 ## 4. Calendar Reconciliation (Fan-Out)
 
@@ -175,7 +175,7 @@ with no overlapping source interval takes a zero coefficient. A stricter
 admission is available that instead **rejects** a superset source — one
 pricing state the current study does not model — rather than dropping and
 reporting it; see
-[Compatibility requirements](/running/policy-management/#compatibility-requirements)
+[Compatibility requirements](/en/running/policy-management/#compatibility-requirements)
 for how the software layer requires it.
 
 The fan-out is produced once, at load, and its result is summarized rather
@@ -199,7 +199,7 @@ The source state comes from the one upstream pool that §5.1 selects by date.
 
 A delivery past the horizon that the study decides has exactly one decision
 stage $t_i(m)$
-([State Augmentation §5](/math/state-augmentation#5-anticipated-thermal-commitments)).
+([State Augmentation §5](/en/math/state-augmentation#5-anticipated-thermal-commitments)).
 At that stage each scenario decides it like any other stage decision and
 carries it in its ring slot to the terminal stage, and the boundary prices the
 carried value through the boundary cuts of that scenario's terminal-stage LP.
@@ -248,9 +248,9 @@ downstream study needs only the archived upstream policy. Each study draws its
 own scenario tree, and the downstream stages may be finer than the upstream's
 — weekly stages under a monthly policy, for example. One study whose own
 stages mix resolutions is a different case, covered in
-[Multi-Resolution Studies](/math/multi-resolution-studies). The coupling of a
+[Multi-Resolution Studies](/en/math/multi-resolution-studies). The coupling of a
 medium-term study to the cuts of a long-term policy is the published scheme
-of [Maceira et al. (2002)](/reference/bibliography/#inflow-modelling).
+of [Maceira et al. (2002)](/en/reference/bibliography/#inflow-modelling).
 
 ### 5.1 Source Pool
 
@@ -303,7 +303,7 @@ study:
   both sides date it, references the same past period; otherwise the load is
   refused. A pool prices a storage or AR-lag dimension only when the cut
   projection that sets its dimension, its successor stage's selection, carries
-  it ([State Augmentation — Cut-state projection](/math/state-augmentation#7-cut-state-projection));
+  it ([State Augmentation — Cut-state projection](/en/math/state-augmentation#7-cut-state-projection));
   the terminal pool always does, so an interior source pool chosen under a
   storage-only projection has no AR-lag counterpart.
 - (d) **Lag depth.** The study's lag state is extended to the deepest lag that
@@ -321,7 +321,7 @@ no post-study calendar, because those coordinates are matched by identity;
 only the forward-dated coordinates of §4 are dated onto it.
 
 The check order and the refusal messages are in
-[Policy Management — Compatibility requirements](/running/policy-management/#compatibility-requirements).
+[Policy Management — Compatibility requirements](/en/running/policy-management/#compatibility-requirements).
 
 ### 5.3 Consistency
 
@@ -333,14 +333,14 @@ models, or in its penalties — receives a terminal value priced for a different
 system, and the difference biases the downstream policy near the horizon;
 training does not correct it, because the terminal pool never changes (§1).
 Running with the zero terminal value instead decouples the two studies, at the
-price of the end-of-world effect ([Horizon Modes §1](/math/horizon-modes)).
+price of the end-of-world effect ([Horizon Modes §1](/en/math/horizon-modes)).
 
 The imported cuts also carry the upstream study's discounting of every cost
 past the downstream horizon. The conditions of §5.2 include no agreement on
 discount rates, and a pool's cut file records the cost scale factor of the
 study that wrote it but no discount rate, so a downstream study that declares
 other rates discounts its own stages at its rates and the post-horizon costs at
-the upstream ones ([Discount Rate Formulation](/math/discount-rate)).
+the upstream ones ([Discount Rate Formulation](/en/math/discount-rate)).
 
 ## 6. Lag Seeding
 
@@ -356,11 +356,11 @@ mean over the covered days of that period.
 When the study starts inside a season period, the elapsed part of that period
 seeds the period's partial accumulation, and the first stages complete the
 period by the lag accumulation of
-[Multi-Resolution Studies](/math/multi-resolution-studies). An in-progress
+[Multi-Resolution Studies](/en/math/multi-resolution-studies). An in-progress
 period the record covers only in part is accepted, with a warning.
 
 The autoregressive order — supplied, or chosen by the order selection of
-[PAR(p) Inflow Model §3.6](/math/par-inflow-model#36-order-selection) — is the
+[PAR(p) Inflow Model §3.6](/en/math/par-inflow-model#36-order-selection) — is the
 number of lags each stage's autoregressive coefficients read. When the study
 supplies its autoregressive coefficients, the seed of every lag up to the
 largest of those orders must be fully covered by the record, or the case is
@@ -375,28 +375,28 @@ study the downstream study seeds its own lags this way, while the boundary
 supplies only the terminal function (§1). The fitting-time estimation of the
 statistics of lag seasons outside the study window is a different mechanism;
 see
-[PAR(p) Inflow Model §3.8](/math/par-inflow-model#38-partial-year-studies-and-the-pre-study-lag-window).
+[PAR(p) Inflow Model §3.8](/en/math/par-inflow-model#38-partial-year-studies-and-the-pre-study-lag-window).
 
 ## Cross-References
 
-- [State Augmentation](/math/state-augmentation) — §5 the commitment ring
+- [State Augmentation](/en/math/state-augmentation) — §5 the commitment ring
   (hold ring, ring rows, ring-slot cut coefficient, objective contributions);
   §6 in-transit bucket state, pinning, and the horizon-limitation cap that a
   right boundary lifts.
-- [System Element Modeling Overview](/math/system-elements) — §4 the anticipated-thermal
+- [System Element Modeling Overview](/en/math/system-elements) — §4 the anticipated-thermal
   commitment ring and §5 cascade travel time, the element-level source of the
   two carried families.
-- [Horizon Modes](/math/horizon-modes) — the zero terminal value a right
+- [Horizon Modes](/en/math/horizon-modes) — the zero terminal value a right
   boundary replaces, and the finite-horizon context the post-study segment
   attaches to.
-- [Discount Rate Formulation](/math/discount-rate) — the cumulative factor extended over
+- [Discount Rate Formulation](/en/math/discount-rate) — the cumulative factor extended over
   the post-study stages.
-- [SDDP Algorithm](/math/sddp-algorithm) — §7 the terminal-boundary summary.
-- [Multi-Resolution Studies](/math/multi-resolution-studies) — one study with
+- [SDDP Algorithm](/en/math/sddp-algorithm) — §7 the terminal-boundary summary.
+- [Multi-Resolution Studies](/en/math/multi-resolution-studies) — one study with
   mixed resolutions; the lag accumulation, and the partial accumulation of the
   period a study's first stages complete, which §6 of this chapter seeds.
-- [PAR(p) Inflow Model](/math/par-inflow-model) — order selection; the
+- [PAR(p) Inflow Model](/en/math/par-inflow-model) — order selection; the
   pre-study lag window of the fit.
 - **Running Novomodelo:**
-  [Policy Management](/running/policy-management/#boundary-cuts) — boundary
+  [Policy Management](/en/running/policy-management/#boundary-cuts) — boundary
   configuration and compatibility requirements.

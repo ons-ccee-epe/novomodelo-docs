@@ -5,17 +5,17 @@ description: Os mecanismos estatístico (Monte Carlo) e determinístico exato de
 
 ## Objetivo
 
-Este capítulo define os mecanismos de limite superior do Novo Modelo: uma visão geral dos limites de uma iteração do treinamento (training) (seção 1), o limite superior determinístico exato de uma simulação forward enumerada e sua forma aninhada sob um CVaR uniforme (seção 2), o cálculo do gap que compara o limite superior da iteração com o limite inferior obtido dos cortes (seção 3) e os estimadores dos esquemas forward amostrados e da simulação pós-treinamento amostral e censitária, com o que cada um estima (seção 4). O apêndice descreve o projeto, reservado, da aproximação interna baseada em vértices (SIDP). O capítulo complementa a aproximação externa (cortes) descrita em [Algoritmo da PDDE](/pt-br/math/sddp-algorithm), fornecendo a metade do par de limites que constitui o certificado de convergência.
+Este capítulo define os mecanismos de limite superior do Novo Modelo: uma visão geral dos limites de uma iteração do treinamento (training) (seção 1), o limite superior determinístico exato de uma simulação forward enumerada e sua forma aninhada sob um CVaR uniforme (seção 2), o cálculo do gap que compara o limite superior da iteração com o limite inferior obtido dos cortes (seção 3) e os estimadores dos esquemas forward amostrados e da simulação pós-treinamento amostral e censitária, com o que cada um estima (seção 4). O apêndice descreve o projeto, reservado, da aproximação interna baseada em vértices (SIDP). O capítulo complementa a aproximação externa (cortes) descrita em [Algoritmo da PDDE](/math/sddp-algorithm), fornecendo a metade do par de limites que constitui o certificado de convergência.
 
-Para as convenções de notação (conjuntos de índices, parâmetros, variáveis de decisão, variáveis duais), veja [Convenções de notação](/pt-br/overview/notation-conventions).
+Para as convenções de notação (conjuntos de índices, parâmetros, variáveis de decisão, variáveis duais), veja [Convenções de notação](/overview/notation-conventions).
 
 :::note[Convenção de símbolos]
-Este capítulo usa $d$ para o fator de desconto. Veja [Formulação da taxa de desconto](/pt-br/math/discount-rate).
+Este capítulo usa $d$ para o fator de desconto. Veja [Formulação da taxa de desconto](/math/discount-rate).
 :::
 
 ## 1 Visão geral
 
-A PDDE (SDDP) padrão produz apenas um **limite inferior** $\underline{z}$ do custo ótimo, por meio da aproximação externa (por cortes). Um certificado de convergência exige, adicionalmente, um **limite superior** $\bar{z}$ que feche o [gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) entre os dois limites.
+A PDDE (SDDP) padrão produz apenas um **limite inferior** $\underline{z}$ do custo ótimo, por meio da aproximação externa (por cortes). Um certificado de convergência exige, adicionalmente, um **limite superior** $\bar{z}$ que feche o [gap de otimalidade](/math/stopping-rules#gap-de-otimalidade) entre os dois limites.
 
 O Novo Modelo calcula esse limite superior por iteração por meio de um de dois mecanismos da simulação forward, selecionado pelo modo de amostragem da simulação forward:
 
@@ -25,7 +25,7 @@ O Novo Modelo calcula esse limite superior por iteração por meio de um de dois
 A seção 3 calcula, a cada iteração, o gap entre esse limite superior e o limite inferior obtido dos cortes.
 
 :::note[Objetivos avessos ao risco]
-O estimador **estatístico** de Monte Carlo é definido apenas para o objetivo de **valor esperado**: seu intervalo de confiança pressupõe uma média amostral não viesada do custo esperado neutro ao risco, e ele não é um limite superior válido para uma medida avessa ao risco. O limite **exato** enumerado se estende a uma medida avessa ao risco quando essa medida é um CVaR aplicado **uniformemente em todos os estágios**: como a enumeração percorre todos os nós, o limite passa a ser avaliado como uma recursão de risco aninhada e consistente no tempo sobre a árvore de cenários (seção 2.1), e não como uma soma ponderada sobre as folhas, e permanece exato. Para uma medida **variável por estágio**, veja a seção 2 e [Medidas de risco](/pt-br/math/risk-measures). A aproximação interna reservada do apêndice foi projetada para o objetivo de valor esperado sob qualquer modo de amostragem forward: os valores de seus vértices são esperanças sobre os cenários.
+O estimador **estatístico** de Monte Carlo é definido apenas para o objetivo de **valor esperado**: seu intervalo de confiança pressupõe uma média amostral não viesada do custo esperado neutro ao risco, e ele não é um limite superior válido para uma medida avessa ao risco. O limite **exato** enumerado se estende a uma medida avessa ao risco quando essa medida é um CVaR aplicado **uniformemente em todos os estágios**: como a enumeração percorre todos os nós, o limite passa a ser avaliado como uma recursão de risco aninhada e consistente no tempo sobre a árvore de cenários (seção 2.1), e não como uma soma ponderada sobre as folhas, e permanece exato. Para uma medida **variável por estágio**, veja a seção 2 e [Medidas de risco](/math/risk-measures). A aproximação interna reservada do apêndice foi projetada para o objetivo de valor esperado sob qualquer modo de amostragem forward: os valores de seus vértices são esperanças sobre os cenários.
 :::
 
 Após o treinamento, a **simulação** pós-treinamento executa novamente a política treinada sobre cenários sorteados segundo o esquema de simulação de cada classe, em uma variante **amostral** e uma variante **censitária** (seção 4.5). Esse estimador é um diagnóstico da política final — não faz parte do laço de treinamento por iteração que os mecanismos acima alimentam, e não é consumido por nenhum critério de parada.
@@ -34,13 +34,13 @@ O apêndice descreve um projeto reservado que o Novo Modelo não calcula: uma ap
 
 ## 2 Limite superior determinístico exato
 
-Com uma simulação forward **enumerada** — que [percorre deterministicamente todos os nós do grafo da política (policy graph)](/pt-br/math/policy-graphs) em vez de amostrá-lo —, a simulação forward avalia cada caminho até a folha $\ell$ da árvore de cenários exatamente uma vez. Sejam $P(\ell)$ a probabilidade desse caminho e
+Com uma simulação forward **enumerada** — que [percorre deterministicamente todos os nós do grafo da política (policy graph)](/math/policy-graphs) em vez de amostrá-lo —, a simulação forward avalia cada caminho até a folha $\ell$ da árvore de cenários exatamente uma vez. Sejam $P(\ell)$ a probabilidade desse caminho e
 
 $$
 C(\ell) = \sum_{t=1}^{T} d_{1 \to t} \cdot c_t(\ell)
 $$
 
-seu custo total descontado realizado (veja [Formulação da taxa de desconto](/pt-br/math/discount-rate)). O limite superior exato é a esperança ponderada pelas probabilidades sobre a enumeração completa:
+seu custo total descontado realizado (veja [Formulação da taxa de desconto](/math/discount-rate)). O limite superior exato é a esperança ponderada pelas probabilidades sobre a enumeração completa:
 
 $$
 \bar{z}_{\text{exact}} = \sum_{\ell} P(\ell)\, C(\ell)
@@ -48,9 +48,9 @@ $$
 
 Como a enumeração é exaustiva, e não amostrada, $\bar{z}_{\text{exact}}$ é a esperança exata do custo total sob a política atual — e não uma estimativa dela. Consequentemente, seu desvio-padrão e a semiamplitude do intervalo de confiança de 95% são **identicamente nulos**: uma enumeração sem duplicatas não carrega nenhuma distribuição amostral sobre a qual estimar dispersão.
 
-Com uma fronteira terminal importada ([Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)), o custo do último estágio $c_T(\ell)$ inclui o valor de fronteira descontado do estado de saída desse estágio, de modo que o limite superior contém a mesma função terminal que o limite inferior.
+Com uma fronteira terminal importada ([Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary)), o custo do último estágio $c_T(\ell)$ inclui o valor de fronteira descontado do estado de saída desse estágio, de modo que o limite superior contém a mesma função terminal que o limite inferior.
 
-O limite $\bar{z}_{\text{exact}} = \sum_{\ell} P(\ell)\, C(\ell)$ acima é o limite superior exato sob um objetivo de **valor esperado**. Sob uma medida CVaR mantida uniforme em todos os estágios, a mesma enumeração exaustiva produz um limite exato de forma diferente — uma recursão de risco aninhada —, desenvolvido na seção 2.1; veja [Medidas de risco](/pt-br/math/risk-measures) para os fundamentos sobre medidas de risco.
+O limite $\bar{z}_{\text{exact}} = \sum_{\ell} P(\ell)\, C(\ell)$ acima é o limite superior exato sob um objetivo de **valor esperado**. Sob uma medida CVaR mantida uniforme em todos os estágios, a mesma enumeração exaustiva produz um limite exato de forma diferente — uma recursão de risco aninhada —, desenvolvido na seção 2.1; veja [Medidas de risco](/math/risk-measures) para os fundamentos sobre medidas de risco.
 
 Sob uma medida **variável por estágio** — aquela cujo peso de aversão ao risco ou fração da cauda difere entre estágios, sendo um estágio com peso de aversão ao risco nulo contado como valor esperado —, o Novo Modelo não calcula nenhum limite para o objetivo avesso ao risco: a simulação enumerada reporta a soma ponderada pelas probabilidades dos caminhos $\sum_{\ell} P(\ell)\, C(\ell)$ acima, que é o custo esperado da política, e um critério baseado no gap não é admitido (é rejeitado na preparação do estudo).
 
@@ -74,7 +74,7 @@ $$
 \tilde{V}(\ell) = d_{1 \to T}\, c(\ell)\ \ \text{at a leaf},
 $$
 
-em que $\rho_{\,n' \in \mathrm{ch}(n)}[\cdot]$ aplica a medida do estágio aos valores dos filhos ponderados por $q_{n \to n'}$ — a mesma agregação de risco que a [construção dos cortes](/pt-br/math/cut-management) aplica na simulação backward. O limite superior exato é o valor na raiz:
+em que $\rho_{\,n' \in \mathrm{ch}(n)}[\cdot]$ aplica a medida do estágio aos valores dos filhos ponderados por $q_{n \to n'}$ — a mesma agregação de risco que a [construção dos cortes](/math/cut-management) aplica na simulação backward. O limite superior exato é o valor na raiz:
 
 $$
 \bar{z}_{\text{exact}} = \tilde{V}(\text{root}).
@@ -82,13 +82,13 @@ $$
 
 Ele é exato pela mesma razão que a forma de valor esperado — a recursão percorre cada nó da enumeração sem duplicatas exatamente uma vez, de modo que não carrega nenhuma distribuição amostral, e seu desvio-padrão e a semiamplitude do intervalo de confiança são identicamente nulos.
 
-**Por que a forma aninhada, e não a forma sobre o total dos caminhos.** Aplicar $\rho$ uma única vez à distribuição dos totais dos caminhos completos $C(\ell)$ fornece o valor de fim de horizonte $\rho_{\text{end-of-horizon}}$ dos totais dos caminhos, um funcional diferente do objetivo aninhado $\rho_{\text{nested}}$: não é um limite superior do objetivo aninhado e pode ficar abaixo do limite inferior $\underline{z}$ do [objetivo avesso ao risco](/pt-br/math/risk-measures). Fornecido ao [critério do gap](/pt-br/math/stopping-rules), produziria então um gap negativo, que o critério interpretaria como cruzamento entre os limites inferior e superior, interrompendo o treinamento antes da convergência da política. Já o $\tilde{V}(\text{root})$ aninhado satisfaz $\tilde{V}(\text{root}) \ge V^\star$, o valor ótimo aninhado, e $V^\star \ge \underline{z}$ em toda iteração em que o limite inferior é válido ([Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido)), de modo que o gap permanece não negativo e só se fecha na convergência verdadeira.
+**Por que a forma aninhada, e não a forma sobre o total dos caminhos.** Aplicar $\rho$ uma única vez à distribuição dos totais dos caminhos completos $C(\ell)$ fornece o valor de fim de horizonte $\rho_{\text{end-of-horizon}}$ dos totais dos caminhos, um funcional diferente do objetivo aninhado $\rho_{\text{nested}}$: não é um limite superior do objetivo aninhado e pode ficar abaixo do limite inferior $\underline{z}$ do [objetivo avesso ao risco](/math/risk-measures). Fornecido ao [critério do gap](/math/stopping-rules), produziria então um gap negativo, que o critério interpretaria como cruzamento entre os limites inferior e superior, interrompendo o treinamento antes da convergência da política. Já o $\tilde{V}(\text{root})$ aninhado satisfaz $\tilde{V}(\text{root}) \ge V^\star$, o valor ótimo aninhado, e $V^\star \ge \underline{z}$ em toda iteração em que o limite inferior é válido ([Camada 1](/math/cut-management#camada-1-limite-inferior-valido)), de modo que o gap permanece não negativo e só se fecha na convergência verdadeira.
 
 Sob valor esperado — ou um CVaR com $\lambda = 0$, equivalente ao valor esperado —, a medida é linear, o aninhamento se telescopa e $\tilde{V}(\text{root})$ se reduz exatamente à soma ponderada dos caminhos $\sum_{\ell} P(\ell)\, C(\ell)$ da seção 2; as duas formas coincidem.
 
 ## 3 Gap
 
-A cada iteração $k$ do treinamento, o gap compara o limite inferior obtido dos cortes com o limite superior do mecanismo de simulação forward ativo; ambos se referem ao estudo iniciado em seu estado inicial $x_0$, com os estágios numerados pela [convenção matemática a partir de 1](/pt-br/overview/notation-conventions#indexacao-dos-estagios).
+A cada iteração $k$ do treinamento, o gap compara o limite inferior obtido dos cortes com o limite superior do mecanismo de simulação forward ativo; ambos se referem ao estudo iniciado em seu estado inicial $x_0$, com os estágios numerados pela [convenção matemática a partir de 1](/overview/notation-conventions#indexacao-dos-estagios).
 
 ### Limite inferior
 
@@ -98,7 +98,7 @@ $$
 \underline{z}^k = \rho_1\Big[\, Q_1^k(x_0, \omega) \;\Big|\; \omega \in \Omega_1 \Big]
 $$
 
-em que $Q_1^k(x_0, \omega)$ é o valor ótimo do problema do primeiro estágio no estado inicial $x_0$ sob a abertura $\omega$ — seu custo imediato mais o custo futuro descontado que os cortes da iteração $k$ limitam inferiormente —, com a realização completa da abertura aplicada: afluência, carga e disponibilidade das fontes não despacháveis. $\Omega_1$ é o conjunto de aberturas do primeiro estágio — suas aberturas geradas ou uma única realização fornecida —, e suas aberturas têm pesos uniformes. $\rho_1$ é a medida de risco do primeiro estágio, o valor esperado quando neutro ao risco; ela agrega tanto as aberturas do próprio primeiro estágio quanto as do estágio seguinte ([Medidas de risco §6](/pt-br/math/risk-measures#6-equacao-de-bellman-avessa-ao-risco)). O limite é expresso nas unidades de custo originais, com o [escalonamento de custos](/pt-br/math/lp-layout-and-scaling#21-escalonamento-de-custos) dos problemas de estágio desfeito. Ele não decresce em $k$, pois o problema em que é avaliado mantém todos os cortes já adicionados ([Gerenciamento de cortes §5](/pt-br/math/cut-management#5-crescimento-dos-cortes-e-motivacao-para-a-selecao)), e é um limite inferior válido sob as hipóteses da [Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido).
+em que $Q_1^k(x_0, \omega)$ é o valor ótimo do problema do primeiro estágio no estado inicial $x_0$ sob a abertura $\omega$ — seu custo imediato mais o custo futuro descontado que os cortes da iteração $k$ limitam inferiormente —, com a realização completa da abertura aplicada: afluência, carga e disponibilidade das fontes não despacháveis. $\Omega_1$ é o conjunto de aberturas do primeiro estágio — suas aberturas geradas ou uma única realização fornecida —, e suas aberturas têm pesos uniformes. $\rho_1$ é a medida de risco do primeiro estágio, o valor esperado quando neutro ao risco; ela agrega tanto as aberturas do próprio primeiro estágio quanto as do estágio seguinte ([Medidas de risco §6](/math/risk-measures#6-equacao-de-bellman-avessa-ao-risco)). O limite é expresso nas unidades de custo originais, com o [escalonamento de custos](/math/lp-layout-and-scaling#21-escalonamento-de-custos) dos problemas de estágio desfeito. Ele não decresce em $k$, pois o problema em que é avaliado mantém todos os cortes já adicionados ([Gerenciamento de cortes §5](/math/cut-management#5-crescimento-dos-cortes-e-motivacao-para-a-selecao)), e é um limite inferior válido sob as hipóteses da [Camada 1](/math/cut-management#camada-1-limite-inferior-valido).
 
 ### Limite superior
 
@@ -110,35 +110,35 @@ Com a aproximação interna reservada baseada em vértices ([Apêndice: aproxima
 
 ### Gap
 
-O [gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) $\text{gap}^k$ é a distância entre esses dois limites, também expressa em percentual do limite inferior.
+O [gap de otimalidade](/math/stopping-rules#gap-de-otimalidade) $\text{gap}^k$ é a distância entre esses dois limites, também expressa em percentual do limite inferior.
 
-Com o mecanismo exato, o limite comparado é $\bar{z}^k = \bar{z}_{\text{exact}}$. A desigualdade $\bar{z}^k \ge \underline{z}^k$ vale para o limite superior exato sobre a mesma árvore e sob a mesma medida quando a [Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido) é satisfeita ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)), ao passo que uma estimativa dentro da amostra (in-sample), fora da amostra (out-of-sample), histórica ou externa pode ficar abaixo de $\underline{z}^k$.
+Com o mecanismo exato, o limite comparado é $\bar{z}^k = \bar{z}_{\text{exact}}$. A desigualdade $\bar{z}^k \ge \underline{z}^k$ vale para o limite superior exato sobre a mesma árvore e sob a mesma medida quando a [Camada 1](/math/cut-management#camada-1-limite-inferior-valido) é satisfeita ([Camada 3](/math/cut-management#camada-3-certificado-do-gap)), ao passo que uma estimativa dentro da amostra (in-sample), fora da amostra (out-of-sample), histórica ou externa pode ficar abaixo de $\underline{z}^k$.
 
-Para os critérios de parada que usam o gap, veja [Critérios de parada](/pt-br/math/stopping-rules), seção 5.
+Para os critérios de parada que usam o gap, veja [Critérios de parada](/math/stopping-rules), seção 5.
 
 ### Convergência
 
-Quando $k \to \infty$, $\text{gap}^k \to 0$ quando o limite superior é exato e valem as hipóteses da [Camada 2](/pt-br/math/cut-management#camada-2-convergencia), entre elas uma medida de valor esperado em todos os estágios e uma seleção de cortes que preserve a aproximação suposta pelo teorema de convergência; em outras configurações, o Novo Modelo não afirma nenhuma convergência do gap. Com uma simulação forward amostrada, $\bar{z}^k$ carrega erro amostral, de modo que um gap reportado pequeno reflete esse ruído além da convergência genuína.
+Quando $k \to \infty$, $\text{gap}^k \to 0$ quando o limite superior é exato e valem as hipóteses da [Camada 2](/math/cut-management#camada-2-convergencia), entre elas uma medida de valor esperado em todos os estágios e uma seleção de cortes que preserve a aproximação suposta pelo teorema de convergência; em outras configurações, o Novo Modelo não afirma nenhuma convergência do gap. Com uma simulação forward amostrada, $\bar{z}^k$ carrega erro amostral, de modo que um gap reportado pequeno reflete esse ruído além da convergência genuína.
 
 ## 4 Estimadores por esquema
 
-Uma simulação forward amostrada sorteia cada classe estocástica (afluência, carga e fontes não despacháveis) segundo o esquema forward dessa classe, e a simulação pós-treinamento da seção 4.5 sorteia segundo um esquema próprio para cada classe; [Geração de cenários §3.2](/pt-br/math/scenario-generation#32-esquemas-de-amostragem-forward) define como cada esquema amostra. A média amostral dos custos descontados dos caminhos estima o custo esperado da política sob a lei de probabilidade da qual o esquema amostra, indicada abaixo para cada esquema. Sob uma medida avessa ao risco, ela estima o custo esperado, e não o valor ajustado ao risco (seção 1).
+Uma simulação forward amostrada sorteia cada classe estocástica (afluência, carga e fontes não despacháveis) segundo o esquema forward dessa classe, e a simulação pós-treinamento da seção 4.5 sorteia segundo um esquema próprio para cada classe; [Geração de cenários §3.2](/math/scenario-generation#32-esquemas-de-amostragem-forward) define como cada esquema amostra. A média amostral dos custos descontados dos caminhos estima o custo esperado da política sob a lei de probabilidade da qual o esquema amostra, indicada abaixo para cada esquema. Sob uma medida avessa ao risco, ela estima o custo esperado, e não o valor ajustado ao risco (seção 1).
 
 ### 4.1 Dentro da amostra
 
-O esquema dentro da amostra (in-sample) sorteia, em cada estágio, uma abertura da árvore de aberturas fixa que a simulação backward também utiliza. Sua média amostral estima o custo esperado da política sob a lei da árvore de aberturas, a lei do modelo sobre o qual os cortes são construídos. É uma estimativa estatística que nada certifica ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)): seu erro amostral permite que fique abaixo de $\underline{z}^k$. Uma simulação enumerada sobre a mesma árvore é o limite exato da seção 2, e não uma estimativa.
+O esquema dentro da amostra (in-sample) sorteia, em cada estágio, uma abertura da árvore de aberturas fixa que a simulação backward também utiliza. Sua média amostral estima o custo esperado da política sob a lei da árvore de aberturas, a lei do modelo sobre o qual os cortes são construídos. É uma estimativa estatística que nada certifica ([Camada 3](/math/cut-management#camada-3-certificado-do-gap)): seu erro amostral permite que fique abaixo de $\underline{z}^k$. Uma simulação enumerada sobre a mesma árvore é o limite exato da seção 2, e não uma estimativa.
 
 ### 4.2 Fora da amostra
 
-O esquema fora da amostra (out-of-sample) sorteia ruídos novos do modelo estocástico aplicado à classe, a partir de uma semente independente da semente da árvore de aberturas. Sua média amostral estima o custo esperado da política sob a lei do modelo de ruído, com sorteios independentes da árvore, e não sob a árvore que discretiza essa lei para a simulação backward. É uma estimativa estatística que nada certifica ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)): avalia uma lei diferente da lei da árvore de aberturas e pode ficar abaixo de $\underline{z}^k$.
+O esquema fora da amostra (out-of-sample) sorteia ruídos novos do modelo estocástico aplicado à classe, a partir de uma semente independente da semente da árvore de aberturas. Sua média amostral estima o custo esperado da política sob a lei do modelo de ruído, com sorteios independentes da árvore, e não sob a árvore que discretiza essa lei para a simulação backward. É uma estimativa estatística que nada certifica ([Camada 3](/math/cut-management#camada-3-certificado-do-gap)): avalia uma lei diferente da lei da árvore de aberturas e pode ficar abaixo de $\underline{z}^k$.
 
 ### 4.3 Externo
 
-O esquema externo reproduz um cenário de um conjunto de cenários fornecido ao longo de todos os estágios de uma trajetória. Sua média amostral estima o custo esperado da política sob a lei dos cenários fornecidos, a lei empírica desse conjunto. É uma estimativa estatística que nada certifica ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)): avalia uma lei diferente da lei da árvore de aberturas e pode ficar abaixo de $\underline{z}^k$.
+O esquema externo reproduz um cenário de um conjunto de cenários fornecido ao longo de todos os estágios de uma trajetória. Sua média amostral estima o custo esperado da política sob a lei dos cenários fornecidos, a lei empírica desse conjunto. É uma estimativa estatística que nada certifica ([Camada 3](/math/cut-management#camada-3-certificado-do-gap)): avalia uma lei diferente da lei da árvore de aberturas e pode ficar abaixo de $\underline{z}^k$.
 
 ### 4.4 Histórico
 
-O esquema histórico reproduz uma janela do conjunto de janelas históricas ao longo de todos os estágios de uma trajetória. Sua média amostral estima o custo esperado da política sob o histórico reproduzido, a lei empírica das janelas do conjunto. É uma estimativa estatística que nada certifica ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)): avalia uma lei diferente da lei da árvore de aberturas e pode ficar abaixo de $\underline{z}^k$.
+O esquema histórico reproduz uma janela do conjunto de janelas históricas ao longo de todos os estágios de uma trajetória. Sua média amostral estima o custo esperado da política sob o histórico reproduzido, a lei empírica das janelas do conjunto. É uma estimativa estatística que nada certifica ([Camada 3](/math/cut-management#camada-3-certificado-do-gap)): avalia uma lei diferente da lei da árvore de aberturas e pode ficar abaixo de $\underline{z}^k$.
 
 ### 4.5 Simulação após o treinamento
 
@@ -146,10 +146,10 @@ O Novo Modelo também pode estimar um limite superior do custo total esperado ex
 
 #### 4.5.1 Independência em relação ao treinamento
 
-A garantia metodológica central é que o ruído usado na simulação forward da simulação final é sorteado independentemente do ruído usado durante o treinamento. As simulações forward do treinamento amostram segundo o esquema forward de cada classe (veja [Geração de cenários](/pt-br/math/scenario-generation)) para gerar os estados visitados nos quais os cortes são construídos; qualquer custo calculado reexecutando a política sobre esses mesmos cenários do treinamento produziria um estimador **viesado** — os cortes foram moldados para serem justos nesses estados. A simulação evita isso sorteando seus $N$ cenários segundo o esquema de simulação de cada classe (§4.1–§4.4; o esquema do treinamento, a menos que a simulação declare um próprio), com uma derivação de semente que nenhuma iteração do treinamento utiliza. Como os cortes não dependem desses sorteios independentes, a amostra de custos resultante é um estimador não viesado do custo esperado da política sob a lei de seu esquema.
+A garantia metodológica central é que o ruído usado na simulação forward da simulação final é sorteado independentemente do ruído usado durante o treinamento. As simulações forward do treinamento amostram segundo o esquema forward de cada classe (veja [Geração de cenários](/math/scenario-generation)) para gerar os estados visitados nos quais os cortes são construídos; qualquer custo calculado reexecutando a política sobre esses mesmos cenários do treinamento produziria um estimador **viesado** — os cortes foram moldados para serem justos nesses estados. A simulação evita isso sorteando seus $N$ cenários segundo o esquema de simulação de cada classe (§4.1–§4.4; o esquema do treinamento, a menos que a simulação declare um próprio), com uma derivação de semente que nenhuma iteração do treinamento utiliza. Como os cortes não dependem desses sorteios independentes, a amostra de custos resultante é um estimador não viesado do custo esperado da política sob a lei de seu esquema.
 
 :::note[Ressalva sobre aversão ao risco]
-A garantia de ausência de viés se aplica ao estimador do custo esperado sob avaliação neutra ao risco. Para objetivos avessos ao risco, essa distribuição de custos simulada não certifica, por si só, um limite para a medida de risco; o limite exato aninhado da seção 2.1 o faz, sob um CVaR uniforme. Veja [Medidas de risco](/pt-br/math/risk-measures).
+A garantia de ausência de viés se aplica ao estimador do custo esperado sob avaliação neutra ao risco. Para objetivos avessos ao risco, essa distribuição de custos simulada não certifica, por si só, um limite para a medida de risco; o limite exato aninhado da seção 2.1 o faz, sob um CVaR uniforme. Veja [Medidas de risco](/math/risk-measures).
 :::
 
 #### 4.5.2 Estimador amostral (Monte Carlo)
@@ -160,7 +160,7 @@ $$
 C_m = \sum_{t=1}^{T} d_{1 \to t} \cdot c_t^{(m)}
 $$
 
-em que $c_t^{(m)}$ é o custo imediato no estágio $t$ do cenário $m$ e $d_{1 \to t}$ é o fator de desconto acumulado do estágio 1 ao estágio $t$ (veja [Formulação da taxa de desconto](/pt-br/math/discount-rate)).
+em que $c_t^{(m)}$ é o custo imediato no estágio $t$ do cenário $m$ e $d_{1 \to t}$ é o fator de desconto acumulado do estágio 1 ao estágio $t$ (veja [Formulação da taxa de desconto](/math/discount-rate)).
 
 A **média amostral** é o estimador de Monte Carlo do custo total esperado:
 
@@ -222,9 +222,9 @@ Aumentar $N$ estreita o intervalo de confiança amostral segundo $1/\sqrt{N}$, e
 
 #### 4.5.6 Relação com os limites da fase de treinamento
 
-Este estimador da simulação é independente do laço de treinamento: não é consumido por nenhum critério de parada e não condiciona o término do treinamento. O término do treinamento é governado pelo critério de parada baseado no gap (veja [Critérios de parada](/pt-br/math/stopping-rules), seção 5), que compara, a cada iteração, o limite superior da fase de treinamento — o estimador estatístico ou exato da simulação forward, seções 1–2 — com o limite inferior, usando a simulação forward do treinamento, e não a simulação pós-treinamento.
+Este estimador da simulação é independente do laço de treinamento: não é consumido por nenhum critério de parada e não condiciona o término do treinamento. O término do treinamento é governado pelo critério de parada baseado no gap (veja [Critérios de parada](/math/stopping-rules), seção 5), que compara, a cada iteração, o limite superior da fase de treinamento — o estimador estatístico ou exato da simulação forward, seções 1–2 — com o limite inferior, usando a simulação forward do treinamento, e não a simulação pós-treinamento.
 
-O estimador desta seção, por sua vez, reporta a distribuição de custos simulada da política treinada após a conclusão do treinamento: a média, o desvio-padrão e o intervalo de confiança amostrais (seções 4.5.2–4.5.3), ou a média ponderada e a variância populacional censitárias (seção 4.5.4). Veja [Convergência e diagnóstico](/pt-br/running/interpreting-results/) para saber como essa saída é usada na prática.
+O estimador desta seção, por sua vez, reporta a distribuição de custos simulada da política treinada após a conclusão do treinamento: a média, o desvio-padrão e o intervalo de confiança amostrais (seções 4.5.2–4.5.3), ou a média ponderada e a variância populacional censitárias (seção 4.5.4). Veja [Convergência e diagnóstico](/running/interpreting-results/) para saber como essa saída é usada na prática.
 
 :::note[Escopo]
 Este capítulo é responsável pela metodologia tanto do limite da simulação forward da fase de treinamento (seções 1–2) quanto do estimador da simulação pós-treinamento (esta seção); a derivação das sementes dos cenários e a distribuição dos cenários entre os recursos computacionais são detalhes de implementação fora do escopo deste capítulo.
@@ -232,7 +232,7 @@ Este capítulo é responsável pela metodologia tanto do limite da simulação f
 
 ## Apêndice: aproximação interna (reservada)
 
-Este apêndice descreve um projeto reservado que o Novo Modelo não calcula: uma aproximação interna da função de custo futuro baseada em vértices (SIDP), que avaliaria o limite superior independentemente do modo de amostragem da simulação forward. A aproximação interna da função de custo futuro por combinações convexas de pares estado-valor visitados, e o limite superior determinístico avaliado a partir dela, devem-se a [Philpott, de Matos & Finardi (2013)](/pt-br/reference/bibliography/#medidas-de-risco); [Costa & Leclère (2023)](/pt-br/reference/bibliography/#avaliacao-do-limite-superior) dão o arcabouço de dualidade para esses limites.
+Este apêndice descreve um projeto reservado que o Novo Modelo não calcula: uma aproximação interna da função de custo futuro baseada em vértices (SIDP), que avaliaria o limite superior independentemente do modo de amostragem da simulação forward. A aproximação interna da função de custo futuro por combinações convexas de pares estado-valor visitados, e o limite superior determinístico avaliado a partir dela, devem-se a [Philpott, de Matos & Finardi (2013)](/reference/bibliography/#medidas-de-risco); [Costa & Leclère (2023)](/reference/bibliography/#avaliacao-do-limite-superior) dão o arcabouço de dualidade para esses limites.
 
 ### Aproximação interna baseada em vértices
 
@@ -267,10 +267,10 @@ em que $\varphi_i$ é o peso do vértice $i$ na combinação convexa, $u^+$ e $u
 
 As constantes de Lipschitz limitariam a taxa de variação da função de valor em relação a cada componente do estado. Os componentes do estado têm unidades diferentes — hm³ para um componente de armazenamento e as unidades da própria defasagem para um componente de tendência hidrológica —, de modo que $L_t$ é o vetor de constantes $L_{t,j}$ por componente do estado, cada uma em \$ por unidade de seu componente $j$. Para a PDDE com viabilidade garantida por penalidades (recurso relativamente completo):
 
-- **Componente de armazenamento.** Um hm³ de água armazenada é precificado no estágio pela energia que desloca (o limite de penalidade em R\$/MWh vezes a energia que esse hm³ produz pelas produtibilidades das usinas que alcança, em MWh/hm³), pelas penalidades cobradas por hm³ de armazenamento (os custos de violação do armazenamento mínimo e da meta de enchimento do [Sistema de penalidades](/pt-br/math/penalty-system)) e pelo custo de verter a água que não pode ser armazenada (convertido de R\$/(m³/s·h) para R\$/hm³). Sua constante $L_{t,j}$, em R\$/hm³, limita superiormente esse preço.
+- **Componente de armazenamento.** Um hm³ de água armazenada é precificado no estágio pela energia que desloca (o limite de penalidade em R\$/MWh vezes a energia que esse hm³ produz pelas produtibilidades das usinas que alcança, em MWh/hm³), pelas penalidades cobradas por hm³ de armazenamento (os custos de violação do armazenamento mínimo e da meta de enchimento do [Sistema de penalidades](/math/penalty-system)) e pelo custo de verter a água que não pode ser armazenada (convertido de R\$/(m³/s·h) para R\$/hm³). Sua constante $L_{t,j}$, em R\$/hm³, limita superiormente esse preço.
 - **Componente de tendência hidrológica.** Sua constante tem as unidades da própria defasagem: limita, em R\$ por unidade dessa defasagem, a variação do custo por meio das afluências em que a defasagem entra.
 
-**Acumulação backward**, por componente de armazenamento $j$: no estágio terminal, $L_{T,j}$ é o limite próprio do estágio, cujo termo de energia é construído a partir do maior coeficiente de penalidade $c_{max}^{penalty}$ desse estágio; em cada estágio anterior $t$, $L_{t,j}$ soma o limite próprio do estágio, cujo termo de energia é construído a partir do maior coeficiente de penalidade do estágio $t$, $c_{max}^{penalty,t}$ (em R\$/MWh), à constante descontada do estágio seguinte $d_{t \to t+1} \cdot L_{t+1,j}$, em que $d_{t \to t+1}$ é o fator de desconto da transição $t \to t+1$ (veja [Formulação da taxa de desconto](/pt-br/math/discount-rate)).
+**Acumulação backward**, por componente de armazenamento $j$: no estágio terminal, $L_{T,j}$ é o limite próprio do estágio, cujo termo de energia é construído a partir do maior coeficiente de penalidade $c_{max}^{penalty}$ desse estágio; em cada estágio anterior $t$, $L_{t,j}$ soma o limite próprio do estágio, cujo termo de energia é construído a partir do maior coeficiente de penalidade do estágio $t$, $c_{max}^{penalty,t}$ (em R\$/MWh), à constante descontada do estágio seguinte $d_{t \to t+1} \cdot L_{t+1,j}$, em que $d_{t \to t+1}$ é o fator de desconto da transição $t \to t+1$ (veja [Formulação da taxa de desconto](/math/discount-rate)).
 
 :::note[Nota]
 O fator de desconto $d$ aparece na acumulação de Lipschitz porque o custo futuro seria descontado. Sem desconto ($d = 1$), $L_t$ cresceria com o horizonte remanescente.
@@ -362,27 +362,27 @@ A forma cíclica do grafo da política descrita nesta subseção é **reservada*
 independentemente da aproximação interna: o grafo da política do Novo Modelo
 admite apenas horizonte finito, e informar `cyclic` como tipo do grafo da
 política é rejeitado na carga com um erro nomeado. Veja
-[Modos de horizonte](/pt-br/math/horizon-modes) para o projeto-alvo cíclico reservado.
+[Modos de horizonte](/math/horizon-modes) para o projeto-alvo cíclico reservado.
 :::
 
-Para o projeto reservado de grafos da política cíclicos (veja [Modos de horizonte](/pt-br/math/horizon-modes)), a aproximação interna operaria sobre a mesma estrutura sazonal do conjunto de cortes: vértices organizados por período sazonal $\tau$, e não pelo ID absoluto do estágio. A constante de Lipschitz precisaria levar em conta o desconto acumulado ao longo do ciclo, que limita a série geométrica das contribuições futuras.
+Para o projeto reservado de grafos da política cíclicos (veja [Modos de horizonte](/math/horizon-modes)), a aproximação interna operaria sobre a mesma estrutura sazonal do conjunto de cortes: vértices organizados por período sazonal $\tau$, e não pelo ID absoluto do estágio. A constante de Lipschitz precisaria levar em conta o desconto acumulado ao longo do ciclo, que limita a série geométrica das contribuições futuras.
 
 A garantia de convergência continuaria válida: com $d_{\text{cycle}} < 1$, tanto a aproximação externa (cortes) quanto a interna (vértices) convergiriam para a verdadeira função de valor no ponto fixo.
 
 ## Referências
 
-- [Costa & Leclère (2023)](/pt-br/reference/bibliography/#avaliacao-do-limite-superior)
-- [Philpott, de Matos & Finardi (2013)](/pt-br/reference/bibliography/#medidas-de-risco)
+- [Costa & Leclère (2023)](/reference/bibliography/#avaliacao-do-limite-superior)
+- [Philpott, de Matos & Finardi (2013)](/reference/bibliography/#medidas-de-risco)
 
 ## Referências cruzadas
 
-- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — Algoritmo central que fornece a aproximação externa (limite inferior) complementada por este capítulo
-- [Convenções de notação](/pt-br/overview/notation-conventions) — Símbolos padronizados para variáveis de estado, funções de valor e custo futuro
-- [Formulação da taxa de desconto](/pt-br/math/discount-rate) — Fator de desconto $d$ usado no custo descontado do limite exato (seção 2) e no cálculo reservado dos valores dos vértices e na acumulação de Lipschitz (apêndice)
-- [Grafos da política](/pt-br/math/policy-graphs) — A distinção entre simulação forward enumerada e amostrada que seleciona entre os mecanismos estatístico e exato de limite superior (seções 1–2)
-- [Modos de horizonte](/pt-br/math/horizon-modes) — O projeto-alvo reservado de grafo da política cíclico e a estrutura de conjuntos indexada por período sazonal que a aproximação interna reservada do apêndice espelharia
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — Cortes da aproximação externa que fornecem a contrapartida do limite inferior
-- [Critérios de parada](/pt-br/math/stopping-rules) — O critério de parada baseado no gap, que compara o limite superior da fase de treinamento deste capítulo (seções 1–2) com o limite inferior (seção 3)
-- [Medidas de risco](/pt-br/math/risk-measures) — O limite inferior aninhado ajustado ao risco e por que apenas o limite exato aninhado certifica uma política avessa ao risco
-- [Geração de cenários](/pt-br/math/scenario-generation) — A árvore de aberturas e os esquemas de amostragem forward cujas estimativas a seção 4 interpreta, no treinamento e na simulação pós-treinamento (seção 4.5)
-- **Executando o Novo Modelo:** [Convergência e diagnóstico](/pt-br/running/interpreting-results/) — o guia do software para ler e avaliar a saída deste estimador.
+- [Algoritmo da PDDE](/math/sddp-algorithm) — Algoritmo central que fornece a aproximação externa (limite inferior) complementada por este capítulo
+- [Convenções de notação](/overview/notation-conventions) — Símbolos padronizados para variáveis de estado, funções de valor e custo futuro
+- [Formulação da taxa de desconto](/math/discount-rate) — Fator de desconto $d$ usado no custo descontado do limite exato (seção 2) e no cálculo reservado dos valores dos vértices e na acumulação de Lipschitz (apêndice)
+- [Grafos da política](/math/policy-graphs) — A distinção entre simulação forward enumerada e amostrada que seleciona entre os mecanismos estatístico e exato de limite superior (seções 1–2)
+- [Modos de horizonte](/math/horizon-modes) — O projeto-alvo reservado de grafo da política cíclico e a estrutura de conjuntos indexada por período sazonal que a aproximação interna reservada do apêndice espelharia
+- [Gerenciamento de cortes](/math/cut-management) — Cortes da aproximação externa que fornecem a contrapartida do limite inferior
+- [Critérios de parada](/math/stopping-rules) — O critério de parada baseado no gap, que compara o limite superior da fase de treinamento deste capítulo (seções 1–2) com o limite inferior (seção 3)
+- [Medidas de risco](/math/risk-measures) — O limite inferior aninhado ajustado ao risco e por que apenas o limite exato aninhado certifica uma política avessa ao risco
+- [Geração de cenários](/math/scenario-generation) — A árvore de aberturas e os esquemas de amostragem forward cujas estimativas a seção 4 interpreta, no treinamento e na simulação pós-treinamento (seção 4.5)
+- **Executando o Novo Modelo:** [Convergência e diagnóstico](/running/interpreting-results/) — o guia do software para ler e avaliar a saída deste estimador.

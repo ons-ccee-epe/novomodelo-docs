@@ -11,9 +11,9 @@ import { Content as SddpConfigure } from './_impl/_sddp.configure.mdx';
 
 This chapter describes the Stochastic Dual Dynamic Programming (SDDP) algorithm as implemented in Novomodelo: the multistage stochastic formulation, the iterative forward/backward pass structure, convergence monitoring, policy graph topologies, state variable requirements, and the single-cut formulation. It serves as the algorithmic foundation referenced by the other methodology chapters.
 
-For notation conventions (index sets, parameters, decision variables, dual variables), see [Notation Conventions](/overview/notation-conventions).
+For notation conventions (index sets, parameters, decision variables, dual variables), see [Notation Conventions](/en/overview/notation-conventions).
 
-For the entity view of this chapter, see [Water value and future cost](/entities/water-value/).
+For the entity view of this chapter, see [Water value and future cost](/en/entities/water-value/).
 
 ## 1. Problem Context
 
@@ -48,7 +48,7 @@ _Value function approximation via Benders cuts — each cut is a tangent at a tr
 
 ## 3. The SDDP Algorithm
 
-SDDP iteratively builds piecewise-linear approximations $\underline{V}_t^k$ at iteration $k$ of the true value functions. Each iteration starts with a forward pass that solves the stages in order along sampled or enumerated scenario paths, recording the trial points and the path costs from which the upper bound is computed ([Upper Bound Evaluation](/math/upper-bound-evaluation)). A backward pass then walks the stages from the last down to the second: at each stage $t$ it solves every (child, opening) pair at each trial point $\hat{x}_{t-1}$, aggregates one cut per trial point for stage $t-1$ and synchronizes the ranks so that each holds these cuts before it moves to stage $t-1$. Periodic cut selection and the cap on active cuts then run when the study configures them, and the lower bound is evaluated by solving the first stage over its openings. If the stopping rules are not met, iteration $k+1$ starts again from the forward pass; once they are met, training stops, and the policy is simulated when the study enables the simulation phase ([Stopping Rules](/math/stopping-rules) describes how the rules combine).
+SDDP iteratively builds piecewise-linear approximations $\underline{V}_t^k$ at iteration $k$ of the true value functions. Each iteration starts with a forward pass that solves the stages in order along sampled or enumerated scenario paths, recording the trial points and the path costs from which the upper bound is computed ([Upper Bound Evaluation](/en/math/upper-bound-evaluation)). A backward pass then walks the stages from the last down to the second: at each stage $t$ it solves every (child, opening) pair at each trial point $\hat{x}_{t-1}$, aggregates one cut per trial point for stage $t-1$ and synchronizes the ranks so that each holds these cuts before it moves to stage $t-1$. Periodic cut selection and the cap on active cuts then run when the study configures them, and the lower bound is evaluated by solving the first stage over its openings. If the stopping rules are not met, iteration $k+1$ starts again from the forward pass; once they are met, training stops, and the policy is simulated when the study enables the simulation phase ([Stopping Rules](/en/math/stopping-rules) describes how the rules combine).
 
 ```d2
 direction: down
@@ -89,19 +89,19 @@ For each of $M$ independent scenario trajectories:
 3. Record the optimal state $\hat{x}_t$ (end-of-stage storage volumes and updated AR lags), **canonicalized onto its admissible bounds** (see below), as the trial point for stage $t$
 4. Pass $\hat{x}_t$ as the incoming state to stage $t+1$
 
-Under an enumerated forward pass, every root-to-leaf path of the [policy graph](/math/policy-graphs) is visited exactly once in each iteration, with no sampling, and the paths play the role of the $M$ trajectories; every node of such a graph carries a single opening, which step 2 takes as the stage's realization ([Policy Graphs §6](/math/policy-graphs#6-the-enumerated-tree-structural-requirement)).
+Under an enumerated forward pass, every root-to-leaf path of the [policy graph](/en/math/policy-graphs) is visited exactly once in each iteration, with no sampling, and the paths play the role of the $M$ trajectories; every node of such a graph carries a single opening, which step 2 takes as the stage's realization ([Policy Graphs §6](/en/math/policy-graphs#6-the-enumerated-tree-structural-requirement)).
 
 :::note[Scenario sampling]
-"Sample a scenario realization $\omega_t$" is controlled by the **forward sampling scheme**, which determines the forward pass noise source and is chosen independently for each stochastic class. There are four schemes: **in-sample**, the default, draws a random index $j \in \{1, \ldots, N_{\text{openings}}\}$ from the **fixed opening tree** — a set of pre-generated noise vectors generated once before training begins; **out-of-sample** draws fresh noise from the same distribution under an independent seed; **external** draws from a supplied scenario file; and **historical**, for the inflow class only, replays historical realizations. See [Scenario Generation §3.2](/math/scenario-generation#32-forward-sampling-schemes) for the schemes.
+"Sample a scenario realization $\omega_t$" is controlled by the **forward sampling scheme**, which determines the forward pass noise source and is chosen independently for each stochastic class. There are four schemes: **in-sample**, the default, draws a random index $j \in \{1, \ldots, N_{\text{openings}}\}$ from the **fixed opening tree** — a set of pre-generated noise vectors generated once before training begins; **out-of-sample** draws fresh noise from the same distribution under an independent seed; **external** draws from a supplied scenario file; and **historical**, for the inflow class only, replays historical realizations. See [Scenario Generation §3.2](/en/math/scenario-generation#32-forward-sampling-schemes) for the schemes.
 :::
 
 The forward pass produces: (a) trial points $\{\hat{x}_t\}$ at each stage for each trajectory, and (b) stage costs for upper bound estimation.
 
 **Parallelization**: Forward trajectories are independent — Novomodelo distributes $M$ trajectories across MPI ranks, with threads solving individual stage LPs within each rank.
 
-**Warm-starting**: When the backward pass warm-starts, the basis of the forward solve at stage $t$ seeds the backward pass solves of stage $t$ at the same trial point, reducing their solve times ([LP Warm-Start](/math/lp-warm-start)).
+**Warm-starting**: When the backward pass warm-starts, the basis of the forward solve at stage $t$ seeds the backward pass solves of stage $t$ at the same trial point, reducing their solve times ([LP Warm-Start](/en/math/lp-warm-start)).
 
-**State canonicalization**: The recorded outgoing state $\hat{x}_t$ is not the raw LP primal but its projection onto the resolved admissible bounds. Each bounded coordinate — end-of-stage storage, in-transit water volume, and any anticipated-thermal commitment hold — is clamped into its resolved interval, while the unbounded inflow (AR) lags pass through unchanged. The projection is the identity for an in-box optimum, so a solve whose state stays within bounds is unaffected by it. It is applied **once**, at read-back, and every consumer reads that one canonical vector: the forward trajectory, the backward-pass trial state $\hat{x}_{t-1}$, and the cut intercept anchored at it (see [Cut Management](/math/cut-management)). This is what makes $\hat{x}_t$ a well-defined function of the stage's optimal value and its resolved bounds — independent of which degenerate optimal vertex the solve terminated at or of round-off. See [Determinism & Provenance](/math/determinism-guarantees#3-methodology-mechanisms).
+**State canonicalization**: The recorded outgoing state $\hat{x}_t$ is not the raw LP primal but its projection onto the resolved admissible bounds. Each bounded coordinate — end-of-stage storage, in-transit water volume, and any anticipated-thermal commitment hold — is clamped into its resolved interval, while the unbounded inflow (AR) lags pass through unchanged. The projection is the identity for an in-box optimum, so a solve whose state stays within bounds is unaffected by it. It is applied **once**, at read-back, and every consumer reads that one canonical vector: the forward trajectory, the backward-pass trial state $\hat{x}_{t-1}$, and the cut intercept anchored at it (see [Cut Management](/en/math/cut-management)). This is what makes $\hat{x}_t$ a well-defined function of the stage's optimal value and its resolved bounds — independent of which degenerate optimal vertex the solve terminated at or of round-off. See [Determinism & Provenance](/en/math/determinism-guarantees#3-methodology-mechanisms).
 
 ### 3.2 Backward Pass
 
@@ -110,23 +110,23 @@ The backward pass improves the value function approximation by generating new Be
 At each stage $t$, for each trial point $\hat{x}_{t-1}$ collected during the forward pass:
 
 1. Solve the stage $t$ LP for **every** scenario $\omega \in \Omega_t$ (branching), using the trial state $\hat{x}_{t-1}$ as incoming state
-2. From each LP solution, extract the optimal objective value $Q_t(\hat{x}_{t-1}, \omega)$ and the **reduced costs** of the pinned incoming-state columns. The incoming-storage and AR-lag reduced costs enter the cut when the stage's cut projection keeps those components; the in-transit water-bucket and anticipated-thermal-slot reduced costs always do ([State Augmentation §7](/math/state-augmentation#7-cut-state-projection)). These reduced costs give the cut coefficients directly — no combination with FPHA or generic constraint duals is needed. See [Cut Management](/math/cut-management)
-3. Compute per-scenario cut terms $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ at the trial point, each coefficient of $\beta(\omega)$ being the reduced cost of step 2 divided by its column's scale factor ([Cut Management §2](/math/cut-management#2-reduced-cost-extraction))
-4. Aggregate the per-scenario cut terms into a single cut. On a policy graph, the cut of a node $n$ aggregates every (child, opening) pair $(n', \omega)$ of $n$, weighted by $P(n \to n')\, p_{n'}(\omega)$, with the risk measure acting once on that joint law; on the stage chain the node has one child and the weights are the uniform $p(\omega)$ over $\Omega_t$. See [Cut Management §3](/math/cut-management#3-single-cut-aggregation)
+2. From each LP solution, extract the optimal objective value $Q_t(\hat{x}_{t-1}, \omega)$ and the **reduced costs** of the pinned incoming-state columns. The incoming-storage and AR-lag reduced costs enter the cut when the stage's cut projection keeps those components; the in-transit water-bucket and anticipated-thermal-slot reduced costs always do ([State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)). These reduced costs give the cut coefficients directly — no combination with FPHA or generic constraint duals is needed. See [Cut Management](/en/math/cut-management)
+3. Compute per-scenario cut terms $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ at the trial point, each coefficient of $\beta(\omega)$ being the reduced cost of step 2 divided by its column's scale factor ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction))
+4. Aggregate the per-scenario cut terms into a single cut. On a policy graph, the cut of a node $n$ aggregates every (child, opening) pair $(n', \omega)$ of $n$, weighted by $P(n \to n')\, p_{n'}(\omega)$, with the risk measure acting once on that joint law; on the stage chain the node has one child and the weights are the uniform $p(\omega)$ over $\Omega_t$. See [Cut Management §3](/en/math/cut-management#3-single-cut-aggregation)
 5. Add the aggregated cut to stage $t-1$'s cut pool
 
 :::note[Backward branching]
-"Every scenario $\omega \in \Omega_t$" refers to all $N_{\text{openings}}$ noise vectors in the **fixed opening tree** for stage $t$. This is the **Complete** backward sampling scheme — the backward pass evaluates ALL openings (the same set across all iterations), regardless of the forward pass noise source. An alternative variant would sample $n_{\text{sample}}$ openings instead of the full tree; Novomodelo uses the Complete scheme because it guarantees that cut coefficients average over the full scenario distribution at each stage. On a policy graph, the backward pass evaluates every opening of every child of the node, and the aggregation weights $P(n \to n')\, p_{n'}(\omega)$ of [Cut Management §3](/math/cut-management#3-single-cut-aggregation) are uniform within each child's openings; on the stage chain they are the uniform probabilities $p(\omega) = 1/N_{\text{openings}}$ of these openings. See [Scenario Generation](/math/scenario-generation).
+"Every scenario $\omega \in \Omega_t$" refers to all $N_{\text{openings}}$ noise vectors in the **fixed opening tree** for stage $t$. This is the **Complete** backward sampling scheme — the backward pass evaluates ALL openings (the same set across all iterations), regardless of the forward pass noise source. An alternative variant would sample $n_{\text{sample}}$ openings instead of the full tree; Novomodelo uses the Complete scheme because it guarantees that cut coefficients average over the full scenario distribution at each stage. On a policy graph, the backward pass evaluates every opening of every child of the node, and the aggregation weights $P(n \to n')\, p_{n'}(\omega)$ of [Cut Management §3](/en/math/cut-management#3-single-cut-aggregation) are uniform within each child's openings; on the stage chain they are the uniform probabilities $p(\omega) = 1/N_{\text{openings}}$ of these openings. See [Scenario Generation](/en/math/scenario-generation).
 :::
 
 The backward pass produces one new cut per stage per trial point per iteration.
 
 :::note[Feasibility]
-Every backward LP solve must be feasible. This is guaranteed by the recourse slack system (Category 1 penalties) — see [Penalty System](/math/penalty-system). Relatively complete recourse keeps every backward solve feasible; cut validity needs the conditions of [Cut Management §4](/math/cut-management#4-cut-validity).
+Every backward LP solve must be feasible. This is guaranteed by the recourse slack system (Category 1 penalties) — see [Penalty System](/en/math/penalty-system). Relatively complete recourse keeps every backward solve feasible; cut validity needs the conditions of [Cut Management §4](/en/math/cut-management#4-cut-validity).
 :::
 
 :::note[Discount factor]
-When discount rates are active, the discount factor is applied to the $\theta$ variable in the stage $t-1$ objective (i.e., $d_{t-1 \to t} \cdot \theta$), not to the cut coefficients. The cuts themselves remain unmodified. See [Discount Rate Formulation](/math/discount-rate).
+When discount rates are active, the discount factor is applied to the $\theta$ variable in the stage $t-1$ objective (i.e., $d_{t-1 \to t} \cdot \theta$), not to the cut coefficients. The cuts themselves remain unmodified. See [Discount Rate Formulation](/en/math/discount-rate).
 :::
 
 Scenario tree under a sampled forward pass — the forward pass samples M sparse
@@ -183,17 +183,17 @@ forward -> backward: "each visited trial point x̂"
 
 ### 3.3 Convergence Monitoring
 
-**Lower Bound**: $\underline{z}^k$ is the first stage's risk-adjusted value over its openings with the current cuts ([Upper Bound Evaluation — Lower bound](/math/upper-bound-evaluation#lower-bound)). It does not decrease across iterations, and [Tier 1](/math/cut-management#tier-1-valid-lower-bound) states when it is a valid bound.
+**Lower Bound**: $\underline{z}^k$ is the first stage's risk-adjusted value over its openings with the current cuts ([Upper Bound Evaluation — Lower bound](/en/math/upper-bound-evaluation#lower-bound)). It does not decrease across iterations, and [Tier 1](/en/math/cut-management#tier-1-valid-lower-bound) states when it is a valid bound.
 
-**Upper Bound**: Under a sampled forward pass, this is a **statistical** estimate — the sample mean over the forward pass trajectories; under an enumerated forward pass, it is the **exact** probability-weighted bound $\bar{z}_{\text{exact}}$ over every leaf path, with no sampling error (see [Upper Bound Evaluation](/math/upper-bound-evaluation)). The sampled-mean form:
+**Upper Bound**: Under a sampled forward pass, this is a **statistical** estimate — the sample mean over the forward pass trajectories; under an enumerated forward pass, it is the **exact** probability-weighted bound $\bar{z}_{\text{exact}}$ over every leaf path, with no sampling error (see [Upper Bound Evaluation](/en/math/upper-bound-evaluation)). The sampled-mean form:
 
 $$
 \bar{z}^k = \frac{1}{M} \sum_{m=1}^{M} \sum_{t=1}^{T} d_{1 \to t}\, c_t(x_t^{(m)}, u_t^{(m)})
 $$
 
-where $d_{1 \to t}$ is the cumulative discount factor of stage $t$ ([Discount Rate Formulation §5](/math/discount-rate#5-cumulative-discounting)). With an imported terminal function (§7), each trajectory's cost also includes the discounted value of that function at the trajectory's final state.
+where $d_{1 \to t}$ is the cumulative discount factor of stage $t$ ([Discount Rate Formulation §5](/en/math/discount-rate#5-cumulative-discounting)). With an imported terminal function (§7), each trajectory's cost also includes the discounted value of that function at the trajectory's final state.
 
-**Optimality Gap**: the distance between the upper and the lower bound, reported in percent of the lower bound; [Stopping Rules](/math/stopping-rules#optimality-gap) defines it and the gap-based stopping rule that consumes it.
+**Optimality Gap**: the distance between the upper and the lower bound, reported in percent of the lower bound; [Stopping Rules](/en/math/stopping-rules#optimality-gap) defines it and the gap-based stopping rule that consumes it.
 
 ### 3.4 Execution Model and Performance Considerations
 
@@ -201,15 +201,15 @@ The SDDP iteration structure has specific properties that guide the parallelizat
 
 **Backward pass synchronization**: The backward pass enforces a per-stage synchronization barrier: the cuts generated by the stage-$t$ solves are complete, and synchronized across ranks, before any stage-$(t-1)$ solve starts, so every stage-$(t-1)$ solve includes them. This serializes the algorithm at stage boundaries.
 
-Each forward and backward stage solve loads the stage's LP template, which holds the cuts active when the template was built, and appends the cuts added since; under the dynamic method, once its lazy loop starts, these solves load a bounded resident subset of the pool instead ([Cut Management §8](/math/cut-management#8-the-dynamic-method)). Work is distributed across ranks and threads as [Performance Accelerators](/running/performance/#parallel-execution-model) describes.
+Each forward and backward stage solve loads the stage's LP template, which holds the cuts active when the template was built, and appends the cuts added since; under the dynamic method, once its lazy loop starts, these solves load a bounded resident subset of the pool instead ([Cut Management §8](/en/math/cut-management#8-the-dynamic-method)). Work is distributed across ranks and threads as [Performance Accelerators](/en/running/performance/#parallel-execution-model) describes.
 
 The software architecture that realises these constraints is described in the [`novomodelo-sddp` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md).
 
 ## 4. Policy Graph Structure
 
-The stage chain used throughout this chapter — one node per stage $t \in \{1, \ldots, T\}$, connected by transitions of probability $1$, terminating at $V_{T+1}(x) = 0$ or an imported terminal function (§7) — is the special case of a more general **policy graph**: a structure of nodes, probability-weighted transitions, and per-node future-cost pools. See [Policy Graphs](/math/policy-graphs) for the full node/transition/pool structure, the two probability axes (between-node edge weights versus within-node openings), the discount-separate convention, and the mapping onto the SDDP.jl family.
+The stage chain used throughout this chapter — one node per stage $t \in \{1, \ldots, T\}$, connected by transitions of probability $1$, terminating at $V_{T+1}(x) = 0$ or an imported terminal function (§7) — is the special case of a more general **policy graph**: a structure of nodes, probability-weighted transitions, and per-node future-cost pools. See [Policy Graphs](/en/math/policy-graphs) for the full node/transition/pool structure, the two probability axes (between-node edge weights versus within-node openings), the discount-separate convention, and the mapping onto the SDDP.jl family.
 
-Novomodelo's policy graph is **finite-horizon only**: an acyclic, leaf-terminated graph in which every trajectory starts at a root and reaches a leaf after a bounded number of stages. A **cyclic** graph shape — a later stage transitioning back to an earlier one, for infinite-periodic-horizon planning — is **reserved** and rejected when the case is loaded. See [Horizon Modes](/math/horizon-modes) for the cyclic target design this reservation anticipates, and [Policy Graphs](/math/policy-graphs) for the complete list of structural limitations.
+Novomodelo's policy graph is **finite-horizon only**: an acyclic, leaf-terminated graph in which every trajectory starts at a root and reaches a leaf after a bounded number of stages. A **cyclic** graph shape — a later stage transitioning back to an earlier one, for infinite-periodic-horizon planning — is **reserved** and rejected when the case is loaded. See [Horizon Modes](/en/math/horizon-modes) for the cyclic target design this reservation anticipates, and [Policy Graphs](/en/math/policy-graphs) for the complete list of structural limitations.
 
 ## 5. State Variables and the Markov Property
 
@@ -220,7 +220,7 @@ For SDDP to generate valid cuts, the subproblem must satisfy the **Markov proper
 | Component                 | Variable               | Count        | Description                                                                                         |
 | ------------------------- | ---------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
 | Hydro storage             | $v_h$                  | $N_{hydro}$  | Reservoir volume at end of stage                                                                    |
-| AR inflow lags            | $a_{h,\ell}$           | $N_{hydro} \cdot P^{\max}$ | Lagged inflows of the AR($P_h$) models, stored $P^{\max}$ per hydro ([State Augmentation §4](/math/state-augmentation#4-inflow-lags)) |
+| AR inflow lags            | $a_{h,\ell}$           | $N_{hydro} \cdot P^{\max}$ | Lagged inflows of the AR($P_h$) models, stored $P^{\max}$ per hydro ([State Augmentation §4](/en/math/state-augmentation#4-inflow-lags)) |
 | In-transit water buckets  | $b^{\mathrm{out}}_{h,d}$              | $B$          | Released water still in transit under travel-time delay — one bucket per receiving plant $h$ per maturity lag $d$ |
 | Anticipated-thermal slots | $x^{\mathrm{a}}_{s,i}$            | one ring per anticipated plant | Commitments decided and not yet delivered — each holds one slot of its plant's ring until its delivery stage |
 
@@ -239,9 +239,9 @@ $$
 \underline{a}_{h,\ell} = \bar{a}_{h,\ell} = \hat{a}_{h,\ell} \quad \forall h \in \mathcal{H}, \; \ell \in \{1, \ldots, P^{\max}\}
 $$
 
-where $\hat{a}_{h,\ell}$ is the lag $\ell$ inflow value passed from the previous stage. The reduced costs of these pinned columns, each divided by its column's scale factor, give the lag coefficients $\beta^{lag}_{h,\ell}$, which enter the cut when the stage's cut projection keeps the inflow-lag components, capturing the marginal value of inflow history — see [Cut Management §2](/math/cut-management#2-reduced-cost-extraction).
+where $\hat{a}_{h,\ell}$ is the lag $\ell$ inflow value passed from the previous stage. The reduced costs of these pinned columns, each divided by its column's scale factor, give the lag coefficients $\beta^{lag}_{h,\ell}$, which enter the cut when the stage's cut projection keeps the inflow-lag components, capturing the marginal value of inflow history — see [Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction).
 
-See [PAR(p) Inflow Model](/math/par-inflow-model) for the complete autoregressive formulation and [State Augmentation §4](/math/state-augmentation#4-inflow-lags) for how these constraints appear in the stage LP.
+See [PAR(p) Inflow Model](/en/math/par-inflow-model) for the complete autoregressive formulation and [State Augmentation §4](/en/math/state-augmentation#4-inflow-lags) for how these constraints appear in the stage LP.
 
 ### 5.2 Travel-Time and Anticipated-Thermal State Expansion
 
@@ -264,9 +264,9 @@ to its delivery stage. The ring slots are Markov state so that the cut at each
 stage prices the commitments already in flight.
 
 Both expansions are optional and instance-specific; see
-[System Element Modeling Overview](/math/system-elements) for the entity configuration and
-[State Augmentation §6](/math/state-augmentation#6-water-travel-time) for the in-transit bucket rows and
-[State Augmentation §5](/math/state-augmentation#5-anticipated-thermal-commitments) for the anticipated-thermal delivery gating in the stage LP.
+[System Element Modeling Overview](/en/math/system-elements) for the entity configuration and
+[State Augmentation §6](/en/math/state-augmentation#6-water-travel-time) for the in-transit bucket rows and
+[State Augmentation §5](/en/math/state-augmentation#5-anticipated-thermal-commitments) for the anticipated-thermal delivery gating in the stage LP.
 
 ## 6. Single-Cut Formulation
 
@@ -276,20 +276,20 @@ $$
 \theta_{t-1} \geq \bar{Q}_t + \bar{\beta}^\top (x_{t-1} - \hat{x}_{t-1})
 $$
 
-where $\bar{Q}_t$ and $\bar{\beta}$ aggregate the per-scenario terms $Q_t(\hat{x}_{t-1}, \omega)$ and $\beta(\omega)$ of §3.2 with the weights of [Cut Management §3](/math/cut-management#3-single-cut-aggregation): under the expectation, $\bar{Q}_t = \mathbb{E}[Q_t(\hat{x}_{t-1}, \omega)]$ and $\bar{\beta} = \mathbb{E}[\beta(\omega)]$, and under a risk measure the risk-adjusted probabilities of [Risk Measures §7](/math/risk-measures#7-cut-generation-with-risk-measures) replace those weights.
+where $\bar{Q}_t$ and $\bar{\beta}$ aggregate the per-scenario terms $Q_t(\hat{x}_{t-1}, \omega)$ and $\beta(\omega)$ of §3.2 with the weights of [Cut Management §3](/en/math/cut-management#3-single-cut-aggregation): under the expectation, $\bar{Q}_t = \mathbb{E}[Q_t(\hat{x}_{t-1}, \omega)]$ and $\bar{\beta} = \mathbb{E}[\beta(\omega)]$, and under a risk measure the risk-adjusted probabilities of [Risk Measures §7](/en/math/risk-measures#7-cut-generation-with-risk-measures) replace those weights.
 
-- **Pros**: Fewer cuts, a smaller LP and faster solves than a multi-cut formulation ([Birge & Louveaux, 1988](/reference/bibliography/#sddp-foundations)), which keeps one cut per opening at each trial point
+- **Pros**: Fewer cuts, a smaller LP and faster solves than a multi-cut formulation ([Birge & Louveaux, 1988](/en/reference/bibliography/#sddp-foundations)), which keeps one cut per opening at each trial point
 - **Cons**: May require more iterations to converge than a multi-cut formulation
 
-Novomodelo implements the single-cut formulation ([Cut Management §3](/math/cut-management#3-single-cut-aggregation)).
+Novomodelo implements the single-cut formulation ([Cut Management §3](/en/math/cut-management#3-single-cut-aggregation)).
 
 ## 7. Terminal Boundary Cuts
 
 By default the recursion ends with the terminal condition $V_{T+1}(x) = 0$ of §2. A study may replace it with a fixed terminal function defined by cuts imported from one pool of an upstream policy, the **terminal boundary cuts**, which form the terminal stage's cut pool. The backward pass generates no cut for that pool and none is removed from it, so the function stays fixed for the whole run.
 
-The imported cuts are valid for the upstream model's cost-to-go, so the study's lower bound and policy are valid relative to the imported function, the fixed terminal function of the [Tier 1](/math/cut-management#tier-1-valid-lower-bound) hypotheses. A downstream model that differs from the upstream one is not corrected by training, and the difference biases the policy near the horizon. The imported cuts only bound the future-cost variable from below, so such a difference never makes a stage subproblem infeasible; it changes the value.
+The imported cuts are valid for the upstream model's cost-to-go, so the study's lower bound and policy are valid relative to the imported function, the fixed terminal function of the [Tier 1](/en/math/cut-management#tier-1-valid-lower-bound) hypotheses. A downstream model that differs from the upstream one is not corrected by training, and the difference biases the policy near the horizon. The imported cuts only bound the future-cost variable from below, so such a difference never makes a stage subproblem infeasible; it changes the value.
 
-The source pool, the compatibility conditions, the carried state and the calendar reconciliation are owned by [Post-Study Boundary & Chained Studies](/math/post-study-boundary).
+The source pool, the compatibility conditions, the carried state and the calendar reconciliation are owned by [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary).
 
 ## Implementation in Novomodelo
 
@@ -301,19 +301,19 @@ The methodology above defines the forward/backward pass structure and the execut
 
 ## Cross-References
 
-- [Notation Conventions](/overview/notation-conventions) — All index sets, parameters, decision variables, and dual variable definitions
-- [LP Formulation](/math/lp-formulation) — Complete stage subproblem LP that the forward/backward passes solve
-- [Policy Graphs](/math/policy-graphs) — The node/transition/pool generalisation of the stage chain; two probability axes, discount-separate convention, and structural limitations (finite-horizon only, cyclic reserved)
-- [Cut Management](/math/cut-management) — Cut generation, aggregation, selection, validity conditions, and the append-only monotonicity guarantee
-- [Determinism & Provenance](/math/determinism-guarantees) — Read-back canonicalization of the trial-point values onto admissible bounds, and the reproducibility mechanisms (canonical state-block ordering, pinned solve order) it rests on
-- [PAR(p) Inflow Model](/math/par-inflow-model) — Stochastic inflow model driving uncertainty in the forward pass
-- [Discount Rate Formulation](/math/discount-rate) — Discounted Bellman equation, stage-dependent rates, discount factor on θ
-- [Horizon Modes](/math/horizon-modes) — The reserved cyclic policy-graph target design (season function, cycle convergence inequality, season-indexed cut pool, fixed-point Bellman operator) that the finite-horizon-only restriction in [Policy Graphs](/math/policy-graphs) anticipates
-- [Post-Study Boundary & Chained Studies](/math/post-study-boundary) — the imported terminal function: source pool, compatibility conditions, carried state and calendar reconciliation
-- [Upper Bound Evaluation](/math/upper-bound-evaluation) — Upper bound estimation methods
-- [Stopping Rules](/math/stopping-rules) — Convergence criteria that terminate the iterative process
-- [Risk Measures](/math/risk-measures) — CVaR and risk-averse extensions to the Bellman recursion
-- [Penalty System](/math/penalty-system) — Recourse slacks guaranteeing feasibility (relatively complete recourse)
-- [Equipment-Specific Formulations](/math/equipment-formulations) — Thermal equipment modelling
-- [Scenario Generation](/math/scenario-generation) — Fixed opening tree, sampling scheme abstraction, enumerated scenario trees
-- **Running Novomodelo:** [Running Studies](/running/running-studies/) — the software workflow that trains and runs this algorithm.
+- [Notation Conventions](/en/overview/notation-conventions) — All index sets, parameters, decision variables, and dual variable definitions
+- [LP Formulation](/en/math/lp-formulation) — Complete stage subproblem LP that the forward/backward passes solve
+- [Policy Graphs](/en/math/policy-graphs) — The node/transition/pool generalisation of the stage chain; two probability axes, discount-separate convention, and structural limitations (finite-horizon only, cyclic reserved)
+- [Cut Management](/en/math/cut-management) — Cut generation, aggregation, selection, validity conditions, and the append-only monotonicity guarantee
+- [Determinism & Provenance](/en/math/determinism-guarantees) — Read-back canonicalization of the trial-point values onto admissible bounds, and the reproducibility mechanisms (canonical state-block ordering, pinned solve order) it rests on
+- [PAR(p) Inflow Model](/en/math/par-inflow-model) — Stochastic inflow model driving uncertainty in the forward pass
+- [Discount Rate Formulation](/en/math/discount-rate) — Discounted Bellman equation, stage-dependent rates, discount factor on θ
+- [Horizon Modes](/en/math/horizon-modes) — The reserved cyclic policy-graph target design (season function, cycle convergence inequality, season-indexed cut pool, fixed-point Bellman operator) that the finite-horizon-only restriction in [Policy Graphs](/en/math/policy-graphs) anticipates
+- [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) — the imported terminal function: source pool, compatibility conditions, carried state and calendar reconciliation
+- [Upper Bound Evaluation](/en/math/upper-bound-evaluation) — Upper bound estimation methods
+- [Stopping Rules](/en/math/stopping-rules) — Convergence criteria that terminate the iterative process
+- [Risk Measures](/en/math/risk-measures) — CVaR and risk-averse extensions to the Bellman recursion
+- [Penalty System](/en/math/penalty-system) — Recourse slacks guaranteeing feasibility (relatively complete recourse)
+- [Equipment-Specific Formulations](/en/math/equipment-formulations) — Thermal equipment modelling
+- [Scenario Generation](/en/math/scenario-generation) — Fixed opening tree, sampling scheme abstraction, enumerated scenario trees
+- **Running Novomodelo:** [Running Studies](/en/running/running-studies/) — the software workflow that trains and runs this algorithm.

@@ -67,7 +67,7 @@ error: [SchemaViolation] system/hydros.json: field reservoir: missing field `res
 ```
 
 Fix any reported errors before proceeding. See
-[Case Format](/reference/case-format/) for the full schema.
+[Case Format](/en/reference/case-format/) for the full schema.
 
 ---
 
@@ -86,12 +86,12 @@ novomodelo run /path/to/my_study --output /path/to/results
 
 Before it writes a phase's outputs, `novomodelo run`
 removes the earlier run's outputs of that phase, as listed under
-[Output Format — Success markers](/reference/output/#success-markers); every
+[Output Format — Success markers](/en/reference/output/#success-markers); every
 other file stays until a run rewrites it, so the `stochastic/` export of an
 earlier run that set `exports.stochastic` remains. Use a fresh `--output` directory, or delete the old one,
 before comparing runs. Warm-start, resume, and simulation-only runs read the
 policy checkpoint from `policy.path` under the output directory, so keep that
-checkpoint when you plan one of those runs ([Policy Management](/running/policy-management/)).
+checkpoint when you plan one of those runs ([Policy Management](/en/running/policy-management/)).
 
 ### Lifecycle Stages
 
@@ -129,7 +129,7 @@ and writes its outputs. `novomodelo validate` checks the case beforehand without
 A later run of the same study can warm-start from or resume the checkpoint, or simulate
 it without training ([Reusing a Saved Policy](#reusing-a-saved-policy)), and another
 study can import it as its terminal boundary
-([Policy Management — Boundary Cuts](/running/policy-management/#boundary-cuts)).
+([Policy Management — Boundary Cuts](/en/running/policy-management/#boundary-cuts)).
 
 ---
 
@@ -220,7 +220,7 @@ Each phase prints a summary to stdout with:
 
 The scaffold runs one forward pass per iteration, so each upper bound is the cost of
 a single sampled trajectory and the gap can read below zero.
-[Convergence & Diagnostics](/running/interpreting-results/) covers reading the bounds.
+[Convergence & Diagnostics](/en/running/interpreting-results/) covers reading the bounds.
 
 ---
 
@@ -259,10 +259,10 @@ jq -r '.convergence.termination_reason' /path/to/my_study/output/training/metada
 From Python, `novomodelo.results.load_results("/path/to/my_study/output")` returns
 both metadata files as dicts, and `novomodelo.results.load_convergence` /
 `novomodelo.results.load_simulation` load the Parquet tables. See
-[Convergence & Diagnostics](/running/interpreting-results/) for reading the
-convergence trajectory and simulation outputs, and [Output Format](/reference/output/) for every field
-of [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson) and
-[`simulation/metadata.json`](/reference/output/metadata/#simulationmetadatajson).
+[Convergence & Diagnostics](/en/running/interpreting-results/) for reading the
+convergence trajectory and simulation outputs, and [Output Format](/en/reference/output/) for every field
+of [`training/metadata.json`](/en/reference/output/metadata/#trainingmetadatajson) and
+[`simulation/metadata.json`](/en/reference/output/metadata/#simulationmetadatajson).
 
 ---
 
@@ -270,34 +270,34 @@ of [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson) 
 
 A run writes its policy checkpoint to `policy.path`; a later run can simulate it,
 start training from it or resume it, and another study can use it as its terminal
-boundary ([Policy Management](/running/policy-management/)).
+boundary ([Policy Management](/en/running/policy-management/)).
 
 ### Simulation Against a Saved Policy
 
 Set `training.enabled` to `false` to simulate a saved policy without
 re-training. `training.selection` and `training.stopping_rules` are still
 required. The complete config and the policy load checks are in
-[Policy Management — Simulation-Only Mode](/running/policy-management/#simulation-only-mode).
+[Policy Management — Simulation-Only Mode](/en/running/policy-management/#simulation-only-mode).
 
 ### Warm-Starting From a Saved Policy
 
 Set `policy.mode` to `"warm_start"` to start training from a saved policy; training
 adds new cuts on top of the saved ones. See
-[Policy Management — Warm Start](/running/policy-management/#warm-start).
+[Policy Management — Warm Start](/en/running/policy-management/#warm-start).
 
 ### Resuming a Stopped Training
 
 Set `policy.mode` to `"resume"` to continue a stopped training from its checkpoint.
 The largest `iteration_limit` is a total that includes the completed iterations, so
 set it above that number. See
-[Policy Management — Resume](/running/policy-management/#resume).
+[Policy Management — Resume](/en/running/policy-management/#resume).
 
 ### Training in Slices
 
 When a scheduler's wall-time limit is shorter than the training needs, train in
 slices: each later slice sets `policy.mode` to `"resume"` and raises the
 `iteration_limit` total.
-See [Policy Management — Train in Slices](/running/policy-management/#train-in-slices).
+See [Policy Management — Train in Slices](/en/running/policy-management/#train-in-slices).
 
 ---
 
@@ -345,12 +345,12 @@ integer of at least `1` and defaults to `1`. The pool solves the forward-pass,
 backward-pass, and simulation LPs in parallel, so speedup is bounded by the
 parallel work available: the forward passes per iteration, the trial points of the
 backward pass, and the simulation scenarios. In the excerpt, training runs about twice as fast on four threads and simulation about two and a half times as fast: on this case the LP solves take most of each phase's wall time, and they run in parallel. See
-[Performance Accelerators](/running/performance/) for the execution model.
+[Performance Accelerators](/en/running/performance/) for the execution model.
 
 ### Communication Backend
 
 A single `novomodelo run` uses the local (single-process) backend; launching under an
-MPI launcher (`mpiexec`, `mpirun`, or `srun`) distributes the work across ranks when the binary is built with MPI support (the `novomodelo-mpi` binary of [HPC & Cluster Deployment](/running/hpc-deployment/)); the standard `novomodelo` binary offers only the local backend, so under a launcher `auto` runs every process as its own single-process study.
+MPI launcher (`mpiexec`, `mpirun`, or `srun`) distributes the work across ranks when the binary is built with MPI support (the `novomodelo-mpi` binary of [HPC & Cluster Deployment](/en/running/hpc-deployment/)); the standard `novomodelo` binary offers only the local backend, so under a launcher `auto` runs every process as its own single-process study.
 By default (`--comm-backend auto`) novomodelo detects the launcher and selects the
 backend accordingly, so no flag is needed in either case. Pass
 `--comm-backend mpi` to force the MPI backend — it fails with a clear message on a
@@ -372,8 +372,8 @@ Suppresses banner and progress output, suitable for batch scripts.
 ### Checking Exit Codes
 
 `novomodelo run` exits `0` on success and non-zero otherwise. The meaning of each code
-is in [CLI Reference — Exit Codes](/reference/cli-reference/#exit-codes).
-[Troubleshooting](/running/troubleshooting/) lists error messages with their cause
+is in [CLI Reference — Exit Codes](/en/reference/cli-reference/#exit-codes).
+[Troubleshooting](/en/running/troubleshooting/) lists error messages with their cause
 and fix.
 
 ---
@@ -392,7 +392,7 @@ preprocessing artifacts to `output/stochastic/` before training begins:
 ```
 
 The export holds the stochastic model the run used.
-[Stochastic Artifacts](/reference/output/stochastic/)
+[Stochastic Artifacts](/en/reference/output/stochastic/)
 lists each file, the condition under which it is written, and its schema.
 
 ### Round-trip workflow
@@ -449,12 +449,12 @@ from `inflow_history.parquet`, and reads the opening tree from
 hold `num_openings` openings for every stage, or the load fails; a tree that
 the first run clamped to fewer openings, with a warning, fails this check. The
 other conditions on the file are in
-[Scenario Files](/reference/case-format/scenarios/#scenariosnoise_openingsparquet).
+[Scenario Files](/en/reference/case-format/scenarios/#scenariosnoise_openingsparquet).
 
 ---
 
 ## See Also
 
-- **Theory:** [SDDP Algorithm](/math/sddp-algorithm/) — the forward/backward pass algorithm this workflow trains and runs.
-- **Troubleshooting:** [Troubleshooting](/running/troubleshooting/) — error messages, their cause and the fix
-- **AI agents:** [AI Agents (novomodelo-mcp)](/running/mcp-server/) — run this workflow through an MCP client
+- **Theory:** [SDDP Algorithm](/en/math/sddp-algorithm/) — the forward/backward pass algorithm this workflow trains and runs.
+- **Troubleshooting:** [Troubleshooting](/en/running/troubleshooting/) — error messages, their cause and the fix
+- **AI agents:** [AI Agents (novomodelo-mcp)](/en/running/mcp-server/) — run this workflow through an MCP client

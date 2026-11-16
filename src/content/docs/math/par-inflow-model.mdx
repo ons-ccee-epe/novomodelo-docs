@@ -13,7 +13,7 @@ import AcfPacfPlot from "../../../components/AcfPacfPlot.astro";
 
 This chapter defines the Periodic Autoregressive model of order $p$ (PAR(p)) used to capture temporal correlation in inflow time series. It states the model, its parameters and the quantities stored for it (§1); the form the LP stage subproblem consumes (§2); the estimation of the parameters from historical inflow data, including order selection (§3); the closure that derives the innovation scale from the AR coefficients (§4); the validation invariants (§5); the estimation and factorisation of the spatial correlation across hydros (§6); and the optional PAR(p)-A extension, which adds a single annual coefficient on top of the periodic AR structure to capture multi-year hydrological persistence (§7).
 
-For the entity view of this chapter, see [Inflows and the PAR(p) model](/entities/inflows/inflows/).
+For the entity view of this chapter, see [Inflows and the PAR(p) model](/en/entities/inflows/inflows/).
 
 ## 1. Model Definition
 
@@ -27,10 +27,10 @@ where:
 
 - $a_{h,t}$: Incremental inflow at stage $t$ (m³/s)
 - $\mu_{m(t)}$: Seasonal mean for season $m(t)$
-- [$\psi_{m(t),\ell}$](/overview/notation-conventions#35-inflow-model-parameters): Autoregressive coefficient for lag $\ell$ in season $m(t)$
+- [$\psi_{m(t),\ell}$](/en/overview/notation-conventions#35-inflow-model-parameters): Autoregressive coefficient for lag $\ell$ in season $m(t)$
 - $\sigma_{m(t)}$: Innovation standard deviation for season $m(t)$ (**derived** at load — see §4)
-- [$\varepsilon_t$](/overview/notation-conventions#35-inflow-model-parameters) $\sim \mathcal{N}(0, 1)$: Innovation (standardized noise)
-- $m(t)$: The resolved season of stage $t$; lag seasons are calendar predecessors (see [Notation Conventions](/overview/notation-conventions#35-inflow-model-parameters))
+- [$\varepsilon_t$](/en/overview/notation-conventions#35-inflow-model-parameters) $\sim \mathcal{N}(0, 1)$: Innovation (standardized noise)
+- $m(t)$: The resolved season of stage $t$; lag seasons are calendar predecessors (see [Notation Conventions](/en/overview/notation-conventions#35-inflow-model-parameters))
 
 The model order $p$ can vary by season and by hydro plant.
 
@@ -116,9 +116,9 @@ Other PAR(p) implementations may follow different conventions:
 
 - they often write the autoregressive coefficients as $\phi$, which this chapter writes $\psi$ (original units) and $\psi^*$ (standardized);
 - some store the innovation standard deviation, while this model stores the seasonal sample standard deviation $s_m$ and derives the innovation standard deviation $\sigma_m = s_m\, r_m$ at load (§4);
-- some draw residuals from a lognormal distribution, while this model's innovations are Gaussian and negative realizations are treated as in [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity).
+- some draw residuals from a lognormal distribution, while this model's innovations are Gaussian and negative realizations are treated as in [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity).
 
-For equivalent terms in other planning tools, see the [Glossary](/reference/glossary).
+For equivalent terms in other planning tools, see the [Glossary](/en/reference/glossary).
 :::
 
 ## 2. LP Form
@@ -188,7 +188,7 @@ For partial-year studies, the lag-season means $\mu_{m(t-\ell)}$ for seasons pre
 
 ### 2.5 Lagged Inflows Pinned by Column Bounds
 
-The lagged inflows $a_{h,\ell}$ are **LP variables**, not substituted values. In the LP, they appear with coefficients $-\psi_{m(t),\ell}$ in the AR dynamics constraint row, and each incoming lag column is pinned to the trajectory's lag value $\hat{a}_{h,\ell}$ by setting both of its column bounds to that value: there are no fixing rows, as for every state variable in [State Augmentation §2](/math/state-augmentation#2-pinning-by-column-bounds). The value $\hat{a}_{h,\ell}$ is patched per scenario from the trajectory record.
+The lagged inflows $a_{h,\ell}$ are **LP variables**, not substituted values. In the LP, they appear with coefficients $-\psi_{m(t),\ell}$ in the AR dynamics constraint row, and each incoming lag column is pinned to the trajectory's lag value $\hat{a}_{h,\ell}$ by setting both of its column bounds to that value: there are no fixing rows, as for every state variable in [State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds). The value $\hat{a}_{h,\ell}$ is patched per scenario from the trajectory record.
 
 Because the lag contribution $\sum_\ell \psi_{m(t),\ell} \cdot a_{h,\ell}$ is carried by the constraint matrix (not the RHS), the AR dynamics constraint RHS reduces to:
 
@@ -206,7 +206,7 @@ The $\psi_{m(t),\ell}$ coefficients are written into the constraint matrix **onc
 
 No division, no mean subtraction, no repeated coefficient transformation — the three precomputed LP components eliminate all redundant arithmetic from the hot path.
 
-Whether the lagged inflows enter a stage's cuts is a per-stage choice; a cut that projects them out carries their contribution in its intercept at the trial lag values (see [State Augmentation §7](/math/state-augmentation#7-cut-state-projection)).
+Whether the lagged inflows enter a stage's cuts is a per-stage choice; a cut that projects them out carries their contribution in its intercept at the trial lag values (see [State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)).
 
 ### 2.6 Summary of LP Components
 
@@ -218,7 +218,7 @@ Whether the lagged inflows enter a stage's cuts is a per-stage choice; a cut tha
 
 ## 3. Estimation
 
-For multi-resolution studies (monthly→quarterly aggregation), the same fitting procedure applies after duration-weighted aggregation; see [Multi-Resolution Studies](/math/multi-resolution-studies).
+For multi-resolution studies (monthly→quarterly aggregation), the same fitting procedure applies after duration-weighted aggregation; see [Multi-Resolution Studies](/en/math/multi-resolution-studies).
 
 This section documents the procedure for fitting PAR(p) parameters from historical inflow data. The fitting is performed when the system derives parameters from the inflow history. When pre-computed seasonal statistics and AR coefficients are provided directly, this procedure is not executed. The innovation scale is deliberately **not** part of the fitting: it is derived from the stored coefficients at load (§4.1), identically for fitted and user-supplied models (§4.2).
 
@@ -311,7 +311,7 @@ $$
 \hat{s}_m = \sqrt{\frac{1}{N_m} \sum_{t: m(t) = m} (a_{h,t} - \bar{a}_m)^2}
 $$
 
-The estimator uses the **population divisor** $1/N_m$, not the Bessel-corrected $1/(N_m - 1)$. This is the divisor of the sample autocovariance estimator of [Box & Jenkins (1976)](/reference/bibliography/#inflow-modelling) and is shared by the classical PAR(p) and PAR(p)-A paths. The population divisor is required for self-consistent conditional FACP values and selected orders on the PAR(p)-A path — under a Bessel correction the sample-vs-population scale factor leaks through every Z⊗A cross-correlation. Using the same divisor for the classical path keeps the two paths' seasonal-stats output reusable across configurations.
+The estimator uses the **population divisor** $1/N_m$, not the Bessel-corrected $1/(N_m - 1)$. This is the divisor of the sample autocovariance estimator of [Box & Jenkins (1976)](/en/reference/bibliography/#inflow-modelling) and is shared by the classical PAR(p) and PAR(p)-A paths. The population divisor is required for self-consistent conditional FACP values and selected orders on the PAR(p)-A path — under a Bessel correction the sample-vs-population scale factor leaks through every Z⊗A cross-correlation. Using the same divisor for the classical path keeps the two paths' seasonal-stats output reusable across configurations.
 
 ### 3.3 Historical Bucket Classification
 
@@ -417,7 +417,7 @@ $$
 \end{pmatrix}
 $$
 
-where season indices are taken modulo $M$ on $\{1, \ldots, M\}$, so season $0$ is season $M$ (see [Notation Conventions](/overview/notation-conventions#35-inflow-model-parameters)).
+where season indices are taken modulo $M$ on $\{1, \ldots, M\}$, so season $0$ is season $M$ (see [Notation Conventions](/en/overview/notation-conventions#35-inflow-model-parameters)).
 
 In matrix notation: $\mathbf{R}_m \boldsymbol{\psi}_m^* = \hat{\boldsymbol{\rho}}_m$
 
@@ -441,7 +441,7 @@ The system is solved via Gaussian elimination with partial pivoting, which is nu
 **Singular system.** When the periodic Yule-Walker system is singular at order $k$, the PACF of §3.6 stops at lag $k-1$, so only lags below $k$ can be selected and the fit at the selected order meets no singular system.
 
 :::note[Reference formulation]
-This is the classical periodic Yule-Walker system of the PAR literature ([Hipel & McLeod, 1994](/reference/bibliography/#inflow-modelling), ch. 14), written in correlation form. The canonical presentation states it in autocovariances $\gamma$ with original-unit coefficients $\psi_{m,\ell}$; dividing each row $\ell'$ of that system by $s_m\,s_{m-\ell'}$ and substituting $\psi^*_{m,\ell} = \psi_{m,\ell}\,s_{m-\ell}/s_m$ yields exactly the matrix above. The lag-0 row of the same derivation — the variance identity $\gamma_m(0) = \sum_\ell \psi_{m,\ell}\,\gamma_m(\ell) + \sigma_m^2$ — divided by $s_m^2$ becomes the unit-variance decomposition $1 = \sum_\ell \psi^*_{m,\ell}\,\rho_m(\ell) + r_m^2$ that the closure of §4.1 evaluates on the model's implied ACF.
+This is the classical periodic Yule-Walker system of the PAR literature ([Hipel & McLeod, 1994](/en/reference/bibliography/#inflow-modelling), ch. 14), written in correlation form. The canonical presentation states it in autocovariances $\gamma$ with original-unit coefficients $\psi_{m,\ell}$; dividing each row $\ell'$ of that system by $s_m\,s_{m-\ell'}$ and substituting $\psi^*_{m,\ell} = \psi_{m,\ell}\,s_{m-\ell}/s_m$ yields exactly the matrix above. The lag-0 row of the same derivation — the variance identity $\gamma_m(0) = \sum_\ell \psi_{m,\ell}\,\gamma_m(\ell) + \sigma_m^2$ — divided by $s_m^2$ becomes the unit-variance decomposition $1 = \sum_\ell \psi^*_{m,\ell}\,\rho_m(\ell) + r_m^2$ that the closure of §4.1 evaluates on the model's implied ACF.
 :::
 
 ### 3.6 Order Selection
@@ -471,7 +471,7 @@ The figure below applies the rule to a synthetic series: a twelve-season PAR(1) 
 
 <AcfPacfPlot />
 
-**Post-selection validation — iterative order reduction ([Maceira & Damázio, 2006](/reference/bibliography/#inflow-modelling))**: After PACF selection, the composed influence of each lag on the current inflow through the periodic chain is computed for every season, holding the inflows before $t-\ell$ and the innovations fixed:
+**Post-selection validation — iterative order reduction ([Maceira & Damázio, 2006](/en/reference/bibliography/#inflow-modelling))**: After PACF selection, the composed influence of each lag on the current inflow through the periodic chain is computed for every season, holding the inflows before $t-\ell$ and the innovations fixed:
 
 $$
 \frac{\partial a_{h,t}}{\partial a_{h,t-\ell}} = \psi_{m(t),\ell} + \sum_{\ell'=1}^{\ell-1} \psi_{m(t),\ell'}\, \frac{\partial a_{h,t-\ell'}}{\partial a_{h,t-\ell}}, \qquad \ell = 1, \ldots, p_{m(t)}
@@ -640,7 +640,7 @@ $$
 \tilde{\Lambda}^{1/2} = \mathrm{diag}\!\left(\sqrt{\max(\lambda_1, 0)},\, \ldots,\, \sqrt{\max(\lambda_n, 0)}\right)
 $$
 
-Clipping negative eigenvalues to zero is the spectral projection of the sample matrix onto the positive-semidefinite cone — the nearest positive-semidefinite matrix in Frobenius norm ([Higham, 1988](/reference/bibliography/#numerical-methods)); see [Higham (2002)](/reference/bibliography/#numerical-methods) for the related nearest-correlation-matrix problem, which also keeps the unit diagonal.
+Clipping negative eigenvalues to zero is the spectral projection of the sample matrix onto the positive-semidefinite cone — the nearest positive-semidefinite matrix in Frobenius norm ([Higham, 1988](/en/reference/bibliography/#numerical-methods)); see [Higham (2002)](/en/reference/bibliography/#numerical-methods) for the related nearest-correlation-matrix problem, which also keeps the unit diagonal.
 
 Correlated noise is then generated as $C^{1/2} z$ where $z \sim \mathcal{N}(0, I)$.
 
@@ -672,7 +672,7 @@ The higher computational cost is acceptable because the factorisation is perform
 
 ## 7. Annual Component Extension (PAR(p)-A)
 
-The classical PAR(p) of §1 captures temporal dependence at lags up to a small order $p$ (kept low for monthly cycles, since the periodic Yule-Walker system becomes ill-conditioned at higher orders). On long hydro inflow series this is enough to reproduce the within-year persistence but not the multi-year persistence visible in dry/wet super-periods of the historical record. The **PAR(p)-A** extension ([Treistman et al., 2020](/reference/bibliography/#inflow-modelling)) adds a single annual coefficient on top of the periodic AR structure to capture that longer-range persistence without inflating the AR order.
+The classical PAR(p) of §1 captures temporal dependence at lags up to a small order $p$ (kept low for monthly cycles, since the periodic Yule-Walker system becomes ill-conditioned at higher orders). On long hydro inflow series this is enough to reproduce the within-year persistence but not the multi-year persistence visible in dry/wet super-periods of the historical record. The **PAR(p)-A** extension ([Treistman et al., 2020](/en/reference/bibliography/#inflow-modelling)) adds a single annual coefficient on top of the periodic AR structure to capture that longer-range persistence without inflating the AR order.
 
 The extension is selected by the order-selection rule with the annual component (§3.6). When active, the model carries one additional triple per (hydro, season) on top of the classical parameter set.
 
@@ -802,8 +802,8 @@ The methodology above defines the PAR(p) inflow model; the tabs below cover how 
 
 ## Cross-References
 
-- [LP Formulation](/math/lp-formulation) — The realized-inflow rows of the stage LP
-- [State Augmentation](/math/state-augmentation) — AR inflow dynamics: state expansion, lag column pinning, reduced-cost extraction
-- [Inflow Non-Negativity Solution Methods](/math/inflow-nonnegativity) — Methods for handling negative realizations produced by the PAR(p) model
-- [Scenario Generation](/math/scenario-generation) — When external inflow scenarios are used in training, the backward pass turns the opening tree's noise into inflows with the applied PAR model, in which hydros of AR order 0 and no annual component take the external samples' mean and standard deviation.
-- [Notation Conventions](/overview/notation-conventions) — Defines inflow symbols ($a_{h,t}$, $\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) and unit conventions
+- [LP Formulation](/en/math/lp-formulation) — The realized-inflow rows of the stage LP
+- [State Augmentation](/en/math/state-augmentation) — AR inflow dynamics: state expansion, lag column pinning, reduced-cost extraction
+- [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity) — Methods for handling negative realizations produced by the PAR(p) model
+- [Scenario Generation](/en/math/scenario-generation) — When external inflow scenarios are used in training, the backward pass turns the opening tree's noise into inflows with the applied PAR model, in which hydros of AR order 0 and no annual component take the external samples' mean and standard deviation.
+- [Notation Conventions](/en/overview/notation-conventions) — Defines inflow symbols ($a_{h,t}$, $\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) and unit conventions

@@ -23,10 +23,10 @@ função de período sazonal, a desigualdade de convergência do ciclo, o conjun
 por período sazonal e o operador de Bellman de ponto fixo); a seção 4 descreve a
 lógica de término da simulação forward prevista pelo projeto reservado; a seção 5
 compara os modos suportado e reservado, como referência. O fator de desconto
-por transição é definido em [Formulação da taxa de desconto](/pt-br/math/discount-rate);
+por transição é definido em [Formulação da taxa de desconto](/math/discount-rate);
 seu papel na convergência do ciclo é exposto na seção 3.
 
-Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamares](/pt-br/entities/time-structure/).
+Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamares](/entities/time-structure/).
 
 ## 1. Modo finito (acíclico)
 
@@ -34,7 +34,7 @@ Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamar
 leva ao estágio 3, e assim por diante até o estágio T. A cadeia tem um fim definido. A
 função de valor terminal é nula, a menos que uma função terminal fixa seja importada
 de uma política de origem (ver
-[Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)); com
+[Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary)); com
 valor terminal nulo, nenhuma água remanescente nos reservatórios no estágio T+1 tem valor
 no modelo.
 
@@ -86,7 +86,7 @@ seção 3.
 tipo do grafo da política como cíclico e forneceria uma taxa de desconto anual; a taxa
 de desconto, junto com a duração de cada transição, determina o
 fator por transição, e o produto dos fatores ao longo de um ciclo deve ser
-estritamente menor que um (ver [Formulação da taxa de desconto](/pt-br/math/discount-rate) para
+estritamente menor que um (ver [Formulação da taxa de desconto](/math/discount-rate) para
 a mecânica de conversão).
 
 **Compromisso.** O modo cíclico elimina o efeito de fim de mundo ao representar
@@ -148,7 +148,7 @@ $$
 
 de modo que as contribuições de ciclos de um futuro distante se tornam desprezíveis. O projeto reservado
 exige essa desigualdade de todo grafo cíclico. Ver
-[Formulação da taxa de desconto](/pt-br/math/discount-rate) para a conversão da
+[Formulação da taxa de desconto](/math/discount-rate) para a conversão da
 taxa anual nos fatores por transição.
 
 ### Conjunto de cortes indexado por período sazonal
@@ -253,7 +253,7 @@ incondicionalmente.
 A simulação forward terminaria quando qualquer das condições fosse satisfeita, a que ocorrer
 primeiro. A mecânica de desconto subjacente à condição de desconto acumulado —
 a fórmula que relaciona a taxa anual ao fator por transição e o
-produto corrente — é descrita em [Formulação da taxa de desconto](/pt-br/math/discount-rate).
+produto corrente — é descrita em [Formulação da taxa de desconto](/math/discount-rate).
 
 ## 5. Escolha entre os modos
 
@@ -264,7 +264,7 @@ finito suportado (seção 1) e o projeto cíclico reservado (seções 2–4).
 
 - O estudo tem uma data final bem definida e o modelador pode aceitar uma condição
   final nula (ou complementá-la com cortes de fronteira importados — ver
-  [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)).
+  [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary)).
 - O horizonte de planejamento é curto o suficiente para que o efeito de fim de mundo seja
   desprezível ou aceitável.
 - Interpretabilidade e simplicidade são prioridades: o percurso acíclico não exige
@@ -295,17 +295,17 @@ finito suportado (seção 1) e o projeto cíclico reservado (seções 2–4).
 | Complexidade matemática     | Menor                           | Maior                               |
 
 A mecânica de geração de cortes que produz os cortes que preenchem ambas as
-organizações de conjuntos é tratada em [Gerenciamento de cortes](/pt-br/math/cut-management). O
+organizações de conjuntos é tratada em [Gerenciamento de cortes](/math/cut-management). O
 algoritmo no qual o modo finito opera, e no qual o projeto cíclico reservado
 é especificado para operar, é descrito em
-[Algoritmo da PDDE](/pt-br/math/sddp-algorithm).
+[Algoritmo da PDDE](/math/sddp-algorithm).
 
 ## 6. Referências
 
-- [Birge & Zhao (2007)](/pt-br/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
-- [Shapiro & Ding (2020)](/pt-br/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
-- [Dowson (2020)](/pt-br/reference/bibliography/#fundamentos-da-pdde-sddp)
-- [Costa et al. (2025)](/pt-br/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
+- [Birge & Zhao (2007)](/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
+- [Shapiro & Ding (2020)](/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
+- [Dowson (2020)](/reference/bibliography/#fundamentos-da-pdde-sddp)
+- [Costa et al. (2025)](/reference/bibliography/#condicoes-de-contorno-e-modos-de-horizonte)
 
 Programas estocásticos de horizonte infinito com desconto, resolvidos por planos de
 corte sobre uma função de valor estacionária, são tratados por Birge & Zhao (2007);
@@ -321,14 +321,14 @@ periódica com desconto.
 
 ## Referências cruzadas
 
-- [Formulação da taxa de desconto](/pt-br/math/discount-rate) — Conversão da taxa anual em fator,
+- [Formulação da taxa de desconto](/math/discount-rate) — Conversão da taxa anual em fator,
   mecânica de desconto por transição e desconto acumulado.
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — Mecânica de geração e agregação de cortes
+- [Gerenciamento de cortes](/math/cut-management) — Mecânica de geração e agregação de cortes
   que produz os cortes que preenchem os conjuntos por estágio ou por período sazonal.
-- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — O algoritmo que o modo de horizonte
+- [Algoritmo da PDDE](/math/sddp-algorithm) — O algoritmo que o modo de horizonte
   parametriza; topologias do grafo da política finita (suportada) e cíclica (reservada);
   mecanismo de cortes de fronteira terminal.
-- [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) — A
+- [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) — A
   função terminal que um estudo finito pode importar de uma política de origem.
-- [Critérios de parada](/pt-br/math/stopping-rules) — Os critérios de parada que encerram o
+- [Critérios de parada](/math/stopping-rules) — Os critérios de parada que encerram o
   treinamento (training) no modo finito.

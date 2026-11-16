@@ -9,7 +9,7 @@ tempo de execução, como lançar a execução sob SLURM e uma arquitetura de re
 resolvida no AWS ParallelCluster.
 
 Se você executa apenas em uma única máquina, **não** precisa de nada disso — use
-`--threads` (veja [Executando estudos](/pt-br/running/running-studies/#multithreading))
+`--threads` (veja [Executando estudos](/running/running-studies/#multithreading))
 e vá direto para [Próximos passos](#veja-tambem).
 
 ---
@@ -27,7 +27,7 @@ O Novo Modelo paraleliza em dois níveis, que se combinam:
 O modelo paralelo — como o trabalho é particionado entre ranks e threads, quais
 operações coletivas interligam os ranks, as regras de threads e a memória e o acesso ao
 caso — está resumido em
-[Aceleradores de desempenho — Modelo de execução paralela](/pt-br/running/performance/#modelo-de-execucao-paralela);
+[Aceleradores de desempenho — Modelo de execução paralela](/running/performance/#modelo-de-execucao-paralela);
 os detalhes internos do escalonador e da comunicação estão no
 [README do `novomodelo-sddp`](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md).
 Esta página é a contraparte operacional: como compilar e lançar a execução.
@@ -35,11 +35,11 @@ Esta página é a contraparte operacional: como compilar e lançar a execução.
 Um `novomodelo run` isolado usa o backend local (processo único). Lançar a execução com um
 lançador MPI (`srun`, `mpiexec` ou `mpirun`) faz o Novo Modelo passar ao backend MPI.
 Por padrão, `--comm-backend auto` detecta o lançador, de modo que nenhuma flag é necessária —
-veja [Backend de comunicação](/pt-br/running/running-studies/#backend-de-comunicacao).
+veja [Backend de comunicação](/running/running-studies/#backend-de-comunicacao).
 
 :::note[O MPI é um recurso definido na compilação]
 O backend MPI é incluído na compilação pelo recurso (feature) Cargo `mpi` e fica **desativado
-por padrão**. O binário padrão `novomodelo` (do [instalador ou do crates.io](/pt-br/getting-started/installation/))
+por padrão**. O binário padrão `novomodelo` (do [instalador ou do crates.io](/getting-started/installation/))
 executa apenas em processo único; o cabeçalho de seu `novomodelo version` exibe `comm: local`. Para
 execuções em vários nós, é necessário o binário com suporte a MPI descrito abaixo, cujo cabeçalho
 exibe `comm: mpi`.
@@ -352,7 +352,7 @@ Verifique o que o seu cluster oferece com `srun --mpi=list`.
 
 Não há dados de escalabilidade medidos publicados, de modo que estas regras relacionam ranks, threads,
 simulações forward e memória entre si, em vez de indicar números de nós ou de núcleos;
-[Aceleradores de desempenho — Modelo de execução paralela](/pt-br/running/performance/#modelo-de-execucao-paralela)
+[Aceleradores de desempenho — Modelo de execução paralela](/running/performance/#modelo-de-execucao-paralela)
 reúne os fatos que as fundamentam.
 
 1. Execute um rank por nó, com `--threads` igual aos núcleos alocados ao rank
@@ -370,7 +370,7 @@ reúne os fatos que as fundamentam.
    cada rank adicional em um nó acrescenta outra, e o conjunto de cortes cresce com o
    orçamento de iterações e com o número de simulações forward.
 5. Antes de acrescentar ranks ou threads, leia o `Time split` impresso e a tabela de parâmetros de ajuste em
-   [Aceleradores de desempenho — Diagnóstico de desempenho](/pt-br/running/performance/#diagnostico-de-desempenho).
+   [Aceleradores de desempenho — Diagnóstico de desempenho](/running/performance/#diagnostico-de-desempenho).
    A avaliação do limite inferior é executada serialmente no rank 0 e, com uma simulação forward
    amostrada, todos os ranks aguardam a troca de cortes por estágio, de modo que nenhuma das duas
    diminui com mais ranks ou threads.
@@ -385,13 +385,13 @@ Um job grava seu checkpoint quando o treinamento (training) termina e, com check
 em cada iteração programada. Um job encerrado ao atingir seu `--time`
 perde as iterações posteriores ao último checkpoint, e o job seguinte retoma a partir desse checkpoint.
 Uma gravação interrompida que substitui um checkpoint deixa um checkpoint completo, antigo ou novo; uma primeira gravação interrompida pode não deixar nenhum
-(veja [Retomada](/pt-br/running/policy-management/#retomada)).
+(veja [Retomada](/running/policy-management/#retomada)).
 
 Para encaixar um treinamento longo em jobs com limite de tempo de relógio, divida-o em fatias, um
 job de lote para cada, e submeta a fatia seguinte após o término da anterior. Toda
 fatia após a primeira define `policy.mode` como `"resume"` e eleva
 `iteration_limit` ao novo total, que conta as iterações de todas as fatias
-anteriores ([Treinamento em fatias](/pt-br/running/policy-management/#treinar-em-fatias) apresenta as
+anteriores ([Treinamento em fatias](/running/policy-management/#treinar-em-fatias) apresenta as
 regras e como dimensionar uma fatia).
 
 O `--time` do job cobre a carga do caso, a carga do checkpoint anterior, as
@@ -526,10 +526,10 @@ dos arquivos de saída é idêntico bit a bit para qualquer número de ranks e q
 (o mesmo `--threads` em todos os ranks); os carimbos de data/hora, as colunas de tempo de relógio e
 a topologia de execução registrada diferem. A garantia
 vale para um conjunto de critérios de parada sem `time_limit`: uma parada por tempo de relógio ou por sinal depende do tempo
-([`time_limit`](/pt-br/running/configuration/#time_limit)). Valide em um único rank com o próprio
+([`time_limit`](/running/configuration/#time_limit)). Valide em um único rank com o próprio
 `novomodelo-mpi`, pois o `novomodelo` de processo único é uma compilação diferente,
 cujos resultados não têm garantia de igualdade. O enunciado completo está em
-[Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees/).
+[Determinismo e rastreabilidade](/math/determinism-guarantees/).
 
 Verifique sua configuração em três etapas. Cada etapa detecta uma falha diferente.
 
@@ -570,8 +570,8 @@ Verifique sua configuração em três etapas. Cada etapa detecta uma falha difer
 
 ## Veja também
 
-- [Aceleradores de desempenho](/pt-br/running/performance/#modelo-de-execucao-paralela) — o modelo de execução paralela que o MPI aciona
-- [Executando estudos](/pt-br/running/running-studies/#backend-de-comunicacao) — a flag `--comm-backend` e o uso de threads em um único nó
-- [Referência da CLI](/pt-br/reference/cli-reference/) — referência completa de flags e subcomandos
-- [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees/) — a garantia de reprodutibilidade por binário
-- [Instalação](/pt-br/getting-started/installation/) — caminhos de instalação padrão (processo único)
+- [Aceleradores de desempenho](/running/performance/#modelo-de-execucao-paralela) — o modelo de execução paralela que o MPI aciona
+- [Executando estudos](/running/running-studies/#backend-de-comunicacao) — a flag `--comm-backend` e o uso de threads em um único nó
+- [Referência da CLI](/reference/cli-reference/) — referência completa de flags e subcomandos
+- [Determinismo e rastreabilidade](/math/determinism-guarantees/) — a garantia de reprodutibilidade por binário
+- [Instalação](/getting-started/installation/) — caminhos de instalação padrão (processo único)

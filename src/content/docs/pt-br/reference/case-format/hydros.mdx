@@ -3,13 +3,13 @@ title: Arquivos de usinas hidrelétricas
 description: O cadastro de usinas hidrelétricas system/hydros.json — identificação da usina, limites de reservatório e de vazão defluente, modelo de geração, vínculo de cascata, subobjetos opcionais, grupos de unidades geradoras e penalidades específicas.
 ---
 
-Esta página documenta `system/hydros.json`, o cadastro de usinas hidrelétricas. Os arquivos que fornecem o modelo de produção, a geometria do reservatório e as curvas de jusante de uma usina estão documentados em [Arquivos de modelos de produção](/pt-br/reference/case-format/production-models/). Os demais arquivos do caso estão listados na visão geral do [Formato do caso](/pt-br/reference/case-format/#resumo-dos-arquivos).
+Esta página documenta `system/hydros.json`, o cadastro de usinas hidrelétricas. Os arquivos que fornecem o modelo de produção, a geometria do reservatório e as curvas de jusante de uma usina estão documentados em [Arquivos de modelos de produção](/reference/case-format/production-models/). Os demais arquivos do caso estão listados na visão geral do [Formato do caso](/reference/case-format/#resumo-dos-arquivos).
 
 ---
 
 ## `system/hydros.json`
 
-**Metodologia:** [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements/) · [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models/) · [Sistema de penalidades](/pt-br/math/penalty-system/)
+**Metodologia:** [Visão geral da modelagem dos elementos do sistema](/math/system-elements/) · [Modelos de função de produção hidrelétrica](/math/hydro-production-models/) · [Sistema de penalidades](/math/penalty-system/)
 
 Cadastro de usinas hidrelétricas. Cada entrada define uma UHE completa, com reservatório,
 turbinas e vínculo de cascata opcional.
@@ -22,8 +22,8 @@ Campos principais:
 | `hydros[].name`                                   | string          | Sim         | —       | —           | Nome legível da usina |
 | `hydros[].unit_groups`                            | array           | Sim         | —       | —           | Grupos de unidades geradoras que particionam a faixa de geração da usina, cada um em seu próprio barramento (veja abaixo); um array ausente, `null` ou vazio é rejeitado |
 | `hydros[].downstream_id`                          | integer \| null | Não         | —       | —           | ID da usina a jusante na cascata; `null` = canal de fuga sem usina a jusante |
-| `hydros[].travel_time_hours`                      | number \| null  | Não         | `null`  | h           | Tempo de viagem da água [horas] no arco principal da cascata até `downstream_id`; `null` ou `0.0` = instantâneo. Quando presente e estritamente positivo, a defluência é entregue a jusante após esse atraso e mantida como estado de Bellman de água em trânsito (veja [Visão geral da modelagem dos elementos do sistema §5](/pt-br/math/system-elements) e [Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua)). Exige inicialização via `initial_conditions.past_defluences`. |
-| `hydros[].operational_start_date`                 | string          | Sim         | —       | —           | Obrigatório em toda entidade; veja [Campos comuns às entidades](/pt-br/reference/case-format/#campos-comuns-as-entidades). |
+| `hydros[].travel_time_hours`                      | number \| null  | Não         | `null`  | h           | Tempo de viagem da água [horas] no arco principal da cascata até `downstream_id`; `null` ou `0.0` = instantâneo. Quando presente e estritamente positivo, a defluência é entregue a jusante após esse atraso e mantida como estado de Bellman de água em trânsito (veja [Visão geral da modelagem dos elementos do sistema §5](/math/system-elements) e [Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua)). Exige inicialização via `initial_conditions.past_defluences`. |
+| `hydros[].operational_start_date`                 | string          | Sim         | —       | —           | Obrigatório em toda entidade; veja [Campos comuns às entidades](/reference/case-format/#campos-comuns-as-entidades). |
 | `hydros[].entry_stage_id`                         | integer \| null | Não         | `null`  | —           | Estágio em que a usina entra em operação; `null` = sempre existe |
 | `hydros[].exit_stage_id`                          | integer \| null | Não         | `null`  | —           | Estágio em que a usina é desativada; `null` = nunca |
 | `hydros[].reservoir`                              | object          | Sim         | —       | —           | `min_storage_hm3` e `max_storage_hm3` (ambos >= 0) — a faixa **física** da usina, invariante no tempo: as saídas de energia armazenada, a incorporação dos limites `hydro_useful_volume_*` e as tags calculadas `min_storage`/`max_storage`/`max_stored_energy` a utilizam; as substituições de armazenamento em `constraints/hydro_bounds.parquet` apenas restringem os limites operativos por estágio da variável de armazenamento do PL |
@@ -95,9 +95,9 @@ grupos declaram todos o mesmo `bus_id` tem uma única célula.
 
 Substituições variáveis por estágio, e opcionalmente por patamar, dos quatro limites declarados
 de um grupo são fornecidas via
-[`constraints/hydro_unit_group_bounds.parquet`](/pt-br/reference/case-format/constraints/#constraintshydro_unit_group_boundsparquet).
+[`constraints/hydro_unit_group_bounds.parquet`](/reference/case-format/constraints/#constraintshydro_unit_group_boundsparquet).
 A saída da simulação por célula é
-[`simulation/hydro_bus_generation/`](/pt-br/reference/output/simulation/#simulationhydro_bus_generation);
+[`simulation/hydro_bus_generation/`](/reference/output/simulation/#simulationhydro_bus_generation);
 `simulation/hydros/` informa o total de cada usina.
 
 Todos os campos de `hydros[].penalties` são opcionais. Quando um campo está ausente,
@@ -114,8 +114,8 @@ usa-se o padrão global de `penalties.json`. Os seguintes campos são suportados
 | `hydros[].penalties.outflow_violation_below_cost`    | number \| null | Não         | `null`  | R\$/(m³/s·h) | Penalidade por violação da vazão defluente total mínima (R\$/(m³/s·h)). |
 | `hydros[].penalties.outflow_violation_above_cost`    | number \| null | Não         | `null`  | R\$/(m³/s·h) | Penalidade por violação da vazão defluente total máxima (R\$/(m³/s·h)). |
 | `hydros[].penalties.generation_violation_below_cost` | number \| null | Não         | `null`  | R\$/MWh      | Penalidade por violação da geração mínima (R\$/MWh). |
-| `hydros[].penalties.evaporation_violation_cost`      | number \| null | Não         | `null`  | R\$/(m³/s·h) | Penalidade simétrica por violação da evaporação (R\$/(m³/s·h)). Fornece os dois custos direcionais de evaporação desta usina; veja [Custos direcionais de evaporação e de retirada](/pt-br/math/penalty-system/#custos-direcionais-de-evaporacao-e-de-retirada). |
-| `hydros[].penalties.water_withdrawal_violation_cost` | number \| null | Não         | `null`  | R\$/(m³/s·h) | Penalidade simétrica por violação da retirada de água (R\$/(m³/s·h)). Fornece os dois custos direcionais de retirada desta usina; veja [Custos direcionais de evaporação e de retirada](/pt-br/math/penalty-system/#custos-direcionais-de-evaporacao-e-de-retirada). |
+| `hydros[].penalties.evaporation_violation_cost`      | number \| null | Não         | `null`  | R\$/(m³/s·h) | Penalidade simétrica por violação da evaporação (R\$/(m³/s·h)). Fornece os dois custos direcionais de evaporação desta usina; veja [Custos direcionais de evaporação e de retirada](/math/penalty-system/#custos-direcionais-de-evaporacao-e-de-retirada). |
+| `hydros[].penalties.water_withdrawal_violation_cost` | number \| null | Não         | `null`  | R\$/(m³/s·h) | Penalidade simétrica por violação da retirada de água (R\$/(m³/s·h)). Fornece os dois custos direcionais de retirada desta usina; veja [Custos direcionais de evaporação e de retirada](/math/penalty-system/#custos-direcionais-de-evaporacao-e-de-retirada). |
 | `hydros[].penalties.inflow_nonnegativity_cost`       | number \| null | Não         | `null`  | R\$/(m³/s·h) | Substitui, para esta usina, o custo global da penalidade de não negatividade da afluência (R\$/(m³/s·h)); usado nos métodos `penalty` e `truncation_with_penalty`. |
 
 **Validação:**
@@ -129,9 +129,9 @@ usa-se o padrão global de `penalties.json`. Os seguintes campos são suportados
   opera no estudo.
 - Uma usina sem `filling` tem seu valor inicial no array `storage` de `initial_conditions.json`, dentro de
   `[min_storage_hm3, max_storage_hm3]`; uma usina com `filling` o tem em `filling_storage`
-  ([Arquivos de condições iniciais](/pt-br/reference/case-format/initial-conditions/#initial_conditionsjson)).
+  ([Arquivos de condições iniciais](/reference/case-format/initial-conditions/#initial_conditionsjson)).
 - O cronograma de enchimento deve atingir o volume morto; veja
-  [Verificações de penalidade na carga](/pt-br/math/penalty-system#implementacao-no-novo-modelo).
+  [Verificações de penalidade na carga](/math/penalty-system#implementacao-no-novo-modelo).
 - Os ids dos grupos de unidades geradoras são únicos dentro da usina, e a vazão turbinada mínima e a geração mínima de cada grupo não podem exceder seus
   máximos.
 - `min_turbined_m3s` e `max_turbined_m3s` de cada grupo devem ser `>= 0`.

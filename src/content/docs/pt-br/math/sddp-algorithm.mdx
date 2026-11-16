@@ -11,9 +11,9 @@ import { Content as SddpConfigure } from './_impl/_sddp.configure.mdx';
 
 Este capítulo descreve o algoritmo de Programação Dinâmica Dual Estocástica — PDDE (SDDP) — tal como implementado no Novo Modelo: a formulação estocástica multiestágio, a estrutura iterativa de simulações forward/backward, o monitoramento da convergência, as topologias do grafo da política (policy graph), os requisitos das variáveis de estado e a formulação de corte único (single-cut). Ele serve de fundamento algorítmico ao qual os demais capítulos de metodologia fazem referência.
 
-Para as convenções de notação (conjuntos de índices, parâmetros, variáveis de decisão, variáveis duais), veja [Convenções de notação](/pt-br/overview/notation-conventions).
+Para as convenções de notação (conjuntos de índices, parâmetros, variáveis de decisão, variáveis duais), veja [Convenções de notação](/overview/notation-conventions).
 
-Para a visão por entidade deste capítulo, veja [Valor da água e custo futuro](/pt-br/entities/water-value/).
+Para a visão por entidade deste capítulo, veja [Valor da água e custo futuro](/entities/water-value/).
 
 ## 1. Contexto do problema
 
@@ -48,7 +48,7 @@ _Aproximação da função de valor por cortes de Benders — cada corte é uma 
 
 ## 3. O algoritmo da PDDE
 
-A PDDE constrói iterativamente aproximações lineares por partes $\underline{V}_t^k$, na iteração $k$, das verdadeiras funções de valor. Cada iteração começa com uma simulação forward que resolve os estágios em ordem ao longo de trajetórias de cenários amostradas ou enumeradas, registrando os estados visitados e os custos das trajetórias a partir dos quais se calcula o limite superior ([Avaliação do limite superior](/pt-br/math/upper-bound-evaluation)). Em seguida, uma simulação backward percorre os estágios do último até o segundo: em cada estágio $t$, resolve todo par (filho, abertura) em cada estado visitado $\hat{x}_{t-1}$, agrega um corte por estado visitado para o estágio $t-1$ e sincroniza os processos para que cada um detenha esses cortes antes de passar ao estágio $t-1$. A seleção periódica de cortes e o limite de cortes ativos são então executados, quando o estudo os configura, e o limite inferior é avaliado resolvendo-se o primeiro estágio sobre suas aberturas. Se os critérios de parada não forem atendidos, a iteração $k+1$ recomeça pela simulação forward; uma vez atendidos, o treinamento (training) é encerrado, e a política é simulada quando o estudo habilita a fase de simulação ([Critérios de parada](/pt-br/math/stopping-rules) descreve como os critérios se combinam).
+A PDDE constrói iterativamente aproximações lineares por partes $\underline{V}_t^k$, na iteração $k$, das verdadeiras funções de valor. Cada iteração começa com uma simulação forward que resolve os estágios em ordem ao longo de trajetórias de cenários amostradas ou enumeradas, registrando os estados visitados e os custos das trajetórias a partir dos quais se calcula o limite superior ([Avaliação do limite superior](/math/upper-bound-evaluation)). Em seguida, uma simulação backward percorre os estágios do último até o segundo: em cada estágio $t$, resolve todo par (filho, abertura) em cada estado visitado $\hat{x}_{t-1}$, agrega um corte por estado visitado para o estágio $t-1$ e sincroniza os processos para que cada um detenha esses cortes antes de passar ao estágio $t-1$. A seleção periódica de cortes e o limite de cortes ativos são então executados, quando o estudo os configura, e o limite inferior é avaliado resolvendo-se o primeiro estágio sobre suas aberturas. Se os critérios de parada não forem atendidos, a iteração $k+1$ recomeça pela simulação forward; uma vez atendidos, o treinamento (training) é encerrado, e a política é simulada quando o estudo habilita a fase de simulação ([Critérios de parada](/math/stopping-rules) descreve como os critérios se combinam).
 
 ```d2
 direction: down
@@ -89,19 +89,19 @@ Para cada uma das $M$ trajetórias de cenários independentes:
 3. Registra-se o estado ótimo $\hat{x}_t$ (volumes armazenados ao fim do estágio e defasagens AR atualizadas), **canonicalizado sobre seus limites admissíveis** (veja abaixo), como estado visitado do estágio $t$
 4. Repassa-se $\hat{x}_t$ como estado de entrada do estágio $t+1$
 
-Com simulação forward enumerada, toda trajetória da raiz até uma folha do [grafo da política](/pt-br/math/policy-graphs) é visitada exatamente uma vez em cada iteração, sem amostragem, e as trajetórias fazem o papel das $M$ trajetórias; todo nó desse grafo possui uma única abertura, que o passo 2 toma como a realização do estágio ([Grafos da política §6](/pt-br/math/policy-graphs#6-o-requisito-estrutural-de-arvore-enumerada)).
+Com simulação forward enumerada, toda trajetória da raiz até uma folha do [grafo da política](/math/policy-graphs) é visitada exatamente uma vez em cada iteração, sem amostragem, e as trajetórias fazem o papel das $M$ trajetórias; todo nó desse grafo possui uma única abertura, que o passo 2 toma como a realização do estágio ([Grafos da política §6](/math/policy-graphs#6-o-requisito-estrutural-de-arvore-enumerada)).
 
 :::note[Amostragem de cenários]
-"Amostrar uma realização de cenário $\omega_t$" é controlado pelo **esquema de amostragem da simulação forward**, que determina a fonte do ruído da simulação forward e é escolhido independentemente para cada classe estocástica. Há quatro esquemas: **dentro da amostra (in-sample)**, o padrão, sorteia um índice aleatório $j \in \{1, \ldots, N_{\text{openings}}\}$ da **árvore de aberturas fixa** — um conjunto de vetores de ruído gerados uma única vez antes do início do treinamento; **fora da amostra (out-of-sample)** sorteia ruído novo da mesma distribuição com uma semente independente; **externo** sorteia de um arquivo de cenários fornecido; e **histórico**, apenas para a classe de afluências, reproduz realizações históricas. Veja [Geração de cenários §3.2](/pt-br/math/scenario-generation#32-esquemas-de-amostragem-forward) para os esquemas.
+"Amostrar uma realização de cenário $\omega_t$" é controlado pelo **esquema de amostragem da simulação forward**, que determina a fonte do ruído da simulação forward e é escolhido independentemente para cada classe estocástica. Há quatro esquemas: **dentro da amostra (in-sample)**, o padrão, sorteia um índice aleatório $j \in \{1, \ldots, N_{\text{openings}}\}$ da **árvore de aberturas fixa** — um conjunto de vetores de ruído gerados uma única vez antes do início do treinamento; **fora da amostra (out-of-sample)** sorteia ruído novo da mesma distribuição com uma semente independente; **externo** sorteia de um arquivo de cenários fornecido; e **histórico**, apenas para a classe de afluências, reproduz realizações históricas. Veja [Geração de cenários §3.2](/math/scenario-generation#32-esquemas-de-amostragem-forward) para os esquemas.
 :::
 
 A simulação forward produz: (a) os estados visitados $\{\hat{x}_t\}$ em cada estágio para cada trajetória e (b) os custos dos estágios para a estimativa do limite superior.
 
 **Paralelização**: as trajetórias forward são independentes — o Novo Modelo distribui as $M$ trajetórias entre os processos (ranks MPI), com threads resolvendo PLs de estágio individuais dentro de cada processo.
 
-**Aproveitamento de base**: quando a simulação backward faz aproveitamento de base (warm-start da base), a base da resolução forward no estágio $t$ serve de ponto de partida para as resoluções da simulação backward do estágio $t$ no mesmo estado visitado, reduzindo seus tempos de resolução ([Aproveitamento de base do PL](/pt-br/math/lp-warm-start)).
+**Aproveitamento de base**: quando a simulação backward faz aproveitamento de base (warm-start da base), a base da resolução forward no estágio $t$ serve de ponto de partida para as resoluções da simulação backward do estágio $t$ no mesmo estado visitado, reduzindo seus tempos de resolução ([Aproveitamento de base do PL](/math/lp-warm-start)).
 
-**Canonicalização do estado**: o estado de saída registrado $\hat{x}_t$ não é o primal bruto do PL, mas sua projeção sobre os limites admissíveis resolvidos. Cada coordenada limitada — armazenamento ao fim do estágio, volume de água em trânsito e qualquer compromisso mantido de termelétrica com antecipação de despacho — é trazida para dentro do seu intervalo resolvido, enquanto as defasagens de afluência (AR), que não são limitadas, passam inalteradas. A projeção é a identidade para um ótimo dentro dos limites, de modo que uma resolução cujo estado permanece dentro dos limites não é afetada por ela. Ela é aplicada **uma única vez**, na leitura de volta, e todos os consumidores leem esse único vetor canônico: a trajetória forward, o estado visitado $\hat{x}_{t-1}$ da simulação backward e o termo independente (intercepto) do corte ancorado nele (veja [Gerenciamento de cortes](/pt-br/math/cut-management)). É isso que faz de $\hat{x}_t$ uma função bem definida do valor ótimo do estágio e de seus limites resolvidos — independente do vértice ótimo degenerado em que a resolução terminou ou de erros de arredondamento. Veja [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos).
+**Canonicalização do estado**: o estado de saída registrado $\hat{x}_t$ não é o primal bruto do PL, mas sua projeção sobre os limites admissíveis resolvidos. Cada coordenada limitada — armazenamento ao fim do estágio, volume de água em trânsito e qualquer compromisso mantido de termelétrica com antecipação de despacho — é trazida para dentro do seu intervalo resolvido, enquanto as defasagens de afluência (AR), que não são limitadas, passam inalteradas. A projeção é a identidade para um ótimo dentro dos limites, de modo que uma resolução cujo estado permanece dentro dos limites não é afetada por ela. Ela é aplicada **uma única vez**, na leitura de volta, e todos os consumidores leem esse único vetor canônico: a trajetória forward, o estado visitado $\hat{x}_{t-1}$ da simulação backward e o termo independente (intercepto) do corte ancorado nele (veja [Gerenciamento de cortes](/math/cut-management)). É isso que faz de $\hat{x}_t$ uma função bem definida do valor ótimo do estágio e de seus limites resolvidos — independente do vértice ótimo degenerado em que a resolução terminou ou de erros de arredondamento. Veja [Determinismo e rastreabilidade](/math/determinism-guarantees#3-mecanismos-metodologicos).
 
 ### 3.2 Simulação backward
 
@@ -110,23 +110,23 @@ A simulação backward aprimora a aproximação da função de valor gerando nov
 Em cada estágio $t$, para cada estado visitado $\hat{x}_{t-1}$ coletado durante a simulação forward:
 
 1. Resolve-se o PL do estágio $t$ para **todo** cenário $\omega \in \Omega_t$ (ramificação), usando o estado visitado $\hat{x}_{t-1}$ como estado de entrada
-2. De cada solução do PL, extraem-se o valor ótimo da função objetivo $Q_t(\hat{x}_{t-1}, \omega)$ e os **custos reduzidos** das colunas fixadas do estado de entrada. Os custos reduzidos do armazenamento de entrada e das defasagens AR entram no corte quando a projeção do corte do estágio mantém essas componentes; os custos reduzidos das parcelas de água em trânsito (in-transit buckets) e das posições do anel de despacho antecipado (commitment ring slots) das termelétricas com antecipação de despacho sempre entram ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)). Esses custos reduzidos fornecem diretamente os coeficientes do corte — não é necessária nenhuma combinação com os duais das restrições da FPHA ou das restrições genéricas. Veja [Gerenciamento de cortes](/pt-br/math/cut-management)
-3. Calculam-se os termos do corte por cenário $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ no estado visitado, sendo cada coeficiente de $\beta(\omega)$ o custo reduzido do passo 2 dividido pelo fator de escala da sua coluna ([Gerenciamento de cortes §2](/pt-br/math/cut-management#2-extracao-pelos-custos-reduzidos))
-4. Agregam-se os termos do corte por cenário em um único corte. Em um grafo da política, o corte de um nó $n$ agrega todo par (filho, abertura) $(n', \omega)$ de $n$, ponderado por $P(n \to n')\, p_{n'}(\omega)$, com a medida de risco atuando uma única vez sobre essa lei conjunta; na cadeia de estágios, o nó tem um único filho e os pesos são as probabilidades uniformes $p(\omega)$ sobre $\Omega_t$. Veja [Gerenciamento de cortes §3](/pt-br/math/cut-management#3-agregacao-em-corte-unico)
+2. De cada solução do PL, extraem-se o valor ótimo da função objetivo $Q_t(\hat{x}_{t-1}, \omega)$ e os **custos reduzidos** das colunas fixadas do estado de entrada. Os custos reduzidos do armazenamento de entrada e das defasagens AR entram no corte quando a projeção do corte do estágio mantém essas componentes; os custos reduzidos das parcelas de água em trânsito (in-transit buckets) e das posições do anel de despacho antecipado (commitment ring slots) das termelétricas com antecipação de despacho sempre entram ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)). Esses custos reduzidos fornecem diretamente os coeficientes do corte — não é necessária nenhuma combinação com os duais das restrições da FPHA ou das restrições genéricas. Veja [Gerenciamento de cortes](/math/cut-management)
+3. Calculam-se os termos do corte por cenário $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ no estado visitado, sendo cada coeficiente de $\beta(\omega)$ o custo reduzido do passo 2 dividido pelo fator de escala da sua coluna ([Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos))
+4. Agregam-se os termos do corte por cenário em um único corte. Em um grafo da política, o corte de um nó $n$ agrega todo par (filho, abertura) $(n', \omega)$ de $n$, ponderado por $P(n \to n')\, p_{n'}(\omega)$, com a medida de risco atuando uma única vez sobre essa lei conjunta; na cadeia de estágios, o nó tem um único filho e os pesos são as probabilidades uniformes $p(\omega)$ sobre $\Omega_t$. Veja [Gerenciamento de cortes §3](/math/cut-management#3-agregacao-em-corte-unico)
 5. Acrescenta-se o corte agregado ao conjunto de cortes do estágio $t-1$
 
 :::note[Ramificação na simulação backward]
-"Todo cenário $\omega \in \Omega_t$" refere-se a todos os $N_{\text{openings}}$ vetores de ruído da **árvore de aberturas fixa** do estágio $t$. Esse é o esquema de amostragem backward **Completo** — a simulação backward avalia TODAS as aberturas (o mesmo conjunto em todas as iterações), independentemente da fonte de ruído da simulação forward. Uma variante alternativa amostraria $n_{\text{sample}}$ aberturas em vez da árvore completa; o Novo Modelo usa o esquema Completo porque ele garante que os coeficientes dos cortes sejam médias sobre a distribuição completa de cenários em cada estágio. Em um grafo da política, a simulação backward avalia toda abertura de todo filho do nó, e os pesos de agregação $P(n \to n')\, p_{n'}(\omega)$ de [Gerenciamento de cortes §3](/pt-br/math/cut-management#3-agregacao-em-corte-unico) são uniformes dentro das aberturas de cada filho; na cadeia de estágios, são as probabilidades uniformes $p(\omega) = 1/N_{\text{openings}}$ dessas aberturas. Veja [Geração de cenários](/pt-br/math/scenario-generation).
+"Todo cenário $\omega \in \Omega_t$" refere-se a todos os $N_{\text{openings}}$ vetores de ruído da **árvore de aberturas fixa** do estágio $t$. Esse é o esquema de amostragem backward **Completo** — a simulação backward avalia TODAS as aberturas (o mesmo conjunto em todas as iterações), independentemente da fonte de ruído da simulação forward. Uma variante alternativa amostraria $n_{\text{sample}}$ aberturas em vez da árvore completa; o Novo Modelo usa o esquema Completo porque ele garante que os coeficientes dos cortes sejam médias sobre a distribuição completa de cenários em cada estágio. Em um grafo da política, a simulação backward avalia toda abertura de todo filho do nó, e os pesos de agregação $P(n \to n')\, p_{n'}(\omega)$ de [Gerenciamento de cortes §3](/math/cut-management#3-agregacao-em-corte-unico) são uniformes dentro das aberturas de cada filho; na cadeia de estágios, são as probabilidades uniformes $p(\omega) = 1/N_{\text{openings}}$ dessas aberturas. Veja [Geração de cenários](/math/scenario-generation).
 :::
 
 A simulação backward produz um novo corte por estágio, por estado visitado e por iteração.
 
 :::note[Viabilidade]
-Toda resolução de PL da simulação backward deve ser viável. Isso é garantido pelo sistema de folgas de recurso (penalidades de Categoria 1) — veja [Sistema de penalidades](/pt-br/math/penalty-system). O recurso relativamente completo mantém viável toda resolução da simulação backward; a validade dos cortes requer as condições de [Gerenciamento de cortes §4](/pt-br/math/cut-management#4-validade-dos-cortes).
+Toda resolução de PL da simulação backward deve ser viável. Isso é garantido pelo sistema de folgas de recurso (penalidades de Categoria 1) — veja [Sistema de penalidades](/math/penalty-system). O recurso relativamente completo mantém viável toda resolução da simulação backward; a validade dos cortes requer as condições de [Gerenciamento de cortes §4](/math/cut-management#4-validade-dos-cortes).
 :::
 
 :::note[Fator de desconto]
-Quando há taxas de desconto ativas, o fator de desconto é aplicado à variável $\theta$ na função objetivo do estágio $t-1$ (isto é, $d_{t-1 \to t} \cdot \theta$), e não aos coeficientes dos cortes. Os cortes em si permanecem inalterados. Veja [Formulação da taxa de desconto](/pt-br/math/discount-rate).
+Quando há taxas de desconto ativas, o fator de desconto é aplicado à variável $\theta$ na função objetivo do estágio $t-1$ (isto é, $d_{t-1 \to t} \cdot \theta$), e não aos coeficientes dos cortes. Os cortes em si permanecem inalterados. Veja [Formulação da taxa de desconto](/math/discount-rate).
 :::
 
 Árvore de cenários com simulação forward amostrada — a simulação forward amostra
@@ -183,17 +183,17 @@ forward -> backward: "cada estado visitado x̂"
 
 ### 3.3 Monitoramento da convergência
 
-**Limite inferior**: $\underline{z}^k$ é o valor ajustado ao risco do primeiro estágio sobre suas aberturas, com os cortes vigentes ([Avaliação do limite superior — Limite inferior](/pt-br/math/upper-bound-evaluation#limite-inferior)). Ele não diminui ao longo das iterações, e a [Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido) estabelece quando ele é um limite válido.
+**Limite inferior**: $\underline{z}^k$ é o valor ajustado ao risco do primeiro estágio sobre suas aberturas, com os cortes vigentes ([Avaliação do limite superior — Limite inferior](/math/upper-bound-evaluation#limite-inferior)). Ele não diminui ao longo das iterações, e a [Camada 1](/math/cut-management#camada-1-limite-inferior-valido) estabelece quando ele é um limite válido.
 
-**Limite superior**: com simulação forward amostrada, é uma estimativa **estatística** — a média amostral sobre as trajetórias da simulação forward; com simulação forward enumerada, é o limite **exato** ponderado pelas probabilidades $\bar{z}_{\text{exact}}$ sobre todas as trajetórias até as folhas, sem erro amostral (veja [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation)). A forma da média amostral:
+**Limite superior**: com simulação forward amostrada, é uma estimativa **estatística** — a média amostral sobre as trajetórias da simulação forward; com simulação forward enumerada, é o limite **exato** ponderado pelas probabilidades $\bar{z}_{\text{exact}}$ sobre todas as trajetórias até as folhas, sem erro amostral (veja [Avaliação do limite superior](/math/upper-bound-evaluation)). A forma da média amostral:
 
 $$
 \bar{z}^k = \frac{1}{M} \sum_{m=1}^{M} \sum_{t=1}^{T} d_{1 \to t}\, c_t(x_t^{(m)}, u_t^{(m)})
 $$
 
-em que $d_{1 \to t}$ é o fator de desconto acumulado do estágio $t$ ([Formulação da taxa de desconto §5](/pt-br/math/discount-rate#5-desconto-acumulado)). Com uma função terminal importada (§7), o custo de cada trajetória inclui também o valor descontado dessa função no estado final da trajetória.
+em que $d_{1 \to t}$ é o fator de desconto acumulado do estágio $t$ ([Formulação da taxa de desconto §5](/math/discount-rate#5-desconto-acumulado)). Com uma função terminal importada (§7), o custo de cada trajetória inclui também o valor descontado dessa função no estado final da trajetória.
 
-**Gap de otimalidade**: a distância entre o limite superior e o limite inferior, expressa em percentual do limite inferior; [Critérios de parada](/pt-br/math/stopping-rules#gap-de-otimalidade) o define, bem como o critério de parada por gap que o utiliza.
+**Gap de otimalidade**: a distância entre o limite superior e o limite inferior, expressa em percentual do limite inferior; [Critérios de parada](/math/stopping-rules#gap-de-otimalidade) o define, bem como o critério de parada por gap que o utiliza.
 
 ### 3.4 Modelo de execução e considerações de desempenho
 
@@ -201,15 +201,15 @@ A estrutura de iterações da PDDE tem propriedades específicas que orientam a 
 
 **Sincronização da simulação backward**: a simulação backward impõe uma barreira de sincronização por estágio: os cortes gerados pelas resoluções do estágio $t$ estão completos, e sincronizados entre os processos, antes que qualquer resolução do estágio $(t-1)$ comece, de modo que toda resolução do estágio $(t-1)$ os inclua. Isso serializa o algoritmo nas fronteiras entre estágios.
 
-Cada resolução de estágio, forward ou backward, carrega o modelo (template) de PL do estágio, que contém os cortes ativos no momento em que o modelo foi construído, e acrescenta os cortes adicionados desde então; no método dinâmico, uma vez iniciado o seu laço preguiçoso (lazy), essas resoluções carregam, em vez disso, um subconjunto residente limitado do conjunto de cortes ([Gerenciamento de cortes §8](/pt-br/math/cut-management#8-o-metodo-dinamico)). O trabalho é distribuído entre processos e threads conforme descrito em [Aceleradores de desempenho](/pt-br/running/performance/#modelo-de-execucao-paralela).
+Cada resolução de estágio, forward ou backward, carrega o modelo (template) de PL do estágio, que contém os cortes ativos no momento em que o modelo foi construído, e acrescenta os cortes adicionados desde então; no método dinâmico, uma vez iniciado o seu laço preguiçoso (lazy), essas resoluções carregam, em vez disso, um subconjunto residente limitado do conjunto de cortes ([Gerenciamento de cortes §8](/math/cut-management#8-o-metodo-dinamico)). O trabalho é distribuído entre processos e threads conforme descrito em [Aceleradores de desempenho](/running/performance/#modelo-de-execucao-paralela).
 
 A arquitetura de software que implementa essas restrições está descrita no [README de `novomodelo-sddp`](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md).
 
 ## 4. Estrutura do grafo da política
 
-A cadeia de estágios usada ao longo deste capítulo — um nó por estágio $t \in \{1, \ldots, T\}$, ligados por transições de probabilidade $1$ e terminando em $V_{T+1}(x) = 0$ ou em uma função terminal importada (§7) — é o caso particular de um **grafo da política** mais geral: uma estrutura de nós, transições ponderadas por probabilidades e conjuntos de cortes de custo futuro por nó. Veja [Grafos da política](/pt-br/math/policy-graphs) para a estrutura completa de nós/transições/conjuntos de cortes, os dois eixos de probabilidade (pesos das arestas entre nós versus aberturas dentro do nó), a convenção de desconto separado e o mapeamento para a família SDDP.jl.
+A cadeia de estágios usada ao longo deste capítulo — um nó por estágio $t \in \{1, \ldots, T\}$, ligados por transições de probabilidade $1$ e terminando em $V_{T+1}(x) = 0$ ou em uma função terminal importada (§7) — é o caso particular de um **grafo da política** mais geral: uma estrutura de nós, transições ponderadas por probabilidades e conjuntos de cortes de custo futuro por nó. Veja [Grafos da política](/math/policy-graphs) para a estrutura completa de nós/transições/conjuntos de cortes, os dois eixos de probabilidade (pesos das arestas entre nós versus aberturas dentro do nó), a convenção de desconto separado e o mapeamento para a família SDDP.jl.
 
-O grafo da política do Novo Modelo é **apenas de horizonte finito**: um grafo acíclico, terminado em folhas, no qual toda trajetória começa em uma raiz e alcança uma folha após um número limitado de estágios. Uma forma de grafo **cíclica** — um estágio posterior com transição de volta para um anterior, para planejamento com horizonte periódico infinito — está **reservada** e é rejeitada na carga do caso. Veja [Modos de horizonte](/pt-br/math/horizon-modes) para o projeto-alvo cíclico que essa reserva antecipa, e [Grafos da política](/pt-br/math/policy-graphs) para a lista completa de limitações estruturais.
+O grafo da política do Novo Modelo é **apenas de horizonte finito**: um grafo acíclico, terminado em folhas, no qual toda trajetória começa em uma raiz e alcança uma folha após um número limitado de estágios. Uma forma de grafo **cíclica** — um estágio posterior com transição de volta para um anterior, para planejamento com horizonte periódico infinito — está **reservada** e é rejeitada na carga do caso. Veja [Modos de horizonte](/math/horizon-modes) para o projeto-alvo cíclico que essa reserva antecipa, e [Grafos da política](/math/policy-graphs) para a lista completa de limitações estruturais.
 
 ## 5. Variáveis de estado e a propriedade de Markov
 
@@ -220,7 +220,7 @@ Para que a PDDE gere cortes válidos, o subproblema deve satisfazer a **propried
 | Componente                          | Variável               | Quantidade   | Descrição                                                                                           |
 | ----------------------------------- | ---------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
 | Armazenamento hidrelétrico          | $v_h$                  | $N_{hydro}$  | Volume do reservatório ao fim do estágio                                                            |
-| Defasagens AR de afluência          | $a_{h,\ell}$           | $N_{hydro} \cdot P^{\max}$ | Afluências defasadas dos modelos AR($P_h$), armazenadas em número de $P^{\max}$ por usina ([Aumento do espaço de estados §4](/pt-br/math/state-augmentation#4-defasagens-de-afluencia)) |
+| Defasagens AR de afluência          | $a_{h,\ell}$           | $N_{hydro} \cdot P^{\max}$ | Afluências defasadas dos modelos AR($P_h$), armazenadas em número de $P^{\max}$ por usina ([Aumento do espaço de estados §4](/math/state-augmentation#4-defasagens-de-afluencia)) |
 | Parcelas de água em trânsito        | $b^{\mathrm{out}}_{h,d}$              | $B$          | Água defluída ainda em trânsito sob atraso de tempo de viagem — uma parcela por usina receptora $h$ por defasagem de maturação $d$ |
 | Posições do anel de despacho antecipado | $x^{\mathrm{a}}_{s,i}$            | um anel por usina com antecipação | Compromissos decididos e ainda não entregues — cada um ocupa uma posição do anel da sua usina até o seu estágio de entrega |
 
@@ -240,9 +240,9 @@ $$
 \underline{a}_{h,\ell} = \bar{a}_{h,\ell} = \hat{a}_{h,\ell} \quad \forall h \in \mathcal{H}, \; \ell \in \{1, \ldots, P^{\max}\}
 $$
 
-em que $\hat{a}_{h,\ell}$ é o valor da afluência com defasagem $\ell$ repassado pelo estágio anterior. Os custos reduzidos dessas colunas fixadas, cada um dividido pelo fator de escala da sua coluna, fornecem os coeficientes das defasagens $\beta^{lag}_{h,\ell}$, que entram no corte quando a projeção do corte do estágio mantém as componentes de defasagem de afluência, capturando o valor marginal do histórico de afluências — veja [Gerenciamento de cortes §2](/pt-br/math/cut-management#2-extracao-pelos-custos-reduzidos).
+em que $\hat{a}_{h,\ell}$ é o valor da afluência com defasagem $\ell$ repassado pelo estágio anterior. Os custos reduzidos dessas colunas fixadas, cada um dividido pelo fator de escala da sua coluna, fornecem os coeficientes das defasagens $\beta^{lag}_{h,\ell}$, que entram no corte quando a projeção do corte do estágio mantém as componentes de defasagem de afluência, capturando o valor marginal do histórico de afluências — veja [Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos).
 
-Veja [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) para a formulação autorregressiva completa e [Aumento do espaço de estados §4](/pt-br/math/state-augmentation#4-defasagens-de-afluencia) para o modo como essas restrições aparecem no PL do estágio.
+Veja [Modelo de afluências PAR(p)](/math/par-inflow-model) para a formulação autorregressiva completa e [Aumento do espaço de estados §4](/math/state-augmentation#4-defasagens-de-afluencia) para o modo como essas restrições aparecem no PL do estágio.
 
 ### 5.2 Expansão do estado com tempo de viagem e termelétricas com antecipação
 
@@ -266,9 +266,9 @@ seu estágio de entrega. As posições do anel de despacho antecipado são estad
 de cada estágio valore os compromissos já em curso.
 
 Ambas as expansões são opcionais e específicas de cada instância; veja
-[Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) para a configuração das entidades,
-[Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua) para as linhas das parcelas de água em trânsito e
-[Aumento do espaço de estados §5](/pt-br/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao) para o controle da entrega das termelétricas com antecipação no PL do estágio.
+[Visão geral da modelagem dos elementos do sistema](/math/system-elements) para a configuração das entidades,
+[Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua) para as linhas das parcelas de água em trânsito e
+[Aumento do espaço de estados §5](/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao) para o controle da entrega das termelétricas com antecipação no PL do estágio.
 
 ## 6. Formulação de corte único
 
@@ -278,20 +278,20 @@ $$
 \theta_{t-1} \geq \bar{Q}_t + \bar{\beta}^\top (x_{t-1} - \hat{x}_{t-1})
 $$
 
-em que $\bar{Q}_t$ e $\bar{\beta}$ agregam os termos por cenário $Q_t(\hat{x}_{t-1}, \omega)$ e $\beta(\omega)$ da §3.2 com os pesos de [Gerenciamento de cortes §3](/pt-br/math/cut-management#3-agregacao-em-corte-unico): sob o valor esperado, $\bar{Q}_t = \mathbb{E}[Q_t(\hat{x}_{t-1}, \omega)]$ e $\bar{\beta} = \mathbb{E}[\beta(\omega)]$, e sob uma medida de risco as probabilidades ajustadas ao risco de [Medidas de risco §7](/pt-br/math/risk-measures#7-geracao-de-cortes-com-medidas-de-risco) substituem esses pesos.
+em que $\bar{Q}_t$ e $\bar{\beta}$ agregam os termos por cenário $Q_t(\hat{x}_{t-1}, \omega)$ e $\beta(\omega)$ da §3.2 com os pesos de [Gerenciamento de cortes §3](/math/cut-management#3-agregacao-em-corte-unico): sob o valor esperado, $\bar{Q}_t = \mathbb{E}[Q_t(\hat{x}_{t-1}, \omega)]$ e $\bar{\beta} = \mathbb{E}[\beta(\omega)]$, e sob uma medida de risco as probabilidades ajustadas ao risco de [Medidas de risco §7](/math/risk-measures#7-geracao-de-cortes-com-medidas-de-risco) substituem esses pesos.
 
-- **Vantagens**: menos cortes, PL menor e resoluções mais rápidas do que em uma formulação multicorte (multi-cut) ([Birge & Louveaux, 1988](/pt-br/reference/bibliography/#fundamentos-da-pdde-sddp)), que mantém um corte por abertura em cada estado visitado
+- **Vantagens**: menos cortes, PL menor e resoluções mais rápidas do que em uma formulação multicorte (multi-cut) ([Birge & Louveaux, 1988](/reference/bibliography/#fundamentos-da-pdde-sddp)), que mantém um corte por abertura em cada estado visitado
 - **Desvantagens**: pode exigir mais iterações para convergir do que uma formulação multicorte
 
-O Novo Modelo implementa a formulação de corte único ([Gerenciamento de cortes §3](/pt-br/math/cut-management#3-agregacao-em-corte-unico)).
+O Novo Modelo implementa a formulação de corte único ([Gerenciamento de cortes §3](/math/cut-management#3-agregacao-em-corte-unico)).
 
 ## 7. Cortes de fronteira terminal
 
 Por padrão, a recursão termina com a condição final $V_{T+1}(x) = 0$ da §2. Um estudo pode substituí-la por uma função terminal fixa definida por cortes importados de um conjunto de cortes de uma política de origem, os **cortes de fronteira terminal (cortes de final de horizonte)**, que formam o conjunto de cortes do estágio terminal. A simulação backward não gera corte algum para esse conjunto, e nenhum é eliminado dele, de modo que a função permanece fixa durante toda a execução.
 
-Os cortes importados são válidos para a função de custo futuro do modelo de origem, de modo que o limite inferior e a política do estudo são válidos em relação à função importada, a função terminal fixa das hipóteses da [Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido). Um modelo do estudo posterior que difira do modelo de origem não é corrigido pelo treinamento, e a diferença introduz viés na política perto do fim do horizonte. Os cortes importados apenas limitam inferiormente a variável de custo futuro, de modo que tal diferença nunca torna inviável um subproblema de estágio; ela altera o valor.
+Os cortes importados são válidos para a função de custo futuro do modelo de origem, de modo que o limite inferior e a política do estudo são válidos em relação à função importada, a função terminal fixa das hipóteses da [Camada 1](/math/cut-management#camada-1-limite-inferior-valido). Um modelo do estudo posterior que difira do modelo de origem não é corrigido pelo treinamento, e a diferença introduz viés na política perto do fim do horizonte. Os cortes importados apenas limitam inferiormente a variável de custo futuro, de modo que tal diferença nunca torna inviável um subproblema de estágio; ela altera o valor.
 
-O conjunto de cortes de origem, as condições de compatibilidade, o estado propagado e a reconciliação de calendário são tratados em [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary).
+O conjunto de cortes de origem, as condições de compatibilidade, o estado propagado e a reconciliação de calendário são tratados em [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary).
 
 ## Implementação no Novo Modelo
 
@@ -303,19 +303,19 @@ A metodologia acima define a estrutura de simulações forward/backward e as res
 
 ## Referências cruzadas
 
-- [Convenções de notação](/pt-br/overview/notation-conventions) — Todos os conjuntos de índices, parâmetros, variáveis de decisão e definições de variáveis duais
-- [Formulação do PL](/pt-br/math/lp-formulation) — O PL completo do subproblema do estágio que as simulações forward/backward resolvem
-- [Grafos da política](/pt-br/math/policy-graphs) — A generalização da cadeia de estágios em nós/transições/conjuntos de cortes; os dois eixos de probabilidade, a convenção de desconto separado e as limitações estruturais (apenas horizonte finito, cíclico reservado)
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — Geração, agregação e seleção de cortes, condições de validade e a garantia de monotonicidade do conjunto somente de acréscimo (append-only)
-- [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) — Canonicalização, na leitura de volta, dos valores dos estados visitados sobre os limites admissíveis, e os mecanismos de reprodutibilidade (ordenação canônica dos blocos de estado, ordem de resolução fixada) em que ela se apoia
-- [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — Modelo estocástico de afluências que gera a incerteza na simulação forward
-- [Formulação da taxa de desconto](/pt-br/math/discount-rate) — Equação de Bellman com desconto, taxas dependentes do estágio, fator de desconto sobre θ
-- [Modos de horizonte](/pt-br/math/horizon-modes) — O projeto-alvo reservado do grafo da política cíclico (função de período sazonal, inequação de convergência do ciclo, conjunto de cortes indexado por período sazonal, operador de Bellman de ponto fixo) que a restrição a horizonte finito em [Grafos da política](/pt-br/math/policy-graphs) antecipa
-- [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) — a função terminal importada: conjunto de cortes de origem, condições de compatibilidade, estado propagado e reconciliação de calendário
-- [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) — Métodos de estimativa do limite superior
-- [Critérios de parada](/pt-br/math/stopping-rules) — Critérios de convergência que encerram o processo iterativo
-- [Medidas de risco](/pt-br/math/risk-measures) — CVaR e extensões avessas ao risco da recursão de Bellman
-- [Sistema de penalidades](/pt-br/math/penalty-system) — Folgas de recurso que garantem a viabilidade (recurso relativamente completo)
-- [Formulações específicas por equipamento](/pt-br/math/equipment-formulations) — Modelagem dos equipamentos térmicos
-- [Geração de cenários](/pt-br/math/scenario-generation) — Árvore de aberturas fixa, abstração do esquema de amostragem, árvores de cenários enumeradas
-- **Executando o Novo Modelo:** [Executando estudos](/pt-br/running/running-studies/) — o fluxo de trabalho do software que treina e executa este algoritmo.
+- [Convenções de notação](/overview/notation-conventions) — Todos os conjuntos de índices, parâmetros, variáveis de decisão e definições de variáveis duais
+- [Formulação do PL](/math/lp-formulation) — O PL completo do subproblema do estágio que as simulações forward/backward resolvem
+- [Grafos da política](/math/policy-graphs) — A generalização da cadeia de estágios em nós/transições/conjuntos de cortes; os dois eixos de probabilidade, a convenção de desconto separado e as limitações estruturais (apenas horizonte finito, cíclico reservado)
+- [Gerenciamento de cortes](/math/cut-management) — Geração, agregação e seleção de cortes, condições de validade e a garantia de monotonicidade do conjunto somente de acréscimo (append-only)
+- [Determinismo e rastreabilidade](/math/determinism-guarantees) — Canonicalização, na leitura de volta, dos valores dos estados visitados sobre os limites admissíveis, e os mecanismos de reprodutibilidade (ordenação canônica dos blocos de estado, ordem de resolução fixada) em que ela se apoia
+- [Modelo de afluências PAR(p)](/math/par-inflow-model) — Modelo estocástico de afluências que gera a incerteza na simulação forward
+- [Formulação da taxa de desconto](/math/discount-rate) — Equação de Bellman com desconto, taxas dependentes do estágio, fator de desconto sobre θ
+- [Modos de horizonte](/math/horizon-modes) — O projeto-alvo reservado do grafo da política cíclico (função de período sazonal, inequação de convergência do ciclo, conjunto de cortes indexado por período sazonal, operador de Bellman de ponto fixo) que a restrição a horizonte finito em [Grafos da política](/math/policy-graphs) antecipa
+- [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) — a função terminal importada: conjunto de cortes de origem, condições de compatibilidade, estado propagado e reconciliação de calendário
+- [Avaliação do limite superior](/math/upper-bound-evaluation) — Métodos de estimativa do limite superior
+- [Critérios de parada](/math/stopping-rules) — Critérios de convergência que encerram o processo iterativo
+- [Medidas de risco](/math/risk-measures) — CVaR e extensões avessas ao risco da recursão de Bellman
+- [Sistema de penalidades](/math/penalty-system) — Folgas de recurso que garantem a viabilidade (recurso relativamente completo)
+- [Formulações específicas por equipamento](/math/equipment-formulations) — Modelagem dos equipamentos térmicos
+- [Geração de cenários](/math/scenario-generation) — Árvore de aberturas fixa, abstração do esquema de amostragem, árvores de cenários enumeradas
+- **Executando o Novo Modelo:** [Executando estudos](/running/running-studies/) — o fluxo de trabalho do software que treina e executa este algoritmo.

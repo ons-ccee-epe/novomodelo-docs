@@ -85,3 +85,14 @@ test("a second run rewrites nothing", () => {
   assert.equal(en(enText).rewritten, 3);
   assert.equal(pt(ptText).rewritten, 2);
 });
+
+test("an href property of an MDX object literal follows its locale", () => {
+  assert.equal(
+    en("{ kind: 'Methodology', href: '/math/lp-formulation/#rows' },").text,
+    "{ kind: 'Methodology', href: '/en/math/lp-formulation/#rows' },",
+  );
+  assert.equal(
+    pt('{ kind: "Metodologia", href: "/pt-br/math/lp-formulation/" },').text,
+    '{ kind: "Metodologia", href: "/math/lp-formulation/" },',
+  );
+});
