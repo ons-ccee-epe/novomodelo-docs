@@ -15,7 +15,7 @@ diretório não existe quando nenhum é gravado.
 ## `training/hydro_models.json`
 
 Contagens agregadas dos modelos de produção e de evaporação, detalhamento por hidrelétrica para
-toda usina que usa um modelo de produção FPHA e a lista das usinas sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos). Sempre gravado.
+toda usina que usa um modelo de produção FPHA e a lista das usinas [sem capacidade de turbinamento](/math/hydro-production-models#sem-capacidade-de-turbinamento) (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos). O arquivo também lista as hidrelétricas cujo turbinamento é congelado em algum estágio do estudo, ou cujo mínimo de vazão turbinada ou de geração o PL não aplica. Sempre gravado.
 
 **Metodologia:** [Modelos de função de produção hidrelétrica](/math/hydro-production-models)
 
@@ -27,7 +27,8 @@ Objeto de primeiro nível:
 | `n_fpha`                 | integer | Não       | —     | Número de usinas hidrelétricas com hiperplanos da FPHA pré-calculados ou calculados em pelo menos uma entrada de modelo de produção; uma usina sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos) é contada em `n_constant`. |
 | `total_planes`           | integer | Não       | —     | Soma de `n_planes` sobre `fpha_details`: os hiperplanos de cada usina com FPHA no primeiro estágio do estudo.                                                                                                                     |
 | `fpha_details`           | array   | Não       | —     | Detalhamento por hidrelétrica de cada usina contada em `n_fpha` (veja abaixo).                                                                                                                                                   |
-| `no_turbine_capacity` | array | Não | — | Usinas sem capacidade de turbinamento (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos), em ordem crescente de `hydro_id`; sempre presente (`[]` quando não há nenhuma); cada uma também é contada em `n_constant` (veja abaixo). |
+| `no_turbine_capacity` | array | Não | — | Usinas que solicitam FPHA (uma usina com FPHA calculada, ou com FPHA pré-calculada sem linhas de hiperplanos) cujos `max_turbined_m3s` ou `max_generation_mw` declarados as deixam [sem capacidade de turbinamento](/math/hydro-production-models#sem-capacidade-de-turbinamento), em ordem crescente de `hydro_id`; sempre presente (`[]` quando não há nenhuma); cada uma também é contada em `n_constant` (veja abaixo). |
+| `frozen_turbining` | array | Não | — | Hidrelétricas com uma célula (usina, barramento) sem capacidade de turbinamento em algum patamar de um estágio do estudo, ou com um mínimo que o PL não aplica ([Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina)), em ordem crescente de `hydro_id`; sempre presente (`[]` quando não há nenhuma) (veja abaixo). |
 | `n_evaporation`          | integer | Não       | —     | Número de usinas hidrelétricas com modelo de evaporação linearizado.                                                                                                                                                        |
 | `n_no_evaporation`       | integer | Não       | —     | Número de usinas hidrelétricas sem modelo de evaporação.                                                                                                                                                                  |
 | `n_user_supplied_ref`    | integer | Não       | —     | Número de usinas com evaporação que usaram volumes de referência fornecidos pelo usuário.                                                                                                                                            |
@@ -48,6 +49,31 @@ Objeto de primeiro nível:
 | --- | --- | --- | --- | --- |
 | `no_turbine_capacity[].hydro_id` | integer | Não | — | Identificador da entidade usina hidrelétrica. |
 | `no_turbine_capacity[].name` | string | Não | — | Nome legível da usina hidrelétrica. |
+
+**Campos de `frozen_turbining[]`:**
+
+| Nome | Tipo | Anulável | Unidade | Descrição |
+| --- | --- | --- | --- | --- |
+| `frozen_turbining[].hydro_id` | integer | Não | — | Identificador da entidade usina hidrelétrica. |
+| `frozen_turbining[].name` | string | Não | — | Nome legível da usina hidrelétrica. |
+| `frozen_turbining[].no_capacity_stage_ids` | array of integer | Não | — | Estágios do estudo, em ordem crescente, em que nenhuma célula (usina, barramento) da usina tem capacidade de turbinamento em qualquer patamar. |
+| `frozen_turbining[].partial_capacity_stage_ids` | array of integer | Não | — | Estágios do estudo, em ordem crescente e disjuntos de `no_capacity_stage_ids`, em que algumas, mas não todas, as combinações (célula, patamar) têm capacidade de turbinamento. |
+| `frozen_turbining[].dropped_floors` | array | Não | — | Mínimos que o PL não aplica (veja abaixo). |
+
+**Campos de `frozen_turbining[].dropped_floors[]`:**
+
+| Nome | Tipo | Anulável | Unidade | Descrição |
+| --- | --- | --- | --- | --- |
+| `frozen_turbining[].dropped_floors[].stage_id` | integer | Não | — | Id do estágio do estudo. |
+| `frozen_turbining[].dropped_floors[].block_id` | integer | Não | — | Id do patamar dentro do estágio. |
+| `frozen_turbining[].dropped_floors[].floor` | string | Não | — | O mínimo descartado: `"min_turbined_m3s"` ou `"min_generation_mw"`. |
+| `frozen_turbining[].dropped_floors[].level` | string | Não | — | Se o mínimo é o da própria usina ou o de um grupo de unidades: `"plant"` ou `"unit_group"`. |
+| `frozen_turbining[].dropped_floors[].hydro_unit_group_id` | integer | Sim | — | Id do grupo de unidades; nulo exatamente quando `level` é `"plant"`. |
+| `frozen_turbining[].dropped_floors[].bus_id` | integer | Sim | — | O barramento do grupo de unidades; nulo exatamente quando `level` é `"plant"`. |
+| `frozen_turbining[].dropped_floors[].value` | number | Não | m³/s ou MW | Mínimo resolvido, sempre > 0, na unidade de `floor`. |
+| `frozen_turbining[].dropped_floors[].reason` | string | Não | — | `"no_capacity"` (a usina ou o grupo de unidades não tem capacidade de turbinamento no patamar) ou `"commissioning"` (a usina está em pré-enchimento ou em fase de enchimento no estágio). |
+
+`dropped_floors` é ordenado por `stage_id`, `block_id`, `level`, `hydro_unit_group_id` e, por fim, `floor`. Um registro `"plant"` aparece onde o mínimo da própria usina é positivo e a usina não pode produzir no patamar; um registro `"unit_group"` aparece onde o mínimo do grupo é positivo e a usina não pode produzir ali, ou o próprio grupo não tem capacidade.
 
 ---
 

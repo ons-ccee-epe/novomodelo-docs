@@ -15,7 +15,7 @@ directory is absent when none is written.
 ## `training/hydro_models.json`
 
 Aggregated production- and evaporation-model counts, per-hydro detail for
-every plant that uses an FPHA production model, and the list of plants with no turbine capacity (a computed-FPHA plant, or a precomputed one with no hyperplane rows). Always written.
+every plant that uses an FPHA production model, and the list of plants with [no turbine capacity](/en/math/hydro-production-models#no-turbine-capacity) (a computed-FPHA plant, or a precomputed one with no hyperplane rows). The file also lists the hydros whose turbining is frozen at some study stage, or whose turbined-flow or generation minimum the LP does not charge. Always written.
 
 **Methodology:** [Hydro Production Function Models](/en/math/hydro-production-models)
 
@@ -27,7 +27,8 @@ Top-level object:
 | `n_fpha`                 | integer | No       | —     | Number of hydro plants with precomputed or computed FPHA hyperplanes in at least one production-model entry; a plant with no turbine capacity (a computed-FPHA plant, or a precomputed one with no hyperplane rows) is counted in `n_constant` instead. |
 | `total_planes`           | integer | No       | —     | Sum of `n_planes` over `fpha_details`: each FPHA plant's hyperplanes at the first study stage.                                                                                                                     |
 | `fpha_details`           | array   | No       | —     | Per-hydro detail for each plant counted in `n_fpha` (see below).                                                                                                                                                   |
-| `no_turbine_capacity` | array | No | — | Plants with no turbine capacity (a computed-FPHA plant, or a precomputed one with no hyperplane rows), ascending by `hydro_id`; always present (`[]` when none); each is also counted in `n_constant` (see below). |
+| `no_turbine_capacity` | array | No | — | Plants that request FPHA (a computed-FPHA plant, or a precomputed one with no hyperplane rows) whose declared `max_turbined_m3s` or `max_generation_mw` gives them [no turbine capacity](/en/math/hydro-production-models#no-turbine-capacity), ascending by `hydro_id`; always present (`[]` when none); each is also counted in `n_constant` (see below). |
+| `frozen_turbining` | array | No | — | Hydros with a (hydro, bus) cell without turbine capacity at some block of a study stage, or with a minimum the LP does not charge ([Plant Minimum and Maximum](/en/math/lp-formulation#plant-minimum-and-maximum)), ascending by `hydro_id`; always present (`[]` when none) (see below). |
 | `n_evaporation`          | integer | No       | —     | Number of hydro plants with a linearized evaporation model.                                                                                                                                                        |
 | `n_no_evaporation`       | integer | No       | —     | Number of hydro plants with no evaporation model.                                                                                                                                                                  |
 | `n_user_supplied_ref`    | integer | No       | —     | Number of evaporation plants that used user-supplied reference volumes.                                                                                                                                            |
@@ -48,6 +49,31 @@ Top-level object:
 | --- | --- | --- | --- | --- |
 | `no_turbine_capacity[].hydro_id` | integer | No | — | Entity identifier of the hydro plant. |
 | `no_turbine_capacity[].name` | string | No | — | Human-readable name of the hydro plant. |
+
+**`frozen_turbining[]` fields:**
+
+| Name | Type | Nullable | Units | Description |
+| --- | --- | --- | --- | --- |
+| `frozen_turbining[].hydro_id` | integer | No | — | Entity identifier of the hydro plant. |
+| `frozen_turbining[].name` | string | No | — | Human-readable name of the hydro plant. |
+| `frozen_turbining[].no_capacity_stage_ids` | array of integer | No | — | Study stages, ascending, where no (hydro, bus) cell of the plant has turbine capacity at any block. |
+| `frozen_turbining[].partial_capacity_stage_ids` | array of integer | No | — | Study stages, ascending and disjoint from `no_capacity_stage_ids`, where some, but not every, (cell, block) has turbine capacity. |
+| `frozen_turbining[].dropped_floors` | array | No | — | Minima the LP does not charge (see below). |
+
+**`frozen_turbining[].dropped_floors[]` fields:**
+
+| Name | Type | Nullable | Units | Description |
+| --- | --- | --- | --- | --- |
+| `frozen_turbining[].dropped_floors[].stage_id` | integer | No | — | Study stage id. |
+| `frozen_turbining[].dropped_floors[].block_id` | integer | No | — | Block id within the stage. |
+| `frozen_turbining[].dropped_floors[].floor` | string | No | — | The dropped minimum: `"min_turbined_m3s"` or `"min_generation_mw"`. |
+| `frozen_turbining[].dropped_floors[].level` | string | No | — | Whether the minimum is the plant's own or a unit group's: `"plant"` or `"unit_group"`. |
+| `frozen_turbining[].dropped_floors[].hydro_unit_group_id` | integer | Yes | — | Unit group id; null exactly when `level` is `"plant"`. |
+| `frozen_turbining[].dropped_floors[].bus_id` | integer | Yes | — | The unit group's bus; null exactly when `level` is `"plant"`. |
+| `frozen_turbining[].dropped_floors[].value` | number | No | m³/s or MW | Resolved minimum, always > 0, in the unit of `floor`. |
+| `frozen_turbining[].dropped_floors[].reason` | string | No | — | `"no_capacity"` (the plant or the unit group has no turbine capacity at the block) or `"commissioning"` (the plant is PreFilling or Filling at the stage). |
+
+`dropped_floors` is sorted by `stage_id`, `block_id`, `level`, `hydro_unit_group_id`, then `floor`. A `"plant"` record appears where the plant's own minimum is positive and the plant cannot produce at the block; a `"unit_group"` record appears where the group's minimum is positive and the plant cannot produce there, or the group itself has no capacity.
 
 ---
 
