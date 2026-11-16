@@ -28,6 +28,12 @@ Inclinações de vazão lateral acima de `-1e-10` — um resíduo negativo próx
 valor positivo — são fixadas em exatamente `0`, de modo que nenhum coeficiente próximo de zero chega
 à coluna de vertimento.
 
+O limite da §2.7 é aplicado antes desse ajuste. Ele lê o volume inferior da janela de
+ajuste e o extremo superior `S_max` da amostra de vazão lateral, e não é aplicado quando
+`S_max` é `0`. Os planos de `system/fpha_hyperplanes.parquet` (pré-calculados) não são
+limitados; `novomodelo validate` avisa sobre um plano que fica abaixo de 0 MW com turbinamento
+nulo (veja [Qualidade do modelo](/reference/error-codes/#modelquality)).
+
 Quando alguma usina usa FPHA calculada, as famílias de `system/tailrace_curves.parquet` são verificadas à medida que os
 modelos de produção são construídos: segmentos consecutivos de uma família devem se encontrar (o
 `outflow_max_m3s` anterior e o `outflow_min_m3s` seguinte diferem no máximo `1e-6` m³/s) e dar o mesmo
@@ -48,12 +54,19 @@ Isso impõe a semântica de fio d'água (a geração nesses planos não varia co
 armazenamento) e é por isso que as usinas a fio d'água são suportadas no caminho
 calculado, em vez de rejeitadas.
 
-### FPHA sem capacidade de turbinamento
+### Sem capacidade de turbinamento
+
+Um grupo de unidades ou uma usina não tem capacidade de turbinamento quando seu
+`max_turbined_m3s` ou seu `max_generation_mw` é menor ou igual a `1e-9`. A regra de
+substituição do ajuste, descrita abaixo, lê os limites declarados em `system/hydros.json`.
+O PL do estágio lê os limites resolvidos de cada grupo de unidades e de cada usina em cada
+patamar, após as sobrescritas de `constraints/hydro_bounds.parquet` e
+`constraints/hydro_unit_group_bounds.parquet`.
 
 Uma usina que solicita FPHA, calculada (`fpha_config.source: "computed"` em
 qualquer uma das suas entradas de modelo de produção) ou pré-calculada sem nenhuma linha em
-`system/fpha_hyperplanes.parquet`, e que declara `max_turbined_m3s` menor ou igual a
-`1e-9` não é ajustada; ela é modelada com produtibilidade nula em todos os estágios
+`system/fpha_hyperplanes.parquet`, e que declara `max_turbined_m3s` ou
+`max_generation_mw` menor ou igual a `1e-9` não é ajustada; ela é modelada com produtibilidade nula em todos os estágios
 ([§2.6.1](#261-grade-e-nuvem) acima). Os pré-requisitos da FPHA calculada se aplicam
 a uma usina calculada: `tailrace`, `hydraulic_losses` e `efficiency` em `hydros.json` e
 linhas de geometria em `system/hydro_geometry.parquet`; a ausência de qualquer um deles é um erro
@@ -78,6 +91,24 @@ contagem `constant` da linha `Production:` da CLI. Ela não aparece em
 `n_fpha_computed_from_geometry` e `n_fpha_precomputed_hyperplanes` de
 `training/model_provenance.json`, nem em
 `hydro_models/fpha_hyperplanes.parquet`.
+
+O PL congela o turbinamento onde um estágio não tem capacidade. `training/hydro_models.json`
+lista em `frozen_turbining` cada hidrelétrica com um estágio do estudo sem capacidade ou com
+um mínimo que o PL não aplica, com esses estágios e mínimos (veja
+[Artefatos dos modelos hidrelétricos](/reference/output/hydro-models/#traininghydro_modelsjson)).
+`novomodelo run` imprime uma linha por hidrelétrica listada, após as linhas `Production:` e
+`Evaporation:` do seu bloco de modelos hidrelétricos:
+
+{/* quoted from source: frozen_turbining_line in crates/novomodelo-cli/src/summary.rs at novomodelo commit 1b40cffc2e93c6939e9388937853f03c7c24a760 */}
+
+```text
+  Frozen:        {…} (id {…}): {…}
+```
+
+O último campo une as cláusulas `no capacity at stages {ranges}`,
+`partial at stages {ranges}` e `1 dropped floor` ou `{n} dropped floors` com
+`; `, omitindo as ausentes. Um intervalo de estágios consecutivos é escrito com meia-risca
+e as sequências são separadas por `, `, por exemplo `0–2, 5`.
 
 ### Aviso de qualidade do ajuste
 
@@ -229,6 +260,6 @@ entrada `system/fpha_hyperplanes.parquet`. Para reutilizar um ajuste anterior se
 reajustar em uma execução subsequente, copie esse arquivo de saída para `system/` e
 altere `source` para `"precomputed"` em `hydro_production_models.json`.
 
-Uma usina sem capacidade de turbinamento não tem linhas no arquivo exportado e não precisa
+Uma usina [sem capacidade de turbinamento](#sem-capacidade-de-turbinamento) não tem linhas no arquivo exportado e não precisa
 de nenhuma: copiado para `system/`, o arquivo é carregado sem edição, e a usina permanece com
 produtibilidade nula.

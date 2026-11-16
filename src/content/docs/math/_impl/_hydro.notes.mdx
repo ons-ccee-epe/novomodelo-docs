@@ -28,6 +28,12 @@ Lateral-flow slopes above `-1e-10` — a near-zero negative residual or any
 positive one — are set to exactly `0`, so no near-zero coefficient reaches
 the spillage column.
 
+The limit of §2.7 runs before that snap. It reads the fitting window's lower
+volume and the upper end `S_max` of the lateral-flow sample, and it is skipped
+when `S_max` is `0`. Planes in `system/fpha_hyperplanes.parquet` (precomputed)
+are not limited; `novomodelo validate` warns on one that falls below 0 MW at
+zero turbining (see [Model quality](/en/reference/error-codes/#modelquality)).
+
 When any plant uses computed FPHA, the families of `system/tailrace_curves.parquet` are checked as the
 production models are built: consecutive segments of a family must meet (the previous
 `outflow_max_m3s` and the next `outflow_min_m3s` differ by at most `1e-6` m³/s) and give the same
@@ -48,16 +54,23 @@ and a residual of at most `1e-6` MW per hm³ from rounding is set to exactly
 not vary with storage) and is why run-of-river plants are supported on the
 computed path rather than rejected.
 
-### FPHA without turbine capacity
+### No turbine capacity
+
+A unit group or plant has no turbine capacity when its `max_turbined_m3s` or
+its `max_generation_mw` is at or below `1e-9`. The fit fallback below reads the
+declared limits in `system/hydros.json`. The stage LP reads the resolved
+limits of each unit group and plant at each block, after the
+`constraints/hydro_bounds.parquet` and
+`constraints/hydro_unit_group_bounds.parquet` overrides.
 
 A plant that requests FPHA, computed (`fpha_config.source: "computed"` in
 any of its production-model entries) or precomputed with no row in
-`system/fpha_hyperplanes.parquet`, and declares `max_turbined_m3s` at or below
-`1e-9` is not fitted; it is modelled with zero productivity at every stage
-([§2.6.1](#261-grid-and-cloud) above). The computed-FPHA prerequisites apply
-to a computed plant: `tailrace`, `hydraulic_losses` and `efficiency` in `hydros.json` and
-geometry rows in `system/hydro_geometry.parquet`; a missing one is a load-time
-error.
+`system/fpha_hyperplanes.parquet`, and declares `max_turbined_m3s` or
+`max_generation_mw` at or below `1e-9` is not fitted; it is modelled with zero
+productivity at every stage ([§2.6.1](#261-grid-and-cloud) above). The
+computed-FPHA prerequisites apply to a computed plant: `tailrace`,
+`hydraulic_losses` and `efficiency` in `hydros.json` and geometry rows in
+`system/hydro_geometry.parquet`; a missing one is a load-time error.
 
 A warning names the plant; `novomodelo validate` and `novomodelo run` both print it:
 
@@ -78,6 +91,24 @@ the `constant` count of the CLI `Production:` line. It is absent from
 `n_fpha_computed_from_geometry` and `n_fpha_precomputed_hyperplanes` in
 `training/model_provenance.json`, and from
 `hydro_models/fpha_hyperplanes.parquet`.
+
+The LP freezes turbining where a stage has no capacity. `training/hydro_models.json`
+lists under `frozen_turbining` each hydro with a study stage without capacity,
+or with a minimum the LP does not charge, with those stages and minima (see
+[Hydro Model Artifacts](/en/reference/output/hydro-models/#traininghydro_modelsjson)).
+`novomodelo run` prints one line per listed hydro, after the `Production:` and
+`Evaporation:` lines of its hydro-models block:
+
+{/* quoted from source: frozen_turbining_line in crates/novomodelo-cli/src/summary.rs at novomodelo commit 1b40cffc2e93c6939e9388937853f03c7c24a760 */}
+
+```text
+  Frozen:        {…} (id {…}): {…}
+```
+
+The last field joins the clauses `no capacity at stages {ranges}`,
+`partial at stages {ranges}` and `1 dropped floor` or `{n} dropped floors` with
+`; `, skipping absent ones. A range of consecutive stages is written with an en
+dash and runs are separated by `, `, for example `0–2, 5`.
 
 ### Fit-quality warning
 
@@ -229,6 +260,6 @@ coefficients are automatically written to
 refitting on a subsequent run, copy this output file into `system/` and
 change `source` to `"precomputed"` in `hydro_production_models.json`.
 
-A plant with no turbine capacity has no rows in the exported file and needs
+A plant with [no turbine capacity](#no-turbine-capacity) has no rows in the exported file and needs
 none: copied to `system/`, the file loads unedited, and the plant stays at
 zero productivity.
