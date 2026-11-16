@@ -110,7 +110,7 @@ A simulação backward aprimora a aproximação da função de valor gerando nov
 Em cada estágio $t$, para cada estado visitado $\hat{x}_{t-1}$ coletado durante a simulação forward:
 
 1. Resolve-se o PL do estágio $t$ para **todo** cenário $\omega \in \Omega_t$ (ramificação), usando o estado visitado $\hat{x}_{t-1}$ como estado de entrada
-2. De cada solução do PL, extraem-se o valor ótimo da função objetivo $Q_t(\hat{x}_{t-1}, \omega)$ e os **custos reduzidos** das colunas fixadas do estado de entrada. Os custos reduzidos do armazenamento de entrada e das defasagens AR entram no corte quando a projeção do corte do estágio mantém essas componentes; os custos reduzidos dos in-transit buckets e dos slots de termelétricas com antecipação de despacho sempre entram ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)). Esses custos reduzidos fornecem diretamente os coeficientes do corte — não é necessária nenhuma combinação com os duais das restrições da FPHA ou das restrições genéricas. Veja [Gerenciamento de cortes](/pt-br/math/cut-management)
+2. De cada solução do PL, extraem-se o valor ótimo da função objetivo $Q_t(\hat{x}_{t-1}, \omega)$ e os **custos reduzidos** das colunas fixadas do estado de entrada. Os custos reduzidos do armazenamento de entrada e das defasagens AR entram no corte quando a projeção do corte do estágio mantém essas componentes; os custos reduzidos das parcelas de água em trânsito (in-transit buckets) e das posições do anel de despacho antecipado (commitment ring slots) das termelétricas com antecipação de despacho sempre entram ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)). Esses custos reduzidos fornecem diretamente os coeficientes do corte — não é necessária nenhuma combinação com os duais das restrições da FPHA ou das restrições genéricas. Veja [Gerenciamento de cortes](/pt-br/math/cut-management)
 3. Calculam-se os termos do corte por cenário $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ no estado visitado, sendo cada coeficiente de $\beta(\omega)$ o custo reduzido do passo 2 dividido pelo fator de escala da sua coluna ([Gerenciamento de cortes §2](/pt-br/math/cut-management#2-extracao-pelos-custos-reduzidos))
 4. Agregam-se os termos do corte por cenário em um único corte. Em um grafo da política, o corte de um nó $n$ agrega todo par (filho, abertura) $(n', \omega)$ de $n$, ponderado por $P(n \to n')\, p_{n'}(\omega)$, com a medida de risco atuando uma única vez sobre essa lei conjunta; na cadeia de estágios, o nó tem um único filho e os pesos são as probabilidades uniformes $p(\omega)$ sobre $\Omega_t$. Veja [Gerenciamento de cortes §3](/pt-br/math/cut-management#3-agregacao-em-corte-unico)
 5. Acrescenta-se o corte agregado ao conjunto de cortes do estágio $t-1$
@@ -221,13 +221,13 @@ Para que a PDDE gere cortes válidos, o subproblema deve satisfazer a **propried
 | ----------------------------------- | ---------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
 | Armazenamento hidrelétrico          | $v_h$                  | $N_{hydro}$  | Volume do reservatório ao fim do estágio                                                            |
 | Defasagens AR de afluência          | $a_{h,\ell}$           | $N_{hydro} \cdot P^{\max}$ | Afluências defasadas dos modelos AR($P_h$), armazenadas em número de $P^{\max}$ por usina ([Aumento do espaço de estados §4](/pt-br/math/state-augmentation#4-defasagens-de-afluencia)) |
-| In-transit buckets                  | $b^{\mathrm{out}}_{h,d}$              | $B$          | Água defluída ainda em trânsito sob atraso de tempo de viagem — um bucket por usina receptora $h$ por defasagem de maturação $d$ |
-| Slots de termelétricas com antecipação | $x^{\mathrm{a}}_{s,i}$            | um ring por usina com antecipação | Compromissos decididos e ainda não entregues — cada um ocupa um slot do ring da sua usina até o seu estágio de entrega |
+| Parcelas de água em trânsito        | $b^{\mathrm{out}}_{h,d}$              | $B$          | Água defluída ainda em trânsito sob atraso de tempo de viagem — uma parcela por usina receptora $h$ por defasagem de maturação $d$ |
+| Posições do anel de despacho antecipado | $x^{\mathrm{a}}_{s,i}$            | um anel por usina com antecipação | Compromissos decididos e ainda não entregues — cada um ocupa uma posição do anel da sua usina até o seu estágio de entrega |
 
 As duas últimas componentes estão presentes apenas quando o estudo as declara: os
-arcos com tempo de viagem da água introduzem os in-transit
-buckets, e as termelétricas com antecipação de despacho introduzem os ring
-slots. Um estudo sem nenhuma delas reduz-se ao estado clássico de armazenamento
+arcos com tempo de viagem da água introduzem as parcelas de água
+em trânsito, e as termelétricas com antecipação de despacho introduzem as posições
+do anel de despacho antecipado. Um estudo sem nenhuma delas reduz-se ao estado clássico de armazenamento
 (+ defasagens AR). As quatro componentes são estado de Markov genuíno — cada uma é
 fixada por limites de coluna na sua coluna de estado de entrada, e o custo
 reduzido dessa coluna fornece seu coeficiente no corte (seção 3.2).
@@ -250,24 +250,24 @@ Dois outros mecanismos expandem o vetor de estado além do armazenamento e das
 defasagens AR, e ambos são tratados como estado de Markov pela mesma fixação por
 limites de coluna das defasagens AR — os custos reduzidos das suas colunas fixadas, cada um dividido pelo fator de escala da sua coluna, fornecem seus coeficientes no corte.
 
-**In-transit buckets.** Quando o arco principal da cascata de uma
+**Parcelas de água em trânsito.** Quando o arco principal da cascata de uma
 usina hidrelétrica possui tempo de viagem, a água defluída chega à usina de jusante
 apenas após um atraso. O volume em trânsito é acompanhado como estado de Benders
-aumentado — um bucket slot por usina de jusante por defasagem de
+aumentado — uma parcela por usina de jusante por defasagem de
 maturação —, de modo que o custo futuro de um estágio dependa apenas dos volumes
 em trânsito atuais, e não da trajetória de defluências que os produziu.
 
-**Slots de termelétricas com antecipação.** Uma termelétrica com antecipação de
+**Posições do anel de despacho antecipado.** Uma termelétrica com antecipação de
 despacho compromete geração antes do seu estágio de entrega, por um número de
 estágios ou por uma antecedência física. Cada compromisso decidido e ainda não
-entregue ocupa um slot do commitment ring da usina desde o seu estágio de
+entregue ocupa uma posição do anel de despacho antecipado da usina desde o seu estágio de
 decisão (o primeiro estágio, para um compromisso decidido antes do estudo) até o
-seu estágio de entrega. Os ring slots são estado de Markov para que o corte
+seu estágio de entrega. As posições do anel de despacho antecipado são estado de Markov para que o corte
 de cada estágio valore os compromissos já em curso.
 
 Ambas as expansões são opcionais e específicas de cada instância; veja
 [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) para a configuração das entidades,
-[Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua) para as linhas dos in-transit buckets e
+[Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua) para as linhas das parcelas de água em trânsito e
 [Aumento do espaço de estados §5](/pt-br/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao) para o controle da entrega das termelétricas com antecipação no PL do estágio.
 
 ## 6. Formulação de corte único
@@ -289,7 +289,7 @@ O Novo Modelo implementa a formulação de corte único ([Gerenciamento de corte
 
 Por padrão, a recursão termina com a condição final $V_{T+1}(x) = 0$ da §2. Um estudo pode substituí-la por uma função terminal fixa definida por cortes importados de um conjunto de cortes de uma política de origem, os **cortes de fronteira terminal (cortes de final de horizonte)**, que formam o conjunto de cortes do estágio terminal. A simulação backward não gera corte algum para esse conjunto, e nenhum é eliminado dele, de modo que a função permanece fixa durante toda a execução.
 
-Os cortes importados são válidos para a função de custo futuro do modelo de origem, de modo que o limite inferior e a política do estudo são válidos em relação à função importada, a função terminal fixa das hipóteses da [Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido). Um modelo a jusante que difira do modelo de origem não é corrigido pelo treinamento, e a diferença introduz viés na política perto do fim do horizonte. Os cortes importados apenas limitam inferiormente a variável de custo futuro, de modo que tal diferença nunca torna inviável um subproblema de estágio; ela altera o valor.
+Os cortes importados são válidos para a função de custo futuro do modelo de origem, de modo que o limite inferior e a política do estudo são válidos em relação à função importada, a função terminal fixa das hipóteses da [Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido). Um modelo do estudo posterior que difira do modelo de origem não é corrigido pelo treinamento, e a diferença introduz viés na política perto do fim do horizonte. Os cortes importados apenas limitam inferiormente a variável de custo futuro, de modo que tal diferença nunca torna inviável um subproblema de estágio; ela altera o valor.
 
 O conjunto de cortes de origem, as condições de compatibilidade, o estado propagado e a reconciliação de calendário são tratados em [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary).
 

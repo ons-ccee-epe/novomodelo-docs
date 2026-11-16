@@ -233,11 +233,11 @@ Uma usina termelétrica pode ser marcada como de **despacho antecipado**. A moti
 
 A antecedência é um número de estágios ou um tempo físico de antecedência, e fixa o estágio de decisão de cada entrega (ver [Aumento do espaço de estados §5](/pt-br/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao)). Uma entrega decidida dentro do seu próprio estágio — antecedência física menor que a duração desse estágio de entrega — não é antecipada, e nesse estágio a usina é despachada como termelétrica comum. Usinas sem a marcação de antecipação usam o modelo térmico padrão das subseções anteriores.
 
-#### Commitment ring
+#### Anel de despacho antecipado
 
-Todo compromisso que a usina decidiu, mas ainda não entregou, é estado: a usina o mantém em seu **commitment ring**, transportado pela recursão de Bellman junto com o armazenamento das hidrelétricas e as defasagens de afluência. Um compromisso ocupa um slot do ring desde seu estágio de decisão até seu estágio de entrega $m$; os slots e a profundidade do ring $K_i$ (a própria antecedência, quando dada em número de estágios) são definidas em [Aumento do espaço de estados — Hold ring](/pt-br/math/state-augmentation#hold-ring). As termelétricas com antecipação são os únicos elementos não hidrelétricos com variáveis de estado na formulação da PDDE (SDDP).
+Todo compromisso que a usina decidiu, mas ainda não entregou, é estado: a usina o mantém em seu **anel de despacho antecipado (commitment ring)**, transportado pela recursão de Bellman junto com o armazenamento das hidrelétricas e as defasagens de afluência. Um compromisso ocupa uma posição do anel de despacho antecipado (commitment ring slot) desde seu estágio de decisão até seu estágio de entrega $m$; as posições e a profundidade do anel $K_i$ (a própria antecedência, quando dada em número de estágios) são definidas em [Aumento do espaço de estados — Hold ring](/pt-br/math/state-augmentation#hold-ring). As termelétricas com antecipação são os únicos elementos não hidrelétricos com variáveis de estado na formulação da PDDE (SDDP).
 
-A figura acompanha uma entrega pelo ring com antecedência em número de estágios. O compromisso $g^{\mathrm{a}}_{i,t}$ decidido no estágio $t = m - K_i$ é depositado no ring slot de seu estágio de entrega $m$, transportado inalterado nos estágios $t + 1, \ldots, m - 1$ e entregue no estágio $m$, onde a geração da usina deve corresponder a ele. Uma entrega decidida antes do estudo inicializa seu slot no primeiro estágio (o caminho tracejado) e é então transportada e entregue da mesma forma. Uma antecedência física muda qual estágio decide cada entrega, e não como o ring a mantém.
+A figura acompanha uma entrega pelo anel com antecedência em número de estágios. O compromisso $g^{\mathrm{a}}_{i,t}$ decidido no estágio $t = m - K_i$ é depositado na posição do anel de seu estágio de entrega $m$, transportado inalterado nos estágios $t + 1, \ldots, m - 1$ e entregue no estágio $m$, onde a geração da usina deve corresponder a ele. Uma entrega decidida antes do estudo inicializa sua posição no primeiro estágio (o caminho tracejado) e é então transportada e entregue da mesma forma. Uma antecedência física muda qual estágio decide cada entrega, e não como o anel a mantém.
 
 ```d2
 direction: down
@@ -246,8 +246,8 @@ classes: {
   thermal: {style: {stroke: "#f5a623"}}
 }
 
-decide: "estágio t = m − Kᵢ\ndeposita no seu ring slot" {class: thermal}
-seed: "decidida antes do estudo\ninicializa seu slot no primeiro estágio" {shape: parallelogram}
+decide: "estágio t = m − Kᵢ\ndeposita na sua posição do anel" {class: thermal}
+seed: "decidida antes do estudo\ninicializa sua posição\nno primeiro estágio" {shape: parallelogram}
 carry: "estágios t + 1 … m − 1\ntransporta inalterada"
 deliver: "estágio m\nentrega" {class: thermal}
 
@@ -262,11 +262,11 @@ Cada estágio $t$ tem uma **coluna de compromisso** $g^{\mathrm{a}}_{i,t}$ para 
 
 #### Entregas além do horizonte
 
-Uma entrega além do horizonte só pode ser decidida no estudo quando o caso declara um calendário pós-estudo que a alcance. Seu compromisso é então limitado pela capacidade que esse calendário declara para o estágio de entrega, precificado em sua coluna de decisão (ver a subseção de custo abaixo), transportado em seu slot até o estágio terminal e valorado ali pela fronteira terminal — com valor zero, e um aviso na preparação, quando nenhuma fronteira é carregada. Ver [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) para a formulação da fronteira.
+Uma entrega além do horizonte só pode ser decidida no estudo quando o caso declara um calendário pós-estudo que a alcance. Seu compromisso é então limitado pela capacidade que esse calendário declara para o estágio de entrega, precificado em sua coluna de decisão (ver a subseção de custo abaixo), transportado em sua posição até o estágio terminal e valorado ali pela fronteira terminal — com valor zero, e um aviso na preparação, quando nenhuma fronteira é carregada. Ver [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) para a formulação da fronteira.
 
 #### Compromissos decididos antes do estudo
 
-Toda entrega que a usina decidiu antes do estudo é declarada com sua potência comprometida, inclusive potência nula. As que estão dentro do estudo inicializam seus slots no primeiro estágio, cada uma associada por data ao seu estágio de entrega, e são então transportadas e entregues como qualquer outro compromisso. As que estão além do horizonte são compromissos fixos: não ocupam ring slot e são precificadas apenas pela fronteira terminal (ver [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)). O formato da declaração está na aba Configurar de [Formulações específicas por equipamento](/pt-br/math/equipment-formulations#implementacao-no-novo-modelo).
+Toda entrega que a usina decidiu antes do estudo é declarada com sua potência comprometida, inclusive potência nula. As que estão dentro do estudo inicializam suas posições no primeiro estágio, cada uma associada por data ao seu estágio de entrega, e são então transportadas e entregues como qualquer outro compromisso. As que estão além do horizonte são compromissos fixos: não ocupam posição do anel e são precificadas apenas pela fronteira terminal (ver [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)). O formato da declaração está na aba Configurar de [Formulações específicas por equipamento](/pt-br/math/equipment-formulations#implementacao-no-novo-modelo).
 
 #### Custo do compromisso
 
@@ -274,7 +274,7 @@ Um compromisso é **cobrado em seu estágio de decisão** $t$ e **descontado a p
 
 #### Mecanismo de cortes
 
-Cada ring slot é uma coordenada de estado com seu próprio coeficiente de corte, por meio do qual o valor marginal de um compromisso chega diretamente à sua decisão, qualquer que seja a antecedência ([Aumento do espaço de estados — Coeficiente de corte dos ring slots](/pt-br/math/state-augmentation#coeficiente-de-corte-dos-ring-slots)).
+Cada posição do anel é uma coordenada de estado com seu próprio coeficiente de corte, por meio do qual o valor marginal de um compromisso chega diretamente à sua decisão, qualquer que seja a antecedência ([Aumento do espaço de estados — Coeficiente de corte das posições do anel de despacho antecipado](/pt-br/math/state-augmentation#coeficiente-de-corte-das-posicoes-do-anel-de-despacho-antecipado)).
 
 ## 5. Usinas hidrelétricas
 
@@ -354,7 +354,7 @@ A evaporação é uma coluna limitada do PL, vinculada ao armazenamento por uma 
 - **Destinos de desvio**: algumas usinas podem desviar água para uma usina de destino declarada, limitada por $\bar{U}_h$; a vazão desviada de uma usina só chega ao seu destino de desvio e nunca faz parte de sua defluência para a usina de jusante
 - **Usinas elevatórias**: podem receber água bombeada (aumentando o armazenamento) ou fornecer água para bombeamento (reduzindo o armazenamento)
 
-A figura desenha os caminhos da água que se encontram em uma usina. A vazão incremental $a_h$ entra no reservatório. A defluência $q + s$ da usina de montante chega dentro do estágio da defluência na parcela $\nu_{h',t,0}$; o restante entra no in-transit bucket e chega ao reservatório em estágios posteriores, à medida que vence (a aresta tracejada). O bucket só existe em um trecho principal da cascata com tempo de viagem não nulo; em qualquer outro trecho, a parcela é $1$ e toda a defluência chega dentro do estágio da defluência. Esta usina libera seu próprio $q + s$ para a usina de jusante e desvia $u_h$ para seu destino de desvio. Uma usina elevatória move $p_y$ de seu reservatório de origem para o de destino; a figura desenha um bombeamento da usina de jusante para este reservatório. Esta usina também recebe o desvio de qualquer usina que a tenha como destino e abastece qualquer usina elevatória que bombeie a partir dela; essas são as mesmas arestas vistas a partir da outra usina. A evaporação $e_h$ e a retirada $r_h$ deixam o sistema modelado, cada uma com sinal, de modo que um valor negativo acrescenta água. [Tempo de viagem na cascata](#tempo-de-viagem-na-cascata) define a parcela e o bucket, e [Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas) escreve a linha de balanço que soma esses caminhos.
+A figura desenha os caminhos da água que se encontram em uma usina. A vazão incremental $a_h$ entra no reservatório. A defluência $q + s$ da usina de montante chega dentro do estágio da defluência na parcela $\nu_{h',t,0}$; o restante entra na parcela de água em trânsito (in-transit bucket) e chega ao reservatório em estágios posteriores, à medida que vence (a aresta tracejada). A parcela de água em trânsito só existe em um trecho principal da cascata com tempo de viagem não nulo; em qualquer outro trecho, a parcela é $1$ e toda a defluência chega dentro do estágio da defluência. Esta usina libera seu próprio $q + s$ para a usina de jusante e desvia $u_h$ para seu destino de desvio. Uma usina elevatória move $p_y$ de seu reservatório de origem para o de destino; a figura desenha um bombeamento da usina de jusante para este reservatório. Esta usina também recebe o desvio de qualquer usina que a tenha como destino e abastece qualquer usina elevatória que bombeie a partir dela; essas são as mesmas arestas vistas a partir da outra usina. A evaporação $e_h$ e a retirada $r_h$ deixam o sistema modelado, cada uma com sinal, de modo que um valor negativo acrescenta água. [Tempo de viagem na cascata](#tempo-de-viagem-na-cascata) define a parcela e a parcela de água em trânsito, e [Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas) escreve a linha de balanço que soma esses caminhos.
 
 ```d2
 direction: down
@@ -365,7 +365,7 @@ classes: {
 
 up: "Usina de\nmontante" {shape: cylinder; class: hydro}
 inflow: "Afluência a" {shape: oval; class: hydro}
-bucket: "In-transit\nbucket"
+bucket: "Parcela de água\nem trânsito"
 res: "Reservatório vₕ" {shape: cylinder; class: hydro}
 down: "Usina de\njusante" {shape: cylinder; class: hydro}
 divt: "Destino do\ndesvio" {shape: cylinder; class: hydro}
@@ -428,7 +428,7 @@ A vazão defluente $o_h = q_h + s_h$ é a água liberada para o canal de jusante
 
 Em uma cascata, a vazão defluente de uma usina de montante ($q + s$) torna-se afluência de uma usina de jusante. Por padrão, essa transferência é **instantânea** — a água liberada neste estágio chega ao reservatório de jusante dentro do mesmo estágio. Quando o trecho entre duas usinas é longo o bastante para que o deslocamento não seja desprezível, uma usina $h'$ pode declarar um **tempo de viagem da água** em seu trecho principal da cascata: uma defluência ocorrida durante o estágio $t$ entrega a parcela $\nu_{h',t,0} = (H_t - \Delta^{tt}_{h'})^+ / H_t$ ao reservatório de jusante dentro do estágio, sendo $\Delta^{tt}_{h'}$ o tempo de viagem e $H_t$ a duração do estágio, ambos em horas, e o restante chega em estágios posteriores.
 
-O Novo Modelo transporta a água em trânsito nesse trecho como **estado de água em trânsito** adicional ao longo da recursão de Bellman, discretizado em defasagens de maturação — um in-transit bucket agregado por usina receptora por defasagem. O bucket que vence em um dado estágio entra no balanço hídrico da usina receptora como afluência defasada; o volume restante em trânsito é transportado para estágios posteriores. Na [formulação de patamares cronológicos](/pt-br/math/block-formulations), a chegada defasada é distribuída pelos patamares do estágio de chegada segundo uma densidade fixa; com patamares paralelos, é uma única afluência no nível do estágio. Como se trata de um genuíno aumento do espaço de estados — seus in-transit buckets passam a integrar o vetor de estado e todos os cortes —, ele é formulado em [Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua). Os trechos confluentes que alimentam uma mesma usina são somados no único bloco de água em trânsito dessa usina.
+O Novo Modelo transporta a água em trânsito nesse trecho como **estado de água em trânsito** adicional ao longo da recursão de Bellman, discretizado em defasagens de maturação — uma parcela de água em trânsito agregada por usina receptora por defasagem. A parcela que vence em um dado estágio entra no balanço hídrico da usina receptora como afluência defasada; o volume restante em trânsito é transportado para estágios posteriores. Na [formulação de patamares cronológicos](/pt-br/math/block-formulations), a chegada defasada é distribuída pelos patamares do estágio de chegada segundo uma densidade fixa; com patamares paralelos, é uma única afluência no nível do estágio. Como se trata de um genuíno aumento do espaço de estados — suas parcelas de água em trânsito passam a integrar o vetor de estado e todos os cortes —, ele é formulado em [Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua). Os trechos confluentes que alimentam uma mesma usina são somados no único bloco de água em trânsito dessa usina.
 
 **Escopo.** O tempo de viagem se aplica **somente ao trecho principal da cascata** — o trecho de uma usina até sua usina de jusante. As transferências por desvio e por bombeamento são instantâneas. Um tempo de viagem ausente ou nulo é tratado como transferência instantânea, sem acréscimo de estado.
 
@@ -634,13 +634,13 @@ A tabela a seguir associa cada elemento físico do sistema à sua representaçã
 | **Barramento**            | —                        | $\delta_{b,k,s}$, $\epsilon_{b,k}$         | Balanço de carga                            | Penalidade de déficit (alta), penalidade de excesso (baixa) |
 | **Linha de Transmissão**  | —                        | $f^+_{n,k}$, $f^-_{n,k}$                   | Limites de capacidade                       | Custo de intercâmbio (regularização)         |
 | **Usina Termelétrica**    | —                        | $g_{j,k}$                                  | Limites de geração                          | Custo de combustível                         |
-| **Termelétrica (com antecipação)** | slots do commitment ring ([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao)) | $g^{\mathrm{a}}_{i,t}$, $g_{i,k}$ | Linhas de depósito, transporte e entrega do ring | Custo do compromisso no estágio de decisão, descontado a partir do estágio de entrega |
-| **Usina Hidrelétrica**    | $v_h$, $a_{h,\ell}$, in-transit buckets ([Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua)) | $q_{h,b,k}$, $s_{h,k}$, $u_{h,k}$, $g_{h,b,k}$ | Balanço hídrico, função de geração | Custos de vertimento, turbinamento e desvio (regularização) |
+| **Termelétrica (com antecipação)** | posições do anel de despacho antecipado ([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao)) | $g^{\mathrm{a}}_{i,t}$, $g_{i,k}$ | Linhas de depósito, transporte e entrega do ring | Custo do compromisso no estágio de decisão, descontado a partir do estágio de entrega |
+| **Usina Hidrelétrica**    | $v_h$, $a_{h,\ell}$, parcelas de água em trânsito ([Aumento do espaço de estados §6](/pt-br/math/state-augmentation#6-tempo-de-viagem-da-agua)) | $q_{h,b,k}$, $s_{h,k}$, $u_{h,k}$, $g_{h,b,k}$ | Balanço hídrico, função de geração | Custos de vertimento, turbinamento e desvio (regularização) |
 | **Não Despachável**       | —                        | $g^{nc}_{r,k}$                             | Limite de disponibilidade                   | Penalidade de corte de geração (regularização) |
 | **Usina Elevatória**      | —                        | $p_{y,k}$                                  | Limites de vazão (mín./máx.)                | Nenhum (custo via consumo de energia)        |
 | **Contrato**              | —                        | $\chi_{c,k}$                               | Limites de despacho (mín./máx.)             | Custo de importação ou receita de exportação |
 
-**Ponto-chave**: o armazenamento das hidrelétricas, as defasagens de afluência, os in-transit buckets dos trechos da cascata que declaram tempo de viagem da água e os slots do commitment ring das termelétricas com antecipação são as quatro famílias de **estado** que ligam os estágios por meio da recursão de Bellman ([Aumento do espaço de estados §1](/pt-br/math/state-augmentation#1-vetor-de-estado)). Todos os demais elementos contribuem com variáveis de controle determinadas dentro de cada estágio. Essa estrutura viabiliza a decomposição da PDDE: o subproblema do estágio otimiza todas as variáveis de controle dado o estado de entrada, e os cortes de Benders aproximam o custo futuro como função do estado de saída.
+**Ponto-chave**: o armazenamento das hidrelétricas, as defasagens de afluência, as parcelas de água em trânsito dos trechos da cascata que declaram tempo de viagem da água e as posições do anel de despacho antecipado das termelétricas com antecipação são as quatro famílias de **estado** que ligam os estágios por meio da recursão de Bellman ([Aumento do espaço de estados §1](/pt-br/math/state-augmentation#1-vetor-de-estado)). Todos os demais elementos contribuem com variáveis de controle determinadas dentro de cada estágio. Essa estrutura viabiliza a decomposição da PDDE: o subproblema do estágio otimiza todas as variáveis de controle dado o estado de entrada, e os cortes de Benders aproximam o custo futuro como função do estado de saída.
 
 ## Implementação no Novo Modelo
 
@@ -658,7 +658,7 @@ A metodologia acima define todos os elementos do sistema; as abas abaixo tratam 
 
 - [Convenções de notação](/pt-br/overview/notation-conventions) — convenções de nomenclatura de variáveis e conjuntos de índices usados em todo o texto
 - [Formulação do PL](/pt-br/math/lp-formulation) — restrições do PL totalmente montadas, combinando todos os elementos
-- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — o estado que os elementos transportam entre estágios: armazenamento, defasagens de afluência, in-transit buckets e slots do commitment ring
+- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — o estado que os elementos transportam entre estágios: armazenamento, defasagens de afluência, parcelas de água em trânsito e posições do anel de despacho antecipado
 - [Formulações específicas por equipamento](/pt-br/math/equipment-formulations) — deduções detalhadas das restrições por equipamento
 - [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models) — produtibilidade constante e funções de produção hidrelétrica FPHA
 - [Sistema de penalidades](/pt-br/math/penalty-system) — custos de penalidade, ordem de prioridade e taxonomia completa das penalidades

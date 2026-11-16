@@ -355,7 +355,7 @@ Sem dimensão de patamar — as defasagens de afluência são variáveis de esta
 ## `simulation/in_transit/`
 
 Volumes de água em trânsito decorrentes do tempo de viagem. Uma linha por trinca (estágio, usina hidrelétrica de jusante,
-defasagem de maturação). Sem dimensão de patamar — os in-transit buckets são variáveis de estado
+defasagem de maturação). Sem dimensão de patamar — as parcelas de água em trânsito (in-transit buckets) são variáveis de estado
 do estágio. 7 colunas. Todas as colunas são não anuláveis. O diretório
 existe **somente quando o sistema declara um arco com tempo de viagem**
 (`travel_time_hours` presente, estritamente positivo, com um `downstream_id`).
@@ -368,16 +368,16 @@ existe **somente quando o sistema declara um arco com tempo de viagem**
 | `stage_id`              | Int32   | Não      | —        | Id declarado do estágio (de `stages.json`). |
 | `node_id`               | Int32   | Não      | —        | Id do nó visitado do grafo da política; em uma cadeia de estágios, a posição do estágio com base 0 (não o id declarado do estágio). |
 | `hydro_id`              | Int32   | Não      | —        | ID da usina hidrelétrica de jusante (receptora) à qual a água em trânsito se destina. |
-| `lag`                   | Int32   | Não      | —        | Defasagem de maturação (base 1) do bucket ao fim deste estágio: a defasagem 1 chega à usina receptora no estágio seguinte, a defasagem `k` chega `k` estágios depois. |
-| `in_transit_volume_hm3` | Float64 | Não      | hm³      | Volume neste bucket ao fim do estágio, em hm³. A água que maturaria após o último estágio é descartada quando nenhuma fronteira terminal é carregada, de modo que tal bucket registra `0` (veja [Limitação do horizonte](/pt-br/math/state-augmentation#limitacao-de-horizonte)). |
-| `delayed_arrival_hm3`   | Float64 | Não      | hm³      | Volume do bucket de defasagem 1 que chega, o qual entra no balanço hídrico da usina receptora neste estágio ou, enquanto essa usina estiver fora de sua janela de entrada em operação, no balanço da usina a jusante mais próxima que não esteja em pré-enchimento (se não houver, sai do sistema modelado), em hm³; gravado na linha com `lag` = 1 e `0` nas defasagens maiores. |
+| `lag`                   | Int32   | Não      | —        | Defasagem de maturação (base 1) da parcela de água em trânsito ao fim deste estágio: a defasagem 1 chega à usina receptora no estágio seguinte, a defasagem `k` chega `k` estágios depois. |
+| `in_transit_volume_hm3` | Float64 | Não      | hm³      | Volume nesta parcela de água em trânsito ao fim do estágio, em hm³. A água que maturaria após o último estágio é descartada quando nenhuma fronteira terminal é carregada, de modo que tal parcela registra `0` (veja [Limitação do horizonte](/pt-br/math/state-augmentation#limitacao-de-horizonte)). |
+| `delayed_arrival_hm3`   | Float64 | Não      | hm³      | Volume da parcela de água em trânsito de defasagem 1 que chega, o qual entra no balanço hídrico da usina receptora neste estágio ou, enquanto essa usina estiver fora de sua janela de entrada em operação, no balanço da usina a jusante mais próxima que não esteja em pré-enchimento (se não houver, sai do sistema modelado), em hm³; gravado na linha com `lag` = 1 e `0` nas defasagens maiores. |
 
 ---
 
 ## `simulation/transit_seed/`
 
 Registro inicial (seed) da janela móvel de defluências, contendo o histórico próprio de defluências de montante de cada
-in-transit bucket, para inicializar os in-transit buckets de uma execução continuada (retomada)
+parcela de água em trânsito, para inicializar as parcelas de água em trânsito de uma execução continuada (retomada)
 através da fronteira. Em nível de cenário — diferentemente de todas as outras partições
 da simulação, é o próprio intervalo `[start_date, end_date)` de uma janela que ancora a linha, e não
 um índice de estágio/nó; por isso, este esquema contém apenas `scenario_id` (sem
@@ -414,12 +414,12 @@ estudo declara `post_study_stages`.
 | Nome                    | Tipo    | Anulável | Unidades | Descrição |
 | ----------------------- | ------- | -------- | -------- | --------- |
 | `scenario_id`           | Int32   | Não      | —        | Id do cenário (base 0). Duplica o diretório de partição Hive (`scenario_id=NNNN/`) como coluna explícita no arquivo. |
-| `stage_id`              | Int32   | Não      | —        | Id declarado do estágio de decisão, no qual o compromisso é depositado em seu ring slot. |
+| `stage_id`              | Int32   | Não      | —        | Id declarado do estágio de decisão, no qual o compromisso é depositado em sua posição do anel de despacho antecipado (commitment ring slot). |
 | `node_id`               | Int32   | Não      | —        | Id do nó visitado do grafo da política; em uma cadeia de estágios, a posição do estágio com base 0 (não o id declarado do estágio). |
 | `thermal_id`            | Int32   | Não      | —        | ID da unidade termelétrica com antecipação de despacho. |
 | `delivery_date`         | Int32   | Não      | —        | Data do calendário em que o compromisso é entregue, codificada como `YYYYMMDD` (`year*10000 + month*100 + day`). |
 | `deposited_decision_mw` | Float64 | Não      | MW       | Compromisso decidido em `stage_id` para entrega em `delivery_date`, em MW. |
-| `carried_committed_mw`  | Float64 | Não      | MW       | Valor do ring slot que contém o compromisso em `stage_id`, em MW; a [linha de depósito](/pt-br/math/state-augmentation#linhas-do-ring) o torna igual a `deposited_decision_mw`. |
+| `carried_committed_mw`  | Float64 | Não      | MW       | Valor da posição do anel de despacho antecipado que contém o compromisso em `stage_id`, em MW; a [linha de depósito](/pt-br/math/state-augmentation#linhas-do-ring) o torna igual a `deposited_decision_mw`. |
 
 ---
 

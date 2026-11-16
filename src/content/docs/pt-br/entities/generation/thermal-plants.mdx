@@ -21,9 +21,9 @@ import FileList from '../../../../../components/entity/FileList.astro';
 
 ## Faixa de geração e antecipação de despacho
 
-<div role="img" aria-label="Duas partes. Primeiro, a faixa de geração de uma termelétrica em um patamar: da geração mínima (inflexibilidade) à capacidade, com o valor despachado entre elas e o custo dado pelo CVU. Depois, a linha do tempo da antecipação de despacho: o compromisso é decidido no estágio t = m − K, transportado no commitment ring e entregue no estágio m.">
+<div role="img" aria-label="Duas partes. Primeiro, a faixa de geração de uma termelétrica em um patamar: da geração mínima (inflexibilidade) à capacidade, com o valor despachado entre elas e o custo dado pelo CVU. Depois, a linha do tempo da antecipação de despacho: o compromisso é decidido no estágio t = m − K, transportado no anel de despacho antecipado e entregue no estágio m.">
 
-```d2 title="Duas partes. Primeiro, a faixa de geração de uma termelétrica em um patamar: da geração mínima (inflexibilidade) à capacidade, com o valor despachado entre elas e o custo dado pelo CVU. Depois, a linha do tempo da antecipação de despacho: o compromisso é decidido no estágio t = m − K, transportado no commitment ring e entregue no estágio m."
+```d2 title="Duas partes. Primeiro, a faixa de geração de uma termelétrica em um patamar: da geração mínima (inflexibilidade) à capacidade, com o valor despachado entre elas e o custo dado pelo CVU. Depois, a linha do tempo da antecipação de despacho: o compromisso é decidido no estágio t = m − K, transportado no anel de despacho antecipado e entregue no estágio m."
 ...@../../../../../figures/semantic-classes
 direction: down
 grid-columns: 1
@@ -37,7 +37,7 @@ band: "Geração em um patamar:\nda geração mínima à capacidade" {
 antic: "Despacho antecipado (GNL):\ndecisão antes da entrega" {
   direction: down
   decide: "Estágio de decisão\nt = m − K"
-  carry: "compromisso transportado inalterado\nno commitment ring,\nestágios t + 1 … m − 1"
+  carry: "compromisso transportado inalterado\nno anel de despacho antecipado,\nestágios t + 1 … m − 1"
   deliver: "Estágio de entrega\nm · geração = compromisso" {class: thermal}
   decide -> carry: "antecedência para encomendar\no combustível (terminais de GNL)"
   carry -> deliver
@@ -69,10 +69,10 @@ Figura: faixa de geração de uma termelétrica e a antecipação de despacho. I
 Uma usina pode ser marcada como de despacho antecipado. Ela decide o compromisso de cada entrega em um estágio anterior ao estágio de entrega, e a geração da usina nesse estágio deve corresponder ao compromisso. Usinas sem a marcação usam o modelo térmico padrão.
 
 - **Estágio de decisão.** A antecedência fixa o estágio em que cada entrega é decidida. Uma entrega decidida dentro do próprio estágio, porque a antecedência física é menor que a duração do estágio de entrega, não é antecipada: nesse estágio a usina é despachada como termelétrica comum.
-- **Commitment ring.** Todo compromisso decidido e ainda não entregue é estado do modelo: a usina o mantém em seu commitment ring, em um ring slot, desde o estágio de decisão até o de entrega. As termelétricas com antecipação são os únicos elementos não hidrelétricos com variáveis de estado.
+- **Anel de despacho antecipado (commitment ring).** Todo compromisso decidido e ainda não entregue é estado do modelo: a usina o mantém em uma posição de seu anel de despacho antecipado (commitment ring slot), desde o estágio de decisão até o de entrega. As termelétricas com antecipação são os únicos elementos não hidrelétricos com variáveis de estado.
 - **Entrega.** O compromisso é transportado inalterado nos estágios intermediários e entregue no estágio de entrega. Seus limites são os de geração da usina nesse estágio, e ele é nulo quando a usina está fora de operação ali.
 - **Custo.** O compromisso é cobrado no estágio de decisão e descontado a partir do estágio de entrega. A geração por patamar não tem custo no estágio em que entrega um compromisso, de modo que a mesma energia é precificada uma única vez.
-- **Antes do estudo.** Entregas decididas antes do estudo e dentro dele inicializam seus ring slots no primeiro estágio. As que estão além do horizonte são compromissos fixos, precificados apenas pela fronteira terminal.
+- **Antes do estudo.** Entregas decididas antes do estudo e dentro dele inicializam suas posições do anel de despacho antecipado no primeiro estágio. As que estão além do horizonte são compromissos fixos, precificados apenas pela fronteira terminal.
 - **Além do horizonte.** Uma entrega além do horizonte só pode ser decidida no estudo quando o caso declara um calendário pós-estudo que a alcance.
 
 ## Aprofundar

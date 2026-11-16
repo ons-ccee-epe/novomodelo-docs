@@ -46,7 +46,7 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | terminal pool | conjunto final |
 | terminal condition | condição final |
 | cut selection / cut removal | seleção de cortes / eliminação de cortes |
-| binding (corte/restrição na solução do PL) | ativo na solução; distinto de "ativo no conjunto" (o indicador de atividade do conjunto, `is_active`: corte não desativado) e de "detentor" (posse no Nível 1) |
+| binding (corte/restrição na solução do PL) | ativo na solução; distinto de "ativo no PL" (o indicador de atividade do conjunto, `is_active`: corte não desativado) e de "detentor" (posse no Nível 1) |
 | reconciliation / reconcile | reconciliação / reconciliar |
 | append-only | somente de acréscimo ("(append-only)" na primeira ocorrência da página) |
 | owner (of a stored state, Level 1) | detentor / detentora |
@@ -60,7 +60,7 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | convergence / stopping rule | convergência / critério de parada |
 | simulation (final) | simulação final |
 | opening / opening tree | abertura / árvore de aberturas (árvore de cenários) |
-| moment matching / matched (opening tree, openings) | casamento de momentos (moment matching) / com casamento de momentos; não "ajuste", que traduz fit |
+| moment matching / matched (opening tree, openings) | correspondência de momentos (moment matching) / com correspondência de momentos; não "ajuste", que traduz fit |
 | sampling scheme | esquema de amostragem |
 | sample average approximation (SAA) | aproximação por média amostral (SAA) |
 | synthetic series / scenario | séries sintéticas / cenário |
@@ -108,6 +108,7 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | equivalent reservoir (REE) | reservatório equivalente de energia (REE) |
 | cascade / upstream / downstream | cascata / montante / jusante |
 | upstream study / model / policy / run / checkpoint (estudo encadeado, não a cascata) | estudo / modelo / política / execução / checkpoint de origem; um conjunto ou estágio desse estudo: "… do estudo de origem" |
+| downstream study (estudo encadeado, não a cascata) | estudo posterior; a política, o modelo ou o horizonte desse estudo: "… do estudo posterior" |
 | diversion | desvio |
 | pumping station | usina elevatória (estação de bombeamento) |
 | evaporation | evaporação |
@@ -127,8 +128,9 @@ Objetivo: texto técnico natural em português do Brasil, com a terminologia do 
 | anticipated dispatch / lead | antecipação de despacho / antecedência |
 | commitment | compromisso de despacho |
 | shortfall (abaixo de um mínimo da usina, de um piso de armazenamento ou de uma meta; não é déficit de carga) | insuficiência |
-| leading state columns | colunas de estado do início do layout |
-| in-transit bucket | in-transit bucket (termo mantido em inglês) |
+| leading state columns | colunas de estado do início da configuração |
+| in-transit bucket | parcela de água em trânsito; na primeira ocorrência da página: "parcelas de água em trânsito (in-transit buckets)" |
+| commitment ring / commitment ring slot | anel de despacho antecipado / posição do anel de despacho antecipado; na primeira ocorrência da página: "posições do anel de despacho antecipado (commitment ring slots)" |
 | commissioning / decommissioning | entrada em operação / desativação |
 | state variable / state augmentation | variável de estado / aumento do espaço de estados |
 | incoming state | estado de entrada ($x_{t-1}$, o estado que chega ao estágio) |

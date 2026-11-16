@@ -594,10 +594,10 @@ diferença fica abaixo da tolerância do solver.
 
 Os cortes de fronteira permitem que um estudo do Novo Modelo carregue aproximações da função de custo futuro
 (FCF) do estágio terminal a partir de outro checkpoint de política do Novo Modelo. Este é o
-mecanismo dos **estudos encadeados**: um estudo a jusante importa um conjunto de cortes da
+mecanismo dos **estudos encadeados**: um estudo posterior importa um conjunto de cortes da
 política de um estudo de origem como sua condição de fronteira terminal, de modo que suas
 decisões de final de horizonte levem em conta o custo futuro da água do estudo de origem.
-O estudo a jusante pode ter um horizonte mais curto ou estágios mais finos que o
+O estudo posterior pode ter um horizonte mais curto ou estágios mais finos que o
 estudo de origem. Para o método, veja
 [Fronteira pós-estudo e estudos encadeados §5](/pt-br/math/post-study-boundary#5-estudos-encadeados).
 
@@ -606,9 +606,9 @@ estudo de origem. Para o método, veja
 1. **Execute o estudo de origem** para produzir um checkpoint de política, ou crie o
    checkpoint em Python
    ([Ler e gravar checkpoints a partir do Python](#ler-e-gravar-checkpoints-a-partir-do-python)).
-2. **Execute o estudo a jusante** com `policy.boundary` apontando para o
+2. **Execute o estudo posterior** com `policy.boundary` apontando para o
    checkpoint de origem. O Novo Modelo seleciona o conjunto de origem precificado na
-   **data de fronteira terminal** do estudo a jusante — o `end_date` do último estágio
+   **data de fronteira terminal** do estudo posterior — o `end_date` do último estágio
    não negativo — e injeta seus cortes no conjunto de linhas do estágio terminal como
    condições de fronteira fixas. Não há parâmetro de índice de estágio: o conjunto é escolhido
    comparando essa data com a data de estado precificado de cada conjunto de origem.
@@ -678,7 +678,7 @@ diferente.** O estado terminal da origem é reconciliado com o próprio estado d
 posição a posição, **pela identidade da entidade e pelas datas de posição de cada família** (a
 `reference_date` da defasagem de afluência, o `interval_start`/`interval_end` das famílias com deslocamento à frente),
 e não pela posição: uma origem treinada com um conjunto diferente
-de coordenadas de estado — sem in-transit buckets, ou com slots mensais de antecipação
+de coordenadas de estado — sem parcelas de água em trânsito (in-transit buckets), ou com posições mensais do anel de despacho antecipado (commitment ring slots)
 alimentando um estudo de formato diferente — ainda é injetada, com cada coeficiente da origem
 associado à posição do estudo atual para a mesma entidade. Uma coordenada da origem
 que acopla uma posição de estado que o estudo atual não modela não pode ser transportada; ela
@@ -796,7 +796,7 @@ do estágio sucessor inclui `inflow_lags`, cujo padrão é `false`. O conjunto f
 de um estudo de origem treinado é dimensionado pelo estado completo desse estudo, com todas as
 posições de defasagem de afluência desse estado, qualquer que seja a seleção; o treinamento nunca acrescenta
 corte a ele, de modo que contém apenas os cortes nele carregados, como os próprios
-cortes de fronteira desse estudo. O estado terminal do estudo atual (a jusante) tem posições de
+cortes de fronteira desse estudo. O estado terminal do estudo atual (o estudo posterior) tem posições de
 defasagem de afluência quando seu próprio modelo de afluências é autorregressivo ou quando algum conjunto da
 origem referencia uma defasagem (a extensão do item 5 da lista), e um conjunto de origem que
 não tem coeficiente para alguma dessas posições é rejeitado com a mensagem de
@@ -875,17 +875,17 @@ Um encadeamento de estudos usa cortes de fronteira da seguinte forma:
 direction: down
 
 upstream: "Estudo de origem\ncheckpoint da política: conjuntos de cortes precificados por data" {shape: rectangle}
-downstream: "Estudo a jusante (encadeado)" {shape: rectangle}
+downstream: "Estudo posterior (encadeado)" {shape: rectangle}
 
-upstream -> downstream: "policy.boundary.path = ../upstream_study/output/policy\nconjunto de origem precificado na data terminal do estudo a jusante → FCF terminal"
+upstream -> downstream: "policy.boundary.path = ../upstream_study/output/policy\nconjunto de origem precificado na data terminal do estudo posterior → FCF terminal"
 ```
 
 O estudo de origem grava um checkpoint de política cujos conjuntos de cortes são, cada um, precificados em
-uma data. O estudo a jusante indica esse checkpoint em `policy.boundary.path`,
-e o conjunto precificado na data de fronteira terminal do estudo a jusante torna-se sua
+uma data. O estudo posterior indica esse checkpoint em `policy.boundary.path`,
+e o conjunto precificado na data de fronteira terminal do estudo posterior torna-se sua
 função de custo futuro terminal. A dependência é unidirecional: o estudo de origem
-nunca lê o estudo a jusante. As condições sob as quais os cortes importados
-se aplicam ao estado do estudo a jusante estão em
+nunca lê o estudo posterior. As condições sob as quais os cortes importados
+se aplicam ao estado do estudo posterior estão em
 [Fronteira pós-estudo e estudos encadeados §5.2](/pt-br/math/post-study-boundary#52-condicoes-de-compatibilidade).
 
 ### Interação com a partida a quente
@@ -904,7 +904,7 @@ Cortes de fronteira e partida a quente são recursos independentes e podem ser c
 }
 ```
 
-Isso carrega os próprios cortes do estudo a jusante, de sua execução anterior, via
+Isso carrega os próprios cortes do estudo posterior, de sua execução anterior, via
 partida a quente E carrega os cortes de fronteira da política de origem no estágio terminal.
 Ambos os conjuntos de cortes contribuem para o limite inferior.
 
