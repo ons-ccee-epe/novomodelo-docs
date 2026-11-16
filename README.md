@@ -37,14 +37,14 @@ serve or emit the latest docs at `/` with no hotsite, and `npm run build` emptie
 
 ## Stack
 
-| Concern        | Tool                                                                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Site framework | [Astro Starlight](https://starlight.astro.build/)                                                                                     |
-| Math           | KaTeX via manual `remark-math` + `rehype-katex` (rendered at build time, zero client JS)                                              |
-| Diagrams       | inline [D2](https://d2lang.com/) (ELK engine) for every diagram — schematics, flowcharts, network one-lines (build-time SVG)          |
-| Math plots     | [Observable Plot](https://observablehq.com/plot/) islands backed by a unit-tested TypeScript compute layer                            |
-| i18n           | Starlight-native (`en` + `pt-br`) + [Lunaria](https://lunaria.dev/) translation dashboard                                             |
-| Versioning     | latest at `/docs/`, one frozen snapshot per novomodelo minor at `/docs/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json` |
+| Concern        | Tool                                                                                                                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Site framework | [Astro Starlight](https://starlight.astro.build/)                                                                                                                                               |
+| Math           | KaTeX via manual `remark-math` + `rehype-katex` (rendered at build time, zero client JS)                                                                                                        |
+| Diagrams       | inline [D2](https://d2lang.com/) (ELK engine) for every structural diagram — schematics, flowcharts, network one-lines (build-time SVG); hand-drawn SVG components for the entity illustrations |
+| Math plots     | [Observable Plot](https://observablehq.com/plot/) islands backed by a unit-tested TypeScript compute layer                                                                                      |
+| i18n           | Starlight-native (`en` + `pt-br`) + [Lunaria](https://lunaria.dev/) translation dashboard                                                                                                       |
+| Versioning     | latest at `/docs/`, one frozen snapshot per novomodelo minor at `/docs/vX.Y/` (no plugin); see `build-versions.mjs` + `versions.json`                                                           |
 
 ## Structure
 
