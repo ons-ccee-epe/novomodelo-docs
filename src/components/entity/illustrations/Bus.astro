@@ -1,0 +1,56 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'Em cada barramento e patamar, o que entra é igual ao que sai',
+  inH: 'Entra', outH: 'Sai',
+  ins: ['Geração (UHE, UTE, fontes não despacháveis)', 'Importação (contratos)', 'Chegada pelas linhas', 'Déficit: completa o que falta'],
+  outs: ['Carga', 'Exportação (contratos)', 'Saída pelas linhas', 'Consumo das usinas elevatórias', 'Excesso de geração'],
+  bus: 'Barramento',
+  cmo: 'CMO: o custo de atender 1 MWh adicional de demanda neste barramento (R$/MWh)',
+  aria: 'Um barramento no centro, em balanço. À esquerda, o que entra: geração das hidrelétricas, termelétricas e fontes não despacháveis, importação por contratos, chegada pelas linhas e o déficit, que completa o que falta. À direita, o que sai: a carga, a exportação por contratos, a saída pelas linhas, o consumo das usinas elevatórias e o excesso de geração. Abaixo, o custo marginal de operação (CMO) é o custo de atender um MWh adicional de demanda no barramento.',
+  cap_: 'Figura: o balanço de carga de um barramento. Ilustração esquemática, sem escala.',
+} : {
+  title: 'At every bus and block, what comes in equals what goes out',
+  inH: 'In', outH: 'Out',
+  ins: ['Generation (hydro, thermal, non-controllable)', 'Imports (contracts)', 'Arriving over lines', 'Deficit: closes the gap'],
+  outs: ['Load', 'Exports (contracts)', 'Leaving over lines', 'Pumping station consumption', 'Excess generation'],
+  bus: 'Bus',
+  cmo: 'CMO: the cost of serving 1 additional MWh of demand at this bus ($/MWh)',
+  aria: 'A bus at the centre, in balance. On the left, what comes in: generation from hydro plants, thermal plants and non-controllable sources, imports through contracts, power arriving over lines, and the deficit, which closes the gap. On the right, what goes out: the load, exports through contracts, power leaving over lines, pumping station consumption and excess generation. Below, the marginal cost (CMO) is the cost of serving one additional MWh of demand at the bus.',
+  cap_: 'Figure: the load balance of one bus. Schematic illustration, not to scale.',
+};
+const rows = (n: number) => Array.from({ length: n }, (_, i) => 78 + i * 44);
+---
+<figure class="entity-illustration entity-network">
+  <svg viewBox="0 0 760 380" role="img" aria-label={T.aria}>
+    <defs>
+      <marker id="bus-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ent-network)" /></marker>
+    </defs>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-network-fg)">{T.title}</text>
+    <text x="20" y="54" font-size="12" font-weight="600" style="fill: var(--sl-color-gray-2)">{T.inH}</text>
+    <text x="740" y="54" text-anchor="end" font-size="12" font-weight="600" style="fill: var(--sl-color-gray-2)">{T.outH}</text>
+
+    <rect x="370" y="64" width="20" height="228" rx="4" fill="var(--ent-network)" />
+    <text x="380" y="312" text-anchor="middle" font-size="13" font-weight="600">{T.bus}</text>
+
+    {T.ins.map((s, i) => (
+      <g>
+        <line x1="20" y1={rows(4)[i]} x2="364" y2={rows(4)[i]} stroke="var(--ent-network)" stroke-width="2" stroke-dasharray={i === 3 ? '6 4' : undefined} marker-end="url(#bus-arrow)" />
+        <text x="24" y={rows(4)[i] - 7} font-size="12" style={i === 3 ? 'fill: var(--ent-network-fg); font-weight: 600' : ''}>{s}</text>
+      </g>
+    ))}
+    {T.outs.map((s, i) => (
+      <g>
+        <line x1="394" y1={rows(5)[i] - 8} x2="740" y2={rows(5)[i] - 8} stroke="var(--ent-network)" stroke-width="2" stroke-dasharray={i === 4 ? '6 4' : undefined} marker-end="url(#bus-arrow)" />
+        <text x="398" y={rows(5)[i] - 15} font-size="12">{s}</text>
+      </g>
+    ))}
+
+    <rect x="20" y="334" width="720" height="32" rx="8" fill="var(--ent-network-bg)" stroke="var(--ent-network)" />
+    <text x="380" y="355" text-anchor="middle" font-size="13" font-weight="600" style="fill: var(--ent-network-fg)">{T.cmo}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>
