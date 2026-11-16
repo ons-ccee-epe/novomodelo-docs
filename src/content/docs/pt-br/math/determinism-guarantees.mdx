@@ -76,7 +76,7 @@ na amostragem Monte Carlo e uma por estágio em um método em lote (seção 3).
 Como a derivação das sementes e a atribuição dos grupos de ruído (na árvore de
 aberturas, estágios consecutivos de um mesmo grupo de ruído reutilizam um mesmo sorteio) são funções puras
 de entradas globalmente conhecidas — a semente-base e o calendário de estágios do
-sistema difundido — e o casamento de momentos (moment matching) soma sobre as aberturas em
+sistema difundido — e a correspondência de momentos (moment matching) soma sobre as aberturas em
 uma ordem fixa, todo processo MPI gera a mesma árvore, idêntica bit a bit. Veja
 [Geração de cenários](/pt-br/math/scenario-generation)
 para o procedimento de derivação das sementes e a construção da árvore de aberturas.
@@ -146,7 +146,7 @@ no estado visitado $\hat{x}$ é, portanto, reprodutível, não por ser indiferen
 ao histórico de resolução, mas porque esse histórico é ele próprio fixado.
 
 A ordenação dos blocos do vetor de estado é ela própria canônica: armazenamento, defasagens AR,
-buckets de tempo de viagem da água em trânsito e slots das termelétricas com antecipação de despacho ocupam, cada um, um
+parcelas de água em trânsito (in-transit buckets) e posições do anel de despacho antecipado (commitment ring slots) das termelétricas com antecipação de despacho ocupam, cada um, um
 intervalo fixo, de modo que o vetor de coeficientes de um corte tem leiaute idêntico independentemente
 do número de processos ou da topologia de processos. Dentro de cada bloco, as entidades são dispostas na
 ordem total canônica $(\text{operational\_start\_date}, \text{id})$ —
@@ -155,7 +155,7 @@ primeiro pela data de início operativo e, entre entidades com a mesma data, pel
 entidade não tem papel nela, de modo que renomear uma entidade nunca altera o leiaute das
 colunas do PL, a ordenação dos coeficientes dos cortes nem a ordem das colunas de saída; renumerar o
 `id` de uma entidade, por outro lado, pode mover sua posição e, portanto, altera os
-três. Os in-transit buckets são ordenados por `(plant, lag)` — a usina
+três. As parcelas de água em trânsito são ordenadas por `(plant, lag)` — a usina
 receptora na mesma ordem canônica de entidades usada por todos os outros blocos de estado e, em seguida,
 a defasagem de maturação crescente —, de forma coerente com as ordenações dos blocos de armazenamento e de
 defasagens de afluência. Veja
@@ -253,12 +253,12 @@ a codificação da entrada do hash e o leiaute de bytes little-endian que garant
 a estabilidade entre plataformas.
 
 **Injeção da fronteira terminal invariante ao processo.** Quando um estudo importa sua
-função terminal de uma política de fronteira, o conjunto de cortes importado é conciliado
+função terminal de uma política de fronteira, o conjunto de cortes importado é reconciliado
 com o estado terminal do próprio estudo **uma única vez** — a distribuição datada e ponderada por horas
-e a conciliação por família descritas em
+e a reconciliação por família descritas em
 [Fronteira pós-estudo e estudos encadeados §4](/pt-br/math/post-study-boundary) — e o único resultado
-conciliado é injetado de forma idêntica no estágio terminal em **todos** os processos. Essa
-conciliação é uma função pura de entradas globalmente conhecidas: a política
+reconciliado é injetado de forma idêntica no estágio terminal em **todos** os processos. Essa
+reconciliação é uma função pura de entradas globalmente conhecidas: a política
 de origem importada, juntamente com o calendário de estágios e o leiaute de estado do próprio estudo atual —
 grandezas que todo processo já possui. Ela, portanto, não depende do número
 de processos, de como o trabalho é particionado nem de qual processo lê a política de origem.
@@ -268,9 +268,9 @@ a mesma invariância ao número de processos já estabelecida para os cortes ger
 os estados visitados e os custos de simulação.
 
 **Seleção de cortes paralela independente de ordem.** A seleção de cortes Nível 1 (Level-1) atribui a cada
-estado visitado armazenado um único dono: o corte de maior valor naquele ponto, com um empate
+estado visitado armazenado um único detentor: o corte de maior valor naquele ponto, com um empate
 exato resolvido em favor do corte na menor posição do conjunto. Os estados visitados armazenados são
-particionados em blocos de tamanho fixo processados em paralelo, e o dono de cada ponto
+particionados em blocos de tamanho fixo processados em paralelo, e o detentor de cada ponto
 é calculado apenas a partir desse ponto e dos cortes, de modo que nenhum resultado depende de como os
 blocos são distribuídos entre as threads nem de quantas threads são executadas — uma
 execução com uma só thread e uma execução totalmente paralela produzem as mesmas desativações e

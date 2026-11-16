@@ -7,7 +7,9 @@ description: Quatro métodos para tratar realizações negativas de afluência d
 
 Este capítulo define os quatro métodos disponíveis para tratar as realizações negativas de afluência produzidas pelo modelo PAR(p): suas formulações de PL, seus termos na função objetivo, seu efeito sobre a validade do limite inferior e seus compromissos.
 
-## 1. Formulação do Problema
+Para a visão por entidade deste capítulo, veja [Afluências e modelo PAR(p)](/pt-br/entities/inflows/inflows/).
+
+## 1. Formulação do problema
 
 A equação de afluência do modelo PAR(p) — que usa o coeficiente AR [$\psi_{m,\ell}$](/pt-br/overview/notation-conventions#35-parametros-do-modelo-de-afluencias) — pode produzir uma realização negativa:
 
@@ -27,7 +29,7 @@ a água que eleva a realização a zero, $a_h + a^-_h = \max(a_h, 0)$. Ele é av
 
 A seguir, PAR(p > 0) denota um modelo PAR com termos de defasagem (ordem acima de zero ou componente anual). A componente anual ([Modelo de afluências PAR(p) §7](/pt-br/math/par-inflow-model#7-extensao-com-componente-anual-parp-a)) faz a regressão sobre a média das doze afluências anteriores, de modo que atribui um coeficiente a cada uma dessas defasagens, qualquer que seja a ordem.
 
-## 2. A Folga de Não Negatividade da Afluência
+## 2. A folga de não negatividade da afluência
 
 Todo método, exceto `none`, acrescenta uma coluna de folga $\sigma^{inf}_h \geq 0$ por usina hidrelétrica, em m³/s. Ela entra no balanço hídrico da usina ao lado da afluência realizada $z_h = a_h$, com os coeficientes de $z_h$, sendo cada termo do lado esquerdo ([Formulação do PL §4](/pt-br/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas)):
 
@@ -48,7 +50,7 @@ O método define os limites e o preço da folga:
 
 Nos dois métodos de truncamento, os limites são definidos em cada resolução do problema do estágio, tanto no treinamento (training) quanto na simulação, a partir da realização dessa resolução, que depende das defasagens de entrada fixadas e do ruído; portanto, eles diferem entre estados visitados, aberturas e cenários (§7).
 
-Em `penalty` e `truncation_with_penalty`, a folga é uma **folga de recurso de Categoria 1** ([Sistema de penalidades — Categoria 1](/pt-br/math/penalty-system#categoria-1-folgas-de-recurso-viabilidade-do-pl)): a água que ela acrescenta mantém o balanço viável quando uma realização negativa de afluência o deixaria sem solução. Seu custo é ordenado junto às penalidades por violação de restrições: convertido em um custo equivalente de energia em R\$/MWh, fica acima dos custos térmicos e de contratos e abaixo do déficit ([Sistema de penalidades — Ordem de Prioridade das Penalidades](/pt-br/math/penalty-system#ordem-de-prioridade-das-penalidades)). Como a afluência $a_h$ é definida por estágio (e não por patamar), a penalidade aparece **fora** do somatório sobre os patamares na função objetivo, junto às penalidades por violação de armazenamento:
+Em `penalty` e `truncation_with_penalty`, a folga é uma **folga de recurso de Categoria 1** ([Sistema de penalidades — Categoria 1](/pt-br/math/penalty-system#categoria-1-folgas-de-recurso-viabilidade-do-pl)): a água que ela acrescenta mantém o balanço viável quando uma realização negativa de afluência o deixaria sem solução. Seu custo é ordenado junto às penalidades por violação de restrições: convertido em um custo equivalente de energia em R\$/MWh, fica acima dos custos térmicos e de contratos e abaixo do déficit ([Sistema de penalidades — Ordem de prioridade das penalidades](/pt-br/math/penalty-system#ordem-de-prioridade-das-penalidades)). Como a afluência $a_h$ é definida por estágio (e não por patamar), a penalidade aparece **fora** do somatório sobre os patamares na função objetivo, junto às penalidades por violação de armazenamento:
 
 $$
 + \sum_{h \in \mathcal{H}} c^{inf}_h \cdot \sigma^{inf}_h \cdot H_t
@@ -151,7 +153,7 @@ Ele compartilha com `truncation` a dependência do teto em relação às defasag
 
 em que $x^*$ é a realização com as defasagens de entrada da resolução, de modo que $\max(-x^*, 0)$ é o montante de truncamento $a^-_h$. As defasagens de afluência dos estágios seguintes são construídas a partir da realização bruta em todas as estratégias. A estratégia do valor ótimo do artigo (§2.1) resolve um problema separado de alocação de água para a folga quando o problema do estágio não tem solução; sua função de custo é não convexa, de modo que o artigo a aplica apenas na simulação forward, e ela não tem correspondente entre estes métodos.
 
-## 7. Truncamento e o Limite Inferior
+## 7. Truncamento e o limite inferior
 
 Sob um modelo PAR(p > 0), a realização $a_h$ é afim nas defasagens de entrada $\hat{a}_{h,\ell}$ (§1), de modo que o montante de truncamento $a^-_h$ — e com ele os limites de $\sigma^{inf}_h$ nos dois métodos de truncamento — é uma função linear por partes do estado de entrada. A resolução de um estágio fixa esses limites no valor do seu próprio estado visitado. O corte que a resolução produz ([Gerenciamento de cortes](/pt-br/math/cut-management)) é justo no estado visitado e fica abaixo do problema do estágio com os limites mantidos no montante de truncamento desse ponto, mas não possui termo para a variação de $a^-_h$ com as defasagens: seus coeficientes são os custos reduzidos das colunas fixadas do estado de entrada, e os limites da folga são constantes do PL resolvido. Em um estado de entrada com montante de truncamento diferente, o corte pode ficar acima do verdadeiro valor sucessor:
 
@@ -162,7 +164,7 @@ Os métodos de truncamento, portanto, violam as hipóteses de [Gerenciamento de 
 
 Os limites dependem do estado de entrada apenas por meio das suas defasagens de afluência e, em um estágio, apenas por meio dos coeficientes de defasagem $\psi_{m(t),\ell}$ do período sazonal desse estágio. Quando todos eles são nulos, em um período sazonal de ordem zero sem componente anual, o montante de truncamento nesse estágio depende apenas do ruído. Os limites de `penalty` não dependem do estado.
 
-## 8. Resumo Comparativo
+## 8. Resumo comparativo
 
 | Método                    | Tamanho do PL              | Água acrescentada ao balanço         | Custo da água acrescentada | Viabilidade    | Limite inferior sob PAR(p > 0) |
 | ------------------------- | -------------------------- | ------------------------------------ | -------------------------- | -------------- | ------------------------------ |
@@ -177,7 +179,7 @@ Todos os métodos mantêm a realização bruta no estado de defasagens (§1).
 
 - [Larroyd et al. (2022)](/pt-br/reference/bibliography/#modelagem-de-afluencias)
 
-## Referências Cruzadas
+## Referências cruzadas
 
 - [Formulação do PL](/pt-br/math/lp-formulation) — Estrutura da função objetivo e taxonomia das penalidades, em que $c^{inf}_h$ valora uma folga de recurso de Categoria 1
 - [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — Define o modelo PAR(p) que produz as realizações de afluência tratadas aqui

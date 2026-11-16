@@ -7,6 +7,8 @@ description: Four methods for handling negative PAR(p) inflow realizations — n
 
 This chapter defines the four methods available for handling negative inflow realizations produced by the PAR(p) model: their LP formulations, their objective function terms, their effect on the validity of the lower bound, and their trade-offs.
 
+For the entity view of this chapter, see [Inflows and the PAR(p) model](/entities/inflows/inflows/).
+
 ## 1. Problem Statement
 
 The PAR(p) model's inflow equation — using the AR coefficient [$\psi_{m,\ell}$](/overview/notation-conventions#35-inflow-model-parameters) — can produce a negative realization:

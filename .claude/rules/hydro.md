@@ -17,10 +17,10 @@ paths:
   - "src/content/docs/**/reference/output/hydro-models.mdx"
   - "src/content/docs/**/reference/case-format/hydros.mdx"
   - "src/content/docs/**/reference/case-format/production-models.mdx"
-  - "src/content/docs/**/entities/equipment/hydro-plants.mdx"
-  - "src/content/docs/**/entities/hydrology/inflows.mdx"
-  - "src/content/docs/**/entities/rules/generic-constraints.mdx"
-  - "src/content/docs/**/entities/rules/penalties.mdx"
+  - "src/content/docs/**/entities/generation/hydro-plants.mdx"
+  - "src/content/docs/**/entities/inflows/inflows.mdx"
+  - "src/content/docs/**/entities/generic-constraints.mdx"
+  - "src/content/docs/**/entities/penalties.mdx"
 ---
 
 # Spec Patterns — Hydro Production, Cascade & Inflow

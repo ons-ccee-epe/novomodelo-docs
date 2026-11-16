@@ -1,10 +1,10 @@
 // Architecture B orchestrator: build each version independently with its own
-// `base`, then assemble into one dist/ tree: latest at / and each frozen
-// version at its /vX.Y/ base.
+// `base`, then assemble into one dist/ tree: the hotsite at /, latest at its
+// /docs/ base and each frozen version at its /docs/vX.Y/ base.
 //
 // Each entry from versions.json is built into its own temp dir (`.dist-<slug>`,
 // or `.dist-latest` for `latest`) and then copied into dist/ at its `base`
-// subpath (latest → dist/, a versioned entry → dist/<base>/). The subpath
+// subpath (dist/<base>/). The subpath
 // nesting is this copy step's job: astro emits at the --outDir root regardless
 // of DOCS_BASE — `base` only rewrites in-page hrefs/asset URLs — so we copy each
 // build's root-level output into dist/<base>/ ourselves.
@@ -25,9 +25,14 @@
 //     Each ref worktree also receives the current versions.json (over the ref's
 //     own copy) so its version picker lists every version.
 //
-// A versioned entry's copied snapshot then has its author-written root-relative
-// href/src links (e.g. a markdown [x](/math/x)) prefixed with its `base`, since
-// astro emits those verbatim; the latest entry is never rewritten.
+// Each copied build then has its author-written root-relative href/src links
+// (e.g. a markdown [x](/math/x)) prefixed with its `base`, since astro emits
+// those verbatim.
+//
+// After every version is in place, assembleLanding (scripts/landing-assembly.mjs)
+// fills the dist/ root: the hotsite from hotsite/, the docs 404 page, the files
+// of public/, and a redirect stub at each docs page path without the /docs
+// prefix, so the URLs from when the docs were served at / keep working.
 //
 // Worktree cleanup is guaranteed via try/finally: the worktree is removed even
 // if the build throws, so a failed/interrupted build never leaves a tracked
@@ -43,6 +48,7 @@ import {
   prefixSnapshotTree,
   writeSnapshotVersions,
 } from "./scripts/version-snapshot.mjs";
+import { assembleLanding } from "./scripts/landing-assembly.mjs";
 
 const versionsText = readFileSync(
   new URL("./versions.json", import.meta.url),
@@ -153,7 +159,17 @@ for (const v of builds) {
   }
 }
 
+const { stubs } = assembleLanding({
+  dist: "dist",
+  docsBase: cfg.latest.base,
+  hotsiteDir: "hotsite",
+  publicDir: "public",
+});
+console.log(
+  `build:versions: hotsite at /, ${stubs} redirect stub(s) from the pre-/docs/ URLs`,
+);
+
 const subpaths = builds
   .map((v) => (v.base.endsWith("/") ? v.base : v.base + "/"))
   .join("  and  ");
-console.log(`\n✓ Assembled multi-version site in dist/  ->  ${subpaths}`);
+console.log(`\n✓ Assembled multi-version site in dist/  ->  /  and  ${subpaths}`);

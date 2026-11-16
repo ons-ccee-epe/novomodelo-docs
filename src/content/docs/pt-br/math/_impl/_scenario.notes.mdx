@@ -1,4 +1,4 @@
-Esta aba registra como o Novo Modelo implementa [§2.2 Amostragem Reprodutível](/pt-br/math/scenario-generation#22-amostragem-reprodutivel), [§2.3 Árvore de Aberturas](/pt-br/math/scenario-generation#23-arvore-de-aberturas), [§2.5 Aberturas por Resíduos Históricos](/pt-br/math/scenario-generation#25-aberturas-por-residuos-historicos), [§4.3 Inversão de Ruídos para Cenários Externos e Históricos](/pt-br/math/scenario-generation#43-inversao-de-ruidos-para-cenarios-externos-e-historicos) e [§4.5 Consistência de x₀ na Reprodução Histórica](/pt-br/math/scenario-generation#45-consistencia-de-x-na-reproducao-historica),
+Esta aba registra como o Novo Modelo implementa [§2.2 Amostragem reprodutível](/pt-br/math/scenario-generation#22-amostragem-reprodutivel), [§2.3 Árvore de aberturas](/pt-br/math/scenario-generation#23-arvore-de-aberturas), [§2.5 Aberturas por resíduos históricos](/pt-br/math/scenario-generation#25-aberturas-por-residuos-historicos), [§4.3 Inversão de ruídos para cenários externos e históricos](/pt-br/math/scenario-generation#43-inversao-de-ruidos-para-cenarios-externos-e-historicos) e [§4.5 Consistência de x₀ na Reprodução Histórica](/pt-br/math/scenario-generation#45-consistencia-de-x-na-reproducao-historica),
 e lista os layouts de bytes, a cadeia de defasagens, a tolerância, os avisos e o limite que a metodologia não detalha.
 
 ### Derivação das sementes
@@ -66,12 +66,12 @@ O Novo Modelo registra estes oito avisos no log e prossegue. Cada texto abaixo �
   ```
 
   O marcador `{class}` assume `inflow`, `load` ou `ncs`.
-- **Coordenadas constantes no casamento de momentos.** O casamento de momentos (moment matching) encontra usinas hidrelétricas cujas aberturas em um estágio gerado são todas iguais e as mantém como sorteadas; as contagens abrangem a árvore inteira:
+- **Coordenadas constantes na correspondência de momentos.** A correspondência de momentos (moment matching) encontra usinas hidrelétricas cujas aberturas em um estágio gerado são todas iguais e as mantém como sorteadas; as contagens abrangem a árvore inteira:
   {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:163-171 at novomodelo v0.20.0 */}
   ```text
   moment matching left {coordinates} inflow coordinate(s) in {stages} stage(s) as drawn: every opening is equal there
   ```
-- **Cópias menores de grupo de ruído no casamento de momentos.** Um estágio de um grupo de ruído tem menos aberturas que o primeiro estágio ajustado do seu grupo, de modo que as aberturas que ele copia não passam, como conjunto, pelo casamento de momentos:
+- **Cópias menores de grupo de ruído na correspondência de momentos.** Um estágio de um grupo de ruído tem menos aberturas que o primeiro estágio do seu grupo, já com correspondência de momentos, de modo que as aberturas que ele copia não passam, como conjunto, pela correspondência de momentos:
   {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:172-178 at novomodelo v0.20.0 */}
   ```text
   {stages} stage(s) copy a noise-group stage with a different opening count; their copied openings are not moment-matched
@@ -91,7 +91,7 @@ Os números de direção de Sobol cobrem `SOBOL_MAX_DIM: usize = 21201` dimensõ
 
 {/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-401 and crates/novomodelo-stochastic/src/tree/opening_tree.rs:258-275 at novomodelo v0.20.0 */}
 
-Com dois ou mais processos MPI, o `novomodelo run` verifica, depois da montagem, que todos os ranks construíram a mesma árvore de aberturas. Cada rank calcula o hash da sua árvore com FNV-1a de 64 bits sobre o número de estágios, a dimensão do ruído, o número de aberturas de cada estágio, o padrão de bits de cada valor de ruído e a ordem de solução, e os ranks trocam o menor e o maior resumo (digest). Quando os dois diferem, a execução para com código `4` antes do treinamento ([Falhas de comunicação](/pt-br/reference/error-codes/#falhas-de-comunicacao)):
+Com dois ou mais processos MPI, o `novomodelo run` verifica, depois da montagem, que todos os ranks construíram a mesma árvore de aberturas. Cada rank calcula o hash da sua árvore com FNV-1a de 64 bits sobre o número de estágios, a dimensão do ruído, o número de aberturas de cada estágio, o padrão de bits de cada valor de ruído e a ordem de resolução, e os ranks trocam o menor e o maior resumo (digest). Quando os dois diferem, a execução para com código `4` antes do treinamento ([Falhas de comunicação](/pt-br/reference/error-codes/#falhas-de-comunicacao)):
 
 ```text
 opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same tree from the broadcast inputs

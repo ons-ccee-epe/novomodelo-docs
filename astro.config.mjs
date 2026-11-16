@@ -293,16 +293,16 @@ export default defineConfig({
           label: "Model entities", translations: { "pt-BR": "Entidades do modelo" },
           items: [
             {
-              label: "Inflows", translations: { "pt-BR": "Vazão" },
-              items: ["entities/hydrology/inflows", "entities/hydrology/scenarios"],
+              label: "Inflows", translations: { "pt-BR": "Afluências" },
+              items: ["entities/inflows/inflows", "entities/inflows/scenarios"],
             },
             {
               label: "Generation", translations: { "pt-BR": "Geração" },
               items: [
-                "entities/equipment/hydro-plants",
-                "entities/equipment/thermal-plants",
-                "entities/equipment/non-controllable-sources",
-                "entities/equipment/pumping-stations",
+                "entities/generation/hydro-plants",
+                "entities/generation/thermal-plants",
+                "entities/generation/non-controllable-sources",
+                "entities/generation/pumping-stations",
               ],
             },
             {
@@ -315,13 +315,13 @@ export default defineConfig({
             },
             {
               label: "Consumption", translations: { "pt-BR": "Consumo" },
-              items: ["entities/network/load", "entities/network/deficit"],
+              items: ["entities/consumption/load", "entities/consumption/deficit"],
             },
-            "entities/hydrology/time-structure",
-            "entities/rules/water-value",
-            "entities/rules/generic-constraints",
-            "entities/rules/penalties",
-            "entities/rules/risk-aversion",
+            "entities/time-structure",
+            "entities/water-value",
+            "entities/generic-constraints",
+            "entities/penalties",
+            "entities/risk-aversion",
           ],
         },
         {
@@ -383,7 +383,7 @@ export default defineConfig({
           ],
         },
         {
-          label: "Running studies", translations: { "pt-BR": "Rodando estudos" },
+          label: "Running studies", translations: { "pt-BR": "Execução de estudos" },
           items: [
             "getting-started/installation",
             {

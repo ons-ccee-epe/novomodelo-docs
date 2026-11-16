@@ -27,6 +27,12 @@ prerequisites and CI wiring behind it.
   commit; `npm run check:ptbr-sync` checks each commit in `origin/main..HEAD`.
   Contract: `.claude/rules/translation-ptbr.md`.
 
+- **pt-BR sentence case** (`scripts/check-ptbr-case.mjs`): pt-BR headings,
+  frontmatter titles and the `astro.config.mjs` pt-BR labels; proper nouns and
+  named terms are listed in its `EXEMPT_TERMS`, and words with two or more
+  capitals are exempt by rule, except that each part of a hyphenated word is checked on its own (`Pós-Estudo` is flagged). Grandfathered hits use rule id `ptbr-title-case`
+  in `scripts/doc-lint-allow.txt`. Rule text: `.claude/rules/glossario-traducao-ptbr.md` rule 8.
+
 `.github/workflows/starlight-ci.yml` runs every gate on pull requests to `main`
 (the build as `npm run build:versions`; pt-BR sync over each PR commit); `.github/workflows/starlight-deploy.yml`
 runs only the build checks, on push to `main`. `README.md` describes each gate in

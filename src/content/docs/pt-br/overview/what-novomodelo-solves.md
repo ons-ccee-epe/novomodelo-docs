@@ -7,7 +7,7 @@ description: O problema de despacho hidrotérmico estocástico multiestágio —
 
 Este capítulo responde à pergunta fundamental: que problema o Novo Modelo calcula e o que o usuário obtém ao final de uma execução? Ele delimita o escopo dos capítulos seguintes e articula as afirmações sobre funcionalidades que aparecem ao longo deste site.
 
-## 1. O Problema
+## 1. O problema
 
 Sistemas elétricos fortemente dependentes de geração hidrelétrica enfrentam um problema de planejamento ao mesmo tempo de grande porte e profundamente incerto. A água armazenada hoje nos reservatórios é a água disponível para geração nos meses futuros; a política de despacho adequada depende de quanta chuva deve ocorrer ao longo de um horizonte plurianual, do custo das alternativas termelétricas e da aversão ao risco do operador do sistema.
 
@@ -15,13 +15,13 @@ O Novo Modelo resolve o **problema de despacho hidrotérmico estocástico multie
 
 Trata-se de um problema de planejamento de sistemas elétricos de predominância hidrelétrica, e é para ele que o solver de PDDE (SDDP) do Novo Modelo foi construído.
 
-## 2. O Algoritmo
+## 2. O algoritmo
 
 O Novo Modelo implementa a **Programação Dinâmica Dual Estocástica (PDDE)**. A PDDE resolve o problema multiestágio decompondo-o em problemas de programação linear por estágio, ligados por variáveis de estado (níveis dos reservatórios e defasagens das afluências). Iterando para a frente e para trás pela árvore de estágios, o algoritmo constrói aproximações lineares por partes da função de custo futuro em cada estágio. Essas aproximações, chamadas cortes de Benders, levam a informação de custo futuro do último estágio de volta ao primeiro.
 
-Cada iteração atualiza um limite inferior e uma avaliação de limite superior do custo da política ([Garantias Metodológicas](#3-garantias-metodologicas)); o treinamento (training) termina quando seus critérios de parada são atendidos ([Critérios de parada](/pt-br/math/stopping-rules)). Veja [A PDDE em uma página](/pt-br/overview/sddp-framework-overview) para a apresentação em uma página e [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) para o tratamento algorítmico completo.
+Cada iteração atualiza um limite inferior e uma avaliação de limite superior do custo da política ([Garantias metodológicas](#3-garantias-metodologicas)); o treinamento (training) termina quando seus critérios de parada são atendidos ([Critérios de parada](/pt-br/math/stopping-rules)). Veja [A PDDE em uma página](/pt-br/overview/sddp-framework-overview) para a apresentação em uma página e [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) para o tratamento algorítmico completo.
 
-## 3. Garantias Metodológicas
+## 3. Garantias metodológicas
 
 Na convergência, o Novo Modelo fornece um limite inferior para o custo da política ótima e uma de duas avaliações de limite superior do custo da política, selecionada pela simulação forward:
 
@@ -29,9 +29,9 @@ Na convergência, o Novo Modelo fornece um limite inferior para o custo da polí
 2. **Limite superior estatístico** — o custo médio amostral das simulações forward sob a política atual, com um intervalo de confiança. Essa estimativa carrega erro amostral genuíno, que só se reduz à medida que mais cenários são sorteados; ela pode ficar abaixo do limite inferior e não constitui um certificado.
 3. **Limite superior exato (determinístico)** — o custo da política avaliado sobre uma árvore de cenários enumerada, percorrendo cada caminho até as folhas exatamente uma vez. Não carrega erro amostral. Junto com o limite inferior, limita por cima o quanto o custo da política excede o valor ótimo quando a medida de risco é uniforme entre os estágios ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)).
 
-A garantia de determinismo do Novo Modelo é enunciada por binário em [Princípios Metodológicos](#5-principios-metodologicos).
+A garantia de determinismo do Novo Modelo é enunciada por binário em [Princípios metodológicos](#5-principios-metodologicos).
 
-## 4. Como o Novo Modelo É Usado
+## 4. Como o Novo Modelo é usado
 
 O Novo Modelo é operado por meio de duas interfaces equivalentes:
 
@@ -47,7 +47,7 @@ Um estudo é executado em um único processo ou, com a versão MPI, em vários p
 
 O Novo Modelo foi concebido para estudos em escala de produção: um horizonte de planejamento longo, com muitos estágios, grandes parques de usinas hidrelétricas e termelétricas, muitos cenários de afluência por estágio e vários patamares de carga em cada estágio.
 
-## 5. Princípios Metodológicos
+## 5. Princípios metodológicos
 
 Os princípios a seguir orientam a construção do Novo Modelo.
 
@@ -67,7 +67,7 @@ O Novo Modelo lê seu próprio formato de caso: um diretório do caso com arquiv
 
 **O que difere.** O Novo Modelo representa cada usina hidrelétrica individualmente, com seu próprio armazenamento, modelo de geração e, quando houver, usina de jusante. Não se espera que um caso convertido resolvido pelo Novo Modelo reproduza exatamente os resultados de outra ferramenta, pois os dois modelos podem diferir na formulação, no modelo de afluências e no critério de parada. Para termos equivalentes em outras ferramentas de planejamento, consulte o [Glossário](/pt-br/reference/glossary/).
 
-## Referências Cruzadas
+## Referências cruzadas
 
 - [A PDDE em uma página](/pt-br/overview/sddp-framework-overview) — apresentação algorítmica em uma página: simulação forward, geração de cortes na simulação backward e limites de convergência
 - [Como ler este site](/pt-br/overview/how-to-read) — guia de navegação pelas seções da barra lateral e roteiros de leitura para diferentes perfis de leitor

@@ -4,7 +4,7 @@ definem os quatro tipos de equipamento que têm configuração de elemento
 dedicada neste capítulo. As equações alimentadas por esses campos estão nas
 seções acima.
 
-### Data de Início de Operação Comum
+### Data de início de operação comum
 
 Usinas termelétricas, fontes não despacháveis, usinas elevatórias e contratos de energia
 têm todos um campo obrigatório `operational_start_date`:
@@ -13,7 +13,7 @@ têm todos um campo obrigatório `operational_start_date`:
 | -------------------------- | ------------------------ | ----------- |
 | `operational_start_date` | string (data ISO-8601) | Data de calendário (`YYYY-MM-DD`) em que a entidade passa a constar do histórico operacional do cadastro. Serve à rastreabilidade e à chave de ordenação canônica `(operational_start_date, id)` (ver [Convenções de notação](/pt-br/overview/notation-conventions)) — é **independente** da janela de operação abaixo: não condiciona a entrada em operação, e a janela não é derivada dela. |
 
-### Janela de Operação Comum
+### Janela de operação comum
 
 Usinas termelétricas, linhas, contratos, usinas elevatórias e fontes não despacháveis
 têm todos o mesmo par opcional de campos:
@@ -30,7 +30,7 @@ fica então fora de operação durante todo o estudo. Ver [Visão geral da model
 para o enunciado metodológico comum — as §3–4 da metodologia acima tratam de como a
 janela interage com os limites take-or-pay dos contratos e com a vazão bombeada.
 
-### `system/thermals.json` — Cadastro de Usinas Termelétricas
+### `system/thermals.json` — Cadastro de usinas termelétricas
 
 As unidades termelétricas são definidas em `system/thermals.json`. O objeto de nível superior tem
 uma única chave `"thermals"`, que contém um array de objetos de unidade:
@@ -65,17 +65,17 @@ Somente `id`, `name`, `bus_id`, `operational_start_date`, `cost_per_mwh` e
 `generation` são obrigatórios; `entry_stage_id`, `exit_stage_id` e
 `anticipated_config` são opcionais.
 
-#### Campos Principais
+#### Campos principais
 
 | Campo          | Tipo   | Obrigatório | Descrição |
 | -------------- | ------ | -------- | ----------- |
 | `id`           | integer | Sim     | Identificador único não negativo. |
 | `name`         | string  | Sim     | Nome legível da usina. Usado nos arquivos de saída, nas mensagens de validação e no log. |
 | `bus_id`       | integer | Sim     | Identificador do barramento elétrico no qual a geração desta unidade é injetada. Deve corresponder a um `id` em `buses.json`. |
-| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a unidade passa a constar do histórico operacional do cadastro — ver [Data de Início de Operação Comum](#data-de-inicio-de-operacao-comum) acima. |
+| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a unidade passa a constar do histórico operacional do cadastro — ver [Data de início de operação comum](#data-de-inicio-de-operacao-comum) acima. |
 | `cost_per_mwh` | number  | Sim     | Custo variável unitário (CVU) de geração, em reais por MWh. Deve ser não negativo. |
 
-#### Limites de Geração
+#### Limites de geração
 
 O bloco `generation` define os limites de geração, armazenados internamente como
 `min_generation_mw` / `max_generation_mw` na entidade e impostos como os
@@ -99,7 +99,7 @@ não nulo com `block_id` não nulo é rejeitada na validação, e uma
 linha com `block_id` em uma termelétrica que declare `anticipated_config` é rejeitada
 de imediato, já que o compromisso entregue é limitado em um único estágio.
 
-#### Configuração de Antecipação de Despacho (`anticipated_config`)
+#### Configuração de antecipação de despacho (`anticipated_config`)
 
 O bloco opcional `anticipated_config` marca uma termelétrica como de despacho antecipado,
 associando a antecedência por usina descrita em [Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#4-usinas-termeletricas). A antecedência é dada em **exatamente uma** de duas formas mutuamente exclusivas — um número de estágios ou uma duração física:
@@ -160,10 +160,10 @@ pós-horizonte** (que não cobre nenhum estágio do estudo) verifica, em vez dis
 `value_mw` contra os limites estáticos `[min_mw, max_mw]` da usina, com a mesma
 tolerância. Um `value_mw` fora da faixa de seu estágio é um erro de carga, pois,
 caso contrário, a igualdade de entrega do PL nesse estágio não poderia ser satisfeita. Os
-valores comprometidos são custos irrecuperáveis: uma janela dentro do estudo inicializa o ring slot de seu
+valores comprometidos são custos irrecuperáveis: uma janela dentro do estudo inicializa a posição do anel de despacho antecipado (commitment ring slot) de seu
 estágio de entrega no primeiro estágio, e a
 [linha de retirada](/pt-br/math/state-augmentation#linhas-do-ring) desse estágio fixa nele a geração da usina;
-uma janela pós-horizonte não ocupa slot e, quando uma fronteira é carregada, sua contribuição
+uma janela pós-horizonte não ocupa nenhuma posição do anel de despacho antecipado e, quando uma fronteira é carregada, sua contribuição
 de estado é incorporada uma única vez, na carga, ao termo independente de todo corte de
 fronteira. Nenhuma das duas entra na função objetivo do estudo, e uma janela pós-horizonte é reproduzida em
 sua data real de entrega em `anticipated/fixed_deliveries.parquet`.
@@ -195,7 +195,7 @@ gera o mesmo aviso na preparação; uma janela totalmente nula não gera nenhum.
 formulação e [Formato do caso](/pt-br/reference/case-format/) para
 o formato dos arquivos.
 
-#### Restrição de Compromissos via Restrições Genéricas
+#### Restrição de compromissos via restrições genéricas
 
 A variável de decisão do compromisso antecipado pode ser referenciada em uma restrição
 genérica por meio da expressão `anticipated_decision(N)`, onde `N` é o
@@ -225,7 +225,7 @@ fatal de carga. `thermal_generation(N)` em uma termelétrica com antecipação �
 mas sinalizado com um aviso de ambiguidade semântica, pois essa expressão lê a
 geração entregue por patamar, e não o compromisso antecipado.
 
-#### Regras de Validação na Carga
+#### Regras de validação na carga
 
 | Regra                        | Classe de Erro       | Descrição |
 | ---------------------------- | --------------------- | ----------- |
@@ -238,7 +238,7 @@ geração entregue por patamar, e não o compromisso antecipado.
 | Limites do valor comprometido | Viabilidade física   | O `value_mw` de cada janela de `past_anticipated_commitments` deve estar dentro da faixa de geração resolvida de todo estágio de entrega coberto (cobertura dentro do estudo) ou dos limites estáticos `[min_mw, max_mw]` da usina (puramente pós-horizonte), dentro da tolerância do solver. Ver [Códigos de erro](/pt-br/reference/error-codes). |
 | Limites de entrega pós-estudo | Erro de referência   | Todo estágio pós-estudo alcançado pela antecedência de uma termelétrica com antecipação deve ter uma célula `thermal_bounds[]` correspondente em `post_study_stages.json`, e todo estágio pós-estudo coberto por uma janela de compromisso decidido antes do estudo deve ser coberto com cobertura `1.0`. Ver [Códigos de erro](/pt-br/reference/error-codes) para os modos exatos de falha. |
 
-### `system/non_controllable_sources.json` — Cadastro de Fontes Não Despacháveis (NCS)
+### `system/non_controllable_sources.json` — Cadastro de fontes não despacháveis (NCS)
 
 As fontes não despacháveis (eólica, solar, pequenas hidrelétricas a fio d'água) são definidas
 em `system/non_controllable_sources.json`:
@@ -262,7 +262,7 @@ em `system/non_controllable_sources.json`:
 | `id`                 | integer | Sim     | Identificador único. |
 | `name`               | string  | Sim     | Nome legível da fonte. |
 | `bus_id`             | integer | Sim     | Barramento no qual a geração desta fonte é injetada. |
-| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a fonte passa a constar do histórico operacional do cadastro — ver [Data de Início de Operação Comum](#data-de-inicio-de-operacao-comum) acima. |
+| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a fonte passa a constar do histórico operacional do cadastro — ver [Data de início de operação comum](#data-de-inicio-de-operacao-comum) acima. |
 | `max_generation_mw`  | number  | Sim     | Capacidade instalada, em MW. Escala a disponibilidade estocástica descrita na §6 da metodologia e não limita a geração disponível. |
 | `allow_curtailment`  | boolean | Não     | Padrão `true` (sujeita a corte de geração). Defina `false` para fontes de geração compulsória (must-run) que fixam a geração na disponibilidade realizada em todos os cenários — ver [Visão geral da modelagem dos elementos do sistema §6](/pt-br/math/system-elements#sujeita-a-corte-vs-geracao-compulsoria) para quando isso é necessário (por exemplo, totais agregados de NCS já abatidos). |
 | `curtailment_cost`   | number ou null | Não | Sobrescrita, no nível da entidade, de `non_controllable_source.curtailment_cost` em `penalties.json`. |
@@ -274,7 +274,7 @@ modelo de disponibilidade obtém a geração disponível de seu estágio em
 `constraints/ncs_bounds.parquet`, ou `max_generation_mw` onde nenhuma linha se aplica — ver
 a aba Entradas e Saídas.
 
-### `system/pumping_stations.json` — Cadastro de Usinas Elevatórias
+### `system/pumping_stations.json` — Cadastro de usinas elevatórias
 
 ```json
 {
@@ -298,8 +298,8 @@ a aba Entradas e Saídas.
 | `id`                       | integer | Sim     | Identificador único. |
 | `name`                     | string  | Sim     | Nome legível da usina elevatória. |
 | `bus_id`                   | integer | Sim     | Barramento do qual a potência elétrica é consumida. |
-| `operational_start_date`   | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a usina elevatória passa a constar do histórico operacional do cadastro — ver [Data de Início de Operação Comum](#data-de-inicio-de-operacao-comum) acima. |
-| `source_hydro_id`          | integer | Sim     | Usina hidrelétrica de cujo reservatório a água é retirada (ver §4 da metodologia). Deve ser diferente de `destination_hydro_id` — uma usina elevatória que modele uma autotransferência (mesmo id dos dois lados) é um erro de carga, pois se anularia silenciosamente em uma linha de balanço hídrico enquanto ainda consumiria potência. A janela `[entry_stage_id, exit_stage_id)` da usina elevatória deve estar contida nos estágios em que tanto a usina hidrelétrica de origem quanto a de destino estão em operação (Operating) (não antes da entrada, não na saída nem depois dela, e não em enchimento de volume morto (Filling)); caso contrário, o caso é rejeitado (`BusinessRuleViolation` em `system/pumping_stations.json`), com um erro por lado infrator indicando o primeiro estágio nessa condição. Linhas de `pumping_bounds` com valor zero não satisfazem a regra. |
+| `operational_start_date`   | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a usina elevatória passa a constar do histórico operacional do cadastro — ver [Data de início de operação comum](#data-de-inicio-de-operacao-comum) acima. |
+| `source_hydro_id`          | integer | Sim     | Usina hidrelétrica de cujo reservatório a água é retirada (ver §4 da metodologia). Deve ser diferente de `destination_hydro_id` — uma usina elevatória que modele uma autotransferência (mesmo id dos dois lados) é um erro de carga, pois se anularia silenciosamente em uma linha de balanço hídrico enquanto ainda consumiria potência. A janela `[entry_stage_id, exit_stage_id)` da usina elevatória deve estar contida nos estágios em que tanto a usina hidrelétrica de origem quanto a de destino estão em operação (Operating) (não antes da entrada, não na saída nem depois dela, e não em fase de enchimento (Filling)); caso contrário, o caso é rejeitado (`BusinessRuleViolation` em `system/pumping_stations.json`), com um erro por lado infrator indicando o primeiro estágio nessa condição. Linhas de `pumping_bounds` com valor zero não satisfazem a regra. |
 | `destination_hydro_id`     | integer | Sim     | Usina hidrelétrica em cujo reservatório a água é injetada (ver §4 da metodologia). |
 | `consumption_mw_per_m3s`   | number  | Sim     | Taxa de consumo de potência, em MW por m³/s (§4 da metodologia). |
 | `flow.min_m3s` / `flow.max_m3s` | number | Sim | Limites da vazão bombeada, em m³/s (§4 da metodologia). |
@@ -309,7 +309,7 @@ que aceita linhas esparsas `(pumping_station_id, stage_id)` contendo `min_m3s` e
 `max_m3s`, opcionalmente restritas a um patamar por meio de uma coluna opcional `block_id`;
 na ausência de linhas, valem os valores-base da entidade.
 
-### `system/energy_contracts.json` — Cadastro de Contratos
+### `system/energy_contracts.json` — Cadastro de contratos
 
 ```json
 {
@@ -343,7 +343,7 @@ na ausência de linhas, valem os valores-base da entidade.
 | `id`                             | integer | Sim     | Identificador único. |
 | `name`                           | string  | Sim     | Nome legível do contrato. |
 | `bus_id`                         | integer | Sim     | Barramento no qual a potência contratada é injetada ou retirada. |
-| `operational_start_date`         | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que o contrato passa a constar do histórico operacional do cadastro — ver [Data de Início de Operação Comum](#data-de-inicio-de-operacao-comum) acima. |
+| `operational_start_date`         | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que o contrato passa a constar do histórico operacional do cadastro — ver [Data de início de operação comum](#data-de-inicio-de-operacao-comum) acima. |
 | `type`                           | string  | Sim     | `"import"` ou `"export"` — define o sinal no balanço de carga e o pertencimento ao conjunto de importação/exportação da §3 da metodologia. |
 | `price_per_mwh`                  | number  | Sim     | Preço do contrato, em reais por MWh. Positivo para importações (custo), negativo para exportações (receita) — ver §3 da metodologia. |
 | `limits.min_mw` / `limits.max_mw`| number  | Sim     | Limites de despacho, em MW. Um `min_mw` não nulo é o piso rígido take-or-pay. |

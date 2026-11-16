@@ -7,7 +7,7 @@ description: Referência completa da notação matemática — conjuntos de índ
 
 Este capítulo define a notação matemática completa usada nos capítulos de metodologia do Novo Modelo: conjuntos de índices, parâmetros, variáveis de decisão e variáveis duais. Ele é a referência canônica para o significado dos símbolos, garantindo a consistência entre os capítulos de metodologia.
 
-## 1. Convenções Gerais de Notação
+## 1. Convenções gerais de notação
 
 Este documento segue as convenções de notação do SDDP.jl de [Dowson & Kapelevich (2021)](/pt-br/reference/bibliography/#referencias-de-software), para manter a consistência com a literatura mais ampla de PDDE (SDDP):
 
@@ -61,15 +61,15 @@ Este documento segue as convenções de notação do SDDP.jl de [Dowson & Kapele
 | $\rho_{\text{nested}}$ | Funcional de risco aninhado (consistente no tempo): a medida do estágio aplicada estágio a estágio, $\rho_1[\rho_2[\cdots \rho_{T-1}[\cdot]]]$ |
 | $\rho_{\text{end-of-horizon}}$ | Funcional de risco de final de horizonte: uma única medida aplicada ao custo total de todo o caminho |
 
-### Reutilizações de Escopo Declaradas
+### Reutilizações de escopo declaradas
 
 Um símbolo assume um segundo significado apenas em páginas que nunca usam o primeiro; cada uma dessas reutilizações é declarada aqui:
 
 - $k$ indexa os patamares de um estágio, $k \in \mathcal{K}$, nos capítulos de Modelagem do Sistema e em [Geração de cenários](/pt-br/math/scenario-generation); conta as iterações do treinamento em [Algoritmo da PDDE](/pt-br/math/sddp-algorithm), [Gerenciamento de cortes](/pt-br/math/cut-management), [Aproveitamento de base do PL](/pt-br/math/lp-warm-start), [Critérios de parada](/pt-br/math/stopping-rules), [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation), [Modos de horizonte](/pt-br/math/horizon-modes), [Formulação da taxa de desconto](/pt-br/math/discount-rate), [Medidas de risco](/pt-br/math/risk-measures) e nos exemplos resolvidos; em [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model), é a ordem candidata do teste de autocorrelação parcial.
-- $k_{max}$ é o número de slots no commitment ring de cada térmica com antecipação de despacho em [Aumento do espaço de estados](/pt-br/math/state-augmentation) e [Checkpoint da política](/pt-br/reference/output/policy); em [Critérios de parada](/pt-br/math/stopping-rules), é o limite de iterações.
+- $k_{max}$ é o número de posições do anel de despacho antecipado (commitment ring slots) de cada térmica com antecipação de despacho em [Aumento do espaço de estados](/pt-br/math/state-augmentation) e [Checkpoint da política](/pt-br/reference/output/policy); em [Critérios de parada](/pt-br/math/stopping-rules), é o limite de iterações.
 - $\ell$ é o índice de defasagem do modelo autorregressivo de afluências; em [Critérios de parada](/pt-br/math/stopping-rules) e [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation), indexa os caminhos até as folhas de uma árvore de cenários enumerada.
 - $\lambda$ é o peso de aversão ao risco da medida de risco por combinação convexa; em [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model), $\lambda_i$ são os autovalores da matriz de correlação, e em [Formulação do PL](/pt-br/math/lp-formulation), [Variantes de formulação dos patamares](/pt-br/math/block-formulations) e [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models), $\lambda_{h,b}$ é a participação da célula $(h, b)$ na capacidade de turbinamento da usina $h$.
-- $L$ é o último estágio de enchimento de uma usina em enchimento de volume morto em [Formulação do PL](/pt-br/math/lp-formulation) e [Sistema de penalidades](/pt-br/math/penalty-system); em [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model), é o fator de Cholesky triangular inferior da matriz de correlação; em [Aumento do espaço de estados](/pt-br/math/state-augmentation), $L_h$ é a profundidade dos buckets da usina receptora $h$; e em [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation), $L_t$ é o vetor das constantes de Lipschitz por componente do estado $L_{t,j}$ da função de valor do estágio $t$.
+- $L$ é o último estágio de enchimento de uma usina com fase de enchimento em [Formulação do PL](/pt-br/math/lp-formulation) e [Sistema de penalidades](/pt-br/math/penalty-system); em [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model), é o fator de Cholesky triangular inferior da matriz de correlação; em [Aumento do espaço de estados](/pt-br/math/state-augmentation), $L_h$ é a profundidade das parcelas de água em trânsito (in-transit buckets) da usina receptora $h$; e em [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation), $L_t$ é o vetor das constantes de Lipschitz por componente do estado $L_{t,j}$ da função de valor do estágio $t$.
 - $\psi_{m,\ell}$ é o coeficiente autorregressivo do modelo de afluências ($\psi^*_{m,\ell}$ padronizado; $\psi^{A*}_m$ e $\psi^A_m$ o coeficiente anual do PAR(p)-A); em [Medidas de risco](/pt-br/math/risk-measures), $\psi(p, \mu)$ é a função de penalidade da representação dual de uma medida de risco convexa.
 - Um acento circunflexo sobre uma grandeza de estado indica seu valor de entrada (visitado) ($\hat{x}_{t-1}$, $\hat{v}_h$, $\hat{a}_{h,\ell}$); sobre um parâmetro do modelo, indica sua estimativa amostral a partir do histórico de vazões ($\hat{\mu}_m$, $\hat{s}_m$, $\hat{\rho}_m(\ell)$); os dois nunca decoram o mesmo símbolo base.
 - $\tau_k$ é a duração do patamar $k$; em [Critérios de parada](/pt-br/math/stopping-rules), $\tau$ é a janela de estagnação do limite (bound stalling), e em [Modos de horizonte](/pt-br/math/horizon-modes) e [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation), indexa os períodos sazonais de um grafo da política cíclico.
@@ -87,7 +87,7 @@ Um símbolo assume um segundo significado apenas em páginas que nunca usam o pr
 - $Q_t$ é o valor ótimo do PL do estágio $t$ como função de seu estado de entrada; em [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models), $Q$ é a coordenada de vazão turbinada da grade de ajuste da FPHA.
 - $q_{h,k}$ é a vazão turbinada da hidrelétrica $h$; em [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation), $q_{n \to n'}$ é a probabilidade condicional de alcançar o nó filho $n'$ a partir do nó $n$ de uma árvore de cenários enumerada; em [Medidas de risco](/pt-br/math/risk-measures), $q^*$ é o vetor de pesos da cauda do CVaR.
 - $r_h$ é a meta de retirada de água (uso consuntivo) da hidrelétrica $h$ em [Formulação do PL](/pt-br/math/lp-formulation), [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements), [Variantes de formulação dos patamares](/pt-br/math/block-formulations) e [Sistema de penalidades](/pt-br/math/penalty-system); em [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model), $r_m$ é a escala padronizada do ruído do período sazonal $m$; em [Formulação da taxa de desconto](/pt-br/math/discount-rate), $r_t$ é a taxa de desconto anual que se aplica ao estágio $t$; e em [Aumento do espaço de estados](/pt-br/math/state-augmentation), $r_i(m)$ é a posição no ring da entrega da térmica com antecipação de despacho $i$ no estágio $m$.
-- $s$ indexa os segmentos de déficit de um barramento em [Formulação do PL](/pt-br/math/lp-formulation), [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) e [Sistema de penalidades](/pt-br/math/penalty-system); em [Aumento do espaço de estados](/pt-br/math/state-augmentation), [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) e [Checkpoint da política](/pt-br/reference/output/policy), indexa os slots do commitment ring de uma térmica com antecipação de despacho. O vertimento $s_{h,k}$ e os desvios-padrão $s_m$, $s^{\text{load}}_{b,t}$ e $s^{nc}_r$ são formas distintas.
+- $s$ indexa os segmentos de déficit de um barramento em [Formulação do PL](/pt-br/math/lp-formulation), [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) e [Sistema de penalidades](/pt-br/math/penalty-system); em [Aumento do espaço de estados](/pt-br/math/state-augmentation), [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) e [Checkpoint da política](/pt-br/reference/output/policy), indexa as posições do anel de despacho antecipado de uma térmica com antecipação de despacho. O vertimento $s_{h,k}$ e os desvios-padrão $s_m$, $s^{\text{load}}_{b,t}$ e $s^{nc}_r$ são formas distintas.
 - $u_{h,k}$ é a vazão desviada da hidrelétrica $h$, e $u$ indexa os grupos de unidades geradoras de uma célula (hidrelétrica, barramento), nos capítulos de Modelagem do Sistema; em [Algoritmo da PDDE](/pt-br/math/sddp-algorithm), [Medidas de risco](/pt-br/math/risk-measures), [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation), [Modos de horizonte](/pt-br/math/horizon-modes), [Grafos da política](/pt-br/math/policy-graphs), [Formulação da taxa de desconto](/pt-br/math/discount-rate), [A PDDE em uma página](/pt-br/overview/sddp-framework-overview) e no [Glossário](/pt-br/reference/glossary), $u_t$ é o vetor de controle do problema do estágio.
 - $w_k$ é o peso do patamar $k$ nos capítulos de Modelagem do Sistema; em [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) e no [Glossário](/pt-br/reference/glossary), $w_m$ é o peso censitário do cenário de simulação $m$; em [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model), $w$ indexa as janelas móveis de um agrupamento de períodos sazonais; e em [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies), $w_{t,\mathcal{W}}$ é a fração do período de defasagem $\mathcal{W}$ coberta pelo estágio $t$.
 - $y$ indexa as usinas elevatórias nos capítulos de Modelagem do Sistema; em [Geração de cenários](/pt-br/math/scenario-generation), $y \in W$ é um ano da janela de reprodução do histórico.
@@ -106,7 +106,7 @@ Um símbolo assume um segundo significado apenas em páginas que nunca usam o pr
 - $\mathcal{X}_t(x_{t-1}, \omega_t)$ é o conjunto viável do estado e do controle do estágio $t$; em [Gerenciamento de cortes](/pt-br/math/cut-management), $\mathcal{X}_t$ é o conjunto de estados viáveis sobre o qual um corte é válido.
 - $I_t$ é o número de vértices armazenados no estágio $t$ em [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation); em [Formulação do PL](/pt-br/math/lp-formulation), $I_{h,k}$ é a afluência da hidrelétrica $h$ no patamar $k$ lida por um termo de afluência à hidrelétrica.
 
-### Indexação dos Estágios
+### Indexação dos estágios
 
 As fórmulas matemáticas de todo este material indexam os estágios a partir de $1$: $t \in \{1, \ldots, T\}$ (a convenção já fixada acima). Os arquivos de configuração e as saídas Parquet do Novo Modelo, por sua vez, identificam um estágio pelo seu `stage_id` **declarado** — o `id` inteiro que o estágio tem em `stages.json`. Os ids declarados não precisam começar em $0$ nem ser contíguos (um estágio pré-estudo pode ter id negativo); os estágios são ordenados por id crescente, e $t$ é a posição de um estágio do estudo nessa ordem.
 
@@ -126,7 +126,7 @@ Duas escolhas de termos são fixadas em todo o material:
 - **Abertura** é o termo canônico para uma única realização sorteada do conjunto de vetores de ruído pré-gerados de um estágio (p. ex., "toda abertura $\omega \in \Omega_t$"). "Ramo"/"ramificação" fica reservado para a _estrutura_ abstrata da árvore de cenários em si — o fator de ramificação $N_t$ (quantos filhos um nó tem) —, usado apenas quando um capítulo discute a topologia da árvore, como em [Geração de cenários](/pt-br/math/scenario-generation), nunca para uma realização sorteada específica.
 - **Custo futuro** (cost-to-go) é o termo canônico para a função de valor $V_t(x)$ (§1 acima) no texto da camada matemática. "FCF" (_Função de Custo Futuro_) fica reservado para o [Glossário](/pt-br/reference/glossary) bilíngue, que faz a correspondência com os termos de outras ferramentas de planejamento.
 
-## 2. Conjuntos de Índices
+## 2. Conjuntos de índices
 
 | Símbolo                                      | Descrição                                                                                       |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -135,7 +135,7 @@ Duas escolhas de termos são fixadas em todo o material:
 | $\mathcal{B}$ | Barramentos, indexados por $b$ |
 | $\mathcal{H}$ | Usinas hidrelétricas, indexadas por $h$ |
 | $\mathcal{H}^{op} \subseteq \mathcal{H}$    | Hidrelétricas em operação (Operating), que podem gerar                                                                   |
-| $\mathcal{H}^{fill} \subseteq \mathcal{H}$  | Hidrelétricas em enchimento de volume morto (Filling), sem geração                                                                    |
+| $\mathcal{H}^{fill} \subseteq \mathcal{H}$  | Hidrelétricas em fase de enchimento (Filling), sem geração                                                                    |
 | $\mathcal{H}^{fpha} \subseteq \mathcal{H}$  | Hidrelétricas que usam o modelo de produção FPHA                                                                |
 | $\mathcal{H}^{const} \subseteq \mathcal{H}$ | Hidrelétricas que usam produtibilidade constante (complemento de $\mathcal{H}^{fpha}$ em $\mathcal{H}^{op}$) |
 | $\mathcal{T}$ | Usinas termelétricas, indexadas por $j$ |
@@ -160,7 +160,7 @@ Todo conjunto de índices de entidades operacionais acima ($\mathcal{B}$, $\math
 
 ## 3. Parâmetros
 
-### 3.1 Tempo e Conversão
+### 3.1 Tempo e conversão
 
 | Símbolo                         | Unidade      | Descrição                            |
 | ------------------------------ | ---------- | -------------------------------------- |
@@ -174,7 +174,7 @@ Todo conjunto de índices de entidades operacionais acima ($\mathcal{B}$, $\math
 | $d_{t_1 \to t_2}$ | - | Desconto do estágio $t_2$ de volta ao estágio $t_1 \le t_2$, $d_{1 \to t_2} / d_{1 \to t_1}$ |
 | $d_{\text{cycle}}$ | - | Desconto acumulado ao longo de um ciclo de um grafo da política cíclico, $d_{\text{cycle}} = \prod_{t \in \text{cycle}} d_{t \to t+1} < 1$ |
 
-#### Dedução do Fator de Conversão Temporal
+#### Dedução do fator de conversão temporal
 
 O fator $\zeta$ converte uma vazão em m³/s em um volume em hm³ acumulado ao longo da duração do estágio.
 
@@ -188,7 +188,7 @@ $$
 [\zeta] = \frac{\text{s}}{\text{h}} \times \frac{\mathrm{hm}^3}{\mathrm{m}^3} \times \text{h} = \frac{\mathrm{hm}^3}{\mathrm{m}^3/\mathrm{s}}
 $$
 
-### 3.2 Carga e Custos
+### 3.2 Carga e custos
 
 Os coeficientes de custo usam $c$ com um sobrescrito que identifica o tipo de custo.
 
@@ -202,8 +202,8 @@ Os coeficientes de custo usam $c$ com um sobrescrito que identifica o tipo de cu
 | $c^{spill}_h$   | R\$/(m³/s·h) | Custo de vertimento                                            |
 | $c^{div}_h$     | R\$/(m³/s·h) | Custo de desvio                                           |
 | $c^{tc}_h$ | R\$/(m³/s·h) | Custo de regularização da vazão turbinada da hidrelétrica $h$, cobrado sobre a vazão turbinada de cada célula |
-| $c^{sv-}_h$ | R\$/hm³ | Penalidade por armazenamento abaixo do mínimo, que precifica o piso flexível de volume morto de uma hidrelétrica em enchimento depois que ela entra em operação |
-| $c^{fill}_h$ | R\$/hm³ | Penalidade pelo não atendimento da meta de enchimento |
+| $c^{sv-}_h$ | R\$/hm³ | Penalidade por armazenamento abaixo do mínimo, que precifica o piso flexível de volume morto de uma hidrelétrica com fase de enchimento depois que ela entra em operação |
+| $c^{fill}_h$ | R\$/hm³ | Penalidade pela insuficiência em relação à meta de enchimento |
 | $c^{tv-}_h$ | R\$/(m³/s·h) | Penalidade por violação da vazão turbinada mínima, cobrada sobre cada célula da hidrelétrica $h$ |
 | $c^{ov-}_h$, $c^{ov+}_h$ | R\$/(m³/s·h) | Penalidades por violação da vazão defluente abaixo do mínimo e acima do máximo |
 | $c^{gv-}_h$ | R\$/MWh | Penalidade por violação da geração mínima, cobrada sobre cada célula da hidrelétrica $h$ |
@@ -216,7 +216,7 @@ Os coeficientes de custo usam $c$ com um sobrescrito que identifica o tipo de cu
 | $c_i(t)$ | R\$/MWh | Custo unitário da térmica com antecipação de despacho $i$ no estágio $t$; um compromisso de despacho para o estágio de entrega $m$ é precificado a $c_i(m)$ na sua coluna de decisão |
 | $K$ | - | Fator de escala de custo: todo coeficiente do objetivo, exceto o de $\theta$, é dividido por $K$, de modo que os cortes são mantidos em unidades de custo escalonadas ([Estrutura e escalonamento do PL §2.1](/pt-br/math/lp-layout-and-scaling#21-escalonamento-de-custos)) |
 
-### 3.3 Parâmetros das Hidrelétricas
+### 3.3 Parâmetros das hidrelétricas
 
 | Símbolo                                           | Unidade     | Descrição                                                                                                                                                                                                             |
 | ------------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -243,27 +243,27 @@ Os coeficientes de custo usam $c$ com um sobrescrito que identifica o tipo de cu
 | $\phi(v, q, s)$ | MW | Função de produção hidrelétrica exata: geração com armazenamento $v$, vazão turbinada $q$ e vertimento $s$, proporcional a $q$ e à queda líquida $h_{net}$. Veja [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models). |
 | $h_{net}(v, q, s) = h_{fore}(v) - h_{tail}(q + s) - h_{loss}$ | m | Queda líquida, limitada inferiormente a zero: o nível de montante $h_{fore}$, função do armazenamento, menos o nível de jusante $h_{tail}$, função da vazão defluente total, menos as perdas hidráulicas $h_{loss}$ |
 | $V_i$, $Q_j$ | hm³, m³/s | Ponto de armazenamento $i$ e ponto de vazão turbinada $j$ da grade de ajuste da FPHA, nas coordenadas de armazenamento e de vazão turbinada $V$ e $Q$ |
-| $L$ | - | Último estágio de enchimento de uma hidrelétrica em enchimento de volume morto, o estágio anterior ao seu estágio de entrada |
-| $\text{rate}_t$ | m³/s | Taxa mínima de acumulação de uma hidrelétrica em enchimento no estágio $t$ |
-| $V^{\text{target}}_t$ | hm³ | Armazenamento mínimo ao final do estágio de uma hidrelétrica em enchimento no estágio $t$ (o piso de enchimento), que atinge $\underline{V}_h$ no estágio $L$ |
-| $L_h$ | estágios | Profundidade dos buckets da usina receptora $h$: a maior defasagem de maturação que qualquer arco com tempo de viagem chegando a $h$ alcança no calendário de estágios |
+| $L$ | - | Último estágio de enchimento de uma hidrelétrica com fase de enchimento, o estágio anterior ao seu estágio de entrada |
+| $\text{rate}_t$ | m³/s | Taxa mínima de acumulação de uma hidrelétrica com fase de enchimento no estágio $t$ |
+| $V^{\text{target}}_t$ | hm³ | Armazenamento mínimo ao final do estágio de uma hidrelétrica com fase de enchimento no estágio $t$ (o piso de enchimento), que atinge $\underline{V}_h$ no estágio $L$ |
+| $L_h$ | estágios | Profundidade das parcelas de água em trânsito da usina receptora $h$: a maior defasagem de maturação que qualquer arco com tempo de viagem chegando a $h$ alcança no calendário de estágios |
 | $\phi_{h,k}$ | - | Densidade de chegada do volume em trânsito que amadurece da usina $h$ pelos patamares $k$ de um estágio cronológico, $\phi_{h,k} \geq 0$, $\sum_k \phi_{h,k} = 1$; em um estágio paralelo, $\phi_{h,k} = w_k = \tau_k / H_t$ em um termo de afluência à hidrelétrica ([Formulação do PL §10](/pt-br/math/lp-formulation#afluencia-das-usinas-hidreletricas)) |
 | $\Delta^{tt}_{h'}$ | horas | Tempo de viagem do arco principal da cascata da hidrelétrica de montante $h'$, $0$ quando nenhum é declarado |
 | $\nu_{h',t,0}$ | - | Fração, no mesmo estágio, da defluência de $h'$ no balanço hídrico de jusante no estágio $t$, $(H_t - \Delta^{tt}_{h'})^+ / H_t$ |
 | $\nu^{k' \to k}_{h',t}$ | - | Fração de propagação dentro do estágio em um estágio cronológico, do patamar $k'$ de $h'$ para o patamar de jusante $k \ge k'$ |
 | $\gamma^{ev}_{0,h}$, $\gamma^{ev}_{v,h}$ | m³/s, (m³/s)/hm³ | Termo independente e coeficiente angular em relação ao armazenamento da evaporação líquida linearizada da hidrelétrica $h$ no estágio corrente |
 
-### 3.4 Parâmetros de Termelétricas, Rede e Equipamentos
+### 3.4 Parâmetros de termelétricas, rede e equipamentos
 
 | Símbolo                              | Unidade | Descrição                                                              |
 | ----------------------------------- | ----- | ------------------------------------------------------------------------ |
 | $\bar{G}_j$, $\underline{G}_j$ | MW | Limites de geração térmica: capacidade e geração mínima (inflexibilidade) |
 | $K_i$ | - | Profundidade do ring da térmica com antecipação de despacho $i$; a antecedência, no caso de antecedência em número de estágios |
-| $k_{max} = \max_i K_i$ | - | Número de slots no commitment ring de cada térmica com antecipação de despacho |
+| $k_{max} = \max_i K_i$ | - | Número de posições do anel de despacho antecipado de cada térmica com antecipação de despacho |
 | $t_i(m)$ | - | Estágio de decisão da entrega da térmica com antecipação de despacho $i$ no estágio $m$: $m - K_i$ no caso de antecedência em número de estágios e, no caso de antecedência física, o estágio que contém o instante situado uma antecedência antes do final do estágio $m$ (um instante sobre a fronteira entre estágios pertence ao estágio anterior); uma entrega decidida antes do estudo não tem estágio de decisão |
-| $r_i(m)$ | - | Posição no ring da entrega da térmica com antecipação de despacho $i$ no estágio $m$; a entrega ocupa o slot $r_i(m) \bmod k_{max}$ |
+| $r_i(m)$ | - | Posição no ring da entrega da térmica com antecipação de despacho $i$ no estágio $m$; a entrega ocupa a posição $r_i(m) \bmod k_{max}$ |
 | $\bar{F}^+_n$, $\bar{F}^-_n$  | MW    | Capacidade da linha (sentido direto/reverso)                                           |
-| $\eta_n = 1 - \text{losses}/100$ | -     | Rendimento informado da linha: escala as perdas de transmissão informadas após a solução, $(1-\eta_n)(f^+ + f^-)$; não entra no PL de despacho, cujos fluxos nas linhas têm coeficiente ±1. Distinto do ruído PAR $\varepsilon_t$ (§3.5). |
+| $\eta_n = 1 - \text{losses}/100$ | -     | Rendimento informado da linha: escala as perdas de transmissão informadas após a resolução, $(1-\eta_n)(f^+ + f^-)$; não entra no PL de despacho, cujos fluxos nas linhas têm coeficiente ±1. Distinto do ruído PAR $\varepsilon_t$ (§3.5). |
 | $\text{loss}_{n,k}$ | MW | Perda de transmissão informada da linha $n$ no patamar $k$, $(1-\eta_n)(f^+_{n,k} + f^-_{n,k})$ |
 | $\bar{C}_c$, $\underline{C}_c$      | MW    | Limites de capacidade do contrato                                                 |
 | $\rho^{pump}_y$ | MW/(m³/s) | Taxa de consumo de potência da usina elevatória $y$ |
@@ -275,7 +275,7 @@ Os coeficientes de custo usam $c$ com um sobrescrito que identifica o tipo de cu
 | $\varepsilon^{nc}_r$ | - | Ruído normal padrão da fonte não despachável $r$: $\xi_r = \mathrm{clamp}(\mu^{nc}_r + s^{nc}_r \, \varepsilon^{nc}_r, 0, 1)$ |
 | $f_{r,k}$ | - | Fator de patamar da fonte não despachável $r$ no patamar $k$ |
 
-### 3.5 Parâmetros do Modelo de Afluências
+### 3.5 Parâmetros do modelo de afluências
 
 :::note[Nota sobre a Periodicidade]
 O modelo PAR(p) usa parâmetros periódicos que se repetem com um comprimento de ciclo $M$. Configurações comuns:
@@ -312,7 +312,7 @@ Usamos **"período sazonal $m$"** como termo genérico para a posição dentro d
 | $a^-_h$ | m³/s | Montante truncado, a parte negativa da realização: $a^-_h = \max(0, -a_h)$ ([Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity)) |
 | $\hat{a}_{h,\ell}$ | m³/s  | Defasagem AR $\ell$ de entrada (estado)                                                                                                                                                                                                                   |
 
-## 4. Variáveis de Decisão
+## 4. Variáveis de decisão
 
 :::note[Convenção de Notação]
 
@@ -323,7 +323,7 @@ Usamos **"período sazonal $m$"** como termo genérico para a posição dentro d
 - **Variáveis de folga** usam $\sigma$ com sobrescrito do tipo de restrição
   :::
 
-### 4.1 Variáveis por Patamar
+### 4.1 Variáveis por patamar
 
 As variáveis por patamar são indexadas por $k \in \mathcal{K}$:
 
@@ -339,7 +339,7 @@ As variáveis por patamar são indexadas por $k \in \mathcal{K}$:
 | $s_{h,k}$        | $\geq 0$                       | m³/s  | Vertimento na hidrelétrica $h$                                                                                                                         |
 | $g_{h,b,k}$ | $[0, \bar{G}_{h,b}]$ | MW | Geração hidrelétrica da célula $(h, b)$, injetada no barramento $b$; seu mínimo $\underline{G}_{h,b}$ é um piso flexível (folga $\sigma^{g-}_{h,b,k}$) |
 | $g_{h,k}$ | - | MW | Geração hidrelétrica da usina, $g_{h,k} = \sum_{b \in \mathcal{B}_h} g_{h,b,k}$ |
-| $v_{h,k}$ | $[\underline{V}_h, \bar{V}_h]$ | hm³ | Armazenamento ao final do patamar $k$ em um estágio cronológico, $v_{h,0} = \hat{v}_h$; apenas $v_{h,\lvert\mathcal{K}\rvert}$ é estado; o limite inferior da coluna é $0$, e não $\underline{V}_h$, para uma hidrelétrica em enchimento e para uma hidrelétrica fora de serviço (veja [Formulação do PL §8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo)) |
+| $v_{h,k}$ | $[\underline{V}_h, \bar{V}_h]$ | hm³ | Armazenamento ao final do patamar $k$ em um estágio cronológico, $v_{h,0} = \hat{v}_h$; apenas $v_{h,\lvert\mathcal{K}\rvert}$ é estado; o limite inferior da coluna é $0$, e não $\underline{V}_h$, para uma hidrelétrica com fase de enchimento e para uma hidrelétrica fora de serviço (veja [Formulação do PL §8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo)) |
 | $u_{h,k}$        | $[0, \bar{U}_h]$               | m³/s  | Vazão desviada/by-pass (para um canal separado)                                                                                                   |
 | $o_{h,k}$        | -                              | m³/s  | Vazão defluente total para jusante: $o_{h,k} = q_{h,k} + s_{h,k}$                                                                                       |
 | $e_{h,k}$ | limitada | m³/s | Vazão de evaporação líquida (negativa quando há aporte líquido de chuva): um único valor $e_h$ em nível de estágio em um estágio paralelo, um por patamar $k$ em um estágio cronológico; sua magnitude tem um limite por estágio |
@@ -349,31 +349,31 @@ As variáveis por patamar são indexadas por $k \in \mathcal{K}$:
 | $g^{nc}_{r,k}$ | $[0, A_{r,k}]$ | MW | Geração da fonte não despachável $r$ |
 | $\kappa_{r,k}$ | - | MW | Corte de geração da fonte não despachável $r$, $\kappa_{r,k} = A_{r,k} - g^{nc}_{r,k}$ (derivado) |
 
-### 4.2 Variáveis de Estado em Nível de Estágio
+### 4.2 Variáveis de estado em nível de estágio
 
 | Variável                 | Domínio                         | Unidade | Descrição                                                                                                                        |
 | ------------------------ | ------------------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| $v_h$                    | $[\underline{V}_h, \bar{V}_h]$ | hm³   | Armazenamento ao final do estágio; o limite inferior da coluna é $0$, e não $\underline{V}_h$, para uma hidrelétrica em enchimento e para uma hidrelétrica fora de serviço (veja [Formulação do PL §8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo)) |
+| $v_h$                    | $[\underline{V}_h, \bar{V}_h]$ | hm³   | Armazenamento ao final do estágio; o limite inferior da coluna é $0$, e não $\underline{V}_h$, para uma hidrelétrica com fase de enchimento e para uma hidrelétrica fora de serviço (veja [Formulação do PL §8](/pt-br/math/lp-formulation#8-limites-das-variaveis-e-restricoes-de-minimo)) |
 | $v^{in}_h$ | fixa | hm³ | Variável de armazenamento de entrada do PL do estágio, fixada no armazenamento de entrada $\hat{v}_h$ |
 | $v^{avg}_h$              | -                              | hm³   | Armazenamento médio durante o estágio: $(\hat{v}_h + v_h)/2$                                                                                |
 | $a_{h,\ell}$             | fixa                          | m³/s  | Defasagem AR $\ell$ (fixada pela transição de estado)                                                                                          |
-| $x^{\mathrm{a}}_{s,i}$ | livre; $0$ quando nenhuma linha a contém | MW | Slot de saída $s$ do commitment ring da térmica com antecipação de despacho $i$, $s \in \{0, \ldots, k_{max} - 1\}$ |
-| $x^{\mathrm{a,in}}_{s,i}$ | fixa | MW | Slot de entrada $s$, fixado no seu valor visitado $\hat{x}^{\mathrm{a}}_{s,i}$ |
+| $x^{\mathrm{a}}_{s,i}$ | livre; $0$ quando nenhuma linha a contém | MW | Posição de saída $s$ do anel de despacho antecipado da térmica com antecipação de despacho $i$, $s \in \{0, \ldots, k_{max} - 1\}$ |
+| $x^{\mathrm{a,in}}_{s,i}$ | fixa | MW | Posição de entrada $s$, fixada no seu valor visitado $\hat{x}^{\mathrm{a}}_{s,i}$ |
 | $b^{\mathrm{out}}_{h,d}$ | $\geq 0$ | hm³ | Água em trânsito destinada à usina de jusante $h$ com defasagem de maturação $d$, levada ao estágio seguinte; entra no balanço hídrico de $h$ $d$ estágios após o estágio corrente |
 | $g^{\mathrm{a}}_{i,t}$ | $[\underline{G}_i(m), \bar{G}_i(m)]$ | MW | Compromisso de despacho da térmica com antecipação de despacho decidido no estágio $t$ para seu estágio de entrega $m$, $t_i(m) = t$ ($m = t + K_i$ no caso de antecedência em número de estágios) |
 | $x^{in}$ | fixa | - | Variável de estado de entrada do PL do estágio, fixada no estado visitado: $x^{in} = \hat{x}_{t-1}$ |
 | $\theta$ | $\geq 0$ | R\$ | Variável de epígrafo do custo futuro $\theta_t$ do PL do estágio $t$, que aproxima $V_{t+1}(x_t)$ |
 
-A dimensão do estado é $n_{\text{state}} = N(1 + P^{\max}) + B + A \, k_{max}$, com $N = \lvert\mathcal{H}\rvert$ hidrelétricas, $B = \sum_h L_h$ in-transit buckets e $A$ térmicas com antecipação de despacho.
+A dimensão do estado é $n_{\text{state}} = N(1 + P^{\max}) + B + A \, k_{max}$, com $N = \lvert\mathcal{H}\rvert$ hidrelétricas, $B = \sum_h L_h$ parcelas de água em trânsito e $A$ térmicas com antecipação de despacho.
 
-### 4.3 Variáveis de Folga
+### 4.3 Variáveis de folga
 
 Variáveis de folga das restrições flexíveis:
 
 | Variável                                 | Domínio   | Unidade | Restrição                                                                                                                                        |
 | ---------------------------------------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| $\sigma^{v-}_h$                          | $\geq 0$ | hm³   | Armazenamento abaixo do volume morto de uma hidrelétrica em enchimento, a partir do seu estágio de entrada (o volume morto de todas as demais hidrelétricas em operação é um limite rígido)             |
-| $\sigma^{fill}_h$                        | $\geq 0$ | hm³   | Déficit em relação ao piso de enchimento do estágio                                                                                                                 |
+| $\sigma^{v-}_h$                          | $\geq 0$ | hm³   | Armazenamento abaixo do volume morto de uma hidrelétrica com fase de enchimento, a partir do seu estágio de entrada (o volume morto de todas as demais hidrelétricas em operação é um limite rígido)             |
+| $\sigma^{fill}_h$                        | $\geq 0$ | hm³   | Insuficiência em relação ao piso de enchimento do estágio                                                                                                                 |
 | $\sigma^{q-}_{h,b,k}$                    | $\geq 0$ | m³/s  | Vazão turbinada abaixo do mínimo — uma por célula (hidrelétrica, barramento) $b \in \mathcal{B}_h$ de uma usina dividida                                                    |
 | $\sigma^{Q-}_{h,k}$                      | $\geq 0$ | m³/s  | Vazão turbinada da usina abaixo do mínimo da usina, além do que as folgas das células cobrem (uma usina com várias células cujo mínimo está ativo) |
 | $\sigma^{o-}_{h,k}$                      | $\geq 0$ | m³/s  | Vazão defluente abaixo do mínimo (por usina — não há coluna de vazão defluente por célula à qual atribuir um piso)                                                            |
@@ -384,11 +384,11 @@ Variáveis de folga das restrições flexíveis:
 | $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Retirada de água abaixo/acima da meta $r_h$ (em nível de estágio, não por patamar); precificadas por $c^{wv-}_h$ / $c^{wv+}_h$, respectivamente |
 | $\sigma^{inf}_h$                         | $\geq 0$ | m³/s  | Não negatividade da afluência, em todos os métodos de afluência exceto `none`; seus limites seguem o método                                                            |
 
-## 5. Duais e Coeficientes dos Cortes
+## 5. Duais e coeficientes dos cortes
 
 O dual de uma restrição $\pi$ é o multiplicador de Lagrange de uma linha do PL: a taxa de variação do custo ótimo do estágio por unidade de aumento do lado direito da restrição.
 O coeficiente do corte $\beta$ é um subgradiente da função de valor $V_t$ em relação ao estado de entrada no estado visitado $\hat{x}_{t-1}$; cada componente é igual ao dual do limite que fixa a respectiva coordenada do estado no valor visitado.
-Suas componentes incluem o coeficiente de armazenamento $\beta^v_h$, o coeficiente das defasagens AR $\beta^{lag}_{h,\ell}$ e os coeficientes dos in-transit buckets e dos ring slots de antecipação; com o termo independente armazenado $\beta_0$, eles formam o corte $(\beta_0, \beta)$ da §1.
+Suas componentes incluem o coeficiente de armazenamento $\beta^v_h$, o coeficiente das defasagens AR $\beta^{lag}_{h,\ell}$ e os coeficientes das parcelas de água em trânsito e das posições do anel de despacho antecipado; com o termo independente armazenado $\beta_0$, eles formam o corte $(\beta_0, \beta)$ da §1.
 Convenção de sinais: mais armazenamento de entrada reduz o custo futuro sempre que a água adicional desloca geração térmica ou déficit, de modo que o coeficiente de armazenamento $\beta^v_h$ é não positivo nesses casos, e pode tornar-se positivo quando a água adicional só pode deixar o reservatório a um custo; veja [Gerenciamento de cortes](/pt-br/math/cut-management) para os coeficientes dos cortes, [Formulação do PL](/pt-br/math/lp-formulation) para as restrições e [Aumento do espaço de estados](/pt-br/math/state-augmentation) para a fixação do estado.
 
 | Símbolo           | Restrição                              | Significado                                                 |
@@ -397,7 +397,7 @@ Convenção de sinais: mais armazenamento de entrada reduz o custo futuro sempre
 | $\pi^{wb}_h$     | Balanço hídrico, hidrelétrica $h$ (patamar $k$ em um estágio cronológico, $\pi^{wb}_{h,k}$) | Valor da água                                             |
 | $\pi_m^{fpha}$   | Hiperplano $m$ da FPHA              | Valor marginal do limite de geração imposto pelo plano $m$ |
 
-## Referências Cruzadas
+## Referências cruzadas
 
 - [Formulação do PL](/pt-br/math/lp-formulation) — Subproblema de PL completo usando esta notação
 - [Aumento do espaço de estados](/pt-br/math/state-augmentation) — o vetor de estado, sua fixação, o estado de saída e a mecânica das famílias de estado

@@ -63,8 +63,8 @@ carregado com ele, e fica ativo após uma etapa de seleção exatamente quando
 domina pelo menos um. Com uma janela `lookback_iterations` `w`, um estado carregado
 conta como anterior à primeira iteração da execução, de modo que sai da janela na
 iteração `w` da execução. Um corte carregado que a origem não pontuou mantém o
-indicador de atividade com que foi armazenado. Os contadores de atividade dos cortes carregados (por
-corte, quantas vezes e quando esteve ativo pela última vez, lidos por `max_active_per_stage` e
+indicador de atividade com que foi armazenado. Os contadores de atividade na solução dos cortes carregados (por
+corte, quantas vezes e quando esteve ativo na solução pela última vez, lidos por `max_active_per_stage` e
 `dynamic`) são reiniciados com a execução em uma partida a quente; uma retomada os restaura.
 
 ### Retomada
@@ -102,10 +102,10 @@ execução de treinamento, uma iteração retomada amostra, portanto, o mesmo ru
 que essa iteração em uma execução sem retomada.
 
 A retomada restaura os cortes, cada um na posição do conjunto que ocupava, com seu papel (carregado
-ou gerado), indicador de atividade e contadores de atividade; os estados visitados armazenados; as
+ou gerado), indicador de atividade e contadores de atividade na solução; os estados visitados armazenados; as
 bases do PL por cenário que se ajustam; a contagem de iterações; e o limite inferior de
 cada iteração concluída. Um cenário cuja base o checkpoint não contém
-inicia sua primeira solução a frio. Todo o resto vem da execução atual: o
+inicia sua primeira resolução a frio. Todo o resto vem da execução atual: o
 modelo de afluências e a árvore de aberturas, que ela constrói a partir do caso e do
 `config.json` como uma execução nova faz, a semente, os critérios de parada, seu `check_frequency`, o valor de `max_active_per_stage`
 e `modeling.cost_scale_factor`, e o cronômetro de tempo de relógio lido por `time_limit`,
@@ -121,8 +121,8 @@ treinada até a iteração `n` termina no mesmo estado da execução treinada at
 interrupção. São idênticos bit a bit:
 
 - em todo conjunto, os valores dos cortes, os indicadores de atividade, a iteração e a simulação
-  forward que geraram cada corte, os contadores de atividade, o papel de cada posição,
-  os estados visitados armazenados e o registro de dominância construído a partir deles;
+  forward que geraram cada corte, os contadores de atividade na solução, o papel de cada posição,
+  os estados visitados armazenados e o registro de detentores construído a partir deles;
 - o limite superior final, as contagens do simplex nas simulações forward e backward das
   iterações posteriores ao checkpoint e as contagens de linhas dos conjuntos informadas por essas
   iterações;
@@ -152,7 +152,7 @@ do mesmo checkpoint não lê nenhum desses campos e é carregada.
 | 1 | O número de simulações forward do estudo difere do número com que o checkpoint foi gravado. A disposição das posições e os cenários armazenados seguem esse número. | Defina `training.selection.forward_passes` com o valor armazenado ou continue com `policy.mode = "warm_start"`. |
 | 2 | A execução usa `level1`, o estudo tem um estágio estritamente entre o primeiro e o último, e o checkpoint não contém histórico de estados visitados porque a execução que o gravou não armazenou nenhum (uma execução sem `level1` ou `exports.states`). | Continue com `warm_start` ou treine novamente. |
 | 3 | A execução mantém todos os estados visitados (`lookback_iterations` não definido) e o checkpoint contém uma janela, ou a janela da execução é maior que a do checkpoint. Uma janela armazenada maior que a da execução é admitida; os estados excedentes saem na primeira etapa de seleção. | Defina `lookback_iterations` com no máximo o valor armazenado ou continue com `warm_start`. |
-| 4 | `max_active_per_stage` ou o método `dynamic` lê os contadores de atividade, e o checkpoint não contém nenhum porque a execução que o gravou não configurou nenhum dos dois. | Continue com `warm_start` ou treine novamente. |
+| 4 | `max_active_per_stage` ou o método `dynamic` lê os contadores de atividade na solução, e o checkpoint não contém nenhum porque a execução que o gravou não configurou nenhum dos dois. | Continue com `warm_start` ou treine novamente. |
 | 5 | As bases por cenário do checkpoint não estão completas: ele foi gravado quando uma execução falhou (veja [Uma execução que falhou](#uma-execucao-que-falhou)). | Retome a partir do último checkpoint completo ou continue com `warm_start`. |
 
 Por exemplo, a verificação 2 exibe:
@@ -317,7 +317,7 @@ policy/
                             gravado por último como sinal de conclusão)
   cuts/
     000.bin               -- cortes do conjunto 0: posições, coeficientes, termos independentes,
-                            indicadores de atividade e contadores de atividade, nas
+                            indicadores de atividade e contadores de atividade na solução, nas
                             unidades de custo escalonadas da execução gravadora (cada
                             um descrevendo sua própria escala de custo e identidade no grafo)
     001.bin               -- cortes do conjunto 1
@@ -390,7 +390,7 @@ qualquer conteúdo de cortes, bases ou estados seja analisado (passo 1 da
 `manifest.bin` registra o grafo do estudo, o número de estágios, a versão do
 novomodelo que o produziu e a procedência do produtor (iterações concluídas, valores dos limites inferior e
 superior, simulações forward por iteração, a semente do gerador de números aleatórios e os fatos sobre o
-histórico de estados visitados, os contadores de atividade e a completude das bases que uma retomada
+histórico de estados visitados, os contadores de atividade na solução e a completude das bases que uma retomada
 verifica) — veja
 [Checkpoint da política](/pt-br/reference/output/policy/#policymanifestbin) para a tabela completa,
 campo a campo. Se um checkpoint pode ser carregado no estudo atual é
@@ -508,9 +508,9 @@ a stored basis is used only when its column count equals the LP's, its row count
 A partida a quente e a retomada verificam as bases que o checkpoint contém, a execução somente de simulação
 sempre as verifica, e uma [carga de fronteira](#cortes-de-fronteira) não verifica nenhuma.
 
-Uma base armazenada que se ajusta inicializa uma solução apenas em uma fase que usa aproveitamento de base
+Uma base armazenada que se ajusta inicializa uma resolução apenas em uma fase que usa aproveitamento de base
 ([`use_warm_start`](/pt-br/running/configuration/#campos-do-perfil-do-solver)). Nos
-perfis embutidos do HiGHS, as soluções da simulação começam a frio, de modo que uma
+perfis embutidos do HiGHS, as resoluções da simulação começam a frio, de modo que uma
 execução somente de simulação parte das bases de seu checkpoint apenas com
 `simulation.solver.use_warm_start: true`. Em uma cadeia de estágios, uma execução com partida a quente ou
 retomada parte delas por meio da simulação forward, que aproveita a base por padrão,
@@ -526,7 +526,7 @@ Todo checkpoint contém as bases do PL dos cenários da simulação forward da e
 `policy.checkpointing.store_basis` não tem efeito sobre isso. Qualquer
 alteração que mude o número de colunas do PL de um estágio descarta, portanto, as
 bases armazenadas dos estágios que ela altera: no treinamento, esses nós iniciam sua primeira
-solução a frio e depois reutilizam as bases que capturam, e em uma execução somente de simulação
+resolução a frio e depois reutilizam as bases que capturam, e em uma execução somente de simulação
 são resolvidos sem base armazenada.
 Exemplos são um número diferente de patamares, um conjunto diferente de entidades e um modo de
 patamares diferente em um estágio com usinas hidrelétricas e mais de um patamar.
@@ -594,21 +594,21 @@ diferença fica abaixo da tolerância do solver.
 
 Os cortes de fronteira permitem que um estudo do Novo Modelo carregue aproximações da função de custo futuro
 (FCF) do estágio terminal a partir de outro checkpoint de política do Novo Modelo. Este é o
-mecanismo dos **estudos encadeados**: um estudo a jusante importa um conjunto de cortes da
-política de um estudo a montante como sua condição de fronteira terminal, de modo que suas
-decisões de final de horizonte levem em conta o custo futuro da água do estudo a montante.
-O estudo a jusante pode ter um horizonte mais curto ou estágios mais finos que o
-estudo a montante. Para o método, veja
+mecanismo dos **estudos encadeados**: um estudo posterior importa um conjunto de cortes da
+política de um estudo de origem como sua condição de fronteira terminal, de modo que suas
+decisões de final de horizonte levem em conta o custo futuro da água do estudo de origem.
+O estudo posterior pode ter um horizonte mais curto ou estágios mais finos que o
+estudo de origem. Para o método, veja
 [Fronteira pós-estudo e estudos encadeados §5](/pt-br/math/post-study-boundary#5-estudos-encadeados).
 
 ### Como funciona
 
-1. **Execute o estudo a montante** para produzir um checkpoint de política, ou crie o
+1. **Execute o estudo de origem** para produzir um checkpoint de política, ou crie o
    checkpoint em Python
    ([Ler e gravar checkpoints a partir do Python](#ler-e-gravar-checkpoints-a-partir-do-python)).
-2. **Execute o estudo a jusante** com `policy.boundary` apontando para o
-   checkpoint a montante. O Novo Modelo seleciona o conjunto de origem precificado na
-   **data de fronteira terminal** do estudo a jusante — o `end_date` do último estágio
+2. **Execute o estudo posterior** com `policy.boundary` apontando para o
+   checkpoint de origem. O Novo Modelo seleciona o conjunto de origem precificado na
+   **data de fronteira terminal** do estudo posterior — o `end_date` do último estágio
    não negativo — e injeta seus cortes no conjunto de linhas do estágio terminal como
    condições de fronteira fixas. Não há parâmetro de índice de estágio: o conjunto é escolhido
    comparando essa data com a data de estado precificado de cada conjunto de origem.
@@ -638,7 +638,7 @@ origem com limite removeu) não está em nenhum dos dois conjuntos. Veja
 [Conjunto de cortes da simulação](/pt-br/running/configuration/#conjunto-de-cortes-da-simulacao) para as regras
 das demais linhas carregadas.
 
-A solução preguiçosa (lazy) do método `dynamic` lê apenas linhas ativas. Uma execução `dynamic` que
+A resolução preguiçosa (lazy) do método `dynamic` lê apenas linhas ativas. Uma execução `dynamic` que
 simula com `simulation.cut_set = "all"` é, portanto, recusada quando o
 conjunto de fronteira contém uma linha inativa que `"all"` inclui, isto é, uma linha inativa
 pontuada. A mensagem indica o método e `simulation.cut_set`, o conjunto
@@ -678,13 +678,13 @@ diferente.** O estado terminal da origem é reconciliado com o próprio estado d
 posição a posição, **pela identidade da entidade e pelas datas de posição de cada família** (a
 `reference_date` da defasagem de afluência, o `interval_start`/`interval_end` das famílias com deslocamento à frente),
 e não pela posição: uma origem treinada com um conjunto diferente
-de coordenadas de estado — sem in-transit buckets, ou com slots mensais de antecipação
+de coordenadas de estado — sem parcelas de água em trânsito (in-transit buckets), ou com posições mensais do anel de despacho antecipado (commitment ring slots)
 alimentando um estudo de formato diferente — ainda é injetada, com cada coeficiente da origem
 associado à posição do estudo atual para a mesma entidade. Uma coordenada da origem
 que acopla uma posição de estado que o estudo atual não modela não pode ser transportada; ela
 é informada em um **resumo de reconciliação por família** e descartada, e a carga
 ainda é **bem-sucedida** por padrão. Veja
-[Fronteira pós-estudo e estudos encadeados §4](/pt-br/math/post-study-boundary#4-conciliacao-de-calendarios-distribuicao) para o
+[Fronteira pós-estudo e estudos encadeados §4](/pt-br/math/post-study-boundary#4-reconciliacao-de-calendarios-distribuicao) para o
 mecanismo de reconciliação.
 
 Essa tolerância é o caminho padrão de reconciliação, mas a carga ainda impõe requisitos
@@ -700,7 +700,7 @@ falha interrompe a execução:
    número finito e positivo (veja
    [Canonicalização da escala de custo](#canonicalizacao-da-escala-de-custo)); um conjunto sem
    ele é recusado com `boundary policy checkpoint at {path} predates self-describing cuts (its resolved cuts/<pool>.bin carries no cost_scale_factor); re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again`.
-4. **Origem de nó único.** O conjunto resolvido é um conjunto terminal de nó único, não
+4. **Origem de nó único.** O conjunto resolvido é um conjunto final de nó único, não
    um compartilhado por vários nós do estudo. Um conjunto compartilhado é recusado com
    `boundary policy at {path}: a boundary source must be a single-node terminal pool; the resolved pool is shared by multiple nodes`.
 5. **Profundidade das defasagens de afluência.** Antes de construir o estudo, o Novo Modelo lê a posição de
@@ -790,20 +790,20 @@ Quando ambos são datados e as datas diferem, a carga é rejeitada independentem
 `boundary policy's inflow-lag coefficient for hydro {id} at lag depth {depth} references a different past than the current study: boundary {date}, current {date}`.
 
 **Cobertura e datação das defasagens.** Um conjunto de origem intermediário, qualquer conjunto que não seja o
-conjunto terminal do estudo a montante, contém coeficientes de defasagem de afluência apenas quando a seleção
+conjunto final do estudo de origem, contém coeficientes de defasagem de afluência apenas quando a seleção
 [`stages[].state_variables`](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes)
-do estágio sucessor inclui `inflow_lags`, cujo padrão é `false`. O conjunto terminal
-de um estudo a montante treinado é dimensionado pelo estado completo desse estudo, com todas as
+do estágio sucessor inclui `inflow_lags`, cujo padrão é `false`. O conjunto final
+de um estudo de origem treinado é dimensionado pelo estado completo desse estudo, com todas as
 posições de defasagem de afluência desse estado, qualquer que seja a seleção; o treinamento nunca acrescenta
 corte a ele, de modo que contém apenas os cortes nele carregados, como os próprios
-cortes de fronteira desse estudo. O estado terminal do estudo atual (a jusante) tem posições de
+cortes de fronteira desse estudo. O estado terminal do estudo atual (o estudo posterior) tem posições de
 defasagem de afluência quando seu próprio modelo de afluências é autorregressivo ou quando algum conjunto da
 origem referencia uma defasagem (a extensão do item 5 da lista), e um conjunto de origem que
 não tem coeficiente para alguma dessas posições é rejeitado com a mensagem de
-**Defasagem de afluência ausente**. Um estudo a montante autorregressivo sempre
-dispara essa extensão, porque seu conjunto terminal referencia todas as defasagens de seu
+**Defasagem de afluência ausente**. Um estudo de origem autorregressivo sempre
+dispara essa extensão, porque seu conjunto final referencia todas as defasagens de seu
 estado mesmo quando não contém cortes. Para encadear a partir de um conjunto intermediário, defina
-`inflow_lags: true` no estágio a montante que segue o estágio do conjunto de origem.
+`inflow_lags: true` no estágio do estudo de origem que segue o estágio do conjunto de origem.
 Cada estudo data suas próprias defasagens: a defasagem 1 pela data de início do próprio estágio do conjunto,
 e cada defasagem mais profunda pela data de início de um estágio mais atrás na lista
 completa de estágios desse estudo, incluindo os estágios pré-estudo. O estágio do conjunto de origem e
@@ -842,14 +842,14 @@ campo JSON `configured` é `false`.
 ### Retomada com fronteira
 
 Uma execução que declarou `policy.boundary` treina contra as linhas de fronteira de seu
-conjunto terminal, e seu checkpoint contém essas linhas junto com os contadores de
+conjunto final, e seu checkpoint contém essas linhas junto com os contadores de
 atividade que a execução registrou para elas. Uma retomada dessa execução deve declarar a mesma
 fronteira novamente. O Novo Modelo compara as linhas de fronteira declaradas com as linhas terminais
 do checkpoint: a dimensão do estado, o número de posições e então, posição a posição,
 o papel, o indicador de atividade e os bits exatos do termo independente e de cada
 coeficiente.
 
-- Quando as linhas coincidem, a execução retomada mantém os contadores de atividade que o checkpoint
+- Quando as linhas coincidem, a execução retomada mantém os contadores de atividade na solução que o checkpoint
   contém para elas, de modo que `max_active_per_stage` ou o método `dynamic` continua como
   na execução interrompida.
 - Quando alguma linha difere, a retomada é recusada:
@@ -865,7 +865,7 @@ ocorre quando o fator do arquivo de fronteira também difere do da execução
 interrompida: as linhas do checkpoint são então convertidas duas vezes e as linhas de fronteira uma vez.
 Caso contrário, a retomada aplica sua própria escala. Uma partida a quente e uma carga somente de simulação
 não fazem a comparação: uma partida a quente com uma nova fronteira é aceita e
-reinicia os contadores de atividade das linhas carregadas.
+reinicia os contadores de atividade na solução das linhas carregadas.
 
 ### Fluxo de acoplamento em produção
 
@@ -874,18 +874,18 @@ Um encadeamento de estudos usa cortes de fronteira da seguinte forma:
 ```d2
 direction: down
 
-upstream: "Estudo a montante\ncheckpoint da política: conjuntos de cortes precificados por data" {shape: rectangle}
-downstream: "Estudo a jusante (encadeado)" {shape: rectangle}
+upstream: "Estudo de origem\ncheckpoint da política: conjuntos de cortes precificados por data" {shape: rectangle}
+downstream: "Estudo posterior (encadeado)" {shape: rectangle}
 
-upstream -> downstream: "policy.boundary.path = ../upstream_study/output/policy\nconjunto de origem precificado na data terminal do estudo a jusante → FCF terminal"
+upstream -> downstream: "policy.boundary.path = ../upstream_study/output/policy\nconjunto de origem precificado na data terminal do estudo posterior → FCF terminal"
 ```
 
-O estudo a montante grava um checkpoint de política cujos conjuntos de cortes são, cada um, precificados em
-uma data. O estudo a jusante indica esse checkpoint em `policy.boundary.path`,
-e o conjunto precificado na data de fronteira terminal do estudo a jusante torna-se sua
-função de custo futuro terminal. A dependência é unidirecional: o estudo a montante
-nunca lê o estudo a jusante. As condições sob as quais os cortes importados
-se aplicam ao estado do estudo a jusante estão em
+O estudo de origem grava um checkpoint de política cujos conjuntos de cortes são, cada um, precificados em
+uma data. O estudo posterior indica esse checkpoint em `policy.boundary.path`,
+e o conjunto precificado na data de fronteira terminal do estudo posterior torna-se sua
+função de custo futuro terminal. A dependência é unidirecional: o estudo de origem
+nunca lê o estudo posterior. As condições sob as quais os cortes importados
+se aplicam ao estado do estudo posterior estão em
 [Fronteira pós-estudo e estudos encadeados §5.2](/pt-br/math/post-study-boundary#52-condicoes-de-compatibilidade).
 
 ### Interação com a partida a quente
@@ -904,8 +904,8 @@ Cortes de fronteira e partida a quente são recursos independentes e podem ser c
 }
 ```
 
-Isso carrega os próprios cortes do estudo a jusante, de sua execução anterior, via
-partida a quente E carrega os cortes de fronteira da política a montante no estágio terminal.
+Isso carrega os próprios cortes do estudo posterior, de sua execução anterior, via
+partida a quente E carrega os cortes de fronteira da política de origem no estágio terminal.
 Ambos os conjuntos de cortes contribuem para o limite inferior.
 
 ---
@@ -959,7 +959,7 @@ Cada entrada de `cuts` contém `slot_index` (a identidade do corte no conjunto),
 `iteration`, `forward_pass_index`, `intercept`, `coefficients`, `is_active` e
 `scored` (se a execução gravadora armazenou o estado visitado em que o corte foi
 calculado), além de `active_count` e `last_active_iteration` quando o checkpoint contém
-contadores de atividade. Na gravação, `scored` tem padrão `False` e os dois contadores, padrão
+contadores de atividade na solução. Na gravação, `scored` tem padrão `False` e os dois contadores, padrão
 ausente.
 
 `entity_manifest` é uma lista de marcadores por posição,

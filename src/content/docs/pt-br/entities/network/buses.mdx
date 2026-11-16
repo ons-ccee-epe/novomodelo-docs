@@ -8,7 +8,6 @@ import WhyCards from '../../../../../components/entity/WhyCards.astro';
 import DecisionChips from '../../../../../components/entity/DecisionChips.astro';
 import DeepLinks from '../../../../../components/entity/DeepLinks.astro';
 import FileList from '../../../../../components/entity/FileList.astro';
-import Bus from '../../../../../components/entity/illustrations/Bus.astro';
 
 <EntityHero family="network" icon="bus" lead="Um barramento é um nó da rede no qual o balanço de energia deve ser mantido. A granularidade é definida pelo usuário: um grande subsistema regional, uma única subestação ou qualquer nível intermediário." />
 
@@ -22,7 +21,43 @@ import Bus from '../../../../../components/entity/illustrations/Bus.astro';
 
 ## O balanço em um barramento
 
-<Bus lang="pt-BR" />
+<div role="img" aria-label="Um barramento em balanço. O que entra: geração das hidrelétricas, termelétricas e fontes não despacháveis, importação por contratos, chegada pelas linhas e o déficit, que completa o que falta. O que sai: a carga, a exportação por contratos, a saída pelas linhas, o consumo das usinas elevatórias e o excesso de geração. O custo marginal de operação (CMO) é o custo de atender um MWh adicional de demanda no barramento.">
+
+```d2 title="Um barramento em balanço. O que entra: geração das hidrelétricas, termelétricas e fontes não despacháveis, importação por contratos, chegada pelas linhas e o déficit, que completa o que falta. O que sai: a carga, a exportação por contratos, a saída pelas linhas, o consumo das usinas elevatórias e o excesso de geração. O custo marginal de operação (CMO) é o custo de atender um MWh adicional de demanda no barramento."
+...@../../../../../figures/semantic-classes
+direction: down
+bus: "Barramento"
+cmo: "CMO: o custo de atender 1\nMWh adicional de demanda\nneste barramento (R\$/MWh)"
+in_side: "Entra" {
+  grid-columns: 1
+  gen: "Geração (UHE,\nUTE, fontes não\ndespacháveis)"
+  imp: "Importação\n(contratos)"
+  arr: "Chegada pelas\nlinhas"
+  def: "Déficit:\ncompleta o que\nfalta" {class: deficit}
+}
+out_side: "Sai" {
+  grid-columns: 1
+  load: "Carga"
+  exp: "Exportação\n(contratos)"
+  leave: "Saída pelas\nlinhas"
+  pump: "Consumo das\nusinas\nelevatórias"
+  excess: "Excesso de\ngeração"
+}
+in_side.gen -> bus
+in_side.imp -> bus
+in_side.arr -> bus
+in_side.def -> bus
+bus -> out_side.load
+bus -> out_side.exp
+bus -> out_side.leave
+bus -> out_side.pump
+bus -> out_side.excess
+bus -- cmo
+```
+
+</div>
+
+Figura: o balanço de carga de um barramento. Ilustração esquemática, sem escala.
 
 ## O que o modelo decide
 
@@ -36,13 +71,13 @@ import Bus from '../../../../../components/entity/illustrations/Bus.astro';
 - Um identificador e um nome para o barramento.
 - O `bus_id` de cada entidade que se conecta a ele: usinas hidrelétricas, usinas termelétricas, fontes não despacháveis, usinas elevatórias, contratos de energia e as duas pontas de cada linha.
 - Opcionalmente, os segmentos de déficit deste barramento, que substituem o padrão do caso. Eles não podem variar por estágio.
-- A carga do barramento, fornecida como dado de cenário (veja a página [Carga](/pt-br/entities/network/load/)).
+- A carga do barramento, fornecida como dado de cenário (veja a página [Carga](/pt-br/entities/consumption/load/)).
 
 ## Subsistemas, barramento único e múltiplos barramentos
 
 - **Subsistema.** Na rede brasileira, um subsistema é uma região da rede interligada (SE/CO, S, NE, N). Estudos de despacho reais frequentemente modelam os barramentos nessa escala, mas decomposições mais finas são igualmente válidas.
 - **Barramento único (copper-plate).** Toda a geração e toda a carga ficam em um só nó: sem limites de fluxo, sem perdas de transmissão e sem diferenciação locacional de preços. É o ponto de partida adequado para isolar a economia do despacho dos efeitos da rede.
-- **Múltiplos barramentos.** Os barramentos são conectados por linhas. Quando a capacidade de uma linha se esgota, cada barramento resolve o seu próprio preço marginal, e o despacho em um barramento não substitui livremente a falta em outro.
+- **Múltiplos barramentos.** Os barramentos são conectados por linhas. Quando a capacidade de uma linha fica ativa, cada barramento resolve o seu próprio preço marginal, e o despacho em um barramento não substitui livremente a falta em outro.
 
 ## Aprofundar
 

@@ -26,6 +26,8 @@ compares the supported and reserved modes as a reference. The per-transition
 discount factor is defined in [Discount Rate Formulation](/math/discount-rate);
 its role in cycle convergence is set out in section 3.
 
+For the entity view of this chapter, see [Horizon, stages and load blocks](/entities/time-structure/).
+
 ## 1. Finite (Acyclic) Mode
 
 **Idea.** The stage graph is a linear chain: stage 1 leads to stage 2, which

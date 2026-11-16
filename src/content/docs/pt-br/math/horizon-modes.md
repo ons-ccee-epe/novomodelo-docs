@@ -7,7 +7,7 @@ description: Topologias finita (acíclica) e cíclica (periódica infinita) do g
 
 O **modo de horizonte** é a topologia global do grafo da política (policy graph) de uma
 execução do Novo Modelo. Ele determina se o grafo de estágios é uma cadeia acíclica com uma
-condição terminal conhecida ou um ciclo cujas funções de valor precisam se estabilizar ao longo de
+condição final conhecida ou um ciclo cujas funções de valor precisam se estabilizar ao longo de
 percursos repetidos. Como a topologia se aplica uniformemente a todos os estágios, um
 único modo rege toda a execução; a escolha é declarada na configuração do
 caso por meio do campo de tipo do grafo da política.
@@ -26,12 +26,14 @@ compara os modos suportado e reservado, como referência. O fator de desconto
 por transição é definido em [Formulação da taxa de desconto](/pt-br/math/discount-rate);
 seu papel na convergência do ciclo é exposto na seção 3.
 
-## 1. Modo Finito (Acíclico)
+Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamares](/pt-br/entities/time-structure/).
+
+## 1. Modo finito (acíclico)
 
 **Ideia.** O grafo de estágios é uma cadeia linear: o estágio 1 leva ao estágio 2, que
 leva ao estágio 3, e assim por diante até o estágio T. A cadeia tem um fim definido. A
 função de valor terminal é nula, a menos que uma função terminal fixa seja importada
-de uma política de montante (ver
+de uma política de origem (ver
 [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)); com
 valor terminal nulo, nenhuma água remanescente nos reservatórios no estágio T+1 tem valor
 no modelo.
@@ -47,17 +49,17 @@ conjuntos independentes em um estudo de T estágios.
 número de estágios T é o comprimento da cadeia.
 
 **Compromisso.** O modo finito é adequado quando o estudo tem horizonte limitado
-e o modelador pode aceitar a condição terminal. Para horizontes de planejamento
+e o modelador pode aceitar a condição final. Para horizontes de planejamento
 de curto e médio prazo, o efeito de fim da cadeia é uma hipótese de modelagem
 administrável, e a simplicidade do percurso acíclico torna o algoritmo
 fácil de interpretar e depurar. A limitação é que o armazenamento dos reservatórios
-próximo ao estágio terminal é sistematicamente subvalorizado: a condição terminal
+próximo ao estágio terminal é sistematicamente subvalorizado: a condição final
 nula incentiva o otimizador a esvaziar os reservatórios antes do
 estágio T, produzindo um artefato conhecido como efeito de fim de mundo. Quando esse
 artefato distorceria a política, uma função terminal importada é o
 remédio suportado, e o projeto cíclico reservado (seção 2), o outro.
 
-## 2. Modo Cíclico (Periódico Infinito)
+## 2. Modo cíclico (periódico infinito)
 
 :::caution[Situação: Projeto Reservado]
 O Novo Modelo suporta apenas o modo finito da seção 1. Um grafo da política cíclico é um
@@ -89,7 +91,7 @@ a mecânica de conversão).
 
 **Compromisso.** O modo cíclico elimina o efeito de fim de mundo ao representar
 o problema de planejamento como uma operação contínua, que se repete perpetuamente. É a
-escolha natural para estudos de planejamento de longo prazo em que uma condição terminal finita
+escolha natural para estudos de planejamento de longo prazo em que uma condição final finita
 produziria políticas enganosas próximo ao final do horizonte. O custo é complexidade
 adicional: o modelador precisa fornecer uma taxa de desconto, o algoritmo precisa verificar a
 convergência do ciclo, e a simulação forward exige uma lógica de término explícita,
@@ -97,7 +99,7 @@ em vez de um ponto final natural da cadeia. A seção 3 formaliza o requisito de
 convergência; a seção 4 descreve as regras de término da simulação forward previstas pelo
 projeto reservado.
 
-## 3. Modo Cíclico — Detalhamento Matemático
+## 3. Modo cíclico — Detalhamento matemático
 
 Esta seção apresenta a estrutura formal que a seção 2 resumiu em texto:
 a função de período sazonal, a hipótese de estacionariedade, a desigualdade de convergência
@@ -105,7 +107,7 @@ do ciclo, o conjunto de cortes indexado por período sazonal com sua equação d
 interpretação de Bellman como ponto fixo e o critério de convergência que o
 algoritmo verifica entre iterações consecutivas.
 
-### Função de Período Sazonal
+### Função de período sazonal
 
 Para um ciclo de $M$ estágios (por exemplo, doze estágios mensais formando
 um ano civil), o **período sazonal** do estágio $t$ é sua posição dentro de um
@@ -117,7 +119,7 @@ $$
 
 O ciclo é a unidade que se repete; o período sazonal é a posição dentro dele.
 
-### Hipótese de Estacionariedade
+### Hipótese de estacionariedade
 
 Seja $\mathcal{C}_\tau = \{\,t : \tau(t) = \tau\,\}$ o conjunto de todos os
 estágios que ocupam o período sazonal $\tau$. O projeto cíclico se apoia em uma hipótese:
@@ -129,7 +131,7 @@ $\mathcal{C}_\tau$, composto pelo próprio estágio e pela cauda infinita que o 
 corte gerado em um estágio de $\mathcal{C}_\tau$ válido em todo estágio de
 $\mathcal{C}_\tau$, e o que permite que $M$ conjuntos representem o horizonte infinito.
 
-### Desigualdade de Convergência do Ciclo
+### Desigualdade de convergência do ciclo
 
 Para que a função de valor permaneça finita ao longo de infinitas repetições, o
 desconto acumulado ao longo de um ciclo completo deve ser estritamente menor que um:
@@ -149,7 +151,7 @@ exige essa desigualdade de todo grafo cíclico. Ver
 [Formulação da taxa de desconto](/pt-br/math/discount-rate) para a conversão da
 taxa anual nos fatores por transição.
 
-### Conjunto de Cortes Indexado por Período Sazonal
+### Conjunto de cortes indexado por período sazonal
 
 Pela hipótese de estacionariedade, um corte gerado em qualquer estágio de
 $\mathcal{C}_\tau$ é válido para todo estágio de $\mathcal{C}_\tau$, de modo que o
@@ -165,7 +167,7 @@ infinito. A diferença de organização dos conjuntos entre os modos finito e c�
 reduz-se a: $T$ conjuntos indexados por estágio absoluto contra $M$ conjuntos indexados por
 período sazonal.
 
-### Operador de Bellman de Ponto Fixo
+### Operador de Bellman de ponto fixo
 
 As funções de valor cíclicas satisfazem a recursão de Bellman sazonal
 
@@ -212,7 +214,7 @@ funções de valor dos demais períodos sazonais. A PDDE (SDDP) cíclica calcula
 fixo; a política está convergida quando a função de valor de cada período sazonal é
 estável entre iterações consecutivas.
 
-### Critério de Convergência do Ciclo
+### Critério de convergência do ciclo
 
 A aproximação externa convergiu no modo cíclico quando os limites inferiores
 de todos os períodos sazonais se estabilizam entre iterações consecutivas:
@@ -227,7 +229,7 @@ onde $\underline{z}^{\,k,\tau}$ é o limite inferior no período sazonal $\tau$ 
 iteração $k$, e a tolerância $\delta_{\text{cycle}}$ é um parâmetro de
 parada do projeto reservado.
 
-## 4. Término da Simulação Forward no Modo Cíclico
+## 4. Término da simulação forward no modo cíclico
 
 No modo finito, a simulação forward termina ao atingir o estágio terminal; nenhum
 critério de parada explícito é necessário. O projeto cíclico reservado (seções 2–3)
@@ -253,7 +255,7 @@ primeiro. A mecânica de desconto subjacente à condição de desconto acumulado
 a fórmula que relaciona a taxa anual ao fator por transição e o
 produto corrente — é descrita em [Formulação da taxa de desconto](/pt-br/math/discount-rate).
 
-## 5. Escolha entre os Modos
+## 5. Escolha entre os modos
 
 A comparação abaixo é uma referência para a decisão de modelagem entre o modo
 finito suportado (seção 1) e o projeto cíclico reservado (seções 2–4).
@@ -261,7 +263,7 @@ finito suportado (seção 1) e o projeto cíclico reservado (seções 2–4).
 **Escolha o modo finito quando:**
 
 - O estudo tem uma data final bem definida e o modelador pode aceitar uma condição
-  terminal nula (ou complementá-la com cortes de fronteira importados — ver
+  final nula (ou complementá-la com cortes de fronteira importados — ver
   [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary)).
 - O horizonte de planejamento é curto o suficiente para que o efeito de fim de mundo seja
   desprezível ou aceitável.
@@ -273,7 +275,7 @@ finito suportado (seção 1) e o projeto cíclico reservado (seções 2–4).
 
 - O estudo representa uma operação contínua — planejamento de reservatórios de longo prazo,
   despacho plurianual, operação perpétua do sistema — em que impor uma condição
-  terminal produziria políticas sistematicamente distorcidas próximo ao final do horizonte.
+  final produziria políticas sistematicamente distorcidas próximo ao final do horizonte.
 - O modelador dispõe de uma taxa de desconto anual significativa, que reflita o valor
   do dinheiro no tempo para os custos futuros.
 - A compressão do conjunto de cortes oferecida pelos conjuntos indexados por período sazonal é desejável:
@@ -285,7 +287,7 @@ finito suportado (seção 1) e o projeto cíclico reservado (seções 2–4).
 
 | Propriedade                 | Finito (suportado)              | Cíclico (reservado)                 |
 | --------------------------- | ------------------------------- | ----------------------------------- |
-| Condição terminal           | V em T+1 = 0 (ou cortes importados) | Nenhuma; autoconsistente entre ciclos |
+| Condição final           | V em T+1 = 0 (ou cortes importados) | Nenhuma; autoconsistente entre ciclos |
 | Efeito de fim de mundo      | Presente próximo ao estágio terminal | Ausente                        |
 | Conjuntos de cortes         | T conjuntos, um por estágio     | M conjuntos, um por período sazonal         |
 | Exigência de taxa de desconto | Nenhuma                       | Obrigatória; deve resultar em ciclo < 1 |
@@ -309,7 +311,7 @@ este artigo; a hipótese de estacionariedade e a contração do
 encadeamento de operadores constituem o argumento padrão de programação dinâmica
 periódica com desconto.
 
-## Referências Cruzadas
+## Referências cruzadas
 
 - [Formulação da taxa de desconto](/pt-br/math/discount-rate) — Conversão da taxa anual em fator,
   mecânica de desconto por transição e desconto acumulado.
@@ -319,6 +321,6 @@ periódica com desconto.
   parametriza; topologias do grafo da política finita (suportada) e cíclica (reservada);
   mecanismo de cortes de fronteira terminal.
 - [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) — A
-  função terminal que um estudo finito pode importar de uma política de montante.
+  função terminal que um estudo finito pode importar de uma política de origem.
 - [Critérios de parada](/pt-br/math/stopping-rules) — Os critérios de parada que encerram o
   treinamento (training) no modo finito.

@@ -20,7 +20,7 @@ com tempo de viagem declarado e observações recentes no início do estudo.
 | ------------------------------ | ----- | ----------- | ------ | -------- | --------- |
 | `storage`                      | array | Sim         | —      | —        | Array de entradas `{ "hydro_id": integer, "value_hm3": number }` para UHEs sem configuração `filling` |
 | `filling_storage`              | array | Sim         | —      | —        | Array de entradas `{ "hydro_id": integer, "value_hm3": number }` para UHEs com configuração `filling` |
-| `past_defluences`              | array | Não         | —      | —        | Array de registros de defluência anteriores ao estudo, em janelas, que inicializam os in-transit buckets de um arco com tempo de viagem declarado (veja abaixo) |
+| `past_defluences`              | array | Não         | —      | —        | Array de registros de defluência anteriores ao estudo, em janelas, que inicializam as parcelas de água em trânsito (in-transit buckets) de um arco com tempo de viagem declarado (veja abaixo) |
 | `recent_observations`          | array | Não         | —      | —        | Array de entradas de vazão afluente observada para estudos que começam no meio de um período sazonal (veja abaixo) |
 | `past_anticipated_commitments` | array | Não         | —      | —        | Array de registros, em janelas, de MW comprometidos das termelétricas com antecipação — as decisões da usina anteriores ao estudo, com entrega dentro do estudo ou além do horizonte (veja abaixo) |
 
@@ -59,8 +59,8 @@ registro em janelas de `scenarios/inflow_history.parquet`, sobreposto dia a dia 
 `recent_observations` onde os dois coincidem.
 
 **`past_defluences`** fornece as defluências anteriores ao estudo já em trânsito em um
-arco com tempo de viagem declarado (`hydros[].travel_time_hours`), de modo que os
-buckets de chegada defasada dos primeiros estágios sejam inicializados em vez de vazios. Cada entrada informa uma
+arco com tempo de viagem declarado (`hydros[].travel_time_hours`), de modo que as
+parcelas de água em trânsito de chegada defasada dos primeiros estágios sejam inicializadas em vez de vazias. Cada entrada informa uma
 janela de defluência e sua vazão média para uma usina de montante cuja vazão defluente alimenta um
 arco a jusante:
 
@@ -103,7 +103,7 @@ se destaque. Opcional; o padrão é um array vazio quando ausente.
 **`past_anticipated_commitments`** fornece a potência comprometida em MW, decidida externamente,
 de uma termelétrica com antecipação de despacho — toda entrega que a usina **decidiu
 antes do início do estudo**, seja ela concretizada dentro do horizonte
-(inicializando seu ring slot no primeiro estágio) ou além dele (um compromisso decidido
+(inicializando sua posição do anel de despacho antecipado (commitment ring slot) no primeiro estágio) ou além dele (um compromisso decidido
 antes do estudo e entregue além do horizonte; para o termo equivalente em
 outras ferramentas de planejamento, veja o [Glossário](/pt-br/reference/glossary)). Cada entrada é uma
 janela datada com potência constante:

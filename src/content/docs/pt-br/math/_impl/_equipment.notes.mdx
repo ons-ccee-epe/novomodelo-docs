@@ -16,8 +16,8 @@ Um contrato de energia contribui com exatamente uma coluna do PL por patamar e p
 sentido e **não possui variável de estado** — não faz parte da recursão de Bellman
 e não contribui com nenhum termo para os cortes de Benders ([Formulações específicas por equipamento §3](/pt-br/math/equipment-formulations#3-contratos-de-importacaoexportacao)). Essa é
 uma diferença estrutural em relação às usinas hidrelétricas e às termelétricas com
-antecipação de despacho, cujas variáveis de estado de armazenamento e do commitment
-ring contribuem com um termo nos cortes. Um `min_mw` não nulo nos estágios
+antecipação de despacho, cujas variáveis de estado de armazenamento e do anel de despacho antecipado
+(commitment ring) contribuem com um termo nos cortes. Um `min_mw` não nulo nos estágios
 ativos de um contrato é um piso rígido do tipo take-or-pay: o PL deve despachar ao
 menos essa quantidade ao preço do contrato, independentemente de alternativas mais
 baratas em outros pontos do sistema. Todo o custo de contratos — o custo de
@@ -42,7 +42,7 @@ Todos os demais tipos de equipamento deste capítulo não têm memória: seu des
 estágio `t` depende apenas dos limites e do preço do próprio estágio. Uma
 termelétrica com antecipação de despacho (`anticipated_config`) é a única exceção —
 seu compromisso de despacho, decidido em um estágio anterior ou antes do estudo, é
-mantido como estado do commitment ring até o seu estágio de entrega, no qual a
+mantido como estado do anel de despacho antecipado até o seu estágio de entrega, no qual a
 geração da usina deve cumpri-lo ([Visão geral da modelagem dos elementos do sistema §4](/pt-br/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho)). A
 expressão de restrição genérica `anticipated_decision(N)` permite ao autor do caso
 impor diretamente um teto ou um piso a esse compromisso antecipado; referenciar com
@@ -51,12 +51,12 @@ referenciar a geração por patamar de uma termelétrica com antecipação com
 `thermal_generation(N)` é aceito, mas sinalizado, pois não lê o compromisso
 antecipado.
 
-### Compromisso excessivo é rejeitado na carga do caso, não conciliado a cada resolução
+### Compromisso excessivo é rejeitado na carga do caso, não reconciliado a cada resolução
 
-O valor antecipado de um compromisso entregue é mantido como estado do commitment
-ring; assim, no seu estágio de entrega, a linha de saída do ring ([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#linhas-do-ring)) lê o valor calculado pelo
+O valor antecipado de um compromisso entregue é mantido como estado do anel de despacho
+antecipado; assim, no seu estágio de entrega, a linha de saída do ring ([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#linhas-do-ring)) lê o valor calculado pelo
 solver — exato apenas até a tolerância de viabilidade do backend de PL, não
-exatamente. O Novo Modelo **não** executa nenhuma etapa de conciliação a cada
+exatamente. O Novo Modelo **não** executa nenhuma etapa de reconciliação a cada
 resolução. Em vez disso, o estado de saída é **canonicalizado sobre seus limites
 admissíveis quando é lido de volta** de cada resolução, e essa projeção é a
 identidade para um valor já dentro dos limites: um compromisso que se acomoda uma
@@ -81,8 +81,8 @@ viola — e não um PL inviável sem explicação surgindo no meio da resoluçã
 O indicador `allow_curtailment: false` fixa a coluna de geração de uma NCS na
 disponibilidade realizada em todo cenário — uma igualdade de limites, e não apenas
 um limite superior. Ele existe especificamente para montantes agregados de geração
-não simulada (PCHs, biomassa, geração distribuída) que um modelo de origem a
-montante já abateu da carga antes de o PL de despacho ser executado: deixar um
+não simulada (PCHs, biomassa, geração distribuída) que um modelo de origem já
+abateu da carga antes de o PL de despacho ser executado: deixar um
 agregado desse tipo sujeito a corte permite que o PL "corte" energia que nunca
 esteve disponível separadamente para ser cortada, barateando silenciosamente o
 despacho hidrotérmico em relação ao modelo de referência que se pretende

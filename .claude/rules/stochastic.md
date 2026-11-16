@@ -9,7 +9,8 @@ paths:
   - "src/content/docs/**/reference/python-api.mdx"
   - "src/content/docs/**/reference/case-format/scenarios.mdx"
   - "src/content/docs/**/reference/output/stochastic.mdx"
-  - "src/content/docs/**/entities/hydrology/*"
+  - "src/content/docs/**/entities/inflows/*"
+  - "src/content/docs/**/entities/time-structure.mdx"
 ---
 
 # Spec Patterns — Stochastic Sampling, Correlation & Opening Trees

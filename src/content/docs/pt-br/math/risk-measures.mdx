@@ -24,6 +24,8 @@ Para as convenções de notação (conjuntos de índices, parâmetros, variávei
 
 :::
 
+Para a visão por entidade deste capítulo, veja [Aversão a risco (CVaR)](/pt-br/entities/risk-aversion/).
+
 ## 1 Motivação
 
 A PDDE neutra ao risco minimiza o custo esperado, o que pode levar a políticas com desempenho ruim em cenários adversos. A **PDDE avessa ao risco** incorpora uma medida de risco coerente (tipicamente o CVaR) para proteger contra riscos de cauda, preservando as propriedades de convexidade necessárias para a geração de cortes válidos.
@@ -32,7 +34,7 @@ A PDDE neutra ao risco minimiza o custo esperado, o que pode levar a políticas 
 
 _Distribuição de custo $f(Z)$ para uma lei Gama assimétrica à direita, com $\mathbb{E}[Z]$, $\mathrm{VaR}_\alpha$ e $\mathrm{CVaR}_\alpha$ marcados e a cauda $\alpha$ dos piores resultados sombreada. A medida por combinação convexa $\rho^{\lambda,\alpha}[Z] = (1-\lambda)\,\mathbb{E}[Z] + \lambda\,\mathrm{CVaR}_\alpha[Z]$ interpola entre a média neutra ao risco e a cauda. Os três marcadores são obtidos numericamente a partir da função densidade de probabilidade._
 
-## 2 Valor em Risco Condicional (CVaR)
+## 2 Valor em risco condicional (CVaR)
 
 Para uma variável aleatória $Z$ que representa custo e uma fração de cauda $\alpha \in (0, 1]$:
 
@@ -51,7 +53,7 @@ em que $(Z - \eta)^+ = \max(0, Z - \eta)$ representa o excesso de custo acima do
 | 0.2      | Avessa ao risco        | Média dos 20% piores resultados |
 | 0.05     | Altamente avessa ao risco | Média dos 5% piores resultados |
 
-## 3 Medida de Risco por Combinação Convexa
+## 3 Medida de risco por combinação convexa
 
 O Novo Modelo usa uma combinação convexa do valor esperado e do CVaR, com a estrutura da medida EAVaR do SDDP.jl ([Dowson & Kapelevich, 2021](/pt-br/reference/bibliography/#referencias-de-software)), em que $\lambda$ pondera o termo do CVaR:
 
@@ -66,7 +68,7 @@ em que:
 
 Essa medida é às vezes chamada de **EAVaR** (Expectation + Average Value-at-Risk — valor esperado mais valor em risco médio).
 
-## 4 Representação Dual das Medidas de Risco Convexas
+## 4 Representação dual das medidas de risco convexas
 
 As medidas de risco convexas têm uma **representação dual** essencial para o cálculo dos cortes avessos ao risco:
 
@@ -82,7 +84,7 @@ em que:
 
 **Interpretação**: a representação dual calcula o valor esperado em relação ao **pior** vetor de probabilidades $\mu$ dentro do conjunto $\mathcal{M}$, descontado um termo de penalidade $\psi(p, \mu)$.
 
-### 4.1 Representação Dual do CVaR
+### 4.1 Representação dual do CVaR
 
 Para o CVaR$_\alpha$, a representação dual é:
 
@@ -100,7 +102,7 @@ A penalidade é $\psi(p, \mu) = 0$ para o CVaR (sem termo de penalidade).
 
 **Interpretação**: o CVaR atribui mais peso de probabilidade aos piores resultados, com cada cenário recebendo no máximo $p_\omega / \alpha$ de massa de probabilidade. Para $\alpha$ pequeno, apenas os piores cenários recebem peso significativo.
 
-### 4.2 Representação Dual do EAVaR
+### 4.2 Representação dual do EAVaR
 
 Para a combinação convexa $\rho^{\lambda, \alpha}[Z] = (1-\lambda)\mathbb{E}[Z] + \lambda \cdot \text{CVaR}_\alpha[Z]$:
 
@@ -110,7 +112,7 @@ $$
 
 De forma equivalente, $\mathcal{M}^{EAVaR}(p)$ é o conjunto dos $\mu = (1-\lambda)\, p + \lambda\, q$ com $q \in \mathcal{M}_\alpha(p)$: o valor esperado contribui com a parcela fixa $(1-\lambda)\, p$, e o termo do CVaR com a parcela $\lambda\, q$.
 
-## 5 Teorema do Subgradiente Avesso ao Risco
+## 5 Teorema do subgradiente avesso ao risco
 
 O teorema-chave para o cálculo dos cortes avessos ao risco:
 
@@ -136,7 +138,7 @@ $$
 
 em que $\mu^*$ é o vetor de probabilidades dual ótimo, calculado a partir dos custos dos cenários $\{Q_t(\hat{x}, \omega)\}_{\omega \in \Omega_t}$.
 
-## 6 Equação de Bellman Avessa ao Risco
+## 6 Equação de Bellman avessa ao risco
 
 A função de valor avessa ao risco com fator de desconto $d$ satisfaz, para $t = 2, \ldots, T$:
 
@@ -157,7 +159,7 @@ A medida de risco é aplicada estágio a estágio (formulação aninhada), e nã
 
 No subproblema de PL do estágio $t$, a variável de custo futuro $\theta$ aparece na função objetivo como $d_{t \to t+1} \cdot \theta$ (ver [Formulação da taxa de desconto §4](/pt-br/math/discount-rate#4-fator-de-desconto-no-subproblema-do-estagio)). Os cortes limitam $\theta$ (e não $d \cdot \theta$), de modo que o fator de desconto multiplica $\theta$ apenas na função objetivo — exatamente como no caso neutro ao risco.
 
-## 7 Geração de Cortes com Medidas de Risco
+## 7 Geração de cortes com medidas de risco
 
 Para cada estado visitado $\hat{x}_{t-1}$, calcula-se o corte avesso ao risco da seguinte forma:
 
@@ -230,7 +232,7 @@ $$
 A única diferença em relação a [Gerenciamento de cortes §3](/pt-br/math/cut-management) é que as probabilidades dos cenários $p(\omega)$ são substituídas pelos pesos ajustados ao risco $\mu^*_\omega$.
 :::
 
-## 8 Limite Superior com Medidas de Risco
+## 8 Limite superior com medidas de risco
 
 A simulação de Monte Carlo não consegue estimar diretamente o limite superior em problemas com CVaR porque:
 
@@ -241,11 +243,11 @@ O limite superior determinístico exato e o critério de parada `gap`, que o com
 
 Sob uma simulação forward amostrada, o Novo Modelo não calcula limite superior exato. Sob uma simulação forward enumerada com medida variável por estágio, reporta o custo exato dos caminhos ponderado pelas probabilidades, que não é um limite superior do objetivo avesso ao risco. A aproximação interna do apêndice de [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) é um projeto reservado.
 
-## 9 Validade do Limite Inferior com Medidas de Risco
+## 9 Validade do limite inferior com medidas de risco
 
-Sob uma medida de estágio coerente, que é monótona e convexa, como a $\rho^{\lambda, \alpha}$ da §3, todo corte agregado fica abaixo da função de custo futuro aninhada ajustada ao risco $V_t(x_{t-1})$ da §6. Pelo teorema da §5, o corte da §7 é um hiperplano suporte, no seu estado visitado, da medida do estágio $t-1$ aplicada aos custos das aberturas do estágio $t$, que é convexa no estado inicial. Esses custos das aberturas incorporam os cortes atuais no lugar da função de custo futuro do estágio seguinte, e esses cortes ficam abaixo dela por indução a partir do último estágio, de modo que a monotonicidade da medida mantém o novo corte abaixo de $V_t(x_{t-1})$ em todo estado inicial. O limite inferior do treinamento (training) $\underline{z}^k$, a medida do primeiro estágio aplicada aos objetivos das suas aberturas com esses cortes, é, portanto, um limite inferior válido do valor ótimo aninhado ajustado ao risco do modelo tal como treinado, quer a medida varie ou não entre estágios, e não decresce em $k$, já que o problema sobre o qual é avaliado mantém todo corte uma vez acrescentado.
+Sob uma medida de estágio coerente, que é monótona e convexa, como a $\rho^{\lambda, \alpha}$ da §3, todo corte agregado fica abaixo da função de custo futuro aninhada ajustada ao risco $V_t(x_{t-1})$ da §6. Pelo teorema da §5, o corte da §7 é um hiperplano suporte, no seu estado visitado, da medida do estágio $t-1$ aplicada aos custos das aberturas do estágio $t$, que é convexa no estado de entrada. Esses custos das aberturas incorporam os cortes atuais no lugar da função de custo futuro do estágio seguinte, e esses cortes ficam abaixo dela por indução a partir do último estágio, de modo que a monotonicidade da medida mantém o novo corte abaixo de $V_t(x_{t-1})$ em todo estado de entrada. O limite inferior do treinamento (training) $\underline{z}^k$, a medida do primeiro estágio aplicada aos objetivos das suas aberturas com esses cortes, é, portanto, um limite inferior válido do valor ótimo aninhado ajustado ao risco do modelo tal como treinado, quer a medida varie ou não entre estágios, e não decresce em $k$, já que o problema sobre o qual é avaliado mantém todo corte uma vez acrescentado.
 
-A validade se apoia nas [hipóteses da Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido) ([Philpott, de Matos & Finardi, 2013](/pt-br/reference/bibliography/#medidas-de-risco)), entre elas uma função de custo futuro convexa no estado inicial, que os métodos de truncamento de [Métodos de tratamento de afluências negativas §7](/pt-br/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior) violam nas componentes de defasagem de afluência sob um modelo PAR com termos de defasagem; cortes que abrangem todas as componentes de estado das quais a função de custo futuro depende; uma função de custo futuro não negativa, já que a variável de custo futuro é limitada inferiormente por zero; e uma função terminal fixa. A [Camada 2](/pt-br/math/cut-management#camada-2-convergencia) estabelece a convergência de $\underline{z}^k$ para esse valor ótimo no caso de medida de valor esperado em todos os estágios.
+A validade se apoia nas [hipóteses da Camada 1](/pt-br/math/cut-management#camada-1-limite-inferior-valido) ([Philpott, de Matos & Finardi, 2013](/pt-br/reference/bibliography/#medidas-de-risco)), entre elas uma função de custo futuro convexa no estado de entrada, que os métodos de truncamento de [Métodos de tratamento de afluências negativas §7](/pt-br/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior) violam nas componentes de defasagem de afluência sob um modelo PAR com termos de defasagem; cortes que abrangem todas as componentes de estado das quais a função de custo futuro depende; uma função de custo futuro não negativa, já que a variável de custo futuro é limitada inferiormente por zero; e uma função terminal fixa. A [Camada 2](/pt-br/math/cut-management#camada-2-convergencia) estabelece a convergência de $\underline{z}^k$ para esse valor ótimo no caso de medida de valor esperado em todos os estágios.
 
 O que falta a uma execução avessa ao risco sob uma simulação forward amostrada é uma estimativa válida do limite superior. A média dos custos dos caminhos amostrados estima o custo esperado da política, e não o seu valor aninhado ajustado ao risco; sob $\rho^{\lambda, \alpha}$, esse valor é pelo menos igual ao custo esperado, de modo que a média amostral pode ficar abaixo de $\underline{z}^k$ e não certifica nada. O certificado é o limite aninhado exato de uma árvore enumerada sob uma medida uniforme entre estágios ([Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap); ver [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation)).
 
@@ -271,7 +273,7 @@ A metodologia acima define a medida de risco, seus pesos e os limites que ela ma
   <TabItem label="Notas de implementação"><RiskNotes /></TabItem>
 </Tabs>
 
-## Referências Cruzadas
+## Referências cruzadas
 
 - [Convenções de notação](/pt-br/overview/notation-conventions) — definições de símbolos, notação das variáveis duais e convenções de sinal
 - [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — recursão de Bellman e estrutura das simulações forward/backward modificadas pelas medidas de risco

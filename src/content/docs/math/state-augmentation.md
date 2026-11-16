@@ -9,6 +9,8 @@ This chapter defines the state the stage LP carries from one stage to the next: 
 
 **Reading order**: [LP Formulation](/math/lp-formulation) → **this chapter** → [Block Formulation Variants](/math/block-formulations)
 
+For the entity view of this chapter, see [Hydro plants](/entities/generation/hydro-plants/) and [Thermal plants](/entities/generation/thermal-plants/).
+
 ## 1. State Vector
 
 The state of stage $t$ is the vector that stage $t$ passes to stage $t + 1$ and over which the cuts of stage $t$ are written. It has four families:

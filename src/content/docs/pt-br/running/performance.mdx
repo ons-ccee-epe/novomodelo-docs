@@ -33,7 +33,7 @@ explica como ler o bloco impresso. Uma simulação backward enumerada registra z
 | Tempo de operações coletivas em execuções com vários ranks     | `cut_sync_ms`, `state_exchange_ms` e `mpi_allreduce_ms` em `training/timing/iterations.parquet`                                                                                                                                                                                                                                                                                               | Balanceie o trabalho como nas duas linhas acima, ou execute menos ranks com mais `--threads` cada, tipicamente [um rank por nó](/pt-br/running/hpc-deployment/#dimensionamento-e-escalabilidade); veja [Modelo de execução paralela](#modelo-de-execucao-paralela)                                                                                                                                                 |
 | A avaliação do limite inferior ocupa uma parcela crescente do tempo da iteração | `lower_bound_ms` em `training/timing/iterations.parquet`                                                                                                                                                                                                                                                                                                                     | Nenhum: a avaliação é serial no rank 0, com uma resolução de PL por abertura do estágio 0; veja [Avaliação do limite inferior](#avaliacao-do-limite-inferior)                                                                                                                                                                                                                                   |
 | As resoluções são repetidas                                    | `lp_retries` e `retry_attempts` em [`training/solver/iterations.parquet`](/pt-br/reference/output/training/#trainingsolveriterationsparquet); `retry_level` em [`training/solver/retry_histogram.parquet`](/pt-br/reference/output/training/#trainingsolverretry_histogramparquet); os diagnósticos de pré-escalonamento do PL em [`training/scaling_report.json`](/pt-br/reference/output/training/#trainingscaling_reportjson) | Os perfis de solver por fase [`training.solver.backward`](/pt-br/running/configuration/#trainingsolver), [`training.solver.forward`](/pt-br/running/configuration/#trainingsolver) e [`simulation.solver`](/pt-br/running/configuration/#campos-do-perfil-do-solver); [`modeling.cost_scale_factor`](/pt-br/running/configuration/#modelingcost_scale_factor)                                                          |
-| Os balanços recalculados a partir das saídas não fecham | `lp_row_violations` em [`training/solver/iterations.parquet`](/pt-br/reference/output/training/#trainingsolveriterationsparquet) e [`simulation/solver/iterations.parquet`](/pt-br/reference/output/simulation/#simulationsolveriterationsparquet); o aviso de fim de execução de [Soluções que violam um limite de linha](/pt-br/reference/error-codes/#solucoes-que-violam-um-limite-de-linha) | Nenhum: reporte o caso com as contagens |
+| Os balanços recalculados a partir das saídas não fecham | `lp_row_violations` em [`training/solver/iterations.parquet`](/pt-br/reference/output/training/#trainingsolveriterationsparquet) e [`simulation/solver/iterations.parquet`](/pt-br/reference/output/simulation/#simulationsolveriterationsparquet); o aviso de fim de execução de [Resoluções que violam um limite de linha](/pt-br/reference/error-codes/#resolucoes-que-violam-um-limite-de-linha) | Nenhum: reporte o caso com as contagens |
 | Início lento                                                   | `setup.load_seconds`, `setup.stochastic_fit_seconds`, `setup.production_fit_seconds`, `setup.evaporation_fit_seconds` e `setup.broadcast_seconds` em `training/metadata.json` (coletados no rank 0)                                                                                                                                                                                           | Para o ajuste estocástico, exporte uma vez os artefatos ajustados e reutilize-os: [`exports.stochastic`](/pt-br/running/configuration/#exports) e [Exportação de artefatos estocásticos](/pt-br/running/running-studies/#exportando-os-artefatos-estocasticos)                                                                                                                                                |
 
 ---
@@ -116,7 +116,7 @@ Dois métodos estão disponíveis, configurados em
 
 `level1` respeita `check_frequency`: a passagem de seleção é executada apenas nas iterações
 que são múltiplas desse valor. Ela seleciona os conjuntos de cortes dos estágios estritamente entre
-o primeiro e o último; o conjunto do primeiro estágio e o conjunto terminal nunca passam por
+o primeiro e o último; o conjunto do primeiro estágio e o conjunto final nunca passam por
 seleção. Cada um desses conjuntos armazena o estado visitado de cada corte que a execução adiciona a ele,
 ou os das últimas `lookback_iterations` iterações, e todo corte avaliado, incluídos
 os cortes da iteração corrente e os cortes inativos, concorre em cada estado
@@ -137,8 +137,8 @@ conjuntos de cortes dos estágios estritamente entre o primeiro e o último, ao 
 separadamente, e contabiliza apenas os cortes gerados pela execução corrente: os cortes carregados de
 uma política, entre eles os cortes de fronteira, não são contabilizados nem descartados. Quando a contagem
 excede o limite após a passagem de seleção, o conjunto descarta cortes de iterações
-anteriores em ordem crescente da iteração em que o corte esteve ativo pela última vez,
-depois do número de resoluções em que esteve ativo e, por fim, de sua posição no conjunto. Os cortes da
+anteriores em ordem crescente da iteração em que o corte esteve ativo na solução pela última vez,
+depois do número de resoluções em que esteve ativo na solução e, por fim, de sua posição no conjunto. Os cortes da
 iteração corrente são contabilizados, mas nunca descartados. Com `level1`, uma
 passagem de seleção posterior reativa um corte descartado que domine algum estado, e o limite é
 aplicado novamente nessa iteração. O limite é recusado com o método `dynamic`
@@ -307,7 +307,7 @@ Com uma simulação forward amostrada, a simulação backward acrescenta:
   simulação backward (cronometrado como `state_exchange_ms`);
 - um allgatherv, por estágio, dos cortes gerados na simulação backward, ao final
   de cada estágio da simulação backward, pelo qual todos os ranks aguardam (cronometrado como `cut_sync_ms`);
-- uma soma por allreduce dos incrementos de atividade dos cortes por iteração.
+- uma soma por allreduce dos incrementos de atividade na solução dos cortes por iteração.
 
 A simulação backward enumerada não tem a troca de estados nem a troca
 de cortes; em vez disso, usa um allgatherv dos resultados sucessores de cada nó

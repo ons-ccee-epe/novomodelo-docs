@@ -46,7 +46,7 @@ manifesto global do estudo é necessário para interpretar os coeficientes de um
 | `stage_id`           | uint32        | Não      | —        | Id do conjunto (a partir de 0), a chave que nomeia `cuts/<pool>.bin`. |
 | `state_dimension`    | uint32        | Não      | —        | O comprimento do vetor de estado do estudo que gravou o arquivo. Um conjunto que projeta menos dimensões contém vetores de coeficientes mais curtos, do comprimento de seu `entity_manifest`. |
 | `capacity`           | uint32        | Não      | —        | Total de posições de corte pré-alocadas no conjunto. |
-| `warm_start_count`   | uint32        | Não      | —        | Comprimento do prefixo protegido: as posições iniciais com que a execução gravadora começou, carregadas de uma política anterior; `0` para uma execução nova, exceto no conjunto terminal de uma execução que carrega `policy.boundary`, em que conta os cortes de fronteira. |
+| `warm_start_count`   | uint32        | Não      | —        | Comprimento do prefixo protegido: as posições iniciais com que a execução gravadora começou, carregadas de uma política anterior; `0` para uma execução nova, exceto no conjunto final de uma execução que carrega `policy.boundary`, em que conta os cortes de fronteira. |
 | `cuts`               | [AffinePiece] | Não      | —        | Os cortes do conjunto, um `AffinePiece` por corte (campos abaixo), em ordem estritamente crescente de `slot_index`. |
 | `populated_count`    | uint32        | Não      | —        | Número de posições preenchidas; igual ao comprimento de `cuts`. |
 | `entity_manifest`    | [EntitySlot]  | Não      | —        | Identidade da entidade por posição, um `EntitySlot` por dimensão de estado (campos abaixo). |
@@ -67,8 +67,8 @@ O binário não é legível diretamente. A estrutura lógica de registro de cada
 | `coefficients`       | [float64] | Não      | —        | A inclinação do corte: um coeficiente por dimensão de estado, a sensibilidade do custo futuro a cada valor de estado de entrada (veja [Gerenciamento de cortes](/pt-br/math/cut-management/)). O comprimento é igual à dimensão do estado — o número de entradas do manifesto de entidades embutido descrito abaixo, também o próprio `state_dimension` do conjunto (por conjunto, não um campo de `policy/manifest.bin`). |
 | `is_active`          | bool      | Não      | —        | Se o corte estava ativo no PL quando o checkpoint foi gravado: a última seleção. Cortes inativos são mantidos para eventual reativação pelo método de seleção. |
 | `scored`             | bool      | Não      | —        | Se a execução gravadora armazenou o estado visitado em que o corte foi calculado (sob `exports.states` ou o método `level1`). Mantido mesmo quando esse estado é depois removido de `states/`; uma execução `level1` que carrega a política seleciona um corte `scored` como se fosse seu. |
-| `active_count`       | uint64    | Sim      | —        | A contagem, na execução gravadora, das vezes em que o corte esteve ativo (restrição ativa); ausente a menos que `activity_counters` do manifesto esteja definido. |
-| `last_active_iteration` | uint64 | Sim      | —        | A última iteração da execução gravadora em que o corte esteve ativo; ausente a menos que `activity_counters` do manifesto esteja definido. |
+| `active_count`       | uint64    | Sim      | —        | A contagem, na execução gravadora, das vezes em que o corte esteve ativo na solução; ausente a menos que `activity_counters` do manifesto esteja definido. |
+| `last_active_iteration` | uint64 | Sim      | —        | A última iteração da execução gravadora em que o corte esteve ativo na solução; ausente a menos que `activity_counters` do manifesto esteja definido. |
 
 As tabelas binárias mantêm os ids dos campos removidos na versão de formato 4 —
 entre eles `AffinePiece.piece_id` e `StageCuts.active_cut_indices` — como
@@ -87,11 +87,11 @@ entidades diferentes, é rejeitada.
 | Nome             | Tipo       | Anulável | Unidades | Descrição |
 | ---------------- | ---------- | -------- | -------- | --------- |
 | `entity_type`    | EntityType | Não      | —        | Enum `byte`: tipo da dimensão de estado — `0` HydroStorage, `1` HydroInflowLag, `2` AnticipatedThermalState, `3` HydroTransitBucket. |
-| `entity_id`      | int32      | Não      | —        | Id da entidade proprietária — para um transit bucket, a UHE de jusante. |
-| `subindex`       | uint32     | Não      | —        | Índice secundário dentro da entidade: a ordem da defasagem de afluência, o ring slot do compromisso antecipado (contado a partir do estágio 0: $(s - 1) \bmod k_{max}$ para o slot $s$ do [Hold Ring](/pt-br/math/state-augmentation#hold-ring)), ou a defasagem de maturação da água em trânsito. |
+| `entity_id`      | int32      | Não      | —        | Id da entidade proprietária — para uma parcela de água em trânsito (in-transit bucket), a UHE de jusante. |
+| `subindex`       | uint32     | Não      | —        | Índice secundário dentro da entidade: a ordem da defasagem de afluência, a posição do anel de despacho antecipado (commitment ring slot) do compromisso antecipado (contada a partir do estágio 0: $(s - 1) \bmod k_{max}$ para a posição $s$ do [Hold ring](/pt-br/math/state-augmentation#hold-ring)), ou a defasagem de maturação da água em trânsito. |
 | `was_active`     | bool       | Não      | —        | Se a entidade proprietária estava em operação neste estágio (excluído da verificação de identidade na carga). |
 | `reference_date` | int32      | Não      | —        | O `start_date` do estágio passado de referência de `HydroInflowLag`, codificado como `YYYYMMDD` (`year*10000 + month*100 + day`); sentinela `-2147483648` (o mínimo de int32) para todas as demais famílias. |
-| `interval_start` | int32      | Não      | —        | Início inclusivo da janela semiaberta das famílias com deslocamento à frente, codificado como `YYYYMMDD`: o início da chegada de um `HydroTransitBucket` ou o início da entrega de um `AnticipatedThermalState`. Sentinela `-2147483648` para `HydroStorage` e `HydroInflowLag`, e para um ring slot de `AnticipatedThermalState` que não contém compromisso vigente no estágio do conjunto ou cuja entrega cai além do calendário do estudo estendido pelos estágios pós-estudo. |
+| `interval_start` | int32      | Não      | —        | Início inclusivo da janela semiaberta das famílias com deslocamento à frente, codificado como `YYYYMMDD`: o início da chegada de um `HydroTransitBucket` ou o início da entrega de um `AnticipatedThermalState`. Sentinela `-2147483648` para `HydroStorage` e `HydroInflowLag`, e para uma posição do anel de despacho antecipado de `AnticipatedThermalState` que não contém compromisso vigente no estágio do conjunto ou cuja entrega cai além do calendário do estudo estendido pelos estágios pós-estudo. |
 | `interval_end`   | int32      | Não      | —        | Fim exclusivo da janela, pareado com `interval_start`; contém a sentinela `-2147483648` sempre que `interval_start` a contém. |
 
 **Legibilidade do formato binário.** Um leitor analisa primeiro `policy/manifest.bin`, exige o
@@ -117,7 +117,7 @@ checkpoint de fim de treinamento, e o diretório `basis/` é gravado mesmo quand
 nenhum nó guarda uma base; uma carga lê um checkpoint sem `basis/` como um checkpoint
 sem bases armazenadas, de modo que um checkpoint extraído de um arquivo compactado que
 descartou o diretório vazio ainda é carregado. As cargas de partida a quente (warm-start), de retomada e somente de simulação leem
-as bases para aproveitar a base nas soluções dos PLs dos estágios, usando cada base que se ajusta ao PL do seu estágio
+as bases para aproveitar a base nas resoluções dos PLs dos estágios, usando cada base que se ajusta ao PL do seu estágio
 e descartando as demais (veja a
 [verificação das bases armazenadas](/pt-br/running/policy-management/#verificacao-das-bases-armazenadas)); as cargas
 de fronteira não leem nenhuma.

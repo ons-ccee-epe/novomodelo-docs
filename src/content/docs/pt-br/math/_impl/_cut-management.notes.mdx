@@ -39,7 +39,7 @@ objetivo de um estudo. Veja [Gerenciamento da política — Canonicalização da
 custo](/pt-br/running/policy-management/#canonicalizacao-da-escala-de-custo)
 para a regra aplicada na carga.
 
-### Conjunto incremental (append-only), posições determinísticas
+### Conjunto somente de acréscimo (append-only), posições determinísticas
 
 Todo corte já gerado é mantido durante toda a execução em um índice de posição
 estável — uma função fixa da iteração e do índice da simulação forward que
@@ -47,7 +47,7 @@ o gerou (§5 da metodologia). O conjunto nunca é compactado, e nada é
 jamais excluído dele; "desativação" sempre significa algo mais restrito que
 remoção (abaixo).
 
-### A desativação exclui um corte do modelo-base; o PL do limite inferior é apenas incremental
+### A desativação exclui um corte do modelo-base; o PL do limite inferior é somente de acréscimo
 
 O pipeline de gerenciamento de linhas do Novo Modelo atua sobre dois PLs diferentes, e "desativar"
 um corte significa algo ligeiramente diferente em cada um:
@@ -57,7 +57,7 @@ um corte significa algo ligeiramente diferente em cada um:
   omitido da reconstrução do modelo-base daquela iteração. Apenas os cortes ativos são codificados
   como linhas do PL em cada resolução forward/backward; não há linha a alternar, pois a
   linha nunca foi emitida.
-- No **PL persistente do limite inferior**, o conjunto é **apenas incremental** (append-only): somente
+- No **PL persistente do limite inferior**, o conjunto é **somente de acréscimo**: somente
   cortes ativos são acrescentados, e um corte já presente não é acrescentado novamente;
   as linhas acrescentadas **nunca são removidas**, de modo que o limite inferior do treinamento
   (training) permanece monótono e toda linha acrescentada continua restringindo.
@@ -74,25 +74,25 @@ mesma posição, com os mesmos coeficientes com que foi gerado.
 
 O pipeline de gerenciamento de linhas é executado após a simulação backward e a sincronização de
 cortes de cada iteração, em duas etapas sobre os conjuntos **interiores** — aqueles estritamente
-entre o conjunto raiz e o conjunto terminal:
+entre o conjunto raiz e o conjunto final:
 
 1. **Etapa de seleção** (`level1`) — executada nas iterações que são múltiplas de
    `check_frequency`. Ela descarta os estados visitados mais antigos que a janela
-   `lookback_iterations`, registra o dono de cada estado armazenado e define
+   `lookback_iterations`, registra o detentor de cada estado armazenado e define
    o indicador de cada corte avaliado a partir desse registro, incluindo os cortes da
    iteração corrente. O conjunto raiz nunca passa por seleção, e a simulação backward não
-   acrescenta corte ao conjunto terminal. Dentro de um conjunto, os estados visitados são avaliados
+   acrescenta corte ao conjunto final. Dentro de um conjunto, os estados visitados são avaliados
    em blocos paralelos. `dynamic` nunca executa esta etapa e nunca desativa um corte do conjunto.
 2. **Etapa de orçamento** (`max_active_per_stage`) — executada em **toda** iteração após
    a etapa de seleção. Ela conta e descarta apenas os cortes gerados nesta execução: um
    corte carregado não é contado nem descartado, e um corte da iteração corrente
    é contado, mas nunca descartado; assim, a quantidade de cortes ativos de um conjunto pode
    exceder o limite pelo número de seus cortes carregados. Sob `level1`, um corte descartado que
-   ainda é dono de um estado é reativado pela etapa de seleção seguinte, e o limite é aplicado
+   ainda é detentor de um estado é reativado pela etapa de seleção seguinte, e o limite é aplicado
    novamente nessa iteração. O limite é recusado na carga com `dynamic`, cujos candidatos são
    os cortes ativos, de modo que um corte descartado nunca voltaria a ser candidato, e
-   com uma simulação forward enumerada, cuja simulação backward não registra quais cortes ficaram ativos
-   (binding), de modo que o descarte seguiria apenas a ordem de geração.
+   com uma simulação forward enumerada, cuja simulação backward não registra quais cortes ficaram
+   ativos na solução, de modo que o descarte seguiria apenas a ordem de geração.
    [Etapa 2: Aplicação do Orçamento](/pt-br/running/performance/#etapa-2-imposicao-do-orcamento)
    apresenta a ordem de descarte.
 
@@ -100,7 +100,7 @@ entre o conjunto raiz e o conjunto terminal:
 
 O método dinâmico (§8 da metodologia) nunca desativa um corte do conjunto. Em vez disso,
 cada resolução de estágio parte de um pequeno subconjunto residente — os cortes ativos que
-estiveram ativos (binding) nas últimas `seed_window` iterações mais todos os cortes gerados nesta
+estiveram ativos na solução nas últimas `seed_window` iterações mais todos os cortes gerados nesta
 iteração — e o amplia avaliando os candidatos omitidos e acrescentando os
 mais violados. Após 50 rodadas (valor não configurável pelo usuário), o limite por rodada
 é removido e todo candidato violado é acrescentado a cada rodada até não restar
@@ -112,7 +112,7 @@ A simulação final inicializa o subconjunto com todos os cortes ativos, de modo
 resolução preguiçosa não acrescenta nenhum.
 
 O método dinâmico é recusado na preparação sob uma simulação forward enumerada
-(§8 da metodologia): a simulação backward enumerada não registra atividade (binding) dos cortes,
+(§8 da metodologia): a simulação backward enumerada não registra atividade na solução dos cortes,
 de modo que o relógio de atividade da janela inicial nunca avança além da iteração
 que gerou cada corte.
 
