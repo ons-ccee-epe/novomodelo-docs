@@ -20,21 +20,21 @@ The timing tables and the printed `Time split` hold rank 0's view, so another
 rank's imbalance appears as rank 0's time in `cut_sync_ms`, `state_exchange_ms`
 and `mpi_allreduce_ms`. The backward wait is the exception: `bwd_load_imbalance_ms`
 and the printed `Backward` wait cover the workers of every rank, so they include
-the time a rank waits for slower peers to finish a stage's solves. [Reading the `Time split` breakdown](/running/interpreting-results/#reading-the-time-split-breakdown)
+the time a rank waits for slower peers to finish a stage's solves. [Reading the `Time split` breakdown](/en/running/interpreting-results/#reading-the-time-split-breakdown)
 explains how to read the printed block. An enumerated backward pass records zero in
 `cut_sync_ms`, `state_exchange_ms` and `bwd_load_imbalance_ms`.
 
 | Symptom                                                        | Metric                                                                                                                                                                                                                                                                                                                                                                                        | Knob                                                                                                                                                                                                                                                                                                                                                                                         |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backward time grows each iteration                             | `time_backward_ms` and `cuts_active` in [`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet); `cuts_active_after` and `active_after_budget` in [`training/cut_selection/iterations.parquet`](/reference/output/training/#trainingcut_selectioniterationsparquet)                                                                                              | [`training.cut_selection.selection`](/running/configuration/#trainingcut_selection) and [`training.cut_selection.max_active_per_stage`](/running/configuration/#trainingcut_selection)                                                                                                                                                                                                       |
-| Lazy-selection solves load many rows                           | `mean_rows_in_lp` in `training/convergence.parquet` (0 when no lazy selection ran); `lazy_scoring_ms` in [`training/timing/iterations.parquet`](/reference/output/training/#trainingtimingiterationsparquet)                                                                                                                                                                                    | The `dynamic` method's parameters under [`training.cut_selection.selection`](/running/configuration/#trainingcut_selection)                                                                                                                                                                                                                                                                  |
-| Workers wait inside a phase                                    | `fwd_load_imbalance_ms` and `bwd_load_imbalance_ms` in `training/timing/iterations.parquet`; the wait share of each phase in the printed time split                                                                                                                                                                                                                                           | Backward: `by_node` with `block_size` under [`training.parallelism.backward_scheduler`](/running/configuration/#trainingparallelism), see [By-Node Scheduling](#by-node-scheduling) (no effect while lazy selection is active). Forward: a [`training.selection.forward_passes`](/running/configuration/#trainingselection) that is a multiple of the worker count (ranks times `--threads`) |
-| Workers idle for want of trajectories                          | `forward_passes` in `training/convergence.parquet` against `distribution.world_size` and `distribution.threads_per_rank` in [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson)                                                                                                                                                                                        | Raise [`training.selection.forward_passes`](/running/configuration/#trainingselection), or run fewer ranks or fewer threads per rank; see [Parallel Execution Model](#parallel-execution-model)                                                                                                                                                                                              |
-| Collective time on multi-rank runs                             | `cut_sync_ms`, `state_exchange_ms` and `mpi_allreduce_ms` in `training/timing/iterations.parquet`                                                                                                                                                                                                                                                                                             | Balance the work as in the two rows above, or run fewer ranks with more `--threads` each, typically [one rank per node](/running/hpc-deployment/#sizing-and-scaling); see [Parallel Execution Model](#parallel-execution-model)                                                                                                                                                              |
+| Backward time grows each iteration                             | `time_backward_ms` and `cuts_active` in [`training/convergence.parquet`](/en/reference/output/training/#trainingconvergenceparquet); `cuts_active_after` and `active_after_budget` in [`training/cut_selection/iterations.parquet`](/en/reference/output/training/#trainingcut_selectioniterationsparquet)                                                                                              | [`training.cut_selection.selection`](/en/running/configuration/#trainingcut_selection) and [`training.cut_selection.max_active_per_stage`](/en/running/configuration/#trainingcut_selection)                                                                                                                                                                                                       |
+| Lazy-selection solves load many rows                           | `mean_rows_in_lp` in `training/convergence.parquet` (0 when no lazy selection ran); `lazy_scoring_ms` in [`training/timing/iterations.parquet`](/en/reference/output/training/#trainingtimingiterationsparquet)                                                                                                                                                                                    | The `dynamic` method's parameters under [`training.cut_selection.selection`](/en/running/configuration/#trainingcut_selection)                                                                                                                                                                                                                                                                  |
+| Workers wait inside a phase                                    | `fwd_load_imbalance_ms` and `bwd_load_imbalance_ms` in `training/timing/iterations.parquet`; the wait share of each phase in the printed time split                                                                                                                                                                                                                                           | Backward: `by_node` with `block_size` under [`training.parallelism.backward_scheduler`](/en/running/configuration/#trainingparallelism), see [By-Node Scheduling](#by-node-scheduling) (no effect while lazy selection is active). Forward: a [`training.selection.forward_passes`](/en/running/configuration/#trainingselection) that is a multiple of the worker count (ranks times `--threads`) |
+| Workers idle for want of trajectories                          | `forward_passes` in `training/convergence.parquet` against `distribution.world_size` and `distribution.threads_per_rank` in [`training/metadata.json`](/en/reference/output/metadata/#trainingmetadatajson)                                                                                                                                                                                        | Raise [`training.selection.forward_passes`](/en/running/configuration/#trainingselection), or run fewer ranks or fewer threads per rank; see [Parallel Execution Model](#parallel-execution-model)                                                                                                                                                                                              |
+| Collective time on multi-rank runs                             | `cut_sync_ms`, `state_exchange_ms` and `mpi_allreduce_ms` in `training/timing/iterations.parquet`                                                                                                                                                                                                                                                                                             | Balance the work as in the two rows above, or run fewer ranks with more `--threads` each, typically [one rank per node](/en/running/hpc-deployment/#sizing-and-scaling); see [Parallel Execution Model](#parallel-execution-model)                                                                                                                                                              |
 | Lower-bound evaluation takes a growing share of iteration time | `lower_bound_ms` in `training/timing/iterations.parquet`                                                                                                                                                                                                                                                                                                                                      | None: the evaluation is serial on rank 0, one LP solve per stage-0 opening; see [Lower Bound Evaluation](#lower-bound-evaluation)                                                                                                                                                                                                                                                            |
-| Solves retry                                                   | `lp_retries` and `retry_attempts` in [`training/solver/iterations.parquet`](/reference/output/training/#trainingsolveriterationsparquet); `retry_level` in [`training/solver/retry_histogram.parquet`](/reference/output/training/#trainingsolverretry_histogramparquet); the LP prescaling diagnostics in [`training/scaling_report.json`](/reference/output/training/#trainingscaling_reportjson) | The per-phase solver profiles [`training.solver.backward`](/running/configuration/#trainingsolver), [`training.solver.forward`](/running/configuration/#trainingsolver) and [`simulation.solver`](/running/configuration/#solver-profile-fields); [`modeling.cost_scale_factor`](/running/configuration/#modelingcost_scale_factor)                                                          |
-| Balances recomputed from outputs do not close | `lp_row_violations` in [`training/solver/iterations.parquet`](/reference/output/training/#trainingsolveriterationsparquet) and [`simulation/solver/iterations.parquet`](/reference/output/simulation/#simulationsolveriterationsparquet); the end-of-run warning of [Solves that miss a row bound](/reference/error-codes/#solves-that-miss-a-row-bound) | None: report the case with the counts |
-| Slow start                                                     | `setup.load_seconds`, `setup.stochastic_fit_seconds`, `setup.production_fit_seconds`, `setup.evaporation_fit_seconds` and `setup.broadcast_seconds` in `training/metadata.json` (collected on rank 0)                                                                                                                                                                                         | For the stochastic fit, export the fitted artifacts once and reuse them: [`exports.stochastic`](/running/configuration/#exports) and [Exporting Stochastic Artifacts](/running/running-studies/#exporting-stochastic-artifacts)                                                                                                                                                              |
+| Solves retry                                                   | `lp_retries` and `retry_attempts` in [`training/solver/iterations.parquet`](/en/reference/output/training/#trainingsolveriterationsparquet); `retry_level` in [`training/solver/retry_histogram.parquet`](/en/reference/output/training/#trainingsolverretry_histogramparquet); the LP prescaling diagnostics in [`training/scaling_report.json`](/en/reference/output/training/#trainingscaling_reportjson) | The per-phase solver profiles [`training.solver.backward`](/en/running/configuration/#trainingsolver), [`training.solver.forward`](/en/running/configuration/#trainingsolver) and [`simulation.solver`](/en/running/configuration/#solver-profile-fields); [`modeling.cost_scale_factor`](/en/running/configuration/#modelingcost_scale_factor)                                                          |
+| Balances recomputed from outputs do not close | `lp_row_violations` in [`training/solver/iterations.parquet`](/en/reference/output/training/#trainingsolveriterationsparquet) and [`simulation/solver/iterations.parquet`](/en/reference/output/simulation/#simulationsolveriterationsparquet); the end-of-run warning of [Solves that miss a row bound](/en/reference/error-codes/#solves-that-miss-a-row-bound) | None: report the case with the counts |
+| Slow start                                                     | `setup.load_seconds`, `setup.stochastic_fit_seconds`, `setup.production_fit_seconds`, `setup.evaporation_fit_seconds` and `setup.broadcast_seconds` in `training/metadata.json` (collected on rank 0)                                                                                                                                                                                         | For the stochastic fit, export the fitted artifacts once and reuse them: [`exports.stochastic`](/en/running/configuration/#exports) and [Exporting Stochastic Artifacts](/en/running/running-studies/#exporting-stochastic-artifacts)                                                                                                                                                              |
 
 ---
 
@@ -62,12 +62,12 @@ Before each stage's LP template is built, Novomodelo applies its own geometric-m
 row/column prescaler that normalizes the constraint-matrix coefficients toward
 1.0, improving numerical conditioning. The prescaling mechanism and its
 exact-unscaling guarantee are documented in the math layer under
-[LP Layout and Scaling](/math/lp-layout-and-scaling#2-lp-scaling).
+[LP Layout and Scaling](/en/math/lp-layout-and-scaling#2-lp-scaling).
 
 ### Cost Scale Factor
 
 The objective is divided by a cost-scale factor (default `1_000_000.0`,
-configurable as [`modeling.cost_scale_factor`](/running/configuration/#modelingcost_scale_factor))
+configurable as [`modeling.cost_scale_factor`](/en/running/configuration/#modelingcost_scale_factor))
 to reduce the magnitude of objective coefficients, improving simplex numerical
 stability.
 
@@ -76,7 +76,7 @@ Because the prescaler already conditions the matrix, HiGHS's internal scaling
 overridable per phase via the solver profile's `scale` field: selecting
 `solver_scaling` re-enables solver-side scaling and forgoes the exact
 single-unscaling guarantee. See
-[Solver profile fields](/running/configuration/#solver-profile-fields)
+[Solver profile fields](/en/running/configuration/#solver-profile-fields)
 for the field and its trade-off.
 
 The scaling diagnostics are written to `training/scaling_report.json` after
@@ -106,7 +106,7 @@ s1 -> s2
 ### Stage 1: Strategy-Based Selection
 
 Two methods are available, configured through
-[`training.cut_selection`](/running/configuration/#trainingcut_selection) in
+[`training.cut_selection`](/en/running/configuration/#trainingcut_selection) in
 `config.json`; the Configuration reference owns the keys and defaults:
 
 | Strategy  | Selection rule                                                                                                                                              |
@@ -121,14 +121,14 @@ selected. Each such pool stores the trial state of every cut the run adds there,
 or those of the last `lookback_iterations` iterations, and every scored cut,
 current-iteration cuts and inactive cuts included, competes at every stored
 state, so a deactivated cut is reactivated when it later owns a state. The rule
-is in [Level 1 Selection](/math/cut-management/#7-level-1-selection).
+is in [Level 1 Selection](/en/math/cut-management/#7-level-1-selection).
 
 `dynamic` operates differently: it is a per-solve lazy loop that adds cuts on
 demand rather than deactivating from a pool scan, and it does not read
-`check_frequency`. See [The Dynamic Method](/math/cut-management/#8-the-dynamic-method)
+`check_frequency`. See [The Dynamic Method](/en/math/cut-management/#8-the-dynamic-method)
 for the procedure. A solve that reaches the round limit with a candidate still
 violated is counted in `lazy_round_cap_hits` of
-[`training/convergence.parquet`](/reference/output/training/#trainingconvergenceparquet).
+[`training/convergence.parquet`](/en/reference/output/training/#trainingconvergenceparquet).
 
 ### Stage 2: Budget Enforcement
 
@@ -156,7 +156,7 @@ configurations viable without unbounded solve-time growth.
 ### Observability
 
 The row management pipeline writes per-pool statistics to
-[`training/cut_selection/iterations.parquet`](/reference/output/training/#trainingcut_selectioniterationsparquet),
+[`training/cut_selection/iterations.parquet`](/en/reference/output/training/#trainingcut_selectioniterationsparquet),
 where each column is defined. The [knob table](#diagnosing-performance) names the
 columns that diagnose backward-time growth.
 
@@ -167,7 +167,7 @@ columns that diagnose backward-time growth.
 A run has two levels of parallelism: MPI ranks, and worker threads inside each
 rank. `--threads` sets the number of worker threads per rank (default `1`, at
 least `1`); the launcher sets the rank count (see
-[HPC & Cluster Deployment](/running/hpc-deployment/)).
+[HPC & Cluster Deployment](/en/running/hpc-deployment/)).
 
 The `Execution` block of the run banner reports both levels. The excerpt below
 shows an example two-rank run with two threads per rank on one host; it omits the
@@ -189,7 +189,7 @@ shows `across N nodes` there, with the ranks of each host listed below it.
 ### Work Partition
 
 Under a sampled forward pass, the `forward_passes` trajectories of an iteration
-(see [`training.selection`](/running/configuration/#trainingselection)) are
+(see [`training.selection`](/en/running/configuration/#trainingselection)) are
 split over the ranks in contiguous blocks. Each rank takes
 `forward_passes / ranks` of them, rounded down, and the first
 `forward_passes mod ranks` ranks take one extra: 50 passes on 4 ranks give 13,
@@ -217,7 +217,7 @@ trial point. The optional `by_node` scheduler uses finer
 `(trial point, opening block)` work units for better load balance when trial
 points solve in variable time. Either way the produced cut set and lower bound
 are independent of worker and thread count. See
-[`parallelism.backward_scheduler`](/running/configuration/#trainingparallelism) for the
+[`parallelism.backward_scheduler`](/en/running/configuration/#trainingparallelism) for the
 configuration, and the
 [`novomodelo-sddp` README](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md)
 for the scheduler and inter-rank communication internals.
@@ -239,7 +239,7 @@ changes only which worker processes which block, and when — it is
 **result-neutral**: the produced cut set and the training lower bound are
 identical to canonical (whole-trial-point) claiming.
 
-See [`parallelism.backward_scheduler`](/running/configuration/#trainingparallelism)
+See [`parallelism.backward_scheduler`](/en/running/configuration/#trainingparallelism)
 for the config field that enables `by_node` and sets its `block_size`.
 
 :::caution[By-Node Scheduling and the dynamic method]
@@ -262,7 +262,7 @@ Each algorithmic phase — forward sweep, backward sweep, and simulation — can
 override the built-in solver profile (feasibility tolerances, the simplex
 update limit, pricing strategy, the `scale` field, and more) via
 `training.solver.backward`, `training.solver.forward`, and `simulation.solver`.
-See [Solver profile fields](/running/configuration/#solver-profile-fields)
+See [Solver profile fields](/en/running/configuration/#solver-profile-fields)
 for the full field list, the built-in profile each phase starts from, and the
 single-unscaling trade-off carried by `scale`.
 
@@ -347,8 +347,8 @@ checkpoint on every rank, from the output directory.
 
 ## See Also
 
-- [Configuration](/running/configuration/#trainingcut_selection) — row-selection and row management configuration
-- [Output Format](/reference/output/) — timing, solver statistics, and row-selection output schemas
+- [Configuration](/en/running/configuration/#trainingcut_selection) — row-selection and row management configuration
+- [Output Format](/en/reference/output/) — timing, solver statistics, and row-selection output schemas
 - [novomodelo-solver](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-solver/README.md) — solver interface and retry-escalation internals (novomodelo developer guide)
 - [novomodelo-sddp](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-sddp/README.md) — training-loop architecture, scheduling, and data structures (novomodelo developer guide)
 - [novomodelo-comm](https://github.com/ons-ccee-epe/novomodelo/blob/main/crates/novomodelo-comm/README.md) — communicator backends and collectives (novomodelo developer guide)

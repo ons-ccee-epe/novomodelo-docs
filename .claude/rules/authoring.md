@@ -37,6 +37,10 @@ content (configuration, I/O files, output schemas, CLI, examples, results) now
 - **Two-way backlink contract**: a software-layer partial links up to the math
   it implements; the reference/running pages link back to the topic chapter.
   Keep both directions live (the `check:links` gate enforces resolution).
+- **Internal links carry the locale.** pt-BR is served at the docs root and
+  English under `/en/` (`scripts/locale-id.mjs`), so a root-relative page link is
+  `/en/<slug>` on an English page and `/<slug>` on a pt-BR page. `check:links`
+  fails a page link that crosses language or lands on a redirect stub.
 
 ## Math-Layer Authoring Standards
 

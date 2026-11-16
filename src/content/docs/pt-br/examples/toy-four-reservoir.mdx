@@ -8,7 +8,7 @@ import ToyFourSlopesPlot from "../../../../components/ToyFourSlopesPlot.astro";
 ## Objetivo
 
 Este capítulo estende o exemplo resolvido de reservatório único de
-[Exemplo Didático com Reservatório Único](/pt-br/examples/toy-single-reservoir) a um
+[Exemplo Didático com Reservatório Único](/examples/toy-single-reservoir) a um
 sistema de quatro reservatórios e quatro barramentos, ainda com um modelo de
 afluências de ordem 0 (amostragem sazonal). O capítulo demonstra dois
 fenômenos que o caso de reservatório único não consegue exibir:
@@ -124,7 +124,7 @@ estágios finais.
 ## 2. PL do estágio para este caso
 
 O PL do estágio $t$ é montado a partir da formulação geral de
-[Formulação do PL](/pt-br/math/lp-formulation), particularizada para quatro
+[Formulação do PL](/math/lp-formulation), particularizada para quatro
 hidrelétricas, quatro barramentos com uma termelétrica local cada, quatro variáveis
 de estado de armazenamento e afluência de ordem 0 (sem estado de defasagem AR).
 
@@ -198,7 +198,7 @@ este exemplo preserva essa propriedade.
 Se um arquivo `correlation.json` fosse fornecido, a estrutura espacial
 $C$ entre os ruídos seria aplicada por meio da fatoração
 espectral $\varepsilon = C^{1/2} z$ com $C^{1/2} = U \Lambda^{1/2} U^{\top}$ — ver
-[Modelo de afluências PAR(p) §6](/pt-br/math/par-inflow-model#6-fatoracao-da-correlacao-espacial) para o
+[Modelo de afluências PAR(p) §6](/math/par-inflow-model#6-fatoracao-da-correlacao-espacial) para o
 caso multivariado. Neste exemplo, os quatro ruídos são
 sorteados de forma independente.
 
@@ -276,7 +276,7 @@ A simulação backward percorre os estágios $4 \to 2$. Em cada estágio, ela fi
 armazenamento de entrada no estado visitado pela simulação forward, avalia
 as três aberturas, lê os quatro custos reduzidos das colunas fixadas e
 os agrega em um corte de 4 coeficientes. A mecânica segue as seções 2–3 de
-[Gerenciamento de cortes](/pt-br/math/cut-management), generalizada
+[Gerenciamento de cortes](/math/cut-management), generalizada
 de um coeficiente de armazenamento (caso de reservatório único) para quatro (este
 caso).
 
@@ -448,7 +448,7 @@ espalha os estados visitados pelo espaço de estados de armazenamento à medida 
 avançam, e cada novo estado visitado produz um corte que aperta a
 aproximação em sua vizinhança. Quando os cortes limitam por baixo a função de custo futuro
 e quando a aproximação converge é exposto em
-[Gerenciamento de cortes — quando valem os limites e os certificados](/pt-br/math/cut-management#quando-os-limites-e-certificados-valem).
+[Gerenciamento de cortes — quando valem os limites e os certificados](/math/cut-management#quando-os-limites-e-certificados-valem).
 
 **O regime térmico de cada barramento determina a estrutura das inclinações.** Um barramento cuja
 térmica fica sempre ociosa (B4 nesta iteração) recebe $\bar\beta^v_h = 0$;
@@ -463,17 +463,17 @@ em que o armazenamento de cada reservatório tem valor marginal não nulo.
 ## 7. Convergência neste caso
 
 A forma percentual do
-[gap de otimalidade](/pt-br/math/stopping-rules#gap-de-otimalidade) divide o gap
+[gap de otimalidade](/math/stopping-rules#gap-de-otimalidade) divide o gap
 pela magnitude do limite inferior, $\lvert\underline{z}^k\rvert$
 (com piso de uma unidade monetária). O número de iterações necessário para fechá-lo
 depende das razões entre demanda e afluência, das capacidades dos reservatórios e
 da variância das afluências, e o limite superior de uma simulação forward
 amostrada é uma estimativa estatística que não certifica nada
-([Gerenciamento de cortes — Camada 3](/pt-br/math/cut-management#camada-3-certificado-do-gap)).
+([Gerenciamento de cortes — Camada 3](/math/cut-management#camada-3-certificado-do-gap)).
 O `4ree` distribuído executa quatro simulações forward amostradas por iteração e
 para no seu limite de 256 iterações; o novomodelo rejeita um critério de parada `gap`
 na inicialização sob uma simulação forward amostrada. Ver
-[Critérios de parada](/pt-br/math/stopping-rules) para os critérios disponíveis.
+[Critérios de parada](/math/stopping-rules) para os critérios disponíveis.
 
 ---
 
@@ -495,47 +495,47 @@ sem transmissão. Ele não trata de:
   $v_h = v^{in}_h + a_h - q_h - s_h + \sum_{h' \in \mathcal{U}_h}(q_{h'} + s_{h'})$;
   o coeficiente de armazenamento do corte nas usinas de montante passa então a refletir o
   valor esperado, a jusante, da água liberada. Ver
-  [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) para a topologia da cascata
-  e [Gerenciamento de cortes](/pt-br/math/cut-management) para a forma como as
+  [Visão geral da modelagem dos elementos do sistema](/math/system-elements) para a topologia da cascata
+  e [Gerenciamento de cortes](/math/cut-management) para a forma como as
   sensibilidades da cascata se propagam pelo custo reduzido da coluna fixada.
 - **Modelo de produção FPHA**: produtibilidade não linear dependente da queda,
   aproximada por hiperplanos lineares por partes; um dos planos fica
   ativo no ótimo e contribui para o coeficiente de armazenamento do
-  corte. Ver [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models).
+  corte. Ver [Modelos de função de produção hidrelétrica](/math/hydro-production-models).
 - **Correlação espacial das afluências**: quando um arquivo `correlation.json` é
   fornecido, os ruídos por hidrelétrica são sorteados de uma normal multivariada
   correlacionada via fatoração espectral. Ver
-  [Modelo de afluências PAR(p) §6](/pt-br/math/par-inflow-model#6-fatoracao-da-correlacao-espacial).
+  [Modelo de afluências PAR(p) §6](/math/par-inflow-model#6-fatoracao-da-correlacao-espacial).
 - **Memória autorregressiva das afluências**: um modelo PAR(p) com $p \geq 1$
   acrescenta uma variável de estado de defasagem por hidrelétrica por defasagem; se os cortes de um estágio
   contêm um coeficiente para cada defasagem é definido pela projeção de estado do corte desse estágio
-  ([Aumento do espaço de estados §7](/pt-br/math/state-augmentation#7-projecao-de-estado-do-corte)).
+  ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)).
 - **Medidas de risco**: ponderação por CVaR, que desloca as probabilidades de agregação dos cortes
   da uniforme $p = 1/N_t$ em direção aos piores cenários,
   elevando os termos independentes e as inclinações dos cortes no sentido seco. Ver
-  [Medidas de risco](/pt-br/math/risk-measures).
+  [Medidas de risco](/math/risk-measures).
 - **Grafos da política (policy graph) cíclicos**: o horizonte de quatro estágios termina sem um corte
   que o ligue de volta ao estágio 1. Um grafo da política cíclico (periódico), no qual
   a função de custo futuro do primeiro estágio alimentaria o último estágio, é um projeto
   reservado: `stages.json` aceita apenas `finite_horizon` como
   `policy_graph.type` e rejeita `cyclic` na carga do caso. Ver
-  [Modos de horizonte](/pt-br/math/horizon-modes#1-modo-finito-aciclico).
+  [Modos de horizonte](/math/horizon-modes#1-modo-finito-aciclico).
 - **Estudos multirresolução**: estágios de durações diferentes em um mesmo
   horizonte, por exemplo um início semanal seguido de uma cauda mensal,
   compartilhando um único conjunto de cortes. Ver
-  [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies).
+  [Estudos com múltiplas resoluções](/math/multi-resolution-studies).
 
 ---
 
 ## Referências cruzadas
 
-- [Exemplo Didático com Reservatório Único](/pt-br/examples/toy-single-reservoir) — Referência de reservatório único; ciclo básico da PDDE, afluência de ordem 0, simulações forward/backward e corte no cenário mais simples
-- [Formulação do PL](/pt-br/math/lp-formulation) — PL completo do estágio
-- [Estrutura e escalonamento do PL](/pt-br/math/lp-layout-and-scaling) — Layout de colunas e linhas
-- [Aumento do espaço de estados](/pt-br/math/state-augmentation) — Fixação do estado por limites de coluna, extração dos custos reduzidos
-- [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements) — Elemento usina hidrelétrica, topologia da cascata (não exercitada aqui), convenção do balanço hídrico, visão geral da FPHA
-- [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models) — Produtibilidade constante (usada aqui) e ajuste de hiperplanos da FPHA; impacto nos coeficientes dos cortes de Benders
-- [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) — Definição do modelo de afluências; o caso degenerado $p = 0$ (ruído branco) usado aqui; fatoração da correlação espacial para casos multivariados
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — Extração das variáveis duais, termos independentes por abertura, agregação em corte único (single-cut); convenção de sinal $\beta^v = \partial Q/\partial \hat v$
-- [Medidas de risco](/pt-br/math/risk-measures) — Definição do CVaR, combinação convexa EAVaR, pesos de agregação ajustados ao risco
-- [Modos de horizonte](/pt-br/math/horizon-modes) — Grafos da política finitos (suportados) vs. cíclicos reservados e o conjunto de cortes indexado por período sazonal
+- [Exemplo Didático com Reservatório Único](/examples/toy-single-reservoir) — Referência de reservatório único; ciclo básico da PDDE, afluência de ordem 0, simulações forward/backward e corte no cenário mais simples
+- [Formulação do PL](/math/lp-formulation) — PL completo do estágio
+- [Estrutura e escalonamento do PL](/math/lp-layout-and-scaling) — Layout de colunas e linhas
+- [Aumento do espaço de estados](/math/state-augmentation) — Fixação do estado por limites de coluna, extração dos custos reduzidos
+- [Visão geral da modelagem dos elementos do sistema](/math/system-elements) — Elemento usina hidrelétrica, topologia da cascata (não exercitada aqui), convenção do balanço hídrico, visão geral da FPHA
+- [Modelos de função de produção hidrelétrica](/math/hydro-production-models) — Produtibilidade constante (usada aqui) e ajuste de hiperplanos da FPHA; impacto nos coeficientes dos cortes de Benders
+- [Modelo de afluências PAR(p)](/math/par-inflow-model) — Definição do modelo de afluências; o caso degenerado $p = 0$ (ruído branco) usado aqui; fatoração da correlação espacial para casos multivariados
+- [Gerenciamento de cortes](/math/cut-management) — Extração das variáveis duais, termos independentes por abertura, agregação em corte único (single-cut); convenção de sinal $\beta^v = \partial Q/\partial \hat v$
+- [Medidas de risco](/math/risk-measures) — Definição do CVaR, combinação convexa EAVaR, pesos de agregação ajustados ao risco
+- [Modos de horizonte](/math/horizon-modes) — Grafos da política finitos (suportados) vs. cíclicos reservados e o conjunto de cortes indexado por período sazonal

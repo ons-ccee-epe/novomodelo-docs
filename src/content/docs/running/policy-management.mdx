@@ -6,7 +6,7 @@ description: Policy checkpoints, warm-start and resume modes, the policy load co
 Novomodelo stores the trained future-cost function (cuts) and the LP bases of each
 forward-pass scenario in a _policy directory_, together with the trial states
 the cuts were computed at when `level1` selection or
-[`exports.states`](/running/configuration/#exports) stores them. The `policy`
+[`exports.states`](/en/running/configuration/#exports) stores them. The `policy`
 section of `config.json` controls where that directory lives and whether
 training starts from scratch or from a prior checkpoint.
 
@@ -175,7 +175,7 @@ training, loads the checkpoint at `policy.path`, and simulates it.
 The load is a full-FCF load, so the checkpoint must pass every check of the
 [Policy Load Contract](#policy-load-contract): it comes from the running novomodelo
 version. Each loaded cut keeps the role it had in the run that wrote it, so
-under [`simulation.cut_set`](/running/configuration/#simulation-cut-set) `"all"`
+under [`simulation.cut_set`](/en/running/configuration/#simulation-cut-set) `"all"`
 (the default) the simulation holds the rows that run's `"all"` held, the rows
 selection deactivated and the cap evicted included, and under `"active"` the
 rows active when its training ended.
@@ -237,7 +237,7 @@ MPI every rank loads that checkpoint, so the output directory is visible at the
 same path on every node.
 
 **Slicing by `iteration_limit`** works on any rank count. Size each slice from
-the [`time_total_ms`](/reference/output/training/#trainingconvergenceparquet) trend
+the [`time_total_ms`](/en/reference/output/training/#trainingconvergenceparquet) trend
 in the previous slice's `training/convergence.parquet`, which holds only the
 iterations of the slice that wrote it. Per-iteration time grows as cuts
 accumulate, so leave a margin.
@@ -267,7 +267,7 @@ total, which counts the iterations of all earlier slices:
 **A slice may end** on a `time_limit` rule, measured
 from the start of that slice's training. Keep an `iteration_limit` holding the
 total in the set (every rule set needs one), and leave
-[`stopping_mode`](/running/configuration/#trainingstopping_mode) at its default, `"any"`,
+[`stopping_mode`](/en/running/configuration/#trainingstopping_mode) at its default, `"any"`,
 so that `time_limit` alone ends a slice. Novomodelo checks `time_limit` after each
 iteration, so a slice runs up to one iteration past `seconds`. Set `seconds`
 below the job's wall time by that iteration, the case load, and the checkpoint
@@ -299,7 +299,7 @@ the previous one and holds the same files as the end-of-training one, with
 `completed_iterations` set to its iteration. Rank 0 writes it. A failed write
 ends training on every rank with `checkpoint write at iteration {n} failed: {e}`.
 `store_basis` and `compress` have no effect; the keys are listed under
-[Configuration](/running/configuration/#policycheckpointing).
+[Configuration](/en/running/configuration/#policycheckpointing).
 
 ---
 
@@ -349,7 +349,7 @@ without a stored basis.
 cut was computed at, keyed by the cut's slot. Under `level1`, every pool of a
 stage strictly between the first and the last stores them (the last
 `lookback_iterations` iterations when a window is set). With
-[`exports.states`](/running/configuration/#exports), every pool that receives
+[`exports.states`](/en/running/configuration/#exports), every pool that receives
 cuts stores them, the first stage's pool included, whatever the selection
 method.
 
@@ -392,7 +392,7 @@ novomodelo version, and the producer provenance (completed iterations, lower- an
 upper-bound values, forward passes per iteration, the RNG seed, and the
 trial-state history, binding-counter and whole-basis-store facts that a resume
 checks) — see
-[Policy Checkpoint](/reference/output/policy/#policymanifestbin) for the full
+[Policy Checkpoint](/en/reference/output/policy/#policymanifestbin) for the full
 field-by-field table. Whether a checkpoint loads into the current study is
 decided by the [Policy Load Contract](#policy-load-contract).
 
@@ -466,18 +466,18 @@ policy was written by {writer}, but this is novomodelo {running}; a policy loads
 or `software that recorded no name or version`; `{running}` is the version of
 the novomodelo that is loading it. `novomodelo run` reports
 the refusal as a validation error before training or simulation starts;
-[Error Codes](/reference/error-codes/#policy-load-errors) lists the exit code
+[Error Codes](/en/reference/error-codes/#policy-load-errors) lists the exit code
 and the Python exception.
 
 To load the policy, retrain it with the running version. Alternatively,
 re-export it by re-running the pipeline that wrote the checkpoint under the
 running version: the script that calls
 [`novomodelo.write_policy_checkpoint`](#read-and-write-checkpoints-from-python),
-or the boundary import of [Case Conversion (novomodelo-bridge)](/running/case-conversion/).
+or the boundary import of [Case Conversion (novomodelo-bridge)](/en/running/case-conversion/).
 
 A manifest that parses (step 1) is not thereby accepted: this gate decides
 whether the running version may load it.
-[FlatBuffers Policy Schema — Versioning policy](/reference/flatbuffers-schema/#versioning-policy)
+[FlatBuffers Policy Schema — Versioning policy](/en/reference/flatbuffers-schema/#versioning-policy)
 covers the wire level.
 
 ### Stored-basis gate
@@ -509,7 +509,7 @@ Warm-start and resume check the bases a checkpoint carries, simulation-only
 always checks them, and a [boundary load](#boundary-cuts) checks none.
 
 A stored basis that fits seeds a solve only in a phase that warm-starts
-([`use_warm_start`](/running/configuration/#solver-profile-fields)). Under the
+([`use_warm_start`](/en/running/configuration/#solver-profile-fields)). Under the
 built-in HiGHS profiles simulation solves start cold, so a simulation-only run
 starts from its checkpoint bases only with
 `simulation.solver.use_warm_start: true`. On a stage chain a warm-start or
@@ -519,7 +519,7 @@ setting `training.solver.forward.use_warm_start: false` leaves them unread. On a
 branching graph the backward pass also
 starts from them at the successor nodes a scenario's first forward path did not
 visit. On CLP every phase starts from them. The
-[LP Warm-Start implementation notes](/math/lp-warm-start/#implementation-in-novomodelo)
+[LP Warm-Start implementation notes](/en/math/lp-warm-start/#implementation-in-novomodelo)
 trace the store through each phase.
 
 Every checkpoint holds the LP bases of the run's forward-pass scenarios, and
@@ -531,12 +531,12 @@ they solve without a stored basis.
 Examples are a different block count, a different entity set, and a different
 block mode on a stage with hydro plants and more than one block.
 
-[`novomodelo validate`](/reference/cli-reference/#novomodelo-validate) runs the same load
+[`novomodelo validate`](/en/reference/cli-reference/#novomodelo-validate) runs the same load
 and reports the same warning.
 
 :::note
 The cuts themselves do not depend on the block structure
-([Block Formulation Variants](/math/block-formulations/)). The same cuts therefore still
+([Block Formulation Variants](/en/math/block-formulations/)). The same cuts therefore still
 load through [`policy.boundary`](#boundary-cuts) across block modes and block
 counts, and a full-FCF load loads them too, leaving out the stored bases of the
 stages the change alters.
@@ -547,11 +547,11 @@ stages the change alters.
 ## Cost-Scale Canonicalization
 
 Novomodelo's objective cost-scale factor
-([`modeling.cost_scale_factor`](/running/configuration/#modelingcost_scale_factor))
+([`modeling.cost_scale_factor`](/en/running/configuration/#modelingcost_scale_factor))
 is configurable per study. A checkpoint stores every cut's intercept and
 coefficients exactly as the cut pool holds them in memory, in the **writing**
 study's scaled cost units. Each `cuts/<pool>.bin` (see the field table in
-[Policy Checkpoint](/reference/output/policy/#policymanifestbin)) carries its
+[Policy Checkpoint](/en/reference/output/policy/#policymanifestbin)) carries its
 own `cost_scale_factor`, which records that scale, so the checkpoint is
 self-describing per pool.
 
@@ -599,7 +599,7 @@ upstream study's policy as its terminal boundary condition, so its
 end-of-horizon decisions account for the upstream study's future cost of water.
 The downstream study may have a shorter horizon or finer stages than the
 upstream one. For the method, see
-[Post-Study Boundary & Chained Studies §5](/math/post-study-boundary#5-chained-studies).
+[Post-Study Boundary & Chained Studies §5](/en/math/post-study-boundary#5-chained-studies).
 
 ### How it works
 
@@ -617,7 +617,7 @@ The imported boundary cuts are **not updated** by the SDDP training algorithm.
 Their coefficients remain fixed throughout training and simulation, and the
 active ones provide a floor on the terminal-stage future cost.
 The `training.cut_selection.max_active_per_stage` setting
-([`cut_selection`](/running/configuration/#trainingcut_selection)) never evicts
+([`cut_selection`](/en/running/configuration/#trainingcut_selection)) never evicts
 an imported boundary cut: it caps only the pools of stages strictly between the
 first and the last, and counts only the cuts the run generated.
 
@@ -635,7 +635,7 @@ them as follows:
 
 A row the source did not score and left inactive (for example a row a capped
 source evicted) is in neither set. See
-[Simulation cut set](/running/configuration/#simulation-cut-set) for the rules
+[Simulation cut set](/en/running/configuration/#simulation-cut-set) for the rules
 of the other loaded rows.
 
 The `dynamic` method's lazy solve reads only active rows. A `dynamic` run that
@@ -663,7 +663,7 @@ Add a `boundary` object to the `policy` section of `config.json`:
 
 | Field    | Type    | Default | Description                                                                                                                                                                                            |
 | -------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `path`   | string  | —       | Path to the source checkpoint directory; see [`policy.boundary`](/running/configuration/#policyboundary) for how it resolves.                                                                          |
+| `path`   | string  | —       | Path to the source checkpoint directory; see [`policy.boundary`](/en/running/configuration/#policyboundary) for how it resolves.                                                                          |
 | `strict` | boolean | `false` | Governs a **superset** source (one pricing an entity or commitment this study does not model). `false` drops the surplus, records it in the reconciliation report, and loads; `true` rejects the load. |
 
 When `boundary` is absent or `null`, no boundary cuts are loaded (the default).
@@ -684,7 +684,7 @@ binding to the current study's slot for the same entity. A source coordinate
 that couples a state slot the current study does not model cannot be carried; it
 is reported in a **per-family reconciliation summary** and dropped, and the load
 still **succeeds** by default. See
-[Post-Study Boundary & Chained Studies §4](/math/post-study-boundary#4-calendar-reconciliation-fan-out) for the
+[Post-Study Boundary & Chained Studies §4](/en/math/post-study-boundary#4-calendar-reconciliation-fan-out) for the
 reconciliation mechanism.
 
 That leniency is the default reconcile path, but the load still enforces hard
@@ -706,7 +706,7 @@ failure stops the run:
 5. **Inflow-lag depth.** Before building the study, Novomodelo reads the deepest
    inflow-lag slot that any cut pool of the boundary checkpoint references and
    extends the study's inflow-lag state to at least that depth
-   ([Post-Study Boundary & Chained Studies §5.2](/math/post-study-boundary#52-compatibility-conditions));
+   ([Post-Study Boundary & Chained Studies §5.2](/en/math/post-study-boundary#52-compatibility-conditions));
    when the depth is above zero, `novomodelo run` without `--quiet` prints
    `Boundary policy: inflow-lag depth {d}` while loading. This check confirms
    that the resolved pool references no lag deeper than the extended state, so
@@ -773,7 +773,7 @@ source is rejected when its `season_manifest`:
   `boundary policy at {path}: hydro {id} PAR order mismatch at season index {season} (the season's 0-based position in the cycle, not its id; study has order {n}, source has order {n})`.
 
 The `season_manifest` field shape is documented in
-[Policy Checkpoint](/reference/output/policy/#policymanifestbin).
+[Policy Checkpoint](/en/reference/output/policy/#policymanifestbin).
 
 **Subset rejects.** If the source prices _less_ than this study needs, the load
 is rejected regardless of `strict`:
@@ -792,7 +792,7 @@ When both are dated and the dates differ, the load is rejected regardless of
 **Lag coverage and dating.** An interior source pool, any pool other than the
 upstream study's terminal pool, carries inflow-lag coefficients only when its
 successor stage's
-[`stages[].state_variables`](/math/cut-management/#stagesstate_variables--cut-projection)
+[`stages[].state_variables`](/en/math/cut-management/#stagesstate_variables--cut-projection)
 selection includes `inflow_lags`, which defaults to `false`. The terminal pool
 of a trained upstream study is sized by that study's full state, with every
 inflow-lag slot of that state, whatever the selection; training never adds a
@@ -831,7 +831,7 @@ paths:
   line `N copied, N fanned out, N defaulted to 0.0, N dropped`.
 - **`novomodelo validate --json`** emits a boundary object with `configured`,
   `boundary_date`, and `report` fields carrying the full per-family report
-  (worked example under [Configuration — boundary](/running/configuration/#policyboundary)).
+  (worked example under [Configuration — boundary](/en/running/configuration/#policyboundary)).
 - **`novomodelo validate`** (human mode) prints `boundary policy priced at {date}`
   followed by the one-line summary
   `boundary reconciliation: N copied, N fanned out, N defaulted to 0.0, N source slots dropped`.
@@ -887,7 +887,7 @@ and the pool priced at the downstream study's terminal boundary date becomes its
 terminal future cost function. The dependency runs one way: the upstream study
 never reads the downstream one. The conditions under which the imported cuts
 apply to the downstream study's state are in
-[Post-Study Boundary & Chained Studies §5.2](/math/post-study-boundary#52-compatibility-conditions).
+[Post-Study Boundary & Chained Studies §5.2](/en/math/post-study-boundary#52-compatibility-conditions).
 
 ### Interaction with warm-start
 
@@ -919,7 +919,7 @@ a loaded checkpoint round-trips: load, edit, write. The supported use is
 authoring an external boundary future-cost function, for example one derived
 analytically or produced by another tool, as a checkpoint that Novomodelo loads
 through [`policy.boundary`](#boundary-cuts). The on-disk `AffinePiece` layout is
-documented in the [FlatBuffers Policy Schema](/reference/flatbuffers-schema/).
+documented in the [FlatBuffers Policy Schema](/en/reference/flatbuffers-schema/).
 A study loads the checkpoint only in the novomodelo version that wrote it
 ([Version gate](#version-gate)); `novomodelo.results.load_policy` does not check the version.
 
@@ -983,7 +983,7 @@ as `metadata["software"]` and `metadata["software_version"]`, without comparing
 them with a study. A missing directory, or one without `manifest.bin`, raises
 `FileNotFoundError` when neither `<policy_subdir>.staging` nor
 `<policy_subdir>.previous` holds a `manifest.bin`, and an unreadable buffer
-raises `OutputError`. [Error Codes](/reference/error-codes/#policy-load-errors)
+raises `OutputError`. [Error Codes](/en/reference/error-codes/#policy-load-errors)
 lists the failure class of every load path.
 
 ### Write a checkpoint
@@ -1253,7 +1253,7 @@ novomodelo.write_policy_checkpoint("output/policy", stage_cuts, metadata)
 
 ## See Also
 
-- **Theory:** [Cut Management](/math/cut-management/) — the cut pool that a policy checkpoint persists across runs.
-- [Configuration](/running/configuration/) — every `config.json` field documented
-- [Running Studies](/running/running-studies/) — common workflows including training-only and simulation-only runs
-- [Output Format](/reference/output/) — detailed description of every output file
+- **Theory:** [Cut Management](/en/math/cut-management/) — the cut pool that a policy checkpoint persists across runs.
+- [Configuration](/en/running/configuration/) — every `config.json` field documented
+- [Running Studies](/en/running/running-studies/) — common workflows including training-only and simulation-only runs
+- [Output Format](/en/reference/output/) — detailed description of every output file

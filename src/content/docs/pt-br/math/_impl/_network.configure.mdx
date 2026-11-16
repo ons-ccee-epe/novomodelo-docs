@@ -3,9 +3,9 @@ A rede elétrica do Novo Modelo é configurada por dois arquivos do diretório d
 da configuração campo a campo desses arquivos; a curva de custo de déficit
 por segmentos do barramento é precificada pela cascata de penalidades
 compartilhada. Seus campos de segmento estão em
-[Arquivos das entidades do sistema](/pt-br/reference/case-format/system/#systembusesjson)
+[Arquivos das entidades do sistema](/reference/case-format/system/#systembusesjson)
 e sua ordem de resolução, na aba Configurar do
-[Sistema de penalidades](/pt-br/math/penalty-system#implementacao-no-novo-modelo).
+[Sistema de penalidades](/math/penalty-system#implementacao-no-novo-modelo).
 
 ### `system/buses.json` — Cadastro de barramentos
 
@@ -30,8 +30,8 @@ de barramento único (copper-plate) também exige `buses.json` — veja
 | --- | --- | --- | --- |
 | `id` | integer | Sim | Identificador único e não negativo do barramento, referenciado pelo `bus_id` de cada entidade. |
 | `name` | string | Sim | Nome legível do barramento, usado nos arquivos de saída e nas mensagens de validação. |
-| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que o barramento entra no histórico operacional do cadastro. Serve de procedência e de chave canônica de ordenação `(operational_start_date, id)` (veja [Convenções de notação](/pt-br/overview/notation-conventions)) — independente de qualquer janela de entrada em operação. |
-| `deficit_segments` | array | Não | Sobrescrita, no nível do barramento, da curva de custo de déficit por segmentos. Os campos dos segmentos estão em [Arquivos das entidades do sistema](/pt-br/reference/case-format/system/#systembusesjson) e o valor padrão global, em [`penalties.json`](/pt-br/reference/case-format/penalties/#penaltiesjson); a ordem de resolução em dois níveis está na aba Configurar do [Sistema de penalidades](/pt-br/math/penalty-system#implementacao-no-novo-modelo). |
+| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que o barramento entra no histórico operacional do cadastro. Serve de procedência e de chave canônica de ordenação `(operational_start_date, id)` (veja [Convenções de notação](/overview/notation-conventions)) — independente de qualquer janela de entrada em operação. |
+| `deficit_segments` | array | Não | Sobrescrita, no nível do barramento, da curva de custo de déficit por segmentos. Os campos dos segmentos estão em [Arquivos das entidades do sistema](/reference/case-format/system/#systembusesjson) e o valor padrão global, em [`penalties.json`](/reference/case-format/penalties/#penaltiesjson); a ordem de resolução em dois níveis está na aba Configurar do [Sistema de penalidades](/math/penalty-system#implementacao-no-novo-modelo). |
 
 `excess_cost` não tem nenhum campo por barramento: todos os barramentos
 compartilham o padrão global `excess_cost` de `penalties.json`, opcionalmente
@@ -68,13 +68,13 @@ múltiplos barramentos os conecta com uma ou mais entradas de linha:
 | `name` | string | Sim | Nome legível da linha. |
 | `source_bus_id` | integer | Sim | Barramento na extremidade de origem — define o sentido do fluxo direto (origem → destino). Deve referenciar um `id` existente em `buses.json`. |
 | `target_bus_id` | integer | Sim | Barramento na extremidade de destino — define o sentido do fluxo reverso (destino → origem). Deve referenciar um `id` existente em `buses.json`. |
-| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a linha entra no histórico operacional do cadastro. Serve de procedência e de chave canônica de ordenação `(operational_start_date, id)` (veja [Convenções de notação](/pt-br/overview/notation-conventions)) — **independente de** `entry_stage_id`/`exit_stage_id` abaixo, que são os únicos a controlar a entrada em operação. |
+| `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a linha entra no histórico operacional do cadastro. Serve de procedência e de chave canônica de ordenação `(operational_start_date, id)` (veja [Convenções de notação](/overview/notation-conventions)) — **independente de** `entry_stage_id`/`exit_stage_id` abaixo, que são os únicos a controlar a entrada em operação. |
 | `entry_stage_id` | integer ou null | Não | Início da janela de operação — veja [Janelas de entrada em operação das entidades](#janelas-de-operacao-das-entidades) no texto acima. `null` significa ativa desde o estágio 0. |
 | `exit_stage_id` | integer ou null | Não | Fim da janela de operação (exclusivo). `null` significa que nunca é desativada. |
 | `capacity.direct_mw` | number | Sim | Limite superior rígido da variável de fluxo no sentido direto, em MW. |
 | `capacity.reverse_mw` | number | Sim | Limite superior rígido da variável de fluxo no sentido reverso, em MW. |
 | `losses_percent` | number | Não | Perda de transmissão como percentual da potência transmitida, usada **apenas para relatório**. Padrão `0.0`. **Não** entra no PL de despacho (os coeficientes de fluxo no balanço de carga são exatamente $\pm 1$); o Novo Modelo calcula `losses_mw = (losses_percent/100)·(f⁺+f⁻)` a posteriori e grava o resultado em `simulation/exchanges/` (veja a aba E/S). |
-| `exchange_cost` | number ou null | Não | Sobrescrita, no nível da entidade, do custo de regularização do fluxo. Na ausência, vale o padrão global de `penalties.json` — veja a aba Configurar do [Sistema de penalidades](/pt-br/math/penalty-system#implementacao-no-novo-modelo) para a cascata completa de resolução. |
+| `exchange_cost` | number ou null | Não | Sobrescrita, no nível da entidade, do custo de regularização do fluxo. Na ausência, vale o padrão global de `penalties.json` — veja a aba Configurar do [Sistema de penalidades](/math/penalty-system#implementacao-no-novo-modelo) para a cascata completa de resolução. |
 
 A capacidade variável por estágio é fornecida por `constraints/line_bounds.parquet`,
 que aceita linhas esparsas `(line_id, stage_id)` contendo `direct_mw` e/ou

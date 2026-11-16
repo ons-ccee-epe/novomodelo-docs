@@ -11,6 +11,10 @@ const all = [versions.latest, ...versions.versions];
 const currentEntry = all.find((v) => norm(v.base) === current) ?? all[0];
 const pt = (Astro.currentLocale ?? "en").toLowerCase().startsWith("pt");
 const shown = pt ? [currentEntry] : all;
+// English readers of latest stay in English: its English home is under en/.
+// A frozen snapshot is English only and keeps its base.
+const optionValue = (v: { base: string }): string =>
+  !pt && v === versions.latest ? `${norm(v.base)}en/` : v.base;
 const hasChoice = shown.length > 1;
 const Wrapper = hasChoice ? "label" : "div";
 ---
@@ -35,7 +39,7 @@ const Wrapper = hasChoice ? "label" : "div";
       >
         {
           shown.map((v) => (
-            <option value={v.base} selected={norm(v.base) === current}>
+            <option value={optionValue(v)} selected={norm(v.base) === current}>
               {v.label}
             </option>
           ))

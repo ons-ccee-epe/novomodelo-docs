@@ -3,7 +3,7 @@
 // mdbook-katex and the Starlight remark-math + rehype-katex pipeline parse `$$`
 // delimiters differently, so a chapter can migrate cleanly to Markdown yet
 // silently drop or merge display-math blocks in the built HTML. This script
-// proves parity mechanically: for every migrated root-locale chapter it counts
+// proves parity mechanically: for every chapter in either locale it counts
 // display-math blocks in the source and asserts the built HTML emits exactly
 // that many `.katex-display` nodes.
 //
@@ -20,6 +20,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { latestDocsDist } from "./docs-dist.mjs";
+import { localeId } from "./locale-id.mjs";
 
 const contentRoot = fileURLToPath(
   new URL("../src/content/docs/", import.meta.url),
@@ -27,7 +28,7 @@ const contentRoot = fileURLToPath(
 const distRoot = fileURLToPath(new URL("../dist/", import.meta.url));
 
 // Recursively collect every .md/.mdx file under src/content/docs/, the pt-br/
-// twins included (a pt-br/ source maps to the built /pt-br/ page), excluding
+// twins included (each source maps to its built page by localeId), excluding
 // every index.mdx (the landing pages and the reference section overviews, which
 // carry no display math).
 //
@@ -106,7 +107,7 @@ function main() {
     }
     const expected = delimiters / 2;
 
-    const htmlPath = `${docsRoot}${rel.replace(/\.(md|mdx)$/, "")}/index.html`;
+    const htmlPath = `${docsRoot}${localeId(rel)}/index.html`;
     if (!existsSync(htmlPath)) {
       failures.push({
         rel,

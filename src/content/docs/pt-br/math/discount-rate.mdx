@@ -10,17 +10,17 @@ import { Content as DiscountConfigure } from './_impl/_discount.configure.mdx';
 
 Este capítulo define como as taxas de desconto são incorporadas ao solver PDDE (SDDP) do Novo Modelo: a equação de Bellman com desconto, os fatores de desconto dependentes do estágio, o efeito sobre a variável de custo futuro $\theta$, o desconto acumulado e o efeito sobre o cálculo dos limites inferior e superior.
 
-Para a formulação reservada do modo cíclico (em que o desconto seria necessário para a convergência), veja [Modos de horizonte](/pt-br/math/horizon-modes).
+Para a formulação reservada do modo cíclico (em que o desconto seria necessário para a convergência), veja [Modos de horizonte](/math/horizon-modes).
 
-Para as convenções de notação (conjuntos de índices, parâmetros, variáveis de decisão, variáveis duais), veja [Convenções de notação](/pt-br/overview/notation-conventions).
+Para as convenções de notação (conjuntos de índices, parâmetros, variáveis de decisão, variáveis duais), veja [Convenções de notação](/overview/notation-conventions).
 
-Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamares](/pt-br/entities/time-structure/).
+Para a visão por entidade deste capítulo, veja [Horizonte, estágios e patamares](/entities/time-structure/).
 
 ## 1 Motivação
 
 O fator de desconto $d_{t \to t+1} \in (0, 1]$ representa o valor do dinheiro no tempo, segundo o qual custos futuros valem menos que custos presentes. Isso é essencial para:
 
-1. **Problemas de horizonte infinito**: garantir a convergência da função de valor em grafos da política (policy graphs) cíclicos (horizonte infinito), um projeto reservado (veja [Modos de horizonte](/pt-br/math/horizon-modes))
+1. **Problemas de horizonte infinito**: garantir a convergência da função de valor em grafos da política (policy graphs) cíclicos (horizonte infinito), um projeto reservado (veja [Modos de horizonte](/math/horizon-modes))
 2. **Consistência econômica**: refletir o custo de oportunidade do capital
 
 ## 2 Equação de Bellman com desconto
@@ -72,7 +72,7 @@ $$
 \theta \geq \beta_{0,i} + \sum_{h} \beta^v_{i,h} \cdot v_h + \sum_{h,\ell} \beta^{lag}_{i,h,\ell} \cdot a_{h,\ell} \quad \forall i
 $$
 
-Os coeficientes dos cortes $(\beta_{0,i}, \beta^v_{i,h}, \beta^{lag}_{i,h,\ell})$ são os valores **não descontados** obtidos na simulação backward. Quando o estudo tem água em trânsito ou térmicas com antecipação de despacho, o corte também contém termos relativos às parcelas de água em trânsito (in-transit buckets) e às posições do anel de despacho antecipado (commitment ring slots), igualmente não descontados. Os cortes são armazenados e gerenciados na forma não descontada — o fator de desconto aparece apenas no coeficiente de $\theta$ na função objetivo. Veja [Gerenciamento de cortes](/pt-br/math/cut-management) para detalhes sobre a geração e a agregação de cortes.
+Os coeficientes dos cortes $(\beta_{0,i}, \beta^v_{i,h}, \beta^{lag}_{i,h,\ell})$ são os valores **não descontados** obtidos na simulação backward. Quando o estudo tem água em trânsito ou térmicas com antecipação de despacho, o corte também contém termos relativos às parcelas de água em trânsito (in-transit buckets) e às posições do anel de despacho antecipado (commitment ring slots), igualmente não descontados. Os cortes são armazenados e gerenciados na forma não descontada — o fator de desconto aparece apenas no coeficiente de $\theta$ na função objetivo. Veja [Gerenciamento de cortes](/math/cut-management) para detalhes sobre a geração e a agregação de cortes.
 
 :::note[Por que descontar em θ e não nos cortes]
 Aplicar o fator de desconto à variável $\theta$, em vez de escalonar cada corte individualmente, é mais simples e evita modificar os coeficientes dos cortes. O resultado matemático é idêntico — se $\theta \geq \beta_0 + \beta^\top x$ e $d_{t \to t+1} \cdot \theta$ aparece na função objetivo, isso equivale a ter $\theta' \geq d_{t \to t+1} \cdot (\beta_0 + \beta^\top x)$ com $\theta'$ na função objetivo.
@@ -96,11 +96,11 @@ $$
 d_{t_1 \to t_2} = d_{1 \to t_2} / d_{1 \to t_1}
 $$
 
-Nessa forma com seta, $d_{t \to t+1}$ é o fator de um passo da §3 e $d_{1 \to t}$ é o fator acumulado. Um custo incorrido no estágio $t_2$ e cobrado na função objetivo do estágio $t_1$ é multiplicado por $d_{t_1 \to t_2}$. O custo do compromisso de despacho de uma térmica com antecipação de despacho é cobrado no seu estágio de decisão e descontado a partir do seu estágio de entrega dessa forma ([Aumento do espaço de estados §5](/pt-br/math/state-augmentation#contribuicoes-a-funcao-objetivo)).
+Nessa forma com seta, $d_{t \to t+1}$ é o fator de um passo da §3 e $d_{1 \to t}$ é o fator acumulado. Um custo incorrido no estágio $t_2$ e cobrado na função objetivo do estágio $t_1$ é multiplicado por $d_{t_1 \to t_2}$. O custo do compromisso de despacho de uma térmica com antecipação de despacho é cobrado no seu estágio de decisão e descontado a partir do seu estágio de entrega dessa forma ([Aumento do espaço de estados §5](/math/state-augmentation#contribuicoes-a-funcao-objetivo)).
 
 ### Extensão pós-estudo
 
-Após o último estágio do estudo $T$, o fator acumulado continua ao longo dos estágios pós-estudo declarados, à taxa global $r_{annual}$ sobre a duração de cada estágio pós-estudo. O fim do horizonte é transposto pelo fator de um passo do último estágio do estudo, $d_{1 \to T+1} = d_{1 \to T} \, d_{T \to T+1}$, de modo que a continuação é igual ao fator que seria obtido por um horizonte que abrangesse os estágios pós-estudo. [Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary) valora as entregas posteriores ao horizonte com esse fator estendido.
+Após o último estágio do estudo $T$, o fator acumulado continua ao longo dos estágios pós-estudo declarados, à taxa global $r_{annual}$ sobre a duração de cada estágio pós-estudo. O fim do horizonte é transposto pelo fator de um passo do último estágio do estudo, $d_{1 \to T+1} = d_{1 \to T} \, d_{T \to T+1}$, de modo que a continuação é igual ao fator que seria obtido por um horizonte que abrangesse os estágios pós-estudo. [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) valora as entregas posteriores ao horizonte com esse fator estendido.
 
 ### Consistência com a recursão de Bellman
 
@@ -108,7 +108,7 @@ A função objetivo de cada estágio multiplica $\theta$ pelo seu fator de um pa
 
 ## 6 Limite inferior com desconto
 
-O limite inferior $\underline{z}^k$ na iteração $k$ é o valor ajustado ao risco do primeiro estágio sobre suas aberturas no estado inicial $x_0$ ([Avaliação do limite superior — Limite inferior](/pt-br/math/upper-bound-evaluation#limite-inferior)). No problema do primeiro estágio de cada abertura, a variável de custo futuro $\theta_1$ entra na função objetivo com o fator de um passo $d_{1 \to 2}$, e o fator de cada estágio posterior leva seu custo ao estágio 1 uma única vez (§4); portanto, o limite inferior é expresso em valor presente no estágio 1.
+O limite inferior $\underline{z}^k$ na iteração $k$ é o valor ajustado ao risco do primeiro estágio sobre suas aberturas no estado inicial $x_0$ ([Avaliação do limite superior — Limite inferior](/math/upper-bound-evaluation#limite-inferior)). No problema do primeiro estágio de cada abertura, a variável de custo futuro $\theta_1$ entra na função objetivo com o fator de um passo $d_{1 \to 2}$, e o fator de cada estágio posterior leva seu custo ao estágio 1 uma única vez (§4); portanto, o limite inferior é expresso em valor presente no estágio 1.
 
 ## 7 Limite superior (simulação) com desconto
 
@@ -120,7 +120,7 @@ $$
 
 O custo imediato de cada estágio é explicitamente descontado a valor presente no estágio 1 por meio do fator de desconto acumulado.
 
-Para os critérios de parada que usam esses limites, veja [Critérios de parada](/pt-br/math/stopping-rules).
+Para os critérios de parada que usam esses limites, veja [Critérios de parada](/math/stopping-rules).
 
 ## 8 Relatórios
 
@@ -128,7 +128,7 @@ Tanto o limite inferior $\underline{z}$ quanto o limite superior $\bar{z}$ repre
 
 - Um custo $c_t$ incorrido no estágio $t$ entra em ambos os limites como $d_{1 \to t}\, c_t$
 - As comparações entre limites e entre iterações são válidas porque usam um desconto consistente
-- A saída da simulação registra o custo imediato de cada estágio nas unidades monetárias do próprio estágio (não descontado ao estágio 1), juntamente com seu fator acumulado $d_{1 \to t}$ ([Saídas da simulação](/pt-br/reference/output/simulation/#simulationcosts))
+- A saída da simulação registra o custo imediato de cada estágio nas unidades monetárias do próprio estágio (não descontado ao estágio 1), juntamente com seu fator acumulado $d_{1 \to t}$ ([Saídas da simulação](/reference/output/simulation/#simulationcosts))
 
 ## Implementação no Novo Modelo
 
@@ -140,9 +140,9 @@ A metodologia acima define o fator de desconto do estágio e o desconto acumulad
 
 ## Referências cruzadas
 
-- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — equação de Bellman central e estrutura das simulações forward/backward que as taxas de desconto modificam
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — os coeficientes dos cortes permanecem não descontados; o desconto é aplicado a $\theta$ na função objetivo
-- [Critérios de parada](/pt-br/math/stopping-rules) — critérios de convergência que usam os limites inferior e superior descontados
-- [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) — a aproximação interna usa valores de vértices descontados
-- [Modos de horizonte](/pt-br/math/horizon-modes) — grafos da política finitos (suportados) versus cíclicos (reservados); a estrutura formal reservada do modo cíclico (função de período sazonal, desigualdade de convergência do ciclo, conjunto de cortes indexado por período sazonal, operador de Bellman de ponto fixo)
-- [Convenções de notação](/pt-br/overview/notation-conventions) — conjuntos de índices, parâmetros, variáveis de decisão e variáveis duais usados em toda a documentação
+- [Algoritmo da PDDE](/math/sddp-algorithm) — equação de Bellman central e estrutura das simulações forward/backward que as taxas de desconto modificam
+- [Gerenciamento de cortes](/math/cut-management) — os coeficientes dos cortes permanecem não descontados; o desconto é aplicado a $\theta$ na função objetivo
+- [Critérios de parada](/math/stopping-rules) — critérios de convergência que usam os limites inferior e superior descontados
+- [Avaliação do limite superior](/math/upper-bound-evaluation) — a aproximação interna usa valores de vértices descontados
+- [Modos de horizonte](/math/horizon-modes) — grafos da política finitos (suportados) versus cíclicos (reservados); a estrutura formal reservada do modo cíclico (função de período sazonal, desigualdade de convergência do ciclo, conjunto de cortes indexado por período sazonal, operador de Bellman de ponto fixo)
+- [Convenções de notação](/overview/notation-conventions) — conjuntos de índices, parâmetros, variáveis de decisão e variáveis duais usados em toda a documentação

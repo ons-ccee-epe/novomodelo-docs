@@ -62,7 +62,7 @@ where $\varepsilon_{\text{stall}}$ is the bound-stalling tolerance on the relati
 **Interpretation**: The bound has plateaued — the relative improvement across the last $\tau$ recorded lower bounds is below the specified tolerance, indicating diminishing returns from further iterations.
 
 :::note[Risk-averse note]
-Under a risk-averse measure, the lower bound $\underline{z}^k$ is a valid lower bound on the nested risk-adjusted objective under the [Tier 1 hypotheses](/math/cut-management#tier-1-valid-lower-bound), so bound stalling monitors it as in the risk-neutral case. The gap rule needs the exact upper bound ([Optimality gap](/math/stopping-rules#optimality-gap)).
+Under a risk-averse measure, the lower bound $\underline{z}^k$ is a valid lower bound on the nested risk-adjusted objective under the [Tier 1 hypotheses](/en/math/cut-management#tier-1-valid-lower-bound), so bound stalling monitors it as in the risk-neutral case. The gap rule needs the exact upper bound ([Optimality gap](/en/math/stopping-rules#optimality-gap)).
 :::
 
 ## 5 Gap-Based Stopping (Recommended)
@@ -73,7 +73,7 @@ _Illustrative bound evolution across iterations $k$. In both panels the lower bo
 
 ### Optimality gap
 
-At iteration $k$, the optimality gap is the difference between the upper bound $\bar{z}^k$ and the lower bound $\underline{z}^k$, whichever mechanism supplies the upper bound — the statistical estimate of a sampled forward pass or the exact bound of an enumerated one ([Upper Bound Evaluation](/math/upper-bound-evaluation)):
+At iteration $k$, the optimality gap is the difference between the upper bound $\bar{z}^k$ and the lower bound $\underline{z}^k$, whichever mechanism supplies the upper bound — the statistical estimate of a sampled forward pass or the exact bound of an enumerated one ([Upper Bound Evaluation](/en/math/upper-bound-evaluation)):
 
 $$
 \text{gap}^k = \bar{z}^k - \underline{z}^k
@@ -85,13 +85,13 @@ $$
 100 \cdot \frac{\text{gap}^k}{\max(1, |\underline{z}^k|)}
 $$
 
-Both bounds are in unscaled currency units — the original cost units, with the [cost scaling](/math/lp-layout-and-scaling#21-cost-scaling) of the stage LP undone — so $\text{gap}^k$ is in currency units and the percent gap is dimensionless. The denominator is the magnitude of the **lower** bound, **never** the upper bound, floored at one currency unit so that the ratio stays bounded when the lower bound is near zero. The per-iteration reported gap and the relative arm of the gap rule below share this denominator, so the two never disagree on what "relative gap" means.
+Both bounds are in unscaled currency units — the original cost units, with the [cost scaling](/en/math/lp-layout-and-scaling#21-cost-scaling) of the stage LP undone — so $\text{gap}^k$ is in currency units and the percent gap is dimensionless. The denominator is the magnitude of the **lower** bound, **never** the upper bound, floored at one currency unit so that the ratio stays bounded when the lower bound is near zero. The per-iteration reported gap and the relative arm of the gap rule below share this denominator, so the two never disagree on what "relative gap" means.
 
 The gap rule terminates training once the exact upper bound has closed on the lower bound.
 
 **Evaluation**:
 
-The rule evaluates the [optimality gap](#optimality-gap) with the exact upper bound, $\bar{z}^k = \bar{z}_{\text{exact}}$, and compares it clamped at zero, $\max(0,\; \text{gap}^k)$; the clamp belongs to the rule's comparison, not to the gap's definition. In exact arithmetic the exact upper bound satisfies $\bar{z} \geq \underline{z}$ whenever the lower bound is valid ([Cut Management — Tier 1](/math/cut-management#tier-1-valid-lower-bound)), and the clamp then only absorbs floating-point noise once the gap has closed to (numerically) zero. Under a truncation method of [Inflow Non-Negativity Solution Methods §7](/math/inflow-nonnegativity#7-truncation-and-the-lower-bound) on a PAR model with lag terms (an order above zero or an annual component), the lower bound can exceed the exact upper bound; the clamp reads that negative gap as closed, so the rule can stop with no optimality certificate: the exact upper bound is the cost of a feasible policy, but an invalid lower bound does not bound the optimum from below.
+The rule evaluates the [optimality gap](#optimality-gap) with the exact upper bound, $\bar{z}^k = \bar{z}_{\text{exact}}$, and compares it clamped at zero, $\max(0,\; \text{gap}^k)$; the clamp belongs to the rule's comparison, not to the gap's definition. In exact arithmetic the exact upper bound satisfies $\bar{z} \geq \underline{z}$ whenever the lower bound is valid ([Cut Management — Tier 1](/en/math/cut-management#tier-1-valid-lower-bound)), and the clamp then only absorbs floating-point noise once the gap has closed to (numerically) zero. Under a truncation method of [Inflow Non-Negativity Solution Methods §7](/en/math/inflow-nonnegativity#7-truncation-and-the-lower-bound) on a PAR model with lag terms (an order above zero or an annual component), the lower bound can exceed the exact upper bound; the clamp reads that negative gap as closed, so the rule can stop with no optimality certificate: the exact upper bound is the cost of a feasible policy, but an invalid lower bound does not bound the optimum from below.
 
 **Stopping condition** — two arms combined by disjunction (either is sufficient):
 
@@ -103,14 +103,14 @@ The absolute tolerance $\varepsilon_{\text{abs}}$, in currency units, is set by 
 
 **Admissibility**: the comparison above is only valid when the upper bound it uses is the *exact* bound, not a statistical estimate. Both of the following must hold:
 
-- The forward pass [enumerates the scenario tree](/math/policy-graphs) exhaustively rather than sampling it, so the upper bound is exact — carrying no sampling error — rather than a sampled approximation.
-- The risk measure is **uniform across all stages**: either expectation at every stage, or one CVaR measure (the same risk-aversion weight $\lambda$ and tail fraction $\alpha$) at every stage. Under expectation the exact bound is the probability-weighted cost $\sum_{\ell} P(\ell)\, C(\ell)$ over every scenario $\ell$; under a uniform CVaR it is the nested, time-consistent risk bound over the same enumerated tree ([Upper Bound Evaluation §2](/math/upper-bound-evaluation)). A **stage-varying** measure — the pair $(\lambda_t, \alpha_t)$ differing across stages, where every stage with $\lambda_t = 0$ is the expectation whatever its $\alpha_t$ — is not admissible, because no single measure then aggregates the tree.
+- The forward pass [enumerates the scenario tree](/en/math/policy-graphs) exhaustively rather than sampling it, so the upper bound is exact — carrying no sampling error — rather than a sampled approximation.
+- The risk measure is **uniform across all stages**: either expectation at every stage, or one CVaR measure (the same risk-aversion weight $\lambda$ and tail fraction $\alpha$) at every stage. Under expectation the exact bound is the probability-weighted cost $\sum_{\ell} P(\ell)\, C(\ell)$ over every scenario $\ell$; under a uniform CVaR it is the nested, time-consistent risk bound over the same enumerated tree ([Upper Bound Evaluation §2](/en/math/upper-bound-evaluation)). A **stage-varying** measure — the pair $(\lambda_t, \alpha_t)$ differing across stages, where every stage with $\lambda_t = 0$ is the expectation whatever its $\alpha_t$ — is not admissible, because no single measure then aggregates the tree.
 
 Under a sampled forward pass, or a stage-varying measure, the exact-bound comparison the rule depends on is unavailable, and the gap rule is rejected at setup with a named validation error rather than silently evaluating against an unsound comparison.
 
 **Why recommended**: unlike bound stalling (a proxy for convergence) or the iteration and time limits (safety bounds unrelated to convergence), a closed gap is a direct optimality certificate under the exact-bound regime the rule requires — an enumerated forward pass with a risk measure held uniform across stages — over a valid lower bound.
 
-The admissibility decision takes the two conditions in order: first whether the forward pass is enumerated, then whether the measure is the same at every stage. Passing both admits the gap rule, which then compares the lower bound with the exact upper bound, so that a closed gap certifies optimality under the [Tier 3](/math/cut-management#tier-3-gap-certificate) hypotheses; failing either rejects the rule at setup — stop such a run with bound stalling and an iteration limit instead, as in [Sampled runs](#sampled-runs).
+The admissibility decision takes the two conditions in order: first whether the forward pass is enumerated, then whether the measure is the same at every stage. Passing both admits the gap rule, which then compares the lower bound with the exact upper bound, so that a closed gap certifies optimality under the [Tier 3](/en/math/cut-management#tier-3-gap-certificate) hypotheses; failing either rejects the rule at setup — stop such a run with bound stalling and an iteration limit instead, as in [Sampled runs](#sampled-runs).
 
 ```d2
 direction: down
@@ -130,7 +130,7 @@ same -> rej: no
 
 ### Sampled runs
 
-Under a sampled forward pass the gap rule is not available. Stop a sampled run with bound stalling ([§4](#4-bound-stalling)) and an iteration limit ([§2](#2-iteration-limit)), combined so that the first to trigger ends the run ([§7](#7-combining-rules)). The upper bound of a sampled run is a statistical estimate: its confidence interval describes the mean sampled forward cost, and no sampled estimate certifies optimality ([Tier 3](/math/cut-management#tier-3-gap-certificate)).
+Under a sampled forward pass the gap rule is not available. Stop a sampled run with bound stalling ([§4](#4-bound-stalling)) and an iteration limit ([§2](#2-iteration-limit)), combined so that the first to trigger ends the run ([§7](#7-combining-rules)). The upper bound of a sampled run is a statistical estimate: its confidence interval describes the mean sampled forward cost, and no sampled estimate certifies optimality ([Tier 3](/en/math/cut-management#tier-3-gap-certificate)).
 
 ## 6 Graceful Shutdown
 
@@ -142,7 +142,7 @@ once per iteration, after its lower bound and before its stop decision, and
 completes that iteration before it stops, so the cuts
 and bounds of every iteration that ran are recorded and no partial iteration is left
 behind. The graceful-shutdown guarantee is a special case of the broader
-provenance commitment described in [Determinism & Provenance §5](/math/determinism-guarantees#5-provenance):
+provenance commitment described in [Determinism & Provenance §5](/en/math/determinism-guarantees#5-provenance):
 the output artefacts are always in a consistent state, whether the run reached a
 configured stopping rule or a shutdown request ended it.
 
@@ -187,9 +187,9 @@ The methodology above defines when each rule stops training; the tab below links
 
 ## Cross-References
 
-- [Notation Conventions](/overview/notation-conventions) — Symbol definitions for bounds and statistical quantities
-- [SDDP Algorithm](/math/sddp-algorithm) — Main iteration loop that evaluates stopping rules
-- [Cut Management](/math/cut-management) — Cut generation and selection that affect convergence speed
-- [Upper Bound Evaluation](/math/upper-bound-evaluation) — The exact (deterministic) and statistical upper-bound estimators; the exact bound is what the gap rule compares against
-- [Risk Measures](/math/risk-measures) — Risk-averse formulations that affect bound interpretation
-- [Determinism & Provenance](/math/determinism-guarantees#5-provenance) — Provenance commitment that the graceful-shutdown guarantee is a special case of
+- [Notation Conventions](/en/overview/notation-conventions) — Symbol definitions for bounds and statistical quantities
+- [SDDP Algorithm](/en/math/sddp-algorithm) — Main iteration loop that evaluates stopping rules
+- [Cut Management](/en/math/cut-management) — Cut generation and selection that affect convergence speed
+- [Upper Bound Evaluation](/en/math/upper-bound-evaluation) — The exact (deterministic) and statistical upper-bound estimators; the exact bound is what the gap rule compares against
+- [Risk Measures](/en/math/risk-measures) — Risk-averse formulations that affect bound interpretation
+- [Determinism & Provenance](/en/math/determinism-guarantees#5-provenance) — Provenance commitment that the graceful-shutdown guarantee is a special case of

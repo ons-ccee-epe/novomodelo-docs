@@ -5,7 +5,7 @@ description: Schemas of the simulation/ files novomodelo run writes — the per-
 
 All per-scenario simulation results use Hive partitioning: one `data.parquet` file per
 scenario stored in a `scenario_id=NNNN/` subdirectory. See
-[Hive Partitioning](/reference/output/#hive-partitioning) for how to read these files.
+[Hive Partitioning](/en/reference/output/#hive-partitioning) for how to read these files.
 
 ---
 
@@ -22,9 +22,9 @@ give `node_id` 0, 1, 2). On a policy graph that declares `nodes`, `node_id` is
 the node's declared id and
 identifies which branch a scenario actually visited at that stage, and joins
 back to the node's `stage_id`/`pool_id` via the `nodes` of the policy
-checkpoint's manifest (see [`policy/manifest.bin`](/reference/output/policy/#policymanifestbin)).
+checkpoint's manifest (see [`policy/manifest.bin`](/en/reference/output/policy/#policymanifestbin)).
 
-**Methodology:** [Policy Graphs](/math/policy-graphs)
+**Methodology:** [Policy Graphs](/en/math/policy-graphs)
 
 Two run-level, unpartitioned files complete this axis:
 
@@ -44,7 +44,7 @@ all non-null. Joins to any entity file on `(scenario_id, stage_id)`.
 
 Run-level, per-scenario summary: one row per scenario. 3 columns.
 
-**Methodology:** [Upper Bound Evaluation](/math/upper-bound-evaluation) · [Discount Rate Formulation](/math/discount-rate)
+**Methodology:** [Upper Bound Evaluation](/en/math/upper-bound-evaluation) · [Discount Rate Formulation](/en/math/discount-rate)
 
 | Name                        | Type    | Nullable | Units | Description                                                                                                                                                                                                                                         |
 | --------------------------- | ------- | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -58,7 +58,7 @@ Run-level, per-scenario summary: one row per scenario. 3 columns.
 
 Per-stage cost breakdown. One row per stage. 29 columns.
 
-**Methodology:** [LP Formulation](/math/lp-formulation) · [Discount Rate Formulation](/math/discount-rate)
+**Methodology:** [LP Formulation](/en/math/lp-formulation) · [Discount Rate Formulation](/en/math/discount-rate)
 
 | Name                           | Type    | Nullable | Units | Description                                                                                                                                                                                                                                                                         |
 | ------------------------------ | ------- | -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -68,8 +68,8 @@ Per-stage cost breakdown. One row per stage. 29 columns.
 | `block_id`                     | Int32   | Yes      | —     | Always `null`: costs are reported per stage.                                                                                                                                                                                                                                        |
 | `total_cost`                   | Float64 | No       | USD   | The stage objective, `immediate_cost` + `future_cost`, in this stage's monetary units (not discounted to the first stage).                                                                                                                                                          |
 | `immediate_cost`               | Float64 | No       | USD   | The stage objective without the future-cost term, in this stage's monetary units.                                                                                                                                                                                                   |
-| `future_cost`                  | Float64 | No       | USD   | The future-cost term of the stage objective: the future-cost variable times this stage's one-step discount factor (the single-stage factor, not the cumulative `discount_factor`). See [Discount Rate Formulation](/math/discount-rate#5-cumulative-discounting).                   |
-| `discount_factor`              | Float64 | No       | —     | Cumulative discount factor of this stage: multiplying a cost of this stage by it gives its present value at the first stage. See [Discount Rate Formulation](/math/discount-rate#5-cumulative-discounting).                                                                         |
+| `future_cost`                  | Float64 | No       | USD   | The future-cost term of the stage objective: the future-cost variable times this stage's one-step discount factor (the single-stage factor, not the cumulative `discount_factor`). See [Discount Rate Formulation](/en/math/discount-rate#5-cumulative-discounting).                   |
+| `discount_factor`              | Float64 | No       | —     | Cumulative discount factor of this stage: multiplying a cost of this stage by it gives its present value at the first stage. See [Discount Rate Formulation](/en/math/discount-rate#5-cumulative-discounting).                                                                         |
 | `thermal_cost`                 | Float64 | No       | USD   | Thermal generation cost component.                                                                                                                                                                                                                                                  |
 | `anticipated_thermal_cost`     | Float64 | No       | USD   | Fuel cost of the anticipated commitments decided at this stage, in this stage's monetary units — each commitment's delivery-stage cost discounted from its delivery stage to this stage; multiply by `discount_factor` for its present value. Zero when no anticipated units exist. |
 | `contract_cost`                | Float64 | No       | USD   | Energy contract cost component (positive for imports, negative for exports).                                                                                                                                                                                                        |
@@ -84,7 +84,7 @@ Per-stage cost breakdown. One row per stage. 29 columns.
 | `generation_violation_cost`    | Float64 | No       | USD   | Cost of the generation below-minimum slack.                                                                                                                                                                                                                                         |
 | `evaporation_violation_cost`   | Float64 | No       | USD   | Cost of evaporation violations.                                                                                                                                                                                                                                                     |
 | `withdrawal_violation_cost`    | Float64 | No       | USD   | Cost of water withdrawal violations.                                                                                                                                                                                                                                                |
-| `inflow_penalty_cost`          | Float64 | No       | USD   | Cost of the inflow non-negativity slack (`inflow_nonnegativity_slack_m3s`), priced at `inflow_nonnegativity_cost` under the `penalty` and `truncation_with_penalty` methods and `0` under `truncation` and `none`; see [`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity). |
+| `inflow_penalty_cost`          | Float64 | No       | USD   | Cost of the inflow non-negativity slack (`inflow_nonnegativity_slack_m3s`), priced at `inflow_nonnegativity_cost` under the `penalty` and `truncation_with_penalty` methods and `0` under `truncation` and `none`; see [`modeling.inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity). |
 | `generic_violation_cost`       | Float64 | No       | USD   | Cost of generic constraint violations.                                                                                                                                                                                                                                              |
 | `spillage_cost`                | Float64 | No       | USD   | Cost of spillage and diversion flow.                                                                                                                                                                                                                                                |
 | `turbined_cost`                | Float64 | No       | USD   | Turbined-flow cost: each hydro's per-unit turbined-flow cost rate (the `turbined_cost` input) times its turbined flow and the block hours, summed over hydros and blocks.                                                                                                           |
@@ -98,12 +98,12 @@ Per-stage cost breakdown. One row per stage. 29 columns.
 
 Hydro plant dispatch results. One row per (stage, block, hydro) triplet. 41 columns.
 
-**Methodology:** [LP Formulation](/math/lp-formulation) · [Hydro Production Function Models](/math/hydro-production-models)
+**Methodology:** [LP Formulation](/en/math/lp-formulation) · [Hydro Production Function Models](/en/math/hydro-production-models)
 
 The nine energy-conversion columns
 (`equivalent_productivity_mw_per_m3s` … `stored_energy_final_mwh`, plus the four
 tail columns below) report the two evaluators defined in
-[Hydro Production Function Models §4](/math/hydro-production-models#4-energy-conversion-quantities):
+[Hydro Production Function Models §4](/en/math/hydro-production-models#4-energy-conversion-quantities):
 the reference-point pair and the useful-range mean (`integrated_*`) pair.
 
 | Name                                             | Type    | Nullable | Units     | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -131,18 +131,18 @@ the reference-point pair and the useful-range mean (`integrated_*`) pair.
 | `stored_energy_initial_mwh`                      | Float64 | No       | MWh       | Energy content of usable storage at stage start: (storage_initial_hm3 − V_min) × integrated_accumulated_productivity_mw_per_m3s × 1e6/3600 [MWh], where `V_min` is the plant's physical `reservoir.min_storage_hm3` (never a `hydro_bounds` storage override) and `storage_initial_hm3` is the row's own value (the per-block boundary storage on a chronological stage).                                                                                                                        |
 | `stored_energy_final_mwh`                        | Float64 | No       | MWh       | Energy content of usable storage at stage end: (storage_final_hm3 − V_min) × integrated_accumulated_productivity_mw_per_m3s × 1e6/3600 [MWh], where `V_min` is the plant's physical `reservoir.min_storage_hm3` (never a `hydro_bounds` storage override) and `storage_final_hm3` is the row's own value (the per-block boundary storage on a chronological stage).                                                                                                                              |
 | `spillage_cost`                                  | Float64 | No       | USD       | Monetary cost attributed to spillage.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `water_value_per_hm3`                            | Float64 | No       | USD/hm³   | Dual of the plant's own water-balance row, in monetary units per hm³: each block's own row on a chronological stage; the stage row, repeated on every block row, on a parallel stage. Negative values mean one more hm³ lowers the cost; see [Convergence & Diagnostics](/running/interpreting-results/) for the sign.                                                                                                                                                                           |
+| `water_value_per_hm3`                            | Float64 | No       | USD/hm³   | Dual of the plant's own water-balance row, in monetary units per hm³: each block's own row on a chronological stage; the stage row, repeated on every block row, on a parallel stage. Negative values mean one more hm³ lowers the cost; see [Convergence & Diagnostics](/en/running/interpreting-results/) for the sign.                                                                                                                                                                           |
 | `storage_binding_code`                           | Int8    | No       | —         | Storage-binding code (see `codes.json` `storage_binding` mapping); always `0` in written output.                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `operative_state_code`                           | Int8    | No       | —         | Operative state code (see `codes.json` `operative_state` mapping); always `1` in written output.                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `turbined_slack_m3s`                             | Float64 | No       | m³/s      | Shortfall below the plant's minimum turbined flow, in m³/s: the slacks of its (hydro, bus) cells plus, where the plant minimum is above the sum of its unit groups' minima, the slack of its plant-level row, so a shortfall is counted once. Zero when the minimum is met.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `outflow_slack_below_m3s`                        | Float64 | No       | m³/s      | Outflow lower-bound slack in m³/s.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `outflow_slack_above_m3s`                        | Float64 | No       | m³/s      | Outflow upper-bound slack in m³/s.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `generation_slack_mw`                            | Float64 | No       | MW        | Shortfall below the plant's minimum generation, in MW: the slacks of its (hydro, bus) cells plus, where the plant minimum is above the sum of its unit groups' minima, the slack of its plant-level row, so a shortfall is counted once. Zero when the minimum is met.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `storage_violation_below_hm3`                    | Float64 | No       | hm³       | Storage below the dead volume of a filling hydro at its Operating stages, in hm³ (the soft floor of [Penalty System](/math/penalty-system)); `0` on every other plant and stage: a non-filling plant in service keeps its dead volume as a hard bound, a filling plant's floor while it fills is its filling target (whose miss is `filling_target_violation_hm3`), and any other plant outside its commissioning window has no storage floor. A stage-level value, repeated on every block row. |
+| `storage_violation_below_hm3`                    | Float64 | No       | hm³       | Storage below the dead volume of a filling hydro at its Operating stages, in hm³ (the soft floor of [Penalty System](/en/math/penalty-system)); `0` on every other plant and stage: a non-filling plant in service keeps its dead volume as a hard bound, a filling plant's floor while it fills is its filling target (whose miss is `filling_target_violation_hm3`), and any other plant outside its commissioning window has no storage floor. A stage-level value, repeated on every block row. |
 | `filling_target_violation_hm3`                   | Float64 | No       | hm³       | Filling target miss in hm³. Zero when the target is met. A stage-level value, repeated on every block row.                                                                                                                                                                                                                                                                                                                                                                                       |
 | `evaporation_violation_pos_m3s`                  | Float64 | No       | m³/s      | Slack of the evaporation row above its linearised target (evaporation exceeds the target), in m³/s; on a parallel stage the stage-level value, repeated on every block row; on a chronological stage the block's own. Zero under normal operation.                                                                                                                                                                                                                                               |
 | `evaporation_violation_neg_m3s`                  | Float64 | No       | m³/s      | Slack of the evaporation row below its linearised target (evaporation falls short of the target), in m³/s; on a parallel stage the stage-level value, repeated on every block row; on a chronological stage the block's own. Zero under normal operation.                                                                                                                                                                                                                                        |
-| `inflow_nonnegativity_slack_m3s`                 | Float64 | No       | m³/s      | Water added to `incremental_inflow_m3s` in the water balance, in m³/s: exactly `max(-incremental_inflow_m3s, 0)` under `truncation`, at most that under `truncation_with_penalty`, any amount the LP buys under `penalty`, `0` under `none` ([`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity)). For a PreFilling plant this water and its incremental inflow enter the water balance of the first downstream plant that is not PreFilling, if any. A stage-level value, repeated on every block row.                                                                                                                                                                                                                                                                                                                                                                              |
+| `inflow_nonnegativity_slack_m3s`                 | Float64 | No       | m³/s      | Water added to `incremental_inflow_m3s` in the water balance, in m³/s: exactly `max(-incremental_inflow_m3s, 0)` under `truncation`, at most that under `truncation_with_penalty`, any amount the LP buys under `penalty`, `0` under `none` ([`modeling.inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity)). For a PreFilling plant this water and its incremental inflow enter the water balance of the first downstream plant that is not PreFilling, if any. A stage-level value, repeated on every block row.                                                                                                                                                                                                                                                                                                                                                                              |
 | `water_withdrawal_violation_pos_m3s`             | Float64 | No       | m³/s      | Water withdrawal over-target violation in m³/s. Zero when withdrawal is at or below target. A stage-level value, repeated on every block row.                                                                                                                                                                                                                                                                                                                                                    |
 | `water_withdrawal_violation_neg_m3s`             | Float64 | No       | m³/s      | Water withdrawal under-target violation in m³/s. Zero when withdrawal is at or above target. A stage-level value, repeated on every block row.                                                                                                                                                                                                                                                                                                                                                   |
 | `integrated_equivalent_productivity_mw_per_m3s`  | Float64 | No       | MW/(m³/s) | Useful-range mean equivalent productivity [MW/(m³/s)]: ρ_eq with the forebay level averaged over the plant's physical storage range (`reservoir` in `system/hydros.json`). Set outright by an `integrated_equivalent_productivity_mw_per_m3s` value in `system/hydro_energy_productivity.parquet`; otherwise equals `equivalent_productivity_mw_per_m3s` when the range is collapsed or the plant has no VHA geometry or specific productivity.                                                                                                                     |
@@ -158,11 +158,11 @@ The `stored_energy_initial_mwh` and `stored_energy_final_mwh` columns equal the 
 
 Hydro dispatch results at `(hydro, bus)` cell granularity — one cell per
 distinct bus among a plant's unit groups (see
-[`hydros[].unit_groups[]`](/reference/case-format/hydros/#systemhydrosjson)
+[`hydros[].unit_groups[]`](/en/reference/case-format/hydros/#systemhydrosjson)
 in the Case Format reference). One row per (stage, block, hydro,
 bus) quadruplet. 9 columns.
 
-**Methodology:** [LP Formulation](/math/lp-formulation)
+**Methodology:** [LP Formulation](/en/math/lp-formulation)
 
 `simulation/hydros/` reports each plant's total: a plant split across several
 unit groups sharing one bus has no per-group quantity to report, since every
@@ -192,7 +192,7 @@ multi-cell plant's total is `(Σ_c q_c)·ρ` — its cells' turbined flow summed
 then multiplied by the productivity once — while each cell row is `q_c·ρ`
 computed independently. The sum of a plant's cell rows can therefore differ
 from its plant total by a rounding-scale amount (see
-[Determinism & Provenance — Out of Scope](/math/determinism-guarantees#4-out-of-scope)).
+[Determinism & Provenance — Out of Scope](/en/math/determinism-guarantees#4-out-of-scope)).
 
 ---
 
@@ -200,7 +200,7 @@ from its plant total by a rounding-scale amount (see
 
 Thermal unit dispatch results. One row per (stage, block, thermal) triplet. 12 columns.
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations)
 
 | Name                       | Type    | Nullable | Units | Description                                                                                                         |
 | -------------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------- |
@@ -223,7 +223,7 @@ Thermal unit dispatch results. One row per (stage, block, thermal) triplet. 12 c
 
 Transmission line flow results. One row per (stage, block, line) triplet. 13 columns.
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations)
 
 | Name                   | Type    | Nullable | Units | Description                                                                                                         |
 | ---------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------- |
@@ -247,7 +247,7 @@ Transmission line flow results. One row per (stage, block, line) triplet. 13 col
 
 Bus load balance results. One row per (stage, block, bus) triplet. 12 columns.
 
-**Methodology:** [System Element Modeling Overview](/math/system-elements)
+**Methodology:** [System Element Modeling Overview](/en/math/system-elements)
 
 | Name          | Type    | Nullable | Units   | Description                                                                                                         |
 | ------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -270,7 +270,7 @@ Bus load balance results. One row per (stage, block, bus) triplet. 12 columns.
 
 Pumping station results. One row per (stage, block, pumping station) triplet. 11 columns.
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations)
 
 | Name                     | Type    | Nullable | Units | Description                                                                                                         |
 | ------------------------ | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------- |
@@ -292,7 +292,7 @@ Pumping station results. One row per (stage, block, pumping station) triplet. 11
 
 Energy contract results. One row per (stage, block, contract) triplet. 10 columns.
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations)
 
 | Name                   | Type    | Nullable | Units   | Description                                                                                                                                                             |
 | ---------------------- | ------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -314,7 +314,7 @@ Energy contract results. One row per (stage, block, contract) triplet. 10 column
 Non-controllable source results (wind, solar, run-of-river hydro without
 storage, etc.). One row per (stage, block, non-controllable) triplet. 12 columns.
 
-**Methodology:** [Equipment-Specific Formulations](/math/equipment-formulations)
+**Methodology:** [Equipment-Specific Formulations](/en/math/equipment-formulations)
 
 | Name                   | Type    | Nullable | Units | Description                                                                                                         |
 | ---------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------- |
@@ -339,7 +339,7 @@ Autoregressive inflow lag state variables. One row per (stage, hydro, lag)
 triplet. No block dimension — inflow lags are stage-level state variables.
 6 columns. All columns are non-nullable.
 
-**Methodology:** [PAR(p) Inflow Model](/math/par-inflow-model) · [State Augmentation](/math/state-augmentation)
+**Methodology:** [PAR(p) Inflow Model](/en/math/par-inflow-model) · [State Augmentation](/en/math/state-augmentation)
 
 | Name          | Type    | Nullable | Units | Description                                                                                                                                                                                                                                                                           |
 | ------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -347,7 +347,7 @@ triplet. No block dimension — inflow lags are stage-level state variables.
 | `stage_id`    | Int32   | No       | —     | Declared stage id (from `stages.json`).                                                                                                                                                                                                                                               |
 | `node_id`     | Int32   | No       | —     | Visited policy-graph node id; on a stage chain, the 0-based stage position (not the declared stage id).                                                                                                                                                                               |
 | `hydro_id`    | Int32   | No       | —     | Hydro plant ID.                                                                                                                                                                                                                                                                       |
-| `lag_index`   | Int32   | No       | —     | Autoregressive lag index, 0-based: `0` is the inflow of the most recently completed lag period ([Multi-Resolution Studies §2](/math/multi-resolution-studies#2-lag-accumulation)); without `season_definitions` no stage completes a lag period and `inflow_m3s` is `0` on every row. |
+| `lag_index`   | Int32   | No       | —     | Autoregressive lag index, 0-based: `0` is the inflow of the most recently completed lag period ([Multi-Resolution Studies §2](/en/math/multi-resolution-studies#2-lag-accumulation)); without `season_definitions` no stage completes a lag period and `inflow_m3s` is `0` on every row. |
 | `inflow_m3s`  | Float64 | No       | m³/s  | Inflow value for this lag in m³/s: the seed derived from history (`0` without one) at the first stage, built afterwards from the raw simulated PAR values of earlier stages, which may be negative (aggregated over the lag's period when the period spans several stages).           |
 
 ---
@@ -360,7 +360,7 @@ state variables. 7 columns. All columns are non-nullable. The directory is
 present **only when the system declares a travel-time arc**
 (`travel_time_hours` present, strictly positive, with a `downstream_id`).
 
-**Methodology:** [State Augmentation](/math/state-augmentation)
+**Methodology:** [State Augmentation](/en/math/state-augmentation)
 
 | Name                    | Type    | Nullable | Units | Description                                                                                                                                                                                                                                             |
 | ----------------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -369,7 +369,7 @@ present **only when the system declares a travel-time arc**
 | `node_id`               | Int32   | No       | —     | Visited policy-graph node id; on a stage chain, the 0-based stage position (not the declared stage id).                                                                                                                                                 |
 | `hydro_id`              | Int32   | No       | —     | Downstream (receiving) hydro plant ID the in-transit water is destined for.                                                                                                                                                                             |
 | `lag`                   | Int32   | No       | —     | Maturity lag (1-based) of the bucket at the end of this stage: lag 1 arrives at the receiving plant at the next stage, lag `k` arrives `k` stages later.                                                                                                |
-| `in_transit_volume_hm3` | Float64 | No       | hm³   | Volume in this bucket at the end of the stage, in hm³. Water that would mature after the last stage is dropped when no terminal boundary is loaded, so such a bucket reads `0` (see [Horizon limitation](/math/state-augmentation#horizon-limitation)). |
+| `in_transit_volume_hm3` | Float64 | No       | hm³   | Volume in this bucket at the end of the stage, in hm³. Water that would mature after the last stage is dropped when no terminal boundary is loaded, so such a bucket reads `0` (see [Horizon limitation](/en/math/state-augmentation#horizon-limitation)). |
 | `delayed_arrival_hm3`   | Float64 | No       | hm³   | Volume of the incoming lag-1 bucket, which enters the receiving plant's water balance at this stage or, while that plant is outside its commissioning window, the balance of the nearest downstream plant that is not PreFilling (with none, it leaves the modeled system), in hm³; written on the `lag` = 1 row and `0` on deeper lags. |
 
 ---
@@ -385,7 +385,7 @@ a stage/node index, so this schema carries `scenario_id` alone (no
 by `scenario_id` (`transit_seed/scenario_id=NNNN/data.parquet`); written only
 when the system declares a travel-time arc.
 
-**Methodology:** [State Augmentation](/math/state-augmentation)
+**Methodology:** [State Augmentation](/en/math/state-augmentation)
 
 | Name          | Type    | Nullable | Units | Description                                                                                                         |
 | ------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------- |
@@ -409,7 +409,7 @@ non-nullable. Hive-partitioned by `scenario_id`
 (`anticipated_lanes/scenario_id=NNNN/data.parquet`); written only when the
 study declares `post_study_stages`.
 
-**Methodology:** [State Augmentation](/math/state-augmentation)
+**Methodology:** [State Augmentation](/en/math/state-augmentation)
 
 | Name                    | Type    | Nullable | Units | Description                                                                                                                                                          |
 | ----------------------- | ------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -419,7 +419,7 @@ study declares `post_study_stages`.
 | `thermal_id`            | Int32   | No       | —     | Anticipated thermal unit ID.                                                                                                                                         |
 | `delivery_date`         | Int32   | No       | —     | Calendar date the commitment delivers, encoded `YYYYMMDD` (`year*10000 + month*100 + day`).                                                                          |
 | `deposited_decision_mw` | Float64 | No       | MW    | Commitment decided at `stage_id` for delivery at `delivery_date`, in MW.                                                                                             |
-| `carried_committed_mw`  | Float64 | No       | MW    | Value of the ring slot holding the commitment at `stage_id`, in MW; the [deposit row](/math/state-augmentation#ring-rows) makes it equal to `deposited_decision_mw`. |
+| `carried_committed_mw`  | Float64 | No       | MW    | Value of the ring slot holding the commitment at `stage_id`, in MW; the [deposit row](/en/math/state-augmentation#ring-rows) makes it equal to `deposited_decision_mw`. |
 
 ---
 
@@ -427,7 +427,7 @@ study declares `post_study_stages`.
 
 Run-level echo of every commitment **decided before the study** and delivered
 past the study horizon (for the equivalent term in other planning tools, see the
-[Glossary](/reference/glossary)), declared as `past_anticipated_commitments`
+[Glossary](/en/reference/glossary)), declared as `past_anticipated_commitments`
 windows extending past the horizon end. Unlike
 `simulation/anticipated_lanes/`, this file is **not** under `simulation/`, is
 **unpartitioned**, and carries no scenario, stage, or node axis: each row is a
@@ -439,7 +439,7 @@ column: the fuel of a commitment decided before the study is sunk and enters no
 objective; when a boundary is loaded, the commitment's state contribution is
 folded into the boundary cuts' intercepts.
 
-**Methodology:** [State Augmentation](/math/state-augmentation)
+**Methodology:** [State Augmentation](/en/math/state-augmentation)
 
 | Name         | Type    | Nullable | Units | Description                                              |
 | ------------ | ------- | -------- | ----- | -------------------------------------------------------- |
@@ -455,7 +455,7 @@ folded into the boundary cuts' intercepts.
 Generic user-defined constraint slacks. One row per active generic-constraint row at each stage — one per (stage, block,
 constraint) triplet, or one stage-level row (`block_id` null) for a block-independent constraint — whether or not it is violated; `slack_value` and `slack_cost` are `0` where it is not and on every row of a constraint with slack disabled. 7 columns.
 
-**Methodology:** [Penalty System](/math/penalty-system)
+**Methodology:** [Penalty System](/en/math/penalty-system)
 
 | Name            | Type    | Nullable | Units | Description                                                                                                                                                                     |
 | --------------- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -471,20 +471,20 @@ constraint) triplet, or one stage-level row (`block_id` null) for a block-indepe
 
 ## `simulation/solver/iterations.parquet`
 
-Identical schema to [`training/solver/iterations.parquet`](/reference/output/training/#trainingsolveriterationsparquet).
+Identical schema to [`training/solver/iterations.parquet`](/en/reference/output/training/#trainingsolveriterationsparquet).
 One row per `scenario_id`; `phase` is always `"simulation"`. `iteration`, `stage_id`,
 `opening_index`, `rank`, and `worker_id` are **NULL** (a simulation row carries no
 per-iteration / per-stage / per-opening / per-rank / per-worker attribution); `scenario_id`
 is set.
 
-**Methodology:** [LP Warm-Start](/math/lp-warm-start)
+**Methodology:** [LP Warm-Start](/en/math/lp-warm-start)
 
 ---
 
 ## `simulation/solver/retry_histogram.parquet`
 
 Same columns and types as
-[`training/solver/retry_histogram.parquet`](/reference/output/training/#trainingsolverretry_histogramparquet).
+[`training/solver/retry_histogram.parquet`](/en/reference/output/training/#trainingsolverretry_histogramparquet).
 One row per scenario and retry level with a positive count; `iteration` holds
 the scenario id (0-based), `phase` is always `"simulation"` and `stage_id` is
 `null`. `novomodelo run` (CLI) writes the file with no rows and records simulation
@@ -501,7 +501,7 @@ generic user-defined constraints. It sits at the top level of `<output_dir>/`,
 a peer of `training/` and `simulation/`, not nested under either. The directory
 is omitted entirely when the study has no generic constraints.
 
-**Methodology:** [LP Formulation](/math/lp-formulation)
+**Methodology:** [LP Formulation](/en/math/lp-formulation)
 
 The fully resolved echo of every generic constraint as the LP actually built
 it — one row per `(constraint, stage, block, term)`. Written once, not

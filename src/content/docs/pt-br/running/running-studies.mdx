@@ -67,7 +67,7 @@ error: [SchemaViolation] system/hydros.json: field reservoir: missing field `res
 ```
 
 Corrija os erros reportados antes de prosseguir. Veja
-[Formato do caso](/pt-br/reference/case-format/) para o esquema completo.
+[Formato do caso](/reference/case-format/) para o esquema completo.
 
 ---
 
@@ -86,12 +86,12 @@ novomodelo run /path/to/my_study --output /path/to/results
 
 Antes de gravar as saídas de uma fase, o `novomodelo run`
 remove as saídas dessa fase deixadas pela execução anterior, conforme listado em
-[Formato de saída — Marcadores de sucesso](/pt-br/reference/output/#marcadores-de-sucesso); todos os
+[Formato de saída — Marcadores de sucesso](/reference/output/#marcadores-de-sucesso); todos os
 demais arquivos permanecem até que uma execução os regrave, de modo que a exportação `stochastic/` de uma
 execução anterior que definiu `exports.stochastic` permanece. Use um diretório `--output` novo, ou apague o antigo,
 antes de comparar execuções. As execuções com partida a quente (warm-start), retomada e somente simulação leem o
 checkpoint da política em `policy.path` dentro do diretório de saída; portanto, preserve esse
-checkpoint quando planejar uma dessas execuções ([Gerenciamento da política](/pt-br/running/policy-management/)).
+checkpoint quando planejar uma dessas execuções ([Gerenciamento da política](/running/policy-management/)).
 
 ### Etapas do ciclo de vida
 
@@ -129,7 +129,7 @@ e grava suas saídas. O `novomodelo validate` verifica o caso previamente, sem r
 Uma execução posterior do mesmo estudo pode partir a quente do checkpoint ou retomá-lo, ou simulá-lo
 sem treinamento ([Reaproveitando uma política salva](#reaproveitando-uma-politica-salva)), e outro
 estudo pode importá-lo como sua fronteira terminal
-([Gerenciamento da política — Cortes de fronteira](/pt-br/running/policy-management/#cortes-de-fronteira)).
+([Gerenciamento da política — Cortes de fronteira](/running/policy-management/#cortes-de-fronteira)).
 
 ---
 
@@ -220,7 +220,7 @@ Cada fase imprime um resumo na stdout com:
 
 O caso gerado executa uma simulação forward por iteração, de modo que cada limite superior é o custo de
 uma única trajetória amostrada, e o gap pode ficar abaixo de zero.
-[Convergência e diagnóstico](/pt-br/running/interpreting-results/) explica como ler os limites.
+[Convergência e diagnóstico](/running/interpreting-results/) explica como ler os limites.
 
 ---
 
@@ -259,10 +259,10 @@ jq -r '.convergence.termination_reason' /path/to/my_study/output/training/metada
 No Python, `novomodelo.results.load_results("/path/to/my_study/output")` retorna
 os dois arquivos de metadados como dicionários, e `novomodelo.results.load_convergence` /
 `novomodelo.results.load_simulation` carregam as tabelas Parquet. Veja
-[Convergência e diagnóstico](/pt-br/running/interpreting-results/) para a leitura da
-trajetória de convergência e das saídas da simulação, e [Formato de saída](/pt-br/reference/output/) para todos os campos
-de [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadatajson) e
-[`simulation/metadata.json`](/pt-br/reference/output/metadata/#simulationmetadatajson).
+[Convergência e diagnóstico](/running/interpreting-results/) para a leitura da
+trajetória de convergência e das saídas da simulação, e [Formato de saída](/reference/output/) para todos os campos
+de [`training/metadata.json`](/reference/output/metadata/#trainingmetadatajson) e
+[`simulation/metadata.json`](/reference/output/metadata/#simulationmetadatajson).
 
 ---
 
@@ -270,34 +270,34 @@ de [`training/metadata.json`](/pt-br/reference/output/metadata/#trainingmetadata
 
 Uma execução grava o checkpoint de sua política em `policy.path`; uma execução posterior pode simulá-la,
 iniciar o treinamento a partir dela ou retomá-la, e outro estudo pode usá-la como sua fronteira
-terminal ([Gerenciamento da política](/pt-br/running/policy-management/)).
+terminal ([Gerenciamento da política](/running/policy-management/)).
 
 ### Simulação com uma política salva
 
 Defina `training.enabled` como `false` para simular uma política salva sem
 treinar novamente. `training.selection` e `training.stopping_rules` continuam
 obrigatórios. A configuração completa e as verificações de carga da política estão em
-[Gerenciamento da política — Modo Somente Simulação](/pt-br/running/policy-management/#modo-somente-de-simulacao).
+[Gerenciamento da política — Modo Somente Simulação](/running/policy-management/#modo-somente-de-simulacao).
 
 ### Partida a quente a partir de uma política salva
 
 Defina `policy.mode` como `"warm_start"` para iniciar o treinamento a partir de uma política salva; o treinamento
 acrescenta novos cortes aos já salvos. Veja
-[Gerenciamento da política — Partida a quente](/pt-br/running/policy-management/#partida-a-quente).
+[Gerenciamento da política — Partida a quente](/running/policy-management/#partida-a-quente).
 
 ### Retomando um treinamento interrompido
 
 Defina `policy.mode` como `"resume"` para continuar um treinamento interrompido a partir do seu checkpoint.
 O maior `iteration_limit` é um total que inclui as iterações já concluídas; portanto,
 defina-o acima desse número. Veja
-[Gerenciamento da política — Retomada](/pt-br/running/policy-management/#retomada).
+[Gerenciamento da política — Retomada](/running/policy-management/#retomada).
 
 ### Treinamento em etapas
 
 Quando o limite de tempo de relógio de um escalonador de tarefas é menor do que o treinamento exige, treine em
 etapas: cada etapa posterior define `policy.mode` como `"resume"` e aumenta o
 total de `iteration_limit`.
-Veja [Gerenciamento da política — Treinar em Etapas](/pt-br/running/policy-management/#treinar-em-fatias).
+Veja [Gerenciamento da política — Treinar em Etapas](/running/policy-management/#treinar-em-fatias).
 
 ---
 
@@ -345,12 +345,12 @@ inteiro maior ou igual a `1`, com padrão `1`. O conjunto de threads resolve em 
 da simulação backward e da simulação final, de modo que o ganho de velocidade é limitado pelo
 trabalho paralelo disponível: as simulações forward por iteração, os estados visitados da
 simulação backward e os cenários de simulação. No trecho, o treinamento roda cerca de duas vezes mais rápido com quatro threads e a simulação, cerca de duas vezes e meia: neste caso, as resoluções dos PLs ocupam a maior parte do tempo de relógio de cada fase, e elas são executadas em paralelo. Veja
-[Aceleradores de desempenho](/pt-br/running/performance/) para o modelo de execução.
+[Aceleradores de desempenho](/running/performance/) para o modelo de execução.
 
 ### Backend de comunicação
 
 Um único `novomodelo run` usa o backend local (processo único); a execução sob um
-lançador MPI (`mpiexec`, `mpirun` ou `srun`) distribui o trabalho entre os processos quando o binário é compilado com suporte a MPI (o binário `novomodelo-mpi` de [Implantação em HPC e clusters](/pt-br/running/hpc-deployment/)); o binário padrão `novomodelo` oferece apenas o backend local, de modo que, sob um lançador, `auto` executa cada processo como um estudo independente de processo único.
+lançador MPI (`mpiexec`, `mpirun` ou `srun`) distribui o trabalho entre os processos quando o binário é compilado com suporte a MPI (o binário `novomodelo-mpi` de [Implantação em HPC e clusters](/running/hpc-deployment/)); o binário padrão `novomodelo` oferece apenas o backend local, de modo que, sob um lançador, `auto` executa cada processo como um estudo independente de processo único.
 Por padrão (`--comm-backend auto`), o novomodelo detecta o lançador e seleciona o
 backend de acordo, de modo que nenhuma flag é necessária em nenhum dos casos. Passe
 `--comm-backend mpi` para forçar o backend MPI — ele falha com uma mensagem clara em um
@@ -372,8 +372,8 @@ Suprime o cabeçalho e a saída de progresso, adequado para scripts em lote.
 ### Verificando os códigos de saída
 
 O `novomodelo run` sai com `0` em caso de sucesso e com valor diferente de zero nos demais casos. O significado de cada código
-está em [Referência da CLI — Códigos de saída](/pt-br/reference/cli-reference/#codigos-de-saida).
-[Solução de problemas](/pt-br/running/troubleshooting/) lista as mensagens de erro com sua causa
+está em [Referência da CLI — Códigos de saída](/reference/cli-reference/#codigos-de-saida).
+[Solução de problemas](/running/troubleshooting/) lista as mensagens de erro com sua causa
 e correção.
 
 ---
@@ -392,7 +392,7 @@ pré-processamento estocástico em `output/stochastic/` antes do início do trei
 ```
 
 A exportação contém o modelo estocástico usado pela execução.
-[Artefatos estocásticos](/pt-br/reference/output/stochastic/)
+[Artefatos estocásticos](/reference/output/stochastic/)
 lista cada arquivo, a condição em que é gravado e seu esquema.
 
 ### Fluxo de ida e volta
@@ -449,12 +449,12 @@ a partir de `inflow_history.parquet`, e lê a árvore de aberturas de
 conter `num_openings` aberturas para todos os estágios, caso contrário a carga falha; uma árvore que
 a primeira execução limitou a menos aberturas, com um aviso, não passa nessa verificação. As
 demais condições sobre o arquivo estão em
-[Arquivos de cenários](/pt-br/reference/case-format/scenarios/#scenariosnoise_openingsparquet).
+[Arquivos de cenários](/reference/case-format/scenarios/#scenariosnoise_openingsparquet).
 
 ---
 
 ## Veja também
 
-- **Teoria:** [Algoritmo da PDDE](/pt-br/math/sddp-algorithm/) — o algoritmo de simulações forward/backward que este fluxo de trabalho treina e executa.
-- **Solução de problemas:** [Solução de problemas](/pt-br/running/troubleshooting/) — mensagens de erro, sua causa e a correção
-- **Agentes de IA:** [Agentes de IA (novomodelo-mcp)](/pt-br/running/mcp-server/) — execute este fluxo de trabalho por meio de um cliente MCP
+- **Teoria:** [Algoritmo da PDDE](/math/sddp-algorithm/) — o algoritmo de simulações forward/backward que este fluxo de trabalho treina e executa.
+- **Solução de problemas:** [Solução de problemas](/running/troubleshooting/) — mensagens de erro, sua causa e a correção
+- **Agentes de IA:** [Agentes de IA (novomodelo-mcp)](/running/mcp-server/) — execute este fluxo de trabalho por meio de um cliente MCP

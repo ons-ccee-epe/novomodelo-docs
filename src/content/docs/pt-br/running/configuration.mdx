@@ -100,7 +100,7 @@ erro de carga (`deny_unknown_fields`).
 | `forward_passes` | integer | apenas `sampled` | Número de trajetórias de cenários por iteração (`>= 1`). Valores maiores reduzem a variância do corte de cada iteração, mas aumentam o custo por iteração. Rejeitado com `"enumerated"`. |
 
 **Não há padrão** para o número de simulações forward: a ausência de `training.selection` é
-um erro de carga fatal ([`SchemaViolation`](/pt-br/reference/error-codes/#schemaviolation)).
+um erro de carga fatal ([`SchemaViolation`](/reference/error-codes/#schemaviolation)).
 
 Exemplo — amostrado:
 
@@ -127,7 +127,7 @@ cujas ramificações estejam todas no último estágio (um tronco determinístic
 leque terminal); um grafo com nó de ramificação intermediário interrompe `novomodelo run`
 antes do treinamento, com código de saída `1`. `novomodelo validate` não verifica isso; portanto, uma
 validação aprovada não exclui essa situação. A mensagem de erro está listada em
-[Falhas de comunicação](/pt-br/reference/error-codes/#falhas-de-comunicacao).
+[Falhas de comunicação](/reference/error-codes/#falhas-de-comunicacao).
 
 A seleção enumerada, no treinamento ou na simulação, também exige que todo nó
 do grafo da política tenha uma única abertura: ela percorre cada caminho do
@@ -151,7 +151,7 @@ recusado na preparação do estudo, por `novomodelo validate` e por `novomodelo 
 
 Para a configuração de `scenario_source` por classe, veja a
 [subseção `scenario_source`](#trainingscenario_source) abaixo e
-[Geração de cenários §3](/pt-br/math/scenario-generation#3-abstracao-do-esquema-de-amostragem).
+[Geração de cenários §3](/math/scenario-generation#3-abstracao-do-esquema-de-amostragem).
 
 ### `training.scenario_source`
 
@@ -165,14 +165,14 @@ o treinamento. Quando ausente, todas as classes usam por padrão `in_sample` (re
 | `inflow`           | object            | `in_sample`   | Esquema de amostragem da afluência às usinas hidrelétricas. Objeto com a chave `"scheme"`.             |
 | `load`             | object            | `in_sample`   | Esquema de amostragem da carga dos barramentos. Objeto com a chave `"scheme"`.                          |
 | `ncs`              | object            | `in_sample`   | Esquema de amostragem da disponibilidade das NCS. Objeto com a chave `"scheme"`.                        |
-| `historical_years` | array \| object   | descoberta automática | Restringe o conjunto de janelas históricas. Quando ausente, todo ano do histórico é candidato. Lista (`[1940, 1953]`) ou intervalo (`{"from": 1940, "to": 2010}`). Cada ano listado designa a janela cujo primeiro estágio do estudo cai na ocorrência, naquele ano, de seu período sazonal; a elegibilidade segue o [Conjunto de janelas históricas](/pt-br/math/scenario-generation/#conjunto-de-janelas-historicas), e um ano que não a atenda é descartado sem mensagem. Um resultado vazio gera o erro "no valid historical windows found" ([Códigos de erro](/pt-br/reference/error-codes/#stochasticpreparationerror)). O mesmo conjunto fornece as aberturas `historical_residuals`. |
-| `openings`         | object            | `{"source": "generated"}` | Origem da árvore de aberturas da simulação backward. `{"source": "generated"}` constrói a árvore internamente, com o `moment_matching` opcional de [`training.scenario_source.openings`](#trainingscenario_sourceopenings); `{"source": "file"}` lê uma árvore fornecida pelo usuário em `scenarios/noise_openings.parquet` (apenas com seleção amostrada, e não com `policy_graph.nodes[]` declarado em `stages.json`; qualquer dessas combinações é rejeitada na validação do caso). Apenas no treinamento. Um arquivo declarado e ausente interrompe a execução em sua fase estocástica ([Arquivo da árvore de aberturas ausente](/pt-br/reference/error-codes/#arquivo-da-arvore-de-aberturas-ausente)). |
+| `historical_years` | array \| object   | descoberta automática | Restringe o conjunto de janelas históricas. Quando ausente, todo ano do histórico é candidato. Lista (`[1940, 1953]`) ou intervalo (`{"from": 1940, "to": 2010}`). Cada ano listado designa a janela cujo primeiro estágio do estudo cai na ocorrência, naquele ano, de seu período sazonal; a elegibilidade segue o [Conjunto de janelas históricas](/math/scenario-generation/#conjunto-de-janelas-historicas), e um ano que não a atenda é descartado sem mensagem. Um resultado vazio gera o erro "no valid historical windows found" ([Códigos de erro](/reference/error-codes/#stochasticpreparationerror)). O mesmo conjunto fornece as aberturas `historical_residuals`. |
+| `openings`         | object            | `{"source": "generated"}` | Origem da árvore de aberturas da simulação backward. `{"source": "generated"}` constrói a árvore internamente, com o `moment_matching` opcional de [`training.scenario_source.openings`](#trainingscenario_sourceopenings); `{"source": "file"}` lê uma árvore fornecida pelo usuário em `scenarios/noise_openings.parquet` (apenas com seleção amostrada, e não com `policy_graph.nodes[]` declarado em `stages.json`; qualquer dessas combinações é rejeitada na validação do caso). Apenas no treinamento. Um arquivo declarado e ausente interrompe a execução em sua fase estocástica ([Arquivo da árvore de aberturas ausente](/reference/error-codes/#arquivo-da-arvore-de-aberturas-ausente)). |
 
 Valores válidos para `"scheme"`: `"in_sample"`, `"out_of_sample"`, `"external"` para todas as classes;
 `"historical"` apenas para `inflow`.
 
 Regras de admissão (verificadas na carga; as mensagens estão listadas em
-[Regras de admissão da fonte de cenários](/pt-br/reference/error-codes/#regras-de-admissao-da-fonte-de-cenarios)):
+[Regras de admissão da fonte de cenários](/reference/error-codes/#regras-de-admissao-da-fonte-de-cenarios)):
 
 - `historical` só é válido para `inflow` — `load` ou `ncs` em `historical` é rejeitado.
 - `seed` é obrigatório quando alguma classe é `out_of_sample` ou `external`.
@@ -201,7 +201,7 @@ mantém a média, o desvio-padrão e os coeficientes declarados em seus arquivos
 Uma coluna externa com σ = 0 é aceita para carga, NCS e um modelo de afluências de
 ordem AR 0 sem componente anual, e rejeitada para um modelo de afluências cujos
 arquivos declarem ordem AR acima de 0 ou componente anual (veja
-[Códigos de erro](/pt-br/reference/error-codes/#coluna-deterministica-de-afluencia-externa-sob-modelo-autorregressivo)).
+[Códigos de erro](/reference/error-codes/#coluna-deterministica-de-afluencia-externa-sob-modelo-autorregressivo)).
 
 Exemplo — afluência fora da amostra com carga e NCS dentro da amostra:
 
@@ -221,19 +221,19 @@ Exemplo — afluência fora da amostra com carga e NCS dentro da amostra:
 }
 ```
 
-Veja [Geração de cenários §3](/pt-br/math/scenario-generation#3-abstracao-do-esquema-de-amostragem)
+Veja [Geração de cenários §3](/math/scenario-generation#3-abstracao-do-esquema-de-amostragem)
 para a descrição completa de cada esquema e das janelas históricas.
 
 ### `training.scenario_source.openings`
 
 De onde vem a árvore de aberturas da simulação backward e como uma árvore gerada é corrigida
-([Geração de cenários §2.3](/pt-br/math/scenario-generation/#23-arvore-de-aberturas)). Quando
+([Geração de cenários §2.3](/math/scenario-generation/#23-arvore-de-aberturas)). Quando
 `openings` está ausente, a árvore é gerada com `moment_matching` no seu valor padrão.
 
 | Campo             | Tipo   | Padrão             | Descrição |
 | ----------------- | ------ | ------------------ | ----------- |
 | `source`          | string | `"generated"`      | Um entre `"generated"`, `"file"`. `"generated"` constrói a árvore a partir do `sampling_method` dos estágios; `"file"` a lê de `scenarios/noise_openings.parquet`. |
-| `moment_matching` | string | `"per_coordinate"` | Um entre `"per_coordinate"`, `"none"`; aceito apenas com `"source": "generated"`. `"per_coordinate"` desloca e escala as aberturas de afluência de cada estágio gerado de modo que, para cada usina hidrelétrica, sua média seja 0 e sua variância seja a que a correlação do estágio atribui ao ruído dessa usina (passo 4 de [§2.3](/pt-br/math/scenario-generation/#23-arvore-de-aberturas)); `"none"` mantém as aberturas como sorteadas. Um estágio `historical_residuals`, um estágio com uma única abertura e os ruídos de carga e de NCS nunca passam pela correspondência de momentos (moment matching). |
+| `moment_matching` | string | `"per_coordinate"` | Um entre `"per_coordinate"`, `"none"`; aceito apenas com `"source": "generated"`. `"per_coordinate"` desloca e escala as aberturas de afluência de cada estágio gerado de modo que, para cada usina hidrelétrica, sua média seja 0 e sua variância seja a que a correlação do estágio atribui ao ruído dessa usina (passo 4 de [§2.3](/math/scenario-generation/#23-arvore-de-aberturas)); `"none"` mantém as aberturas como sorteadas. Um estágio `historical_residuals`, um estágio com uma única abertura e os ruídos de carga e de NCS nunca passam pela correspondência de momentos (moment matching). |
 
 ```json
 {
@@ -251,11 +251,11 @@ quando o `config.json` é carregado. A simulação forward dentro da amostra (in
 simulação forward fora da amostra (out-of-sample) não passam pela correspondência de momentos. O
 `training/model_provenance.json` registra o modo de uma árvore gerada como
 `inflow.opening_tree_moment_matching`
-([Arquivos de metadados](/pt-br/reference/output/metadata/#trainingmodel_provenancejson)).
+([Arquivos de metadados](/reference/output/metadata/#trainingmodel_provenancejson)).
 
 ### `training.stopping_rules`
 
-Cada entrada de `stopping_rules` é um objeto JSON com um discriminador `"type"`. A condição de parada de cada critério é definida em [Critérios de parada](/pt-br/math/stopping-rules/).
+Cada entrada de `stopping_rules` é um objeto JSON com um discriminador `"type"`. A condição de parada de cada critério é definida em [Critérios de parada](/math/stopping-rules/).
 
 #### `iteration_limit`
 
@@ -269,7 +269,7 @@ Para após um número fixo de iterações de treinamento.
 | ------- | ------- | ------------------------------------------ |
 | `limit` | integer | Número máximo de iterações da PDDE a executar. |
 
-Use uma única entrada `iteration_limit`: em uma execução retomada, seu `limit` também conta as iterações das execuções anteriores ([Treinar em etapas](/pt-br/running/policy-management/#treinar-em-fatias)).
+Use uma única entrada `iteration_limit`: em uma execução retomada, seu `limit` também conta as iterações das execuções anteriores ([Treinar em etapas](/running/policy-management/#treinar-em-fatias)).
 
 #### `time_limit`
 
@@ -318,7 +318,7 @@ comparado seja exato, e não uma estimativa estatística.
 Pelo menos um de `tolerance` / `relative_tolerance` deve estar presente; um critério `gap`
 sem nenhum dos dois campos é rejeitado na validação da configuração:
 `novomodelo validate` o informa como
-[`ConfigValidationError`](/pt-br/reference/error-codes/#configvalidationerror), e
+[`ConfigValidationError`](/reference/error-codes/#configvalidationerror), e
 `novomodelo run` imprime a mesma mensagem e termina com `1`. Quando ambos estão presentes, os
 dois ramos se combinam por **disjunção** — o treinamento para assim que
 qualquer um dos ramos é satisfeito, não necessariamente ambos. O próprio gap é
@@ -393,7 +393,7 @@ Agrupa os parâmetros de escalonamento dos trabalhadores, que preservam o result
 Dentro de um estágio, os blocos de aberturas são assumidos **do mais difícil para o mais fácil**: os blocos são classificados pelo custo médio, em pivôs do simplex, da iteração anterior por `(stage, block)`, em ordem decrescente (empates resolvidos pelo índice de bloco crescente; a primeira iteração, e qualquer bloco sem dados anteriores, ficam por último). Essa ordem de atribuição altera apenas qual trabalhador processa qual bloco, e quando — ela é **neutra quanto ao resultado**: o conjunto de cortes produzido e o limite inferior do treinamento são idênticos aos da atribuição em ordem canônica.
 
 :::caution[Interação com o método dinâmico]
-Se o [método de seleção `dynamic`](#trainingcut_selection) estiver definido (`cut_selection.selection.method = "dynamic"`), o escalonador `by_node` recai no escalonamento `by_scenario` a partir do `start_iteration` desse método (padrão `2`), de modo que `by_node` deixa de ter efeito a partir desse ponto. Nenhum aviso é emitido. O método **não** é o padrão — esta ressalva só se aplica quando ele está definido. Veja [Aceleradores de desempenho](/pt-br/running/performance/) para o ajuste detalhado de `by_node`.
+Se o [método de seleção `dynamic`](#trainingcut_selection) estiver definido (`cut_selection.selection.method = "dynamic"`), o escalonador `by_node` recai no escalonamento `by_scenario` a partir do `start_iteration` desse método (padrão `2`), de modo que `by_node` deixa de ter efeito a partir desse ponto. Nenhum aviso é emitido. O método **não** é o padrão — esta ressalva só se aplica quando ele está definido. Veja [Aceleradores de desempenho](/running/performance/) para o ajuste detalhado de `by_node`.
 :::
 
 Exemplo — padrão (`by_scenario`; nenhum bloco `parallelism` necessário):
@@ -421,7 +421,7 @@ Exemplo — `by_node` com `block_size` explícito:
 }
 ```
 
-Para a simulação backward dentro da qual esse escalonamento ocorre, veja [Algoritmo da PDDE §3.4](/pt-br/math/sddp-algorithm#34-modelo-de-execucao-e-consideracoes-de-desempenho).
+Para a simulação backward dentro da qual esse escalonamento ocorre, veja [Algoritmo da PDDE §3.4](/math/sddp-algorithm#34-modelo-de-execucao-e-consideracoes-de-desempenho).
 
 ---
 
@@ -431,7 +431,7 @@ Controla o processo de gestão de linhas do conjunto de linhas de cada estágio.
 processo tem até duas etapas: um método de seleção e um limite, por estágio, de linhas
 ativas. Desativar uma linha a remove dos PLs do estágio e a mantém no conjunto.
 Para uma explicação detalhada de cada etapa, veja
-[Aceleradores de desempenho](/pt-br/running/performance/#processo-de-gerenciamento-de-cortes) e, para os próprios métodos de seleção, [Gerenciamento de cortes](/pt-br/math/cut-management/).
+[Aceleradores de desempenho](/running/performance/#processo-de-gerenciamento-de-cortes) e, para os próprios métodos de seleção, [Gerenciamento de cortes](/math/cut-management/).
 
 O bloco tem dois parâmetros sempre ativos no nível superior, mais um subobjeto `selection`
 que escolhe o método e contém apenas os parâmetros desse método.
@@ -540,7 +540,7 @@ Exemplo com o método `level1` e limite por estágio:
 ### `training.solver`
 
 Para o tratamento desses mesmos perfis do ponto de vista de ajuste de desempenho, veja
-[Perfis de solver por fase](/pt-br/running/performance/#perfis-de-solver-por-fase).
+[Perfis de solver por fase](/running/performance/#perfis-de-solver-por-fase).
 
 As duas chaves `retry_*` não têm efeito ([Chaves inertes](#chaves-inertes)); `backward` e `forward` são sobrescritas opcionais, por fase, do perfil do solver de PL.
 
@@ -594,7 +594,7 @@ de PL seja montado — e todo processo resolve o mesmo perfil a partir da config
   `use_warm_start` da fase em todos os níveis de nova tentativa. O backend CLP não tem essa configuração:
   toda fase parte da base armazenada quando ela existe. A forma como o armazenamento de bases
   alimenta cada fase está nas
-  [notas de implementação do Aproveitamento de base do PL](/pt-br/math/lp-warm-start/#implementacao-no-novo-modelo).
+  [notas de implementação do Aproveitamento de base do PL](/math/lp-warm-start/#implementacao-no-novo-modelo).
 - `dual_edge_weight: "steepest_edge"` é uma **solicitação, não uma garantia** —
   o HiGHS recai silenciosamente no pricing Devex quando o erro logarítmico do peso dual
   steepest-edge excede `steepest_edge_devex_fallback_threshold`.
@@ -603,7 +603,7 @@ de PL seja montado — e todo processo resolve o mesmo perfil a partir da config
 Definir `scale` como `"solver_scaling"` reativa o escalonamento (scaling) no próprio solver (equilibração do HiGHS:
 passagens repetidas pela média geométrica sobre colunas e linhas, com fatores
 arredondados para potências de dois) sobre o pré-escalonador offline do próprio Novo Modelo. O desescalonamento dos duais e dos coeficientes
-dos cortes (veja [Estrutura e escalonamento do PL §2.3](/pt-br/math/lp-layout-and-scaling#23-escalonamento-de-linhas-media-geometrica))
+dos cortes (veja [Estrutura e escalonamento do PL §2.3](/math/lp-layout-and-scaling#23-escalonamento-de-linhas-media-geometrica))
 só é exato quando a resolução não aplica nenhum escalonamento além desse pré-escalonador —
 habilitar `solver_scaling` introduz um segundo fator de escala que a
 identidade de desescalonamento único não leva em conta.
@@ -633,7 +633,7 @@ com um erro nomeado que identifica a fase e o campo. Um bloco de sobrescrita vaz
 (por exemplo `"solver": {}` ou `"backward": {}`) e um bloco ausente
 são ambos válidos no CLP; apenas um campo efetivamente definido provoca a rejeição.
 O CLP inicia as resoluções de todas as fases a partir de uma base armazenada quando há uma
-disponível. Veja [Instalação — Escolha do backend](/pt-br/getting-started/installation) para a
+disponível. Veja [Instalação — Escolha do backend](/getting-started/installation) para a
 seleção do backend e as demais limitações do CLP.
 
 Exemplo — `training.solver.backward` com duas sobrescritas:
@@ -820,8 +820,8 @@ enumerada) pode então indicar uma convergência que não ocorreu.
 
 A saída da simulação informa a vazão incremental como `incremental_inflow_m3s`
 e a folga como `inflow_nonnegativity_slack_m3s`
-([`simulation/hydros/`](/pt-br/reference/output/simulation/#simulationhydros)). Os
-quatro métodos são definidos em [Métodos de tratamento de afluências negativas](/pt-br/math/inflow-nonnegativity/).
+([`simulation/hydros/`](/reference/output/simulation/#simulationhydros)). Os
+quatro métodos são definidos em [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity/).
 
 Exemplo — a folga `"penalty"` sem limite superior no lugar do padrão:
 
@@ -866,13 +866,13 @@ Exemplo:
 ```
 
 Para a metodologia, veja
-[Estrutura e escalonamento do PL §2.1](/pt-br/math/lp-layout-and-scaling#21-escalonamento-de-custos).
+[Estrutura e escalonamento do PL §2.1](/math/lp-layout-and-scaling#21-escalonamento-de-custos).
 
 ---
 
 ## `estimation`
 
-Controla o processo de estimação do modelo PAR(p) do [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model/). Quando o caso fornece
+Controla o processo de estimação do modelo PAR(p) do [Modelo de afluências PAR(p)](/math/par-inflow-model/). Quando o caso fornece
 `inflow_history.parquet`, o Novo Modelo pode estimar automaticamente os coeficientes AR,
 em vez de exigir um `inflow_ar_coefficients.parquet` pré-calculado.
 
@@ -880,9 +880,9 @@ em vez de exigir um `inflow_ar_coefficients.parquet` pré-calculado.
 | ----------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------- |
 | `max_order`                   | integer | `6`      | Ordem máxima de defasagem considerada no ajuste do modelo autorregressivo.                        |
 | `order_selection`             | string  | `"pacf"` | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem: baseado na FACP (PACF) ou na FACP com componente anual. |
-| `min_observations_per_season` | integer | `30`     | Número mínimo recomendado de ocorrências de estágio totalmente cobertas de cada período sazonal, por usina. Uma ocorrência é um estágio em `stages.json` (do estudo ou pré-estudo) que tem o período sazonal; ela só conta quando as linhas de `inflow_history.parquet` que começam dentro de sua janela a cobrem integralmente, de modo que o histórico fora de toda janela de estágio não é contado. Quando a estimação é executada, um grupo (usina, período sazonal) com pelo menos uma ocorrência desse tipo, mas menos do que esse valor, gera um aviso [`ModelQuality`](/pt-br/reference/error-codes/#modelquality) que indica a usina e o período sazonal, e a estimação prossegue. |
+| `min_observations_per_season` | integer | `30`     | Número mínimo recomendado de ocorrências de estágio totalmente cobertas de cada período sazonal, por usina. Uma ocorrência é um estágio em `stages.json` (do estudo ou pré-estudo) que tem o período sazonal; ela só conta quando as linhas de `inflow_history.parquet` que começam dentro de sua janela a cobrem integralmente, de modo que o histórico fora de toda janela de estágio não é contado. Quando a estimação é executada, um grupo (usina, período sazonal) com pelo menos uma ocorrência desse tipo, mas menos do que esse valor, gera um aviso [`ModelQuality`](/reference/error-codes/#modelquality) que indica a usina e o período sazonal, e a estimação prossegue. |
 | `max_coefficient_magnitude`   | number \| null | `null`   | Rede de segurança: reduz à ordem 0 se algum coeficiente exceder essa magnitude.                   |
-| `correlation_target`          | string  | `"inflows"` | Um entre `"inflows"`, `"residuals"`. Série a partir da qual a correlação espacial das afluências é estimada quando o modelo de afluências é ajustado, total ou parcialmente, a partir de `inflow_history.parquet` e o caso não fornece `scenarios/correlation.json`: as afluências padronizadas (`"inflows"`) ou os resíduos da autorregressão ajustada (`"residuals"`); veja [Modelo de afluências PAR(p) §6.1](/pt-br/math/par-inflow-model/#61-estimacao-da-correlacao). O `training/model_provenance.json` a registra como `inflow.correlation_target`. |
+| `correlation_target`          | string  | `"inflows"` | Um entre `"inflows"`, `"residuals"`. Série a partir da qual a correlação espacial das afluências é estimada quando o modelo de afluências é ajustado, total ou parcialmente, a partir de `inflow_history.parquet` e o caso não fornece `scenarios/correlation.json`: as afluências padronizadas (`"inflows"`) ou os resíduos da autorregressão ajustada (`"residuals"`); veja [Modelo de afluências PAR(p) §6.1](/math/par-inflow-model/#61-estimacao-da-correlacao). O `training/model_provenance.json` a registra como `inflow.correlation_target`. |
 
 Exemplo:
 
@@ -915,13 +915,13 @@ Controla a persistência da política (gravação de checkpoints e carga para pa
 
 | Campo                    | Tipo                                     | Padrão       | Descrição                                                                                                                                   |
 | ------------------------ | ---------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path`                   | string                                   | `"./policy"` | Diretório da política, resolvido em relação ao diretório de saída da execução (`<case>/output` por padrão); o treinamento grava o checkpoint nele, e a partida a quente, a retomada e a execução somente de simulação o leem. Um caminho vazio, `.`, `..` ou um caminho sem componente nomeado é recusado na carga da configuração; após a resolução, e seguindo o destino de um link simbólico, é recusado um caminho que seja o diretório de saída ou um de seus ancestrais, que designe ou contenha um diretório cujos arquivos uma execução substitui (como `simulation/solver` ou `training/solver`), ou que esteja dentro de um diretório que uma execução remove por inteiro (como `simulation/costs`). Este diretório contém apenas checkpoints completos: uma execução cujo treinamento termina com erro grava sua política no diretório irmão `<path>.partial`, substituindo o que já houver ali, e deixa este diretório como o último checkpoint completo o deixou. Uma execução só lê o diretório irmão quando `policy.path` o designa, e um `resume` dele é recusado. Os arquivos do checkpoint estão listados em [Checkpoint da política](/pt-br/reference/output/policy/). |
-| `mode`                   | string                                   | `"fresh"`    | Um de `"fresh"`, `"warm_start"`, `"resume"`. Modo de inicialização. `"fresh"` começa do zero; `"warm_start"` carrega cortes de uma execução anterior; `"resume"` continua uma execução interrompida como ela teria continuado, restaurando a numeração das iterações, o papel de cada linha, seu histórico de atividade na solução e o estado visitado armazenado, e a base de PL de cada cenário. Um `resume` é recusado quando o checkpoint não permite continuar a execução de forma idêntica ([Retomada](/pt-br/running/policy-management/#retomada)); um `warm_start` não é recusado por esses motivos. |
+| `path`                   | string                                   | `"./policy"` | Diretório da política, resolvido em relação ao diretório de saída da execução (`<case>/output` por padrão); o treinamento grava o checkpoint nele, e a partida a quente, a retomada e a execução somente de simulação o leem. Um caminho vazio, `.`, `..` ou um caminho sem componente nomeado é recusado na carga da configuração; após a resolução, e seguindo o destino de um link simbólico, é recusado um caminho que seja o diretório de saída ou um de seus ancestrais, que designe ou contenha um diretório cujos arquivos uma execução substitui (como `simulation/solver` ou `training/solver`), ou que esteja dentro de um diretório que uma execução remove por inteiro (como `simulation/costs`). Este diretório contém apenas checkpoints completos: uma execução cujo treinamento termina com erro grava sua política no diretório irmão `<path>.partial`, substituindo o que já houver ali, e deixa este diretório como o último checkpoint completo o deixou. Uma execução só lê o diretório irmão quando `policy.path` o designa, e um `resume` dele é recusado. Os arquivos do checkpoint estão listados em [Checkpoint da política](/reference/output/policy/). |
+| `mode`                   | string                                   | `"fresh"`    | Um de `"fresh"`, `"warm_start"`, `"resume"`. Modo de inicialização. `"fresh"` começa do zero; `"warm_start"` carrega cortes de uma execução anterior; `"resume"` continua uma execução interrompida como ela teria continuado, restaurando a numeração das iterações, o papel de cada linha, seu histórico de atividade na solução e o estado visitado armazenado, e a base de PL de cada cenário. Um `resume` é recusado quando o checkpoint não permite continuar a execução de forma idêntica ([Retomada](/running/policy-management/#retomada)); um `warm_start` não é recusado por esses motivos. |
 | `boundary`               | object \| null                           | `null`       | Configuração dos cortes de fronteira terminal para acoplamento com a FCF de um modelo externo. Veja abaixo.                                 |
 
 ### `policy.checkpointing`
 
-`enabled`, `initial_iteration` e `interval_iterations` programam checkpoints periódicos ([Gerenciamento da política — Configuração de checkpoints](/pt-br/running/policy-management/#configuracao-de-checkpoints)); `store_basis` e `compress` não têm efeito ([Chaves inertes](#chaves-inertes)).
+`enabled`, `initial_iteration` e `interval_iterations` programam checkpoints periódicos ([Gerenciamento da política — Configuração de checkpoints](/running/policy-management/#configuracao-de-checkpoints)); `store_basis` e `compress` não têm efeito ([Chaves inertes](#chaves-inertes)).
 
 | Campo                 | Tipo    | Padrão  | Descrição                                                           |
 | --------------------- | ------- | ------- | ------------------------------------------------------------------- |
@@ -942,7 +942,7 @@ treinamento — permanecem fixos durante toda a execução.
 Isso permite o acoplamento de modelos Novo Modelo com Novo Modelo: um estudo de origem produz um
 checkpoint de política, e um estudo encadeado importa um conjunto de cortes desse checkpoint como
 sua função terminal fixa
-([Fronteira pós-estudo e estudos encadeados §5](/pt-br/math/post-study-boundary#5-estudos-encadeados)).
+([Fronteira pós-estudo e estudos encadeados §5](/math/post-study-boundary#5-estudos-encadeados)).
 
 O conjunto de origem é selecionado automaticamente pela **data da fronteira
 terminal** do estudo atual (o `end_date` do último estágio não negativo) — não há
@@ -999,9 +999,9 @@ em janeiro de 2028) não é modelada por este estudo; por isso, é descartada e 
 em `anticipated.dropped_source`; com `strict: true`, esse mesmo descarte faria a
 carga ser rejeitada.
 
-Veja [Gerenciamento da política — Cortes de fronteira](/pt-br/running/policy-management/#cortes-de-fronteira)
+Veja [Gerenciamento da política — Cortes de fronteira](/running/policy-management/#cortes-de-fronteira)
 para uma explicação completa do fluxo de acoplamento, e
-[Requisitos de compatibilidade](/pt-br/running/policy-management/#requisitos-de-compatibilidade)
+[Requisitos de compatibilidade](/running/policy-management/#requisitos-de-compatibilidade)
 para as rejeições por seleção de data e por subconjunto.
 
 ---
@@ -1026,10 +1026,10 @@ da execução o lê, de modo que seus campos não têm efeito ([Chaves inertes](
 
 Nenhuma chave de `config.json` define a resolução temporal: a resolução de cada estágio vem
 de suas datas e do `season_id` em `stages.json`.
-[Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies/) explica como estágios
+[Estudos com múltiplas resoluções](/math/multi-resolution-studies/) explica como estágios
 de durações diferentes compartilham ruído, agregam o histórico e mudam a resolução das defasagens;
-[Fronteira pós-estudo e estudos encadeados](/pt-br/math/post-study-boundary/) acopla dois
-estudos, e [Variantes de formulação dos patamares](/pt-br/math/block-formulations/) fornece
+[Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary/) acopla dois
+estudos, e [Variantes de formulação dos patamares](/math/block-formulations/) fornece
 despacho semanal dentro de um estágio mensal por meio de patamares cronológicos.
 
 ### Comportamento com resolução mista
@@ -1040,7 +1040,7 @@ despacho semanal dentro de um estágio mensal por meio de patamares cronológico
   atribui a todos os estágios do grupo o mesmo sorteio, adjacentes ou não. Um estágio
   posterior do grupo pode ter menos aberturas que o primeiro estágio do grupo e, nesse caso,
   copia as primeiras delas; um com mais aberturas é recusado
-  ([Número de aberturas do grupo de ruído](/pt-br/reference/error-codes/#numero-de-aberturas-do-grupo-de-ruido)).
+  ([Número de aberturas do grupo de ruído](/reference/error-codes/#numero-de-aberturas-do-grupo-de-ruido)).
 - Quando os estágios passam de mensais para trimestrais, a reconstrução das defasagens
   toma o mês de cada estágio mensal a partir do `month_start` de seu período sazonal e calcula a média dos valores
   mensais por trimestre civil (janeiro-março, abril-junho, julho-setembro,
@@ -1064,7 +1064,7 @@ despacho semanal dentro de um estágio mensal por meio de patamares cronológico
   estágio e cada defasagem posterior ℓ à defasagem de entrada ℓ − 1. Com esses estágios e uma ordem PAR
   de 1 ou mais, não há garantia de que o limite inferior permaneça abaixo do limite superior,
   mesmo com as defasagens de afluência na projeção do corte
-  ([`stages[].state_variables`](/pt-br/math/cut-management/#stagesstate_variables--projecao-dos-cortes)).
+  ([`stages[].state_variables`](/math/cut-management/#stagesstate_variables--projecao-dos-cortes)).
 
 ---
 
@@ -1088,8 +1088,8 @@ Estas chaves são aceitas na carga de `config.json` — seus nomes e tipos de va
 | ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `policy.checkpointing.store_basis`          | `null`  | Um checkpoint contém as bases de PL dos cenários da execução.                                                                                                                  |
 | `policy.checkpointing.compress`             | `null`  | Os arquivos de checkpoint são gravados sem compressão.                                                                                                                         |
-| `training.solver.retry_max_attempts`        | `5`     | Uma resolução que não atinge a otimalidade escala pela sequência de novas tentativas embutida no solver, e não por esta configuração ([Salvaguardas do solver](/pt-br/running/performance/#salvaguardas-do-solver)). |
-| `training.solver.retry_time_budget_seconds` | `30.0`  | Uma resolução que não atinge a otimalidade escala pela sequência de novas tentativas embutida no solver, e não por esta configuração ([Salvaguardas do solver](/pt-br/running/performance/#salvaguardas-do-solver)). |
+| `training.solver.retry_max_attempts`        | `5`     | Uma resolução que não atinge a otimalidade escala pela sequência de novas tentativas embutida no solver, e não por esta configuração ([Salvaguardas do solver](/running/performance/#salvaguardas-do-solver)). |
+| `training.solver.retry_time_budget_seconds` | `30.0`  | Uma resolução que não atinge a otimalidade escala pela sequência de novas tentativas embutida no solver, e não por esta configuração ([Salvaguardas do solver](/running/performance/#salvaguardas-do-solver)). |
 | `upper_bound_evaluation`                    | `{}`    | Nada lê o bloco: todas as suas chaves, inclusive as chaves `lipschitz`, não têm efeito.                                                                                        |
 
 ---
@@ -1213,7 +1213,7 @@ Treine com ruído dentro da amostra e simule com afluência fora da amostra. A `
 
 ## Veja também
 
-- [Formato do caso](/pt-br/reference/case-format/) — esquema completo de todos os arquivos de entrada
-- [Executando estudos](/pt-br/running/running-studies/) — guia do fluxo de trabalho de ponta a ponta
-- [Códigos de erro](/pt-br/reference/error-codes/) — erros de validação, incluindo `SchemaViolation` para campos de configuração
-- [Estudos com múltiplas resoluções](/pt-br/math/multi-resolution-studies/) — como a resolução dos estágios afeta o compartilhamento de ruído do PAR (grupos de ruído) e a agregação das observações
+- [Formato do caso](/reference/case-format/) — esquema completo de todos os arquivos de entrada
+- [Executando estudos](/running/running-studies/) — guia do fluxo de trabalho de ponta a ponta
+- [Códigos de erro](/reference/error-codes/) — erros de validação, incluindo `SchemaViolation` para campos de configuração
+- [Estudos com múltiplas resoluções](/math/multi-resolution-studies/) — como a resolução dos estágios afeta o compartilhamento de ruído do PAR (grupos de ruído) e a agregação das observações

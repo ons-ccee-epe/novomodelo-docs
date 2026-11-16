@@ -5,7 +5,7 @@ description: Esquemas dos arquivos de simulation/ gravados pelo novomodelo run �
 
 Todos os resultados da simulação final por cenário usam particionamento Hive: um arquivo `data.parquet` por
 cenário, armazenado em um subdiretório `scenario_id=NNNN/`. Veja
-[Particionamento Hive](/pt-br/reference/output/#particionamento-hive) para saber como ler esses arquivos.
+[Particionamento Hive](/reference/output/#particionamento-hive) para saber como ler esses arquivos.
 
 ---
 
@@ -22,9 +22,9 @@ resultam em `node_id` 0, 1, 2). Em um grafo da política que declara `nodes`, `n
 o id declarado do nó,
 identifica qual ramo um cenário efetivamente visitou naquele estágio e se relaciona
 com o `stage_id`/`pool_id` do nó por meio dos `nodes` do manifesto do checkpoint
-da política (veja [`policy/manifest.bin`](/pt-br/reference/output/policy/#policymanifestbin)).
+da política (veja [`policy/manifest.bin`](/reference/output/policy/#policymanifestbin)).
 
-**Metodologia:** [Grafos da política](/pt-br/math/policy-graphs)
+**Metodologia:** [Grafos da política](/math/policy-graphs)
 
 Dois arquivos não particionados, de nível da execução, completam esse eixo:
 
@@ -44,7 +44,7 @@ todas não nulas. Relaciona-se (join) com qualquer arquivo de entidade por `(sce
 
 Resumo por cenário, de nível da execução: uma linha por cenário. 3 colunas.
 
-**Metodologia:** [Avaliação do limite superior](/pt-br/math/upper-bound-evaluation) · [Formulação da taxa de desconto](/pt-br/math/discount-rate)
+**Metodologia:** [Avaliação do limite superior](/math/upper-bound-evaluation) · [Formulação da taxa de desconto](/math/discount-rate)
 
 | Nome                        | Tipo    | Anulável | Unidades | Descrição |
 | --------------------------- | ------- | -------- | -------- | --------- |
@@ -58,7 +58,7 @@ Resumo por cenário, de nível da execução: uma linha por cenário. 3 colunas.
 
 Decomposição do custo por estágio. Uma linha por estágio. 29 colunas.
 
-**Metodologia:** [Formulação do PL](/pt-br/math/lp-formulation) · [Formulação da taxa de desconto](/pt-br/math/discount-rate)
+**Metodologia:** [Formulação do PL](/math/lp-formulation) · [Formulação da taxa de desconto](/math/discount-rate)
 
 | Nome                           | Tipo    | Anulável | Unidades | Descrição |
 | ------------------------------ | ------- | -------- | -------- | --------- |
@@ -68,8 +68,8 @@ Decomposição do custo por estágio. Uma linha por estágio. 29 colunas.
 | `block_id`                     | Int32   | Sim      | —        | Sempre `null`: os custos são reportados por estágio. |
 | `total_cost`                   | Float64 | Não      | R\$      | A função objetivo do estágio, `immediate_cost` + `future_cost`, nas unidades monetárias deste estágio (não descontada ao primeiro estágio). |
 | `immediate_cost`               | Float64 | Não      | R\$      | A função objetivo do estágio sem o termo de custo futuro, nas unidades monetárias deste estágio. |
-| `future_cost`                  | Float64 | Não      | R\$      | O termo de custo futuro da função objetivo do estágio: a variável de custo futuro multiplicada pelo fator de desconto de um passo deste estágio (o fator de um único estágio, não o `discount_factor` acumulado). Veja [Formulação da taxa de desconto](/pt-br/math/discount-rate#5-desconto-acumulado). |
-| `discount_factor`              | Float64 | Não      | —        | Fator de desconto acumulado deste estágio: multiplicar um custo deste estágio por ele fornece seu valor presente no primeiro estágio. Veja [Formulação da taxa de desconto](/pt-br/math/discount-rate#5-desconto-acumulado). |
+| `future_cost`                  | Float64 | Não      | R\$      | O termo de custo futuro da função objetivo do estágio: a variável de custo futuro multiplicada pelo fator de desconto de um passo deste estágio (o fator de um único estágio, não o `discount_factor` acumulado). Veja [Formulação da taxa de desconto](/math/discount-rate#5-desconto-acumulado). |
+| `discount_factor`              | Float64 | Não      | —        | Fator de desconto acumulado deste estágio: multiplicar um custo deste estágio por ele fornece seu valor presente no primeiro estágio. Veja [Formulação da taxa de desconto](/math/discount-rate#5-desconto-acumulado). |
 | `thermal_cost`                 | Float64 | Não      | R\$      | Componente de custo da geração térmica. |
 | `anticipated_thermal_cost`     | Float64 | Não      | R\$      | Custo de combustível dos compromissos de despacho antecipados decididos neste estágio, nas unidades monetárias deste estágio — o custo de cada compromisso no estágio de entrega, descontado do estágio de entrega até este estágio; multiplique por `discount_factor` para obter seu valor presente. Zero quando não há unidades com antecipação de despacho. |
 | `contract_cost`                | Float64 | Não      | R\$      | Componente de custo dos contratos de energia (positivo para importações, negativo para exportações). |
@@ -84,7 +84,7 @@ Decomposição do custo por estágio. Uma linha por estágio. 29 colunas.
 | `generation_violation_cost`    | Float64 | Não      | R\$      | Custo da folga de geração abaixo do mínimo. |
 | `evaporation_violation_cost`   | Float64 | Não      | R\$      | Custo das violações de evaporação. |
 | `withdrawal_violation_cost`    | Float64 | Não      | R\$      | Custo das violações de retirada de água. |
-| `inflow_penalty_cost`          | Float64 | Não      | R\$      | Custo da folga de não negatividade da afluência (`inflow_nonnegativity_slack_m3s`), valorada a `inflow_nonnegativity_cost` nos métodos `penalty` e `truncation_with_penalty` e `0` em `truncation` e `none`; veja [`modeling.inflow_non_negativity`](/pt-br/running/configuration/#modelinginflow_non_negativity). |
+| `inflow_penalty_cost`          | Float64 | Não      | R\$      | Custo da folga de não negatividade da afluência (`inflow_nonnegativity_slack_m3s`), valorada a `inflow_nonnegativity_cost` nos métodos `penalty` e `truncation_with_penalty` e `0` em `truncation` e `none`; veja [`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity). |
 | `generic_violation_cost`       | Float64 | Não      | R\$      | Custo das violações de restrições genéricas. |
 | `spillage_cost`                | Float64 | Não      | R\$      | Custo do vertimento e da vazão desviada. |
 | `turbined_cost`                | Float64 | Não      | R\$      | Custo da vazão turbinada: a taxa de custo unitária de vazão turbinada de cada usina (a entrada `turbined_cost`) multiplicada pela sua vazão turbinada e pelas horas do patamar, somada sobre usinas e patamares. |
@@ -98,12 +98,12 @@ Decomposição do custo por estágio. Uma linha por estágio. 29 colunas.
 
 Resultados do despacho das usinas hidrelétricas. Uma linha por trinca (estágio, patamar, usina hidrelétrica). 41 colunas.
 
-**Metodologia:** [Formulação do PL](/pt-br/math/lp-formulation) · [Modelos de função de produção hidrelétrica](/pt-br/math/hydro-production-models)
+**Metodologia:** [Formulação do PL](/math/lp-formulation) · [Modelos de função de produção hidrelétrica](/math/hydro-production-models)
 
 As nove colunas de conversão de energia
 (`equivalent_productivity_mw_per_m3s` … `stored_energy_final_mwh`, mais as quatro
 colunas finais abaixo) reportam os dois avaliadores definidos em
-[Modelos de função de produção hidrelétrica §4](/pt-br/math/hydro-production-models#4-grandezas-de-conversao-de-energia):
+[Modelos de função de produção hidrelétrica §4](/math/hydro-production-models#4-grandezas-de-conversao-de-energia):
 o par no ponto de referência e o par da média na faixa útil (`integrated_*`).
 
 | Nome                                             | Tipo    | Anulável | Unidades  | Descrição |
@@ -131,18 +131,18 @@ o par no ponto de referência e o par da média na faixa útil (`integrated_*`).
 | `stored_energy_initial_mwh`                      | Float64 | Não      | MWh       | Conteúdo energético do armazenamento útil no início do estágio: (storage_initial_hm3 − V_min) × integrated_accumulated_productivity_mw_per_m3s × 1e6/3600 [MWh], em que `V_min` é o `reservoir.min_storage_hm3` físico da usina (nunca uma substituição de armazenamento de `hydro_bounds`) e `storage_initial_hm3` é o valor da própria linha (o armazenamento na fronteira de cada patamar em um estágio cronológico). |
 | `stored_energy_final_mwh`                        | Float64 | Não      | MWh       | Conteúdo energético do armazenamento útil no fim do estágio: (storage_final_hm3 − V_min) × integrated_accumulated_productivity_mw_per_m3s × 1e6/3600 [MWh], em que `V_min` é o `reservoir.min_storage_hm3` físico da usina (nunca uma substituição de armazenamento de `hydro_bounds`) e `storage_final_hm3` é o valor da própria linha (o armazenamento na fronteira de cada patamar em um estágio cronológico). |
 | `spillage_cost`                                  | Float64 | Não      | R\$       | Custo monetário atribuído ao vertimento. |
-| `water_value_per_hm3`                            | Float64 | Não      | R\$/hm³   | Variável dual da linha de balanço hídrico da própria usina, em unidades monetárias por hm³: a linha de cada patamar em um estágio cronológico; a linha do estágio, repetida em todas as linhas de patamar, em um estágio paralelo. Valores negativos significam que um hm³ adicional reduz o custo; veja [Convergência e diagnóstico](/pt-br/running/interpreting-results/) para a convenção de sinal. |
+| `water_value_per_hm3`                            | Float64 | Não      | R\$/hm³   | Variável dual da linha de balanço hídrico da própria usina, em unidades monetárias por hm³: a linha de cada patamar em um estágio cronológico; a linha do estágio, repetida em todas as linhas de patamar, em um estágio paralelo. Valores negativos significam que um hm³ adicional reduz o custo; veja [Convergência e diagnóstico](/running/interpreting-results/) para a convenção de sinal. |
 | `storage_binding_code`                           | Int8    | Não      | —         | Código de restrição ativa de armazenamento (veja o mapeamento `storage_binding` em `codes.json`); sempre `0` na saída gravada. |
 | `operative_state_code`                           | Int8    | Não      | —         | Código de estado operativo (veja o mapeamento `operative_state` em `codes.json`); sempre `1` na saída gravada. |
 | `turbined_slack_m3s`                             | Float64 | Não      | m³/s      | Insuficiência em relação à vazão turbinada mínima da usina, em m³/s: as folgas de suas células (usina, barramento) mais, quando o mínimo da usina é superior à soma dos mínimos de seus grupos de unidades geradoras, a folga de sua linha no nível da usina, de modo que uma insuficiência é contada uma única vez. Zero quando o mínimo é atendido. |
 | `outflow_slack_below_m3s`                        | Float64 | Não      | m³/s      | Folga do limite inferior da vazão defluente, em m³/s. |
 | `outflow_slack_above_m3s`                        | Float64 | Não      | m³/s      | Folga do limite superior da vazão defluente, em m³/s. |
 | `generation_slack_mw`                            | Float64 | Não      | MW        | Insuficiência em relação à geração mínima da usina, em MW: as folgas de suas células (usina, barramento) mais, quando o mínimo da usina é superior à soma dos mínimos de seus grupos de unidades geradoras, a folga de sua linha no nível da usina, de modo que uma insuficiência é contada uma única vez. Zero quando o mínimo é atendido. |
-| `storage_violation_below_hm3`                    | Float64 | Não      | hm³       | Armazenamento abaixo do volume morto de uma usina com fase de enchimento nos seus estágios em operação (Operating), em hm³ (o piso flexível de [Sistema de penalidades](/pt-br/math/penalty-system)); `0` em todas as demais usinas e estágios: uma usina sem fase de enchimento, em operação, mantém seu volume morto como limite rígido, o piso de uma usina durante a fase de enchimento é sua meta de enchimento (cujo não atendimento é `filling_target_violation_hm3`), e qualquer outra usina fora de sua janela de entrada em operação não tem piso de armazenamento. Valor do estágio, repetido em todas as linhas de patamar. |
+| `storage_violation_below_hm3`                    | Float64 | Não      | hm³       | Armazenamento abaixo do volume morto de uma usina com fase de enchimento nos seus estágios em operação (Operating), em hm³ (o piso flexível de [Sistema de penalidades](/math/penalty-system)); `0` em todas as demais usinas e estágios: uma usina sem fase de enchimento, em operação, mantém seu volume morto como limite rígido, o piso de uma usina durante a fase de enchimento é sua meta de enchimento (cujo não atendimento é `filling_target_violation_hm3`), e qualquer outra usina fora de sua janela de entrada em operação não tem piso de armazenamento. Valor do estágio, repetido em todas as linhas de patamar. |
 | `filling_target_violation_hm3`                   | Float64 | Não      | hm³       | Não atendimento da meta de enchimento, em hm³. Zero quando a meta é atendida. Valor do estágio, repetido em todas as linhas de patamar. |
 | `evaporation_violation_pos_m3s`                  | Float64 | Não      | m³/s      | Folga da linha de evaporação acima de sua meta linearizada (a evaporação excede a meta), em m³/s; em um estágio paralelo, o valor do estágio, repetido em todas as linhas de patamar; em um estágio cronológico, o valor do próprio patamar. Zero em operação normal. |
 | `evaporation_violation_neg_m3s`                  | Float64 | Não      | m³/s      | Folga da linha de evaporação abaixo de sua meta linearizada (a evaporação fica aquém da meta), em m³/s; em um estágio paralelo, o valor do estágio, repetido em todas as linhas de patamar; em um estágio cronológico, o valor do próprio patamar. Zero em operação normal. |
-| `inflow_nonnegativity_slack_m3s`                 | Float64 | Não      | m³/s      | Água acrescentada a `incremental_inflow_m3s` no balanço hídrico, em m³/s: exatamente `max(-incremental_inflow_m3s, 0)` em `truncation`, no máximo esse valor em `truncation_with_penalty`, qualquer quantidade que o PL adquira em `penalty`, `0` em `none` ([`modeling.inflow_non_negativity`](/pt-br/running/configuration/#modelinginflow_non_negativity)). Para uma usina em pré-enchimento (PreFilling), essa água e sua vazão incremental entram no balanço hídrico da primeira usina a jusante que não esteja em pré-enchimento, se houver. Valor do estágio, repetido em todas as linhas de patamar. |
+| `inflow_nonnegativity_slack_m3s`                 | Float64 | Não      | m³/s      | Água acrescentada a `incremental_inflow_m3s` no balanço hídrico, em m³/s: exatamente `max(-incremental_inflow_m3s, 0)` em `truncation`, no máximo esse valor em `truncation_with_penalty`, qualquer quantidade que o PL adquira em `penalty`, `0` em `none` ([`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity)). Para uma usina em pré-enchimento (PreFilling), essa água e sua vazão incremental entram no balanço hídrico da primeira usina a jusante que não esteja em pré-enchimento, se houver. Valor do estágio, repetido em todas as linhas de patamar. |
 | `water_withdrawal_violation_pos_m3s`             | Float64 | Não      | m³/s      | Violação da retirada de água acima da meta, em m³/s. Zero quando a retirada está na meta ou abaixo dela. Valor do estágio, repetido em todas as linhas de patamar. |
 | `water_withdrawal_violation_neg_m3s`             | Float64 | Não      | m³/s      | Violação da retirada de água abaixo da meta, em m³/s. Zero quando a retirada está na meta ou acima dela. Valor do estágio, repetido em todas as linhas de patamar. |
 | `integrated_equivalent_productivity_mw_per_m3s`  | Float64 | Não      | MW/(m³/s) | Produtibilidade equivalente média na faixa útil [MW/(m³/s)]: ρ_eq com o nível de montante ponderado ao longo da faixa física de armazenamento da usina (`reservoir` em `system/hydros.json`). Definida diretamente por um valor de `integrated_equivalent_productivity_mw_per_m3s` em `system/hydro_energy_productivity.parquet`; caso contrário, é igual a `equivalent_productivity_mw_per_m3s` quando a faixa é degenerada ou a usina não tem geometria VHA ou produtibilidade específica. |
@@ -158,11 +158,11 @@ As colunas `stored_energy_initial_mwh` e `stored_energy_final_mwh` são iguais a
 
 Resultados do despacho hidrelétrico na granularidade de célula `(hydro, bus)` — uma célula por
 barramento distinto entre os grupos de unidades geradoras de uma usina (veja
-[`hydros[].unit_groups[]`](/pt-br/reference/case-format/hydros/#systemhydrosjson)
+[`hydros[].unit_groups[]`](/reference/case-format/hydros/#systemhydrosjson)
 na referência do Formato do Caso). Uma linha por quádrupla (estágio, patamar, usina hidrelétrica,
 barramento). 9 colunas.
 
-**Metodologia:** [Formulação do PL](/pt-br/math/lp-formulation)
+**Metodologia:** [Formulação do PL](/math/lp-formulation)
 
 `simulation/hydros/` reporta o total de cada usina: uma usina dividida em vários
 grupos de unidades geradoras que compartilham um barramento não tem quantidade por grupo a reportar, pois toda
@@ -192,7 +192,7 @@ usina com múltiplas células é `(Σ_c q_c)·ρ` — a vazão turbinada de suas
 e depois multiplicada uma única vez pela produtibilidade —, enquanto cada linha de célula é `q_c·ρ`,
 calculada independentemente. A soma das linhas das células de uma usina pode, portanto, diferir
 do total da usina por uma quantidade da ordem do arredondamento (veja
-[Determinismo e rastreabilidade — Fora do escopo](/pt-br/math/determinism-guarantees#4-fora-da-abrangencia)).
+[Determinismo e rastreabilidade — Fora do escopo](/math/determinism-guarantees#4-fora-da-abrangencia)).
 
 ---
 
@@ -200,7 +200,7 @@ do total da usina por uma quantidade da ordem do arredondamento (veja
 
 Resultados do despacho das unidades termelétricas. Uma linha por trinca (estágio, patamar, usina termelétrica). 12 colunas.
 
-**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations)
+**Metodologia:** [Formulações específicas por equipamento](/math/equipment-formulations)
 
 | Nome                       | Tipo    | Anulável | Unidades | Descrição |
 | -------------------------- | ------- | -------- | -------- | --------- |
@@ -223,7 +223,7 @@ Resultados do despacho das unidades termelétricas. Uma linha por trinca (estág
 
 Resultados dos fluxos nas linhas de transmissão. Uma linha por trinca (estágio, patamar, linha). 13 colunas.
 
-**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations)
+**Metodologia:** [Formulações específicas por equipamento](/math/equipment-formulations)
 
 | Nome                   | Tipo    | Anulável | Unidades | Descrição |
 | ---------------------- | ------- | -------- | -------- | --------- |
@@ -247,7 +247,7 @@ Resultados dos fluxos nas linhas de transmissão. Uma linha por trinca (estágio
 
 Resultados do balanço de carga nos barramentos. Uma linha por trinca (estágio, patamar, barramento). 12 colunas.
 
-**Metodologia:** [Visão geral da modelagem dos elementos do sistema](/pt-br/math/system-elements)
+**Metodologia:** [Visão geral da modelagem dos elementos do sistema](/math/system-elements)
 
 | Nome          | Tipo    | Anulável | Unidades | Descrição |
 | ------------- | ------- | -------- | -------- | --------- |
@@ -270,7 +270,7 @@ Resultados do balanço de carga nos barramentos. Uma linha por trinca (estágio,
 
 Resultados das usinas elevatórias. Uma linha por trinca (estágio, patamar, usina elevatória). 11 colunas.
 
-**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations)
+**Metodologia:** [Formulações específicas por equipamento](/math/equipment-formulations)
 
 | Nome                     | Tipo    | Anulável | Unidades | Descrição |
 | ------------------------ | ------- | -------- | -------- | --------- |
@@ -292,7 +292,7 @@ Resultados das usinas elevatórias. Uma linha por trinca (estágio, patamar, usi
 
 Resultados dos contratos de energia. Uma linha por trinca (estágio, patamar, contrato). 10 colunas.
 
-**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations)
+**Metodologia:** [Formulações específicas por equipamento](/math/equipment-formulations)
 
 | Nome                   | Tipo    | Anulável | Unidades | Descrição |
 | ---------------------- | ------- | -------- | -------- | --------- |
@@ -314,7 +314,7 @@ Resultados dos contratos de energia. Uma linha por trinca (estágio, patamar, co
 Resultados das fontes não despacháveis (eólica, solar, hidrelétrica a fio d'água sem
 armazenamento etc.). Uma linha por trinca (estágio, patamar, fonte não despachável). 12 colunas.
 
-**Metodologia:** [Formulações específicas por equipamento](/pt-br/math/equipment-formulations)
+**Metodologia:** [Formulações específicas por equipamento](/math/equipment-formulations)
 
 | Nome                   | Tipo    | Anulável | Unidades | Descrição |
 | ---------------------- | ------- | -------- | -------- | --------- |
@@ -339,7 +339,7 @@ Variáveis de estado das defasagens autorregressivas de afluência. Uma linha po
 Sem dimensão de patamar — as defasagens de afluência são variáveis de estado do estágio.
 6 colunas. Todas as colunas são não anuláveis.
 
-**Metodologia:** [Modelo de afluências PAR(p)](/pt-br/math/par-inflow-model) · [Aumento do espaço de estados](/pt-br/math/state-augmentation)
+**Metodologia:** [Modelo de afluências PAR(p)](/math/par-inflow-model) · [Aumento do espaço de estados](/math/state-augmentation)
 
 | Nome          | Tipo    | Anulável | Unidades | Descrição |
 | ------------- | ------- | -------- | -------- | --------- |
@@ -347,7 +347,7 @@ Sem dimensão de patamar — as defasagens de afluência são variáveis de esta
 | `stage_id`    | Int32   | Não      | —        | Id declarado do estágio (de `stages.json`). |
 | `node_id`     | Int32   | Não      | —        | Id do nó visitado do grafo da política; em uma cadeia de estágios, a posição do estágio com base 0 (não o id declarado do estágio). |
 | `hydro_id`    | Int32   | Não      | —        | ID da usina hidrelétrica. |
-| `lag_index`   | Int32   | Não      | —        | Índice da defasagem autorregressiva, com base 0: `0` é a afluência do período de defasagem concluído mais recentemente ([Estudos com múltiplas resoluções §2](/pt-br/math/multi-resolution-studies#2-acumulacao-das-defasagens)); sem `season_definitions`, nenhum estágio conclui um período de defasagem e `inflow_m3s` é `0` em todas as linhas. |
+| `lag_index`   | Int32   | Não      | —        | Índice da defasagem autorregressiva, com base 0: `0` é a afluência do período de defasagem concluído mais recentemente ([Estudos com múltiplas resoluções §2](/math/multi-resolution-studies#2-acumulacao-das-defasagens)); sem `season_definitions`, nenhum estágio conclui um período de defasagem e `inflow_m3s` é `0` em todas as linhas. |
 | `inflow_m3s`  | Float64 | Não      | m³/s     | Valor da afluência para esta defasagem, em m³/s: no primeiro estágio, a tendência hidrológica derivada do histórico (`0` na sua ausência); nos estágios seguintes, construído a partir dos valores brutos simulados do PAR dos estágios anteriores, que podem ser negativos (agregados ao longo do período da defasagem quando esse período abrange vários estágios). |
 
 ---
@@ -360,7 +360,7 @@ do estágio. 7 colunas. Todas as colunas são não anuláveis. O diretório
 existe **somente quando o sistema declara um arco com tempo de viagem**
 (`travel_time_hours` presente, estritamente positivo, com um `downstream_id`).
 
-**Metodologia:** [Aumento do espaço de estados](/pt-br/math/state-augmentation)
+**Metodologia:** [Aumento do espaço de estados](/math/state-augmentation)
 
 | Nome                    | Tipo    | Anulável | Unidades | Descrição |
 | ----------------------- | ------- | -------- | -------- | --------- |
@@ -369,7 +369,7 @@ existe **somente quando o sistema declara um arco com tempo de viagem**
 | `node_id`               | Int32   | Não      | —        | Id do nó visitado do grafo da política; em uma cadeia de estágios, a posição do estágio com base 0 (não o id declarado do estágio). |
 | `hydro_id`              | Int32   | Não      | —        | ID da usina hidrelétrica de jusante (receptora) à qual a água em trânsito se destina. |
 | `lag`                   | Int32   | Não      | —        | Defasagem de maturação (base 1) da parcela de água em trânsito ao fim deste estágio: a defasagem 1 chega à usina receptora no estágio seguinte, a defasagem `k` chega `k` estágios depois. |
-| `in_transit_volume_hm3` | Float64 | Não      | hm³      | Volume nesta parcela de água em trânsito ao fim do estágio, em hm³. A água que maturaria após o último estágio é descartada quando nenhuma fronteira terminal é carregada, de modo que tal parcela registra `0` (veja [Limitação do horizonte](/pt-br/math/state-augmentation#limitacao-de-horizonte)). |
+| `in_transit_volume_hm3` | Float64 | Não      | hm³      | Volume nesta parcela de água em trânsito ao fim do estágio, em hm³. A água que maturaria após o último estágio é descartada quando nenhuma fronteira terminal é carregada, de modo que tal parcela registra `0` (veja [Limitação do horizonte](/math/state-augmentation#limitacao-de-horizonte)). |
 | `delayed_arrival_hm3`   | Float64 | Não      | hm³      | Volume da parcela de água em trânsito de defasagem 1 que chega, o qual entra no balanço hídrico da usina receptora neste estágio ou, enquanto essa usina estiver fora de sua janela de entrada em operação, no balanço da usina a jusante mais próxima que não esteja em pré-enchimento (se não houver, sai do sistema modelado), em hm³; gravado na linha com `lag` = 1 e `0` nas defasagens maiores. |
 
 ---
@@ -385,7 +385,7 @@ um índice de estágio/nó; por isso, este esquema contém apenas `scenario_id` 
 por `scenario_id` (`transit_seed/scenario_id=NNNN/data.parquet`); gravado somente
 quando o sistema declara um arco com tempo de viagem.
 
-**Metodologia:** [Aumento do espaço de estados](/pt-br/math/state-augmentation)
+**Metodologia:** [Aumento do espaço de estados](/math/state-augmentation)
 
 | Nome          | Tipo    | Anulável | Unidades | Descrição |
 | ------------- | ------- | -------- | -------- | --------- |
@@ -409,7 +409,7 @@ não anuláveis. Particionado (Hive) por `scenario_id`
 (`anticipated_lanes/scenario_id=NNNN/data.parquet`); gravado somente quando o
 estudo declara `post_study_stages`.
 
-**Metodologia:** [Aumento do espaço de estados](/pt-br/math/state-augmentation)
+**Metodologia:** [Aumento do espaço de estados](/math/state-augmentation)
 
 | Nome                    | Tipo    | Anulável | Unidades | Descrição |
 | ----------------------- | ------- | -------- | -------- | --------- |
@@ -419,7 +419,7 @@ estudo declara `post_study_stages`.
 | `thermal_id`            | Int32   | Não      | —        | ID da unidade termelétrica com antecipação de despacho. |
 | `delivery_date`         | Int32   | Não      | —        | Data do calendário em que o compromisso é entregue, codificada como `YYYYMMDD` (`year*10000 + month*100 + day`). |
 | `deposited_decision_mw` | Float64 | Não      | MW       | Compromisso decidido em `stage_id` para entrega em `delivery_date`, em MW. |
-| `carried_committed_mw`  | Float64 | Não      | MW       | Valor da posição do anel de despacho antecipado que contém o compromisso em `stage_id`, em MW; a [linha de depósito](/pt-br/math/state-augmentation#linhas-do-ring) o torna igual a `deposited_decision_mw`. |
+| `carried_committed_mw`  | Float64 | Não      | MW       | Valor da posição do anel de despacho antecipado que contém o compromisso em `stage_id`, em MW; a [linha de depósito](/math/state-augmentation#linhas-do-ring) o torna igual a `deposited_decision_mw`. |
 
 ---
 
@@ -427,7 +427,7 @@ estudo declara `post_study_stages`.
 
 Eco, em nível da execução, de todo compromisso de despacho **decidido antes do estudo** e entregue
 após o horizonte do estudo (para o termo equivalente em outras ferramentas de planejamento, veja o
-[Glossário](/pt-br/reference/glossary)), declarado como janelas `past_anticipated_commitments`
+[Glossário](/reference/glossary)), declarado como janelas `past_anticipated_commitments`
 que se estendem além do fim do horizonte. Diferentemente de
 `simulation/anticipated_lanes/`, este arquivo **não** fica em `simulation/`, **não é
 particionado** e não tem eixo de cenário, estágio ou nó: cada linha é uma
@@ -439,7 +439,7 @@ de custo: o combustível de um compromisso decidido antes do estudo é custo afu
 função objetivo; quando uma fronteira é carregada, a contribuição do compromisso para o estado é
 incorporada aos termos independentes dos cortes de fronteira.
 
-**Metodologia:** [Aumento do espaço de estados](/pt-br/math/state-augmentation)
+**Metodologia:** [Aumento do espaço de estados](/math/state-augmentation)
 
 | Nome         | Tipo    | Anulável | Unidades | Descrição |
 | ------------ | ------- | -------- | -------- | --------- |
@@ -455,7 +455,7 @@ incorporada aos termos independentes dos cortes de fronteira.
 Folgas das restrições genéricas definidas pelo usuário. Uma linha por linha ativa de restrição genérica em cada estágio — uma por trinca (estágio, patamar,
 restrição), ou uma linha no nível do estágio (`block_id` nulo) para uma restrição independente de patamar —, haja ou não violação; `slack_value` e `slack_cost` são `0` quando não há violação e em todas as linhas de uma restrição com folga desabilitada. 7 colunas.
 
-**Metodologia:** [Sistema de penalidades](/pt-br/math/penalty-system)
+**Metodologia:** [Sistema de penalidades](/math/penalty-system)
 
 | Nome            | Tipo    | Anulável | Unidades | Descrição |
 | --------------- | ------- | -------- | -------- | --------- |
@@ -471,20 +471,20 @@ restrição), ou uma linha no nível do estágio (`block_id` nulo) para uma rest
 
 ## `simulation/solver/iterations.parquet`
 
-Esquema idêntico ao de [`training/solver/iterations.parquet`](/pt-br/reference/output/training/#trainingsolveriterationsparquet).
+Esquema idêntico ao de [`training/solver/iterations.parquet`](/reference/output/training/#trainingsolveriterationsparquet).
 Uma linha por `scenario_id`; `phase` é sempre `"simulation"`. `iteration`, `stage_id`,
 `opening_index`, `rank` e `worker_id` são **NULL** (uma linha da simulação não tem
 atribuição por iteração / por estágio / por abertura / por processo / por worker); `scenario_id`
 é preenchido.
 
-**Metodologia:** [Aproveitamento de base do PL](/pt-br/math/lp-warm-start)
+**Metodologia:** [Aproveitamento de base do PL](/math/lp-warm-start)
 
 ---
 
 ## `simulation/solver/retry_histogram.parquet`
 
 Mesmas colunas e tipos de
-[`training/solver/retry_histogram.parquet`](/pt-br/reference/output/training/#trainingsolverretry_histogramparquet).
+[`training/solver/retry_histogram.parquet`](/reference/output/training/#trainingsolverretry_histogramparquet).
 Uma linha por cenário e nível de nova tentativa com contagem positiva; `iteration` contém
 o id do cenário (base 0), `phase` é sempre `"simulation"` e `stage_id` é
 `null`. O `novomodelo run` (CLI) grava o arquivo sem linhas e registra as novas tentativas da simulação
@@ -501,7 +501,7 @@ restrição genérica definida pelo usuário. Ele fica no nível superior de `<o
 ao lado de `training/` e `simulation/`, e não dentro de nenhum deles. O diretório
 é totalmente omitido quando o estudo não tem restrições genéricas.
 
-**Metodologia:** [Formulação do PL](/pt-br/math/lp-formulation)
+**Metodologia:** [Formulação do PL](/math/lp-formulation)
 
 O eco totalmente resolvido de cada restrição genérica, tal como o PL efetivamente a construiu
 — uma linha por `(constraint, stage, block, term)`. Gravado uma única vez, e não

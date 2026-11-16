@@ -1,7 +1,7 @@
 // Mirrors src/figures/*.test.ts (node:test + node:assert/strict).
 import test from "node:test";
 import assert from "node:assert/strict";
-import { tr } from "./plot-i18n.ts";
+import { isPtPage, tr } from "./plot-i18n.ts";
 
 test("tr translates a label found in the table", () => {
   assert.equal(tr("iteration"), "iteração");
@@ -22,4 +22,11 @@ test("tr translates the band template and turns the first dot into a decimal com
 
 test("tr returns null for a label it does not know", () => {
   assert.equal(tr("not a known label"), null);
+});
+
+test("isPtPage is true for a pt-BR page and false for an English one", () => {
+  assert.equal(isPtPage("pt-BR"), true);
+  assert.equal(isPtPage("pt-br"), true);
+  assert.equal(isPtPage("en"), false);
+  assert.equal(isPtPage(""), false);
 });

@@ -9,7 +9,7 @@ export const FAMILIES: { id: Family; title: Bi; subtitle?: Bi }[] = [
   { id: 'rules', title: { pt: 'Regras e custos', en: 'Rules and costs' } },
 ];
 
-// 16 entries. `slug` is the EN path; the pt-BR page lives under /pt-br/.
+// 16 entries. `slug` is the page path: the pt-BR page is served at /<slug>, the English one at /en/<slug>.
 export const ENTITIES: Entity[] = [
   { slug: 'entities/generation/hydro-plants', family: 'equipment', icon: 'hydro',
     title: { pt: 'Usinas hidrelétricas', en: 'Hydro plants' },
@@ -63,5 +63,5 @@ export const ENTITIES: Entity[] = [
 
 export type Lang = 'en' | 'pt-BR';
 export const key = (lang: string | undefined): 'en' | 'pt' => ((lang ?? 'en').toLowerCase().startsWith('pt') ? 'pt' : 'en');
-export const entityHref = (slug: string, lang: string | undefined) => (key(lang) === 'pt' ? `/pt-br/${slug}` : `/${slug}`);
+export const entityHref = (slug: string, lang: string | undefined) => (key(lang) === 'pt' ? `/${slug}` : `/en/${slug}`);
 export const entityBySlug = (slug: string) => ENTITIES.find((e) => e.slug === slug)!;

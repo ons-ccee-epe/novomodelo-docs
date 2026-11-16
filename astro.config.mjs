@@ -70,16 +70,19 @@ export default defineConfig({
   // for a versioned build.
   site: process.env.DOCS_SITE ?? "https://docs.modelossetoreletrico.org.br",
   // D5: mdBook→Starlight URL preservation. Each key is an old mdBook (or
-  // retired-site) path and each destination is a live page slug, one hop. mdBook
-  // served each chapter at `/specs/<group>/<chapter>.html` (and the intro at
-  // `/introduction.html`); Starlight serves the SAME chapters at clean
-  // directory URLs with the `specs/` segment dropped: `/<group>/<chapter>/`
-  // (and the landing page at `/`). The mapping is therefore mechanical:
-  //   `/specs/<group>/<chapter>.html`  ->  `/<group>/<chapter>/`
-  //   `/introduction.html`             ->  `/`
+  // retired-site) path and each destination is a live English page, one hop:
+  // those old URLs were English, and English is served under `/en/` (pt-BR is
+  // the root locale). mdBook served each chapter at
+  // `/specs/<group>/<chapter>.html` (and the intro at `/introduction.html`);
+  // Starlight serves the SAME chapters at clean directory URLs with the
+  // `specs/` segment dropped: `/en/<group>/<chapter>/` (and the English home at
+  // `/en/`). The mapping is therefore mechanical:
+  //   `/specs/<group>/<chapter>.html`  ->  `/en/<group>/<chapter>/`
+  //   `/introduction.html`             ->  `/en/`
   // except that a chapter whose content lives on another page points at that
-  // page. Every destination other than `/` is a slug from the starlight
-  // `sidebar` block (the single source of truth for the page slugs); this map is
+  // page. Every destination other than `/en/` is `/en/` followed by a slug from
+  // the starlight `sidebar` block (the single source of truth for the page
+  // slugs); this map is
   // a hand-written static object literal (NOT computed from the sidebar at
   // config-eval time) so it stays greppable and reviewable, and its entries are
   // grouped by part, as the group comments mark.
@@ -119,85 +122,92 @@ export default defineConfig({
   //       whether either warrants a redirect (Starlight has no direct analogue).
   redirects: {
     // Part 1 — Introduction
-    "/introduction.html": "/",
-    "/specs/overview/what-novomodelo-solves.html": "/overview/what-novomodelo-solves/",
+    "/introduction.html": "/en/",
+    "/specs/overview/what-novomodelo-solves.html":
+      "/en/overview/what-novomodelo-solves/",
     "/specs/overview/sddp-framework-overview.html":
-      "/overview/sddp-framework-overview/",
+      "/en/overview/sddp-framework-overview/",
     "/specs/overview/notation-conventions.html":
-      "/overview/notation-conventions/",
-    "/specs/overview/how-to-read.html": "/overview/how-to-read/",
+      "/en/overview/notation-conventions/",
+    "/specs/overview/how-to-read.html": "/en/overview/how-to-read/",
     // Part 2 — System Modelling
-    "/specs/math/lp-formulation.html": "/math/lp-formulation/",
-    "/specs/math/system-elements.html": "/math/system-elements/",
-    "/specs/math/equipment-formulations.html": "/math/equipment-formulations/",
-    "/specs/math/block-formulations.html": "/math/block-formulations/",
-    "/specs/math/hydro-production-models.html": "/math/hydro-production-models/",
-    "/specs/math/penalty-system.html": "/math/penalty-system/",
-    "/specs/math/inflow-nonnegativity.html": "/math/inflow-nonnegativity/",
+    "/specs/math/lp-formulation.html": "/en/math/lp-formulation/",
+    "/specs/math/system-elements.html": "/en/math/system-elements/",
+    "/specs/math/equipment-formulations.html":
+      "/en/math/equipment-formulations/",
+    "/specs/math/block-formulations.html": "/en/math/block-formulations/",
+    "/specs/math/hydro-production-models.html":
+      "/en/math/hydro-production-models/",
+    "/specs/math/penalty-system.html": "/en/math/penalty-system/",
+    "/specs/math/inflow-nonnegativity.html": "/en/math/inflow-nonnegativity/",
     // Part 3 — Stochastic Modelling
-    "/specs/math/par-inflow-model.html": "/math/par-inflow-model/",
+    "/specs/math/par-inflow-model.html": "/en/math/par-inflow-model/",
     "/specs/math/multi-resolution-studies.html":
-      "/math/multi-resolution-studies/",
+      "/en/math/multi-resolution-studies/",
     "/specs/math/weekly-monthly-coupled-studies.html":
-      "/math/post-study-boundary/",
-    "/specs/math/scenario-generation.html": "/math/scenario-generation/",
+      "/en/math/post-study-boundary/",
+    "/specs/math/scenario-generation.html": "/en/math/scenario-generation/",
     // Part 4 — The SDDP Algorithm
-    "/specs/math/sddp-algorithm.html": "/math/sddp-algorithm/",
-    "/specs/math/cut-management.html": "/math/cut-management/",
-    "/specs/math/lp-warm-start.html": "/math/lp-warm-start/",
-    "/specs/math/risk-measures.html": "/math/risk-measures/",
-    "/specs/math/stopping-rules.html": "/math/stopping-rules/",
-    "/specs/math/upper-bound-evaluation.html": "/math/upper-bound-evaluation/",
-    "/specs/math/determinism-guarantees.html": "/math/determinism-guarantees/",
+    "/specs/math/sddp-algorithm.html": "/en/math/sddp-algorithm/",
+    "/specs/math/cut-management.html": "/en/math/cut-management/",
+    "/specs/math/lp-warm-start.html": "/en/math/lp-warm-start/",
+    "/specs/math/risk-measures.html": "/en/math/risk-measures/",
+    "/specs/math/stopping-rules.html": "/en/math/stopping-rules/",
+    "/specs/math/upper-bound-evaluation.html":
+      "/en/math/upper-bound-evaluation/",
+    "/specs/math/determinism-guarantees.html":
+      "/en/math/determinism-guarantees/",
     "/specs/math/reproducibility-and-provenance.html":
-      "/math/determinism-guarantees/",
+      "/en/math/determinism-guarantees/",
     // Part 5 — Coupling and Boundary Conditions
-    "/specs/math/horizon-modes.html": "/math/horizon-modes/",
-    "/specs/math/discount-rate.html": "/math/discount-rate/",
+    "/specs/math/horizon-modes.html": "/en/math/horizon-modes/",
+    "/specs/math/discount-rate.html": "/en/math/discount-rate/",
     // Part 6 — Worked Examples
     "/specs/examples/toy-single-reservoir.html":
-      "/examples/toy-single-reservoir/",
-    "/specs/examples/toy-four-reservoir.html": "/examples/toy-four-reservoir/",
+      "/en/examples/toy-single-reservoir/",
+    "/specs/examples/toy-four-reservoir.html":
+      "/en/examples/toy-four-reservoir/",
     // Part 7 — Reference
-    "/specs/reference/glossary.html": "/reference/glossary/",
-    "/specs/reference/bibliography.html": "/reference/bibliography/",
+    "/specs/reference/glossary.html": "/en/reference/glossary/",
+    "/specs/reference/bibliography.html": "/en/reference/bibliography/",
     // Retired software mdBook paths (the old site served the mdBook flat at these
     // URLs). Map each to its unified twin; omitted chapters (crate
     // internals → GitHub READMEs, energy-variables, deterministic-suite,
     // creating-your-own) 404 by design. D5: no analytics yet — these cover the
     // mdBook SUMMARY chapters that have an unambiguous unified page.
-    "/tutorial/what-novomodelo-solves.html": "/overview/what-novomodelo-solves/",
-    "/guide/installation.html": "/getting-started/installation/",
-    "/tutorial/quickstart.html": "/getting-started/quickstart/",
-    "/guide/python-quickstart.html": "/getting-started/python-quickstart/",
-    "/guide/configuration.html": "/running/configuration/",
-    "/guide/performance-accelerators.html": "/running/performance/",
-    "/guide/running-studies.html": "/running/running-studies/",
-    "/guide/policy-management.html": "/running/policy-management/",
-    "/guide/novomodelo-bridge.html": "/running/case-conversion/",
-    "/guide/interpreting-results.html": "/running/interpreting-results/",
-    "/tutorial/understanding-results.html": "/running/interpreting-results/",
-    "/guide/cli-reference.html": "/reference/cli-reference/",
-    "/guide/scalar-parameters.html": "/reference/case-format/constraints/",
-    "/reference/case-format.html": "/reference/case-format/",
-    "/reference/output-format.html": "/reference/output/",
-    "/reference/flatbuffers-schema.html": "/reference/flatbuffers-schema/",
-    "/reference/error-codes.html": "/reference/error-codes/",
-    "/reference/schemas.html": "/reference/json-schemas/",
-    "/guide/system-modeling.html": "/math/system-elements/",
-    "/guide/network-topology.html": "/math/system-elements/",
-    "/guide/hydro-plants.html": "/math/hydro-production-models/",
-    "/guide/thermal-units.html": "/math/equipment-formulations/",
-    "/guide/stochastic-modeling.html": "/math/par-inflow-model/",
-    "/guide/block-modes.html": "/math/block-formulations/",
-    "/guide/water-travel-time.html": "/math/state-augmentation/",
-    "/examples/1dtoy.html": "/examples/toy-single-reservoir/",
-    "/examples/4ree.html": "/examples/toy-four-reservoir/",
+    "/tutorial/what-novomodelo-solves.html":
+      "/en/overview/what-novomodelo-solves/",
+    "/guide/installation.html": "/en/getting-started/installation/",
+    "/tutorial/quickstart.html": "/en/getting-started/quickstart/",
+    "/guide/python-quickstart.html": "/en/getting-started/python-quickstart/",
+    "/guide/configuration.html": "/en/running/configuration/",
+    "/guide/performance-accelerators.html": "/en/running/performance/",
+    "/guide/running-studies.html": "/en/running/running-studies/",
+    "/guide/policy-management.html": "/en/running/policy-management/",
+    "/guide/novomodelo-bridge.html": "/en/running/case-conversion/",
+    "/guide/interpreting-results.html": "/en/running/interpreting-results/",
+    "/tutorial/understanding-results.html": "/en/running/interpreting-results/",
+    "/guide/cli-reference.html": "/en/reference/cli-reference/",
+    "/guide/scalar-parameters.html": "/en/reference/case-format/constraints/",
+    "/reference/case-format.html": "/en/reference/case-format/",
+    "/reference/output-format.html": "/en/reference/output/",
+    "/reference/flatbuffers-schema.html": "/en/reference/flatbuffers-schema/",
+    "/reference/error-codes.html": "/en/reference/error-codes/",
+    "/reference/schemas.html": "/en/reference/json-schemas/",
+    "/guide/system-modeling.html": "/en/math/system-elements/",
+    "/guide/network-topology.html": "/en/math/system-elements/",
+    "/guide/hydro-plants.html": "/en/math/hydro-production-models/",
+    "/guide/thermal-units.html": "/en/math/equipment-formulations/",
+    "/guide/stochastic-modeling.html": "/en/math/par-inflow-model/",
+    "/guide/block-modes.html": "/en/math/block-formulations/",
+    "/guide/water-travel-time.html": "/en/math/state-augmentation/",
+    "/examples/1dtoy.html": "/en/examples/toy-single-reservoir/",
+    "/examples/4ree.html": "/en/examples/toy-four-reservoir/",
     // Retired site slugs (merged or split chapters; R8): one hop to the survivor or the split's index
-    "/math/weekly-monthly-coupled-studies": "/math/post-study-boundary/",
-    "/math/reproducibility-and-provenance": "/math/determinism-guarantees/",
-    "/reference/case-directory-format": "/reference/case-format/",
-    "/reference/output-format": "/reference/output/",
+    "/math/weekly-monthly-coupled-studies": "/en/math/post-study-boundary/",
+    "/math/reproducibility-and-provenance": "/en/math/determinism-guarantees/",
+    "/reference/case-directory-format": "/en/reference/case-format/",
+    "/reference/output-format": "/en/reference/output/",
   },
   // D4: manual math renderer — remark-math parses $…$ / $$…$$, rehype-katex
   // renders to static .katex HTML at build time (zero client JS). NOT
@@ -260,10 +270,13 @@ export default defineConfig({
       // (b) `src/content/docs/pt-br/` mirrors the English pages with full
       //     translations, following the guide in
       //     `.claude/rules/glossario-traducao-ptbr.md` (outside the content
-      //     tree, so it is never published). Starlight falls back to the
-      //     English source for a page with no pt-br counterpart. Do not add
-      //     empty/stub pt-br `.md`/`.mdx` files — they would render as broken
-      //     pages and skew the dashboard's status.
+      //     tree, so it is never published). The English sources stay the
+      //     translation source even though pt-BR is the root locale (see
+      //     `locales` below): Starlight would serve the root (pt-BR) content at
+      //     the /en/ URL of an English page that is missing, so every page
+      //     keeps its twin in the other locale. Do not add empty/stub pt-br
+      //     `.md`/`.mdx` files — they would render as broken pages and skew the
+      //     dashboard's status.
       plugins: [lunaria({ configPath: "./lunaria.config.json", route: "/lunaria" })],
       // Curated sidebar, NOT `autogenerate`: the TOC crosses content folders
       // (`overview/`, `entities/`, `math/`, `getting-started/`, `running/`,
@@ -278,8 +291,10 @@ export default defineConfig({
       // Running studies. Running studies follows the steps of a study: the
       // Case Format group sits under "Preparing the case" and the Output Format
       // group under "Analysing results". Every section and subsection label
-      // carries its pt-BR translation. The landing page (index.mdx -> `/`) is the
-      // site root and is intentionally NOT a sidebar entry.
+      // carries its pt-BR translation (Starlight shows `translations[lang]` and
+      // falls back to `label`, which stays English). The home pages
+      // (pt-br/index.mdx -> `/`, index.mdx -> `/en/`) are intentionally NOT
+      // sidebar entries.
       sidebar: [
         {
           label: "Get Started", translations: { "pt-BR": "Comece aqui" },
@@ -503,10 +518,15 @@ export default defineConfig({
         "./src/styles/layout.css",
         "./src/components/entity/entity.css",
       ],
+      // pt-BR is the root locale, served at the docs base, and English is
+      // served under en/. The sources keep English at the root of
+      // src/content/docs/ and pt-BR in pt-br/: the content ids
+      // (scripts/locale-id.mjs, src/content.config.ts) map pt-br/<p> to <p>
+      // and every other <p> to en/<p>.
       defaultLocale: "root",
       locales: {
-        root: { label: "English", lang: "en" },
-        "pt-br": { label: "Português do Brasil", lang: "pt-BR" },
+        root: { label: "Português do Brasil", lang: "pt-BR" },
+        en: { label: "English", lang: "en" },
       },
       pagefind: false,
     }),

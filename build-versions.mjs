@@ -159,14 +159,14 @@ for (const v of builds) {
   }
 }
 
-const { stubs } = assembleLanding({
+const { stubs, localeStubs } = assembleLanding({
   dist: "dist",
   docsBase: cfg.latest.base,
   hotsiteDir: "hotsite",
   publicDir: "public",
 });
 console.log(
-  `build:versions: hotsite at /, ${stubs} redirect stub(s) from the pre-/docs/ URLs`,
+  `build:versions: hotsite at /, ${stubs} redirect stub(s) from the pre-/docs/ URLs, ${localeStubs} from the /docs/pt-br/ URLs`,
 );
 
 const subpaths = builds

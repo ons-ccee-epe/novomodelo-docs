@@ -3,13 +3,13 @@ title: Scenario Files
 description: The input files in scenarios/ — the inflow history and PAR(p) model inputs, the external scenario libraries, the load and non-controllable-source statistics and factors, the noise correlation, and the user-supplied opening tree.
 ---
 
-The `scenarios/` directory holds the stochastic inputs of a case: the inflow history and the inputs of the PAR(p) inflow model, the external scenario libraries, the load and non-controllable-source statistics and factors, the noise correlation, and the user-supplied noise openings. The Parquet column types, the compression rule and the `$schema` key are described under [Conventions](/reference/case-format/#conventions).
+The `scenarios/` directory holds the stochastic inputs of a case: the inflow history and the inputs of the PAR(p) inflow model, the external scenario libraries, the load and non-controllable-source statistics and factors, the noise correlation, and the user-supplied noise openings. The Parquet column types, the compression rule and the `$schema` key are described under [Conventions](/en/reference/case-format/#conventions).
 
 ---
 
 ## `scenarios/inflow_history.parquet`
 
-**Methodology:** [PAR(p) Inflow Model](/math/par-inflow-model/)
+**Methodology:** [PAR(p) Inflow Model](/en/math/par-inflow-model/)
 
 Historical inflow observation windows per hydro. Every row is a window, not a
 point-in-time reading: `[start_date, end_date)` bounds the period and
@@ -28,7 +28,7 @@ are accepted. A `hydro_id` that names no declared hydro is an `InvalidReference`
 error. `value_m3s` must be finite; a negative value is accepted — the
 quantity is incremental inflow (a plant's natural flow minus its upstream
 plants'), so a negative window is real hydrology, and the configured
-[inflow non-negativity](/math/inflow-nonnegativity) method decides how the water
+[inflow non-negativity](/en/math/inflow-nonnegativity) method decides how the water
 balance treats it. Semantic validation reports one warning per
 file naming the negative count and the most-negative value's hydro.
 
@@ -39,17 +39,17 @@ The history serves four roles:
 - **Derived inflow-lag seed.** The default-seeding record from which Novomodelo derives the
   PAR lag chain and the mid-period accumulator, layered under the `recent_observations`
   conditioning of `initial_conditions.json` wherever the two cover the same date
-  (see [`initial_conditions.json`](/reference/case-format/initial-conditions/#initial_conditionsjson)).
+  (see [`initial_conditions.json`](/en/reference/case-format/initial-conditions/#initial_conditionsjson)).
 - **Replay windows.** The windows of the `historical` scheme (see
-  [Historical Window Pool](/math/scenario-generation/#historical-window-pool)).
+  [Historical Window Pool](/en/math/scenario-generation/#historical-window-pool)).
 - **Historical-residual openings.** The windows of the `historical_residuals` method (see
-  [Historical-Residual Openings](/math/scenario-generation/#25-historical-residual-openings)).
+  [Historical-Residual Openings](/en/math/scenario-generation/#25-historical-residual-openings)).
 
 ---
 
 ## `scenarios/inflow_seasonal_stats.parquet`
 
-**Methodology:** [PAR(p) Inflow Model](/math/par-inflow-model/)
+**Methodology:** [PAR(p) Inflow Model](/en/math/par-inflow-model/)
 
 PAR(p) model seasonal statistics for each (hydro plant, stage) pair. When the
 file has any row, it needs a row for every hydro in service at each study stage.
@@ -73,12 +73,12 @@ rule of a row for every bus at every study stage.
 
 ## `scenarios/inflow_ar_coefficients.parquet`
 
-**Methodology:** [PAR(p) Inflow Model](/math/par-inflow-model/)
+**Methodology:** [PAR(p) Inflow Model](/en/math/par-inflow-model/)
 
 Autoregressive coefficients for the PAR(p) inflow model. The model's
 innovation scale is not an input: Novomodelo derives it at load from the
 coefficients below via the periodic-ACF closure — see
-[PAR(p) Inflow Model](/math/par-inflow-model).
+[PAR(p) Inflow Model](/en/math/par-inflow-model).
 
 | Name          | Type    | Required | Default | Units | Description                                 |
 | ------------- | ------- | -------- | ------- | ----- | ------------------------------------------- |
@@ -95,11 +95,11 @@ that column ignored outright; the derived value always wins.
 
 ## `scenarios/inflow_annual_component.parquet`
 
-**Methodology:** [PAR(p) Inflow Model](/math/par-inflow-model/)
+**Methodology:** [PAR(p) Inflow Model](/en/math/par-inflow-model/)
 
 PAR(p)-A annual component of each (hydro, stage) pair: the annual coefficient, and the mean and standard deviation of
 the rolling 12-month average inflow.
-[PAR(p) Inflow Model — Implementation in Novomodelo](/math/par-inflow-model#implementation-in-novomodelo) states when the file
+[PAR(p) Inflow Model — Implementation in Novomodelo](/en/math/par-inflow-model#implementation-in-novomodelo) states when the file
 is honoured and when estimation overwrites it.
 
 | Name                 | Type    | Required | Default | Units | Description                                                                                        |
@@ -119,7 +119,7 @@ is honoured and when estimation overwrites it.
   (`hydro_id`, `stage_id`) pair appears once here and has a row there; a repeated pair, or a pair with no statistics
   row, is a `SchemaError`. Without a statistics file neither check runs.
 - **Season.** With a statistics file supplied, every stage that has a row in this file needs a season, from a `season_id` on the
-  stage or from `season_definitions` in [`stages.json`](/reference/case-format/stages/#stagesjson); otherwise the case is refused with a
+  stage or from `season_definitions` in [`stages.json`](/en/reference/case-format/stages/#stagesjson); otherwise the case is refused with a
   `ConstraintError`.
 - **Monthly cycle.** PAR(p)-A is monthly-only: when `stages.json` declares `season_definitions`, a `cycle_type` of
   `weekly` or `custom` together with any row here is a `BusinessRuleViolation`.
@@ -128,12 +128,12 @@ is honoured and when estimation overwrites it.
 
 ## `scenarios/external_inflow_scenarios.parquet`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/)
 
-Pre-computed inflow realizations, read when the inflow `scheme` is `"external"` in [`training.scenario_source`](/running/configuration/#trainingscenario_source) or
-[`simulation.scenario_source`](/running/configuration/#simulationscenario_source). Realizations are numbered per stage by
+Pre-computed inflow realizations, read when the inflow `scheme` is `"external"` in [`training.scenario_source`](/en/running/configuration/#trainingscenario_source) or
+[`simulation.scenario_source`](/en/running/configuration/#simulationscenario_source). Realizations are numbered per stage by
 `scenario_id`; how the passes draw from them is described in
-[Scenario Generation §4](/math/scenario-generation/#4-external-scenario-integration), and which classes take
+[Scenario Generation §4](/en/math/scenario-generation/#4-external-scenario-integration), and which classes take
 their mean and standard deviation from the file is stated under
 [`scenarios/inflow_seasonal_stats.parquet`](#scenariosinflow_seasonal_statsparquet).
 
@@ -165,8 +165,8 @@ their mean and standard deviation from the file is stated under
   - **Constant inflow column (inflow only).** A hydro whose values at a stage are all equal (σ = 0) is a
     `BusinessRuleViolation` when the hydro has a row in `scenarios/inflow_ar_coefficients.parquet` or
     `scenarios/inflow_annual_component.parquet`; see
-    [Deterministic external inflow column under an autoregressive model](/reference/error-codes/#deterministic-external-inflow-column-under-an-autoregressive-model).
-  - **Prefix coherence.** Under a declared `policy_graph.nodes[]` graph (see [`stages.json`](/reference/case-format/stages/#stagesjson)), the two
+    [Deterministic external inflow column under an autoregressive model](/en/reference/error-codes/#deterministic-external-inflow-column-under-an-autoregressive-model).
+  - **Prefix coherence.** Under a declared `policy_graph.nodes[]` graph (see [`stages.json`](/en/reference/case-format/stages/#stagesjson)), the two
     columns that a transition's nodes point to must agree at every stage up to the source node's stage; otherwise a
     `ModelQuality` warning.
 - **Entity coverage.** A class whose scheme resolves to `external` (in training, or in simulation when
@@ -185,12 +185,12 @@ their mean and standard deviation from the file is stated under
 
 ## `scenarios/external_load_scenarios.parquet`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/)
 
-Pre-computed load realizations, read when the load `scheme` is `"external"` in [`training.scenario_source`](/running/configuration/#trainingscenario_source) or
-[`simulation.scenario_source`](/running/configuration/#simulationscenario_source). Realizations are numbered per stage by
+Pre-computed load realizations, read when the load `scheme` is `"external"` in [`training.scenario_source`](/en/running/configuration/#trainingscenario_source) or
+[`simulation.scenario_source`](/en/running/configuration/#simulationscenario_source). Realizations are numbered per stage by
 `scenario_id`; how the passes draw from them is described in
-[Scenario Generation §4](/math/scenario-generation/#4-external-scenario-integration), and which classes take
+[Scenario Generation §4](/en/math/scenario-generation/#4-external-scenario-integration), and which classes take
 their mean and standard deviation from the file is stated under
 [`scenarios/inflow_seasonal_stats.parquet`](#scenariosinflow_seasonal_statsparquet).
 
@@ -209,12 +209,12 @@ is inflow-only.
 
 ## `scenarios/external_ncs_scenarios.parquet`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/)
 
 Pre-computed non-controllable-source availability realizations, read when the NCS `scheme` is `"external"` in
-[`training.scenario_source`](/running/configuration/#trainingscenario_source) or [`simulation.scenario_source`](/running/configuration/#simulationscenario_source). Realizations are
+[`training.scenario_source`](/en/running/configuration/#trainingscenario_source) or [`simulation.scenario_source`](/en/running/configuration/#simulationscenario_source). Realizations are
 numbered per stage by `scenario_id`; how the passes draw from them is described in
-[Scenario Generation §4](/math/scenario-generation/#4-external-scenario-integration), and which classes take
+[Scenario Generation §4](/en/math/scenario-generation/#4-external-scenario-integration), and which classes take
 their mean and standard deviation from the file is stated under
 [`scenarios/inflow_seasonal_stats.parquet`](#scenariosinflow_seasonal_statsparquet).
 
@@ -233,13 +233,13 @@ is inflow-only.
 
 ## `scenarios/load_seasonal_stats.parquet`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/)
 
 Seasonal load statistics of each (bus, stage) pair. `mean_mw` is the bus's mean load at the stage; the load of each
 block is the stage value times the block factor of [`scenarios/load_factors.json`](#scenariosload_factorsjson). When
 the file has any row, it needs a row for every bus at every study stage. Without the file every bus carries zero load,
 unless the load scheme is `external` in training. A bus whose `std_mw` is above `0` carries load noise
-([Scenario Generation §5.1](/math/scenario-generation/#51-load-uncertainty-model)). Under the `external` load scheme the
+([Scenario Generation §5.1](/en/math/scenario-generation/#51-load-uncertainty-model)). Under the `external` load scheme the
 file is optional and the mean and standard deviation come from the external file (see
 [`scenarios/inflow_seasonal_stats.parquet`](#scenariosinflow_seasonal_statsparquet)).
 
@@ -262,7 +262,7 @@ file is optional and the mean and standard deviation come from the external file
 
 ## `scenarios/load_factors.json`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/)
 
 Per-bus, per-stage, per-block load scaling factors. When present, each factor
 multiplies the stochastic load demand realization at the specified bus for the
@@ -313,7 +313,7 @@ values greater than 1.0 increase it.
 
 ## `scenarios/non_controllable_factors.json`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/) · [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/) · [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Per-NCS, per-stage, per-block scaling factors for non-controllable source (NCS)
 available generation. When present, each factor multiplies the source's available
@@ -374,7 +374,7 @@ generation and factors above 1.0 raise it. The factor must be strictly positive 
 
 ## `scenarios/non_controllable_stats.parquet`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/) · [Equipment-Specific Formulations](/math/equipment-formulations/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/) · [Equipment-Specific Formulations](/en/math/equipment-formulations/)
 
 Per-NCS, per-stage stochastic availability model. Each row provides the mean
 and standard deviation of the availability factor for one NCS entity at one
@@ -383,7 +383,7 @@ stage. The availability ratio of a stage and scenario is
 `max_generation_mw` × that ratio × the block factor from
 `scenarios/non_controllable_factors.json` (the factor is 1 when none is
 given); a `constraints/ncs_bounds.parquet` row does not change this available generation (see
-[Equipment-Specific Formulations §6](/math/equipment-formulations#6-non-controllable-generation-sources)).
+[Equipment-Specific Formulations §6](/en/math/equipment-formulations#6-non-controllable-generation-sources)).
 
 | Name       | Type    | Required | Default | Units | Description                                      |
 | ---------- | ------- | -------- | ------- | ----- | ------------------------------------------------ |
@@ -399,13 +399,13 @@ or the entity's `max_generation_mw`.
 
 ## `scenarios/correlation.json`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/)
 
 Spatial correlation of the noise: named profiles of correlation groups and an optional stage-to-profile schedule. A
 group holds entities of one class (`inflow`, `load` or `ncs`), and each class is correlated separately. The
 decomposition of the matrices and the treatment of negative eigenvalues are in
-[Scenario Generation §2.1](/math/scenario-generation/#21-correlated-noise-generation); the
-[PAR(p) Inflow Model](/math/par-inflow-model#implementation-in-novomodelo) Configure tab gives a worked example and the
+[Scenario Generation §2.1](/en/math/scenario-generation/#21-correlated-noise-generation); the
+[PAR(p) Inflow Model](/en/math/par-inflow-model#implementation-in-novomodelo) Configure tab gives a worked example and the
 per-path use of the file.
 
 | Name                                                   | Type          | Required | Default | Units | Description                                                                                                                                                                                                                                                             |
@@ -444,13 +444,13 @@ per-path use of the file.
 
 ## `scenarios/noise_openings.parquet`
 
-**Methodology:** [Scenario Generation](/math/scenario-generation/)
+**Methodology:** [Scenario Generation](/en/math/scenario-generation/)
 
 User-supplied backward-pass opening tree, read **only** when `config.json`
 declares `training.scenario_source.openings = {"source": "file"}` (an undeclared
 file is ignored; a declared but absent file is an error). Not admitted with a
 `nodes[]` policy graph or under enumerated forward selection (see
-[`training.scenario_source`](/running/configuration/#trainingscenario_source)). This enables cross-tool comparison, sensitivity
+[`training.scenario_source`](/en/running/configuration/#trainingscenario_source)). This enables cross-tool comparison, sensitivity
 analysis, and round-trip replay of a previously exported opening tree.
 
 | Name            | Type    | Required | Default | Units | Description                                                                   |
@@ -482,6 +482,6 @@ misassignment because the file stores indices only, not entity identifiers.
 The total row count must equal the sum over study stages of
 `num_openings × dimension`.
 
-See [Scenario Generation](/math/scenario-generation) for the opening tree and
-[Configuration](/running/configuration/#trainingscenario_source) for the `openings`
+See [Scenario Generation](/en/math/scenario-generation) for the opening tree and
+[Configuration](/en/running/configuration/#trainingscenario_source) for the `openings`
 field.

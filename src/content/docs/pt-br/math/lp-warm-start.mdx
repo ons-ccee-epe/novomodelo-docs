@@ -20,7 +20,7 @@ salva por uma execução de partida a quente (warm-start) ou de retomada — se 
 
 ## 1. O problema dos PLs repetidos
 
-A simulação backward do [Algoritmo da PDDE (SDDP)](/pt-br/math/sddp-algorithm) resolve, em cada estágio,
+A simulação backward do [Algoritmo da PDDE (SDDP)](/math/sddp-algorithm) resolve, em cada estágio,
 um PL por abertura por estado visitado por iteração. Ao longo de uma execução de treinamento (training), esses
 PLs não são independentes: o PL do estágio $t$ na iteração $k+1$ difere do
 PL do estágio $t$ na iteração $k$ apenas de duas formas — o conjunto de cortes ativos
@@ -47,7 +47,7 @@ no mesmo estágio são muito semelhantes.
 ## 2. Repositório de bases por (cenário, nó)
 
 O Novo Modelo mantém um repositório de bases indexado por `(scenario, node)`: o cenário identifica um
-estado visitado, e o nó é um nó do [grafo da política](/pt-br/math/policy-graphs);
+estado visitado, e o nó é um nó do [grafo da política](/math/policy-graphs);
 em uma cadeia de estágios (um nó por estágio), um nó é um estágio. O repositório guarda no máximo
 uma base capturada — a partição das variáveis e restrições em básicas e
 não básicas — para cada estado visitado em cada nó.
@@ -100,7 +100,7 @@ A base de partida de uma resolução depende, portanto, da ordem em que as abert
 cadeia são resolvidas. Essa ordem é fixada de antemão e altera a
 base de partida, nunca a validade de um corte, pois toda base ótima do PL de uma
 abertura produz um corte válido;
-[Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos)
+[Determinismo e rastreabilidade §3](/math/determinism-guarantees#3-mecanismos-metodologicos)
 expõe como a ordem fixa mantém a execução reprodutível.
 
 Uma execução de partida a quente ou de retomada inicializa o repositório com as bases salvas, uma por estado
@@ -123,7 +123,7 @@ A mudança relevante é o crescimento do conjunto de cortes: cada
 iteração adiciona um novo corte por estado visitado em todos os estágios, exceto o último. O
 conjunto de cortes e o PL persistente do limite inferior são somente de acréscimo (append-only), enquanto o
 template de estágio de cada iteração contém apenas os cortes ativos (a desativação é tratada
-ao final desta seção; consulte [Gerenciamento de cortes](/pt-br/math/cut-management) para a
+ao final desta seção; consulte [Gerenciamento de cortes](/math/cut-management) para a
 garantia de monotonicidade do conjunto somente de acréscimo). Um novo corte adiciona uma linha de restrição ao
 PL.
 
@@ -151,14 +151,14 @@ mantido no conjunto somente de acréscimo, e a reativação recompõe o corte ne
 slot. Como o conjunto ativo pode mudar dessa forma, uma base armazenada não pode ser
 reaplicada por posição de linha; a reconstrução por identidade de slot do §4 a reconcilia
 com o conjunto ativo corrente, o que mantém o aproveitamento de base válido através da
-desativação e da reativação. Consulte [Gerenciamento de cortes](/pt-br/math/cut-management) para o
+desativação e da reativação. Consulte [Gerenciamento de cortes](/math/cut-management) para o
 mecanismo completo de desativação, incluindo o caminho separado do PL persistente do limite inferior,
 que **é somente de acréscimo** — suas linhas de corte nunca são removidas, de modo que a
 desativação nada altera ali e o limite inferior permanece monótono.
 
 ## 4. Reconstrução da base sensível aos cortes por identidade de slot
 
-Entre resoluções, a seleção de cortes (ver [Gerenciamento de cortes](/pt-br/math/cut-management))
+Entre resoluções, a seleção de cortes (ver [Gerenciamento de cortes](/math/cut-management))
 desativa e reativa cortes, e a simulação backward acrescenta novos, de modo que o
 conjunto de linhas de corte ativas no PL do estágio **se renova** de uma iteração para a
 seguinte. Uma base armazenada registra um status para cada linha que continha; se esses
@@ -167,7 +167,7 @@ ficaria desalinhado — e o solver partiria de uma base corrompida ou recairia
 em uma partida a frio.
 
 O Novo Modelo evita isso fazendo a reconciliação por **identidade de slot**, e não por posição. O
-conjunto de cortes atribui a cada corte um índice de slot estável (ver [Gerenciamento de cortes §5](/pt-br/math/cut-management)),
+conjunto de cortes atribui a cada corte um índice de slot estável (ver [Gerenciamento de cortes §5](/math/cut-management)),
 e uma base armazenada traz, para cada linha de corte que continha, o slot do conjunto que
 a gerou. Para reconstruir uma base para o PL corrente:
 
@@ -230,18 +230,18 @@ usam o repositório em tempo de execução.
 
 ## Referências cruzadas
 
-- [Gerenciamento de cortes](/pt-br/math/cut-management) — O ciclo de vida dos cortes, que é somente de acréscimo, com
+- [Gerenciamento de cortes](/math/cut-management) — O ciclo de vida dos cortes, que é somente de acréscimo, com
   índices de slot estáveis, que determina as mudanças no conjunto de cortes e sustenta a reconstrução
   por identidade de slot; o mecanismo de desativação de cortes e as estratégias de seleção que
   determinam com que frequência o conjunto de cortes muda.
-- [Algoritmo da PDDE](/pt-br/math/sddp-algorithm) — O laço de iterações em que as
+- [Algoritmo da PDDE](/math/sddp-algorithm) — O laço de iterações em que as
   simulações forward e backward compartilham o repositório de bases; a estrutura das simulações forward e
   backward, como as aberturas de cada estágio são percorridas e as barreiras de
   sincronização que separam os estágios.
-- [Grafos da política](/pt-br/math/policy-graphs) — Os nós que indexam o repositório de bases e
+- [Grafos da política](/math/policy-graphs) — Os nós que indexam o repositório de bases e
   os estágios a que correspondem.
-- [Determinismo e rastreabilidade](/pt-br/math/determinism-guarantees) — A fixação
+- [Determinismo e rastreabilidade](/math/determinism-guarantees) — A fixação
   determinística da ordem das cadeias descrita em
-  [Determinismo e rastreabilidade §3](/pt-br/math/determinism-guarantees#3-mecanismos-metodologicos),
+  [Determinismo e rastreabilidade §3](/math/determinism-guarantees#3-mecanismos-metodologicos),
   que é o que mantém o aproveitamento de base compatível com a reprodutibilidade
   bit a bit entre execuções.

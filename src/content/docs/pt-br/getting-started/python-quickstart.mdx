@@ -11,11 +11,11 @@ Instale o pacote Python `novomodelo`, gere o caso de exemplo 1dtoy, execute-o co
 pip install novomodelo-python polars pyarrow matplotlib
 ```
 
-O pacote é importado como `novomodelo`; `polars`, `pyarrow` e `matplotlib` atendem às etapas de leitura e de gráficos. [Instalação](/pt-br/getting-started/installation/) lista as versões de Python e as plataformas suportadas.
+O pacote é importado como `novomodelo`; `polars`, `pyarrow` e `matplotlib` atendem às etapas de leitura e de gráficos. [Instalação](/getting-started/installation/) lista as versões de Python e as plataformas suportadas.
 
 ## Criar um caso
 
-O pacote Python não tem comando para gerar casos. Crie o caso de exemplo 1dtoy com a ferramenta de linha de comando `novomodelo`, descrita em [Instalação](/pt-br/getting-started/installation/):
+O pacote Python não tem comando para gerar casos. Crie o caso de exemplo 1dtoy com a ferramenta de linha de comando `novomodelo`, descrita em [Instalação](/getting-started/installation/):
 
 ```bash
 novomodelo init --template 1dtoy my_study
@@ -52,7 +52,7 @@ simulation:  {'n_scenarios': 100, 'completed': 100}
 output_dir:  my_study/output
 ```
 
-As chaves impressas fazem parte do dict de resultado; consulte [`RunResult`](/pt-br/reference/python-api/#novomodelo_typesrunresult) para a estrutura completa e [`novomodelo.run.run`](/pt-br/reference/python-api/#novomodelorunrun) para os parâmetros. `converged` é `True` quando um critério `gap` ou `bound_stalling` encerra o treinamento (training). Aqui, o limite de 128 iterações o encerrou; portanto, `False` é o esperado. Os limites e o gap negativo coincidem com os do guia rápido da CLI, que os explica em [O que você acabou de executar](/pt-br/getting-started/quickstart/#o-que-voce-acabou-de-executar).
+As chaves impressas fazem parte do dict de resultado; consulte [`RunResult`](/reference/python-api/#novomodelo_typesrunresult) para a estrutura completa e [`novomodelo.run.run`](/reference/python-api/#novomodelorunrun) para os parâmetros. `converged` é `True` quando um critério `gap` ou `bound_stalling` encerra o treinamento (training). Aqui, o limite de 128 iterações o encerrou; portanto, `False` é o esperado. Os limites e o gap negativo coincidem com os do guia rápido da CLI, que os explica em [O que você acabou de executar](/getting-started/quickstart/#o-que-voce-acabou-de-executar).
 
 ## Ler os resultados
 
@@ -100,7 +100,7 @@ shape: (1, 2)
 └──────────┴───────────────┘
 ```
 
-Os dois carregadores de [`novomodelo.results`](/pt-br/reference/python-api/#novomodeloresults) retornam objetos `pyarrow.Table`, que `polars.from_arrow` encapsula. O custo de um cenário é a soma de `discount_factor * immediate_cost` sobre suas linhas de `costs`, aqui uma por estágio; a média coincide com a linha `Expected cost` do resumo da execução na CLI, e a mediana, muito abaixo da média, mostra que a maioria dos cenários é barata.
+Os dois carregadores de [`novomodelo.results`](/reference/python-api/#novomodeloresults) retornam objetos `pyarrow.Table`, que `polars.from_arrow` encapsula. O custo de um cenário é a soma de `discount_factor * immediate_cost` sobre suas linhas de `costs`, aqui uma por estágio; a média coincide com a linha `Expected cost` do resumo da execução na CLI, e a mediana, muito abaixo da média, mostra que a maioria dos cenários é barata.
 
 ## Plotar a convergência
 
@@ -154,7 +154,7 @@ print(f"lower_bound: {result['lower_bound']:.6g}")
 lower_bound: 2.06197e+07
 ```
 
-As chaves são caminhos do `config.json` separados por pontos. `training.tree_seed` é a semente da árvore de aberturas e dos sorteios dentro da amostra (in-sample) (padrão 42); assim, outra semente produz outra árvore e outro limite inferior: 2,06197e+07 aqui, contra 2,06161e+07 na primeira execução. Informe parâmetros aninhados como chaves com pontos: um dict sob uma chave sem pontos substitui o objeto inteiro. `output_dir` mantém esta execução separada da primeira. [Resolução de sementes](/pt-br/running/configuration/#resolucao-das-sementes) descreve as sementes.
+As chaves são caminhos do `config.json` separados por pontos. `training.tree_seed` é a semente da árvore de aberturas e dos sorteios dentro da amostra (in-sample) (padrão 42); assim, outra semente produz outra árvore e outro limite inferior: 2,06197e+07 aqui, contra 2,06161e+07 na primeira execução. Informe parâmetros aninhados como chaves com pontos: um dict sob uma chave sem pontos substitui o objeto inteiro. `output_dir` mantém esta execução separada da primeira. [Resolução de sementes](/running/configuration/#resolucao-das-sementes) descreve as sementes.
 
 Uma execução com o treinamento desativado simula a política já existente no diretório de saída, aqui a gravada pela primeira execução:
 
@@ -214,15 +214,15 @@ except novomodelo.errors.NovomodeloError as err:
 ValidationError True
 ```
 
-As exceções tipadas ficam em `novomodelo.errors`. Cada classe específica deriva da classe base `NovomodeloError` e de uma exceção nativa (`ValueError`, `OSError` ou `RuntimeError`), de modo que um `except ValueError` existente também captura esta `ValidationError`. Verificações de argumentos, como `threads=0` ou um diretório de caso inexistente, lançam diretamente a exceção nativa. Consulte [`novomodelo.errors`](/pt-br/reference/python-api/#novomodeloerrors) para as classes, [Códigos de erro](/pt-br/reference/error-codes/) para as mensagens e [Erros de carregamento da política](/pt-br/reference/error-codes/#erros-de-carga-da-politica) para saber qual caminho de carregamento lança qual classe.
+As exceções tipadas ficam em `novomodelo.errors`. Cada classe específica deriva da classe base `NovomodeloError` e de uma exceção nativa (`ValueError`, `OSError` ou `RuntimeError`), de modo que um `except ValueError` existente também captura esta `ValidationError`. Verificações de argumentos, como `threads=0` ou um diretório de caso inexistente, lançam diretamente a exceção nativa. Consulte [`novomodelo.errors`](/reference/python-api/#novomodeloerrors) para as classes, [Códigos de erro](/reference/error-codes/) para as mensagens e [Erros de carregamento da política](/reference/error-codes/#erros-de-carga-da-politica) para saber qual caminho de carregamento lança qual classe.
 
 ## Checkpoints da política
 
 Carregue uma política treinada com `novomodelo.results.load_policy`, edite seus cortes e grave um checkpoint que o Novo Modelo consiga carregar com
 `novomodelo.write_policy_checkpoint`. O passo a passo da ida e volta está em
-[Ler e gravar checkpoints a partir do Python](/pt-br/running/policy-management/#ler-e-gravar-checkpoints-a-partir-do-python).
+[Ler e gravar checkpoints a partir do Python](/running/policy-management/#ler-e-gravar-checkpoints-a-partir-do-python).
 
 ## Próximos passos
 
-- Consulte [Formato do caso](/pt-br/reference/case-format/) para as especificações dos arquivos de entrada.
-- Explore os [Exemplos resolvidos](/pt-br/examples/toy-single-reservoir/) para casos pequenos, inteiramente resolvidos.
+- Consulte [Formato do caso](/reference/case-format/) para as especificações dos arquivos de entrada.
+- Explore os [Exemplos resolvidos](/examples/toy-single-reservoir/) para casos pequenos, inteiramente resolvidos.

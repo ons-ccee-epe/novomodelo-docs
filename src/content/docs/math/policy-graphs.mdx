@@ -8,9 +8,9 @@ import { Content as PolicyGraphConfigure } from './_impl/_policy-graph.configure
 
 ## Purpose
 
-The stage index $t \in \{1, \ldots, T\}$ used throughout [SDDP Algorithm](/math/sddp-algorithm) (the [1-based math convention](/overview/notation-conventions#stage-indexing)) is the special case of a more general structure: a **policy graph** of nodes and transitions, in which a stage may hold more than one node and a node may carry its own local realization. This chapter defines that structure — nodes, transitions, and future-cost pools; the two probability axes a policy graph carries; why discount is a stage-level, not an edge-level, quantity; how the structure maps onto the SDDP.jl family; its current structural limitations; and the additional restriction an exact (enumerated) backward/forward pass imposes that a sampled pass does not. It is the structural foundation the rest of the stochastic-modelling chapters build on.
+The stage index $t \in \{1, \ldots, T\}$ used throughout [SDDP Algorithm](/en/math/sddp-algorithm) (the [1-based math convention](/en/overview/notation-conventions#stage-indexing)) is the special case of a more general structure: a **policy graph** of nodes and transitions, in which a stage may hold more than one node and a node may carry its own local realization. This chapter defines that structure — nodes, transitions, and future-cost pools; the two probability axes a policy graph carries; why discount is a stage-level, not an edge-level, quantity; how the structure maps onto the SDDP.jl family; its current structural limitations; and the additional restriction an exact (enumerated) backward/forward pass imposes that a sampled pass does not. It is the structural foundation the rest of the stochastic-modelling chapters build on.
 
-For the entity view of this chapter, see [Scenarios and openings](/entities/inflows/scenarios/).
+For the entity view of this chapter, see [Scenarios and openings](/en/entities/inflows/scenarios/).
 
 ## 1. Nodes, Transitions, and Future-Cost Pools
 
@@ -18,9 +18,9 @@ A **node** $n$ has a unique identifier, sits at a study stage $t(n)$, may point 
 
 A **transition** is a directed edge from a node to a node exactly one stage later, weighted by a transition probability. Every edge advances the graph by exactly one stage — a policy graph has no same-stage or backward edges.
 
-The simplest policy graph is an **implicit stage chain**: no nodes are declared, every stage holds exactly one (unnamed) node, and each transition's endpoints are stage ids rather than node ids. This is the chain already described in [SDDP Algorithm §2](/math/sddp-algorithm) and is the graph every prior chapter assumes. Declaring nodes explicitly generalises the same structure: a stage may then hold several nodes, each with its own identity and (optionally) its own realization pointer.
+The simplest policy graph is an **implicit stage chain**: no nodes are declared, every stage holds exactly one (unnamed) node, and each transition's endpoints are stage ids rather than node ids. This is the chain already described in [SDDP Algorithm §2](/en/math/sddp-algorithm) and is the graph every prior chapter assumes. Declaring nodes explicitly generalises the same structure: a stage may then hold several nodes, each with its own identity and (optionally) its own realization pointer.
 
-A node with no outgoing transition is a **leaf**; a node with no incoming transition is a **root**. Every non-leaf node owns its own future-cost (Benders cut) pool — the per-node generalisation of the per-stage cut pool described in [Cut Management](/math/cut-management). On the implicit stage chain, one node per stage collapses this back to exactly the per-stage pool already documented there. All leaf nodes across the whole graph share a single pool, to which the backward pass adds no cut, because a leaf's future cost is the shared terminal condition (§5).
+A node with no outgoing transition is a **leaf**; a node with no incoming transition is a **root**. Every non-leaf node owns its own future-cost (Benders cut) pool — the per-node generalisation of the per-stage cut pool described in [Cut Management](/en/math/cut-management). On the implicit stage chain, one node per stage collapses this back to exactly the per-stage pool already documented there. All leaf nodes across the whole graph share a single pool, to which the backward pass adds no cut, because a leaf's future cost is the shared terminal condition (§5).
 
 The **backward pass**, run node by node from the leaves toward the root, builds a node's cut from its children's subproblems: at each trial point it solves every child under every opening of that child and aggregates all the (child, opening) pairs at once (§2). The **forward pass** samples a single root→leaf trajectory — one node per stage along the path it visits — and makes decisions using each visited node's current cut approximation.
 
@@ -76,19 +76,19 @@ Circles are pool-owning (non-leaf) nodes; ovals are leaves sharing the one termi
 A policy graph carries two probability structures that stay conceptually distinct:
 
 - **Between-node (edge) weights.** Each node's outgoing transition probabilities sum to 1 (the load-time check is in the Configure tab of [Implementation in Novomodelo](#implementation-in-novomodelo)). This axis governs *which child node* a trajectory moves to.
-- **Within-node openings.** Independently of its outgoing edges, a node carries its own local set of openings $\Omega_n$ — the realizations $\omega \in \Omega_n$ its stage subproblem is evaluated under. This axis governs *which realization* is evaluated once the node itself has been reached; it is the same within-stage opening concept described for the chain in [SDDP Algorithm §3](/math/sddp-algorithm) and [Scenario Generation](/math/scenario-generation), scoped per node rather than per stage.
+- **Within-node openings.** Independently of its outgoing edges, a node carries its own local set of openings $\Omega_n$ — the realizations $\omega \in \Omega_n$ its stage subproblem is evaluated under. This axis governs *which realization* is evaluated once the node itself has been reached; it is the same within-stage opening concept described for the chain in [SDDP Algorithm §3](/en/math/sddp-algorithm) and [Scenario Generation](/en/math/scenario-generation), scoped per node rather than per stage.
 
 The backward pass composes the two axes into one joint law. The cut of a node $n$ is built over the pairs $(n', \omega)$ of a child $n'$ and an opening $\omega \in \Omega_{n'}$ of that child, each pair weighted by the product $P(n \to n')\, p_{n'}(\omega)$ of the edge's transition probability and the opening's probability within the child, uniform over $\Omega_{n'}$. The risk measure of node $n$'s stage acts once on that joint law, not on each child's openings with the results then averaged across the children.
 
 ### Node Bellman Equation and Cut
 
-Let $V_n$ denote the cost-to-go that node $n$'s future-cost pool approximates, a function of the state $x$ that node $n$ passes to its children; on the stage chain, $V_n = V_{t(n)+1}$, the value function of [SDDP Algorithm §2](/math/sddp-algorithm) at the stage after the node's own. Under the expectation,
+Let $V_n$ denote the cost-to-go that node $n$'s future-cost pool approximates, a function of the state $x$ that node $n$ passes to its children; on the stage chain, $V_n = V_{t(n)+1}$, the value function of [SDDP Algorithm §2](/en/math/sddp-algorithm) at the stage after the node's own. Under the expectation,
 
 $$
 V_n(x) = \sum_{n'} P(n \to n') \sum_{\omega \in \Omega_{n'}} p_{n'}(\omega) \min_{(x', u) \in \mathcal{X}_{n'}(x, \omega)} \Big\{ c_{n'}(x', u) + d_{t(n') \to t(n')+1}\, V_{n'}(x') \Big\}
 $$
 
-where the outer sum runs over the children $n'$ of $n$, $\mathcal{X}_{n'}(x, \omega)$ is the feasible set of child $n'$'s state $x'$ and control $u$ given the incoming state $x$ and the opening $\omega$, $c_{n'}$ is the child's immediate cost and $d_{t(n') \to t(n')+1}$ the discount factor of its stage (§3). At a leaf, $V_n$ is the terminal function every leaf shares (§5): zero, or the fixed imported terminal function of [SDDP Algorithm §7](/math/sddp-algorithm#7-terminal-boundary-cuts).
+where the outer sum runs over the children $n'$ of $n$, $\mathcal{X}_{n'}(x, \omega)$ is the feasible set of child $n'$'s state $x'$ and control $u$ given the incoming state $x$ and the opening $\omega$, $c_{n'}$ is the child's immediate cost and $d_{t(n') \to t(n')+1}$ the discount factor of its stage (§3). At a leaf, $V_n$ is the terminal function every leaf shares (§5): zero, or the fixed imported terminal function of [SDDP Algorithm §7](/en/math/sddp-algorithm#7-terminal-boundary-cuts).
 
 The cut of node $n$ at a trial point $\hat{x}$ bounds node $n$'s future-cost variable $\theta_n$:
 
@@ -102,25 +102,25 @@ $$
 \bar{\beta}_0 = \sum_{(n', \omega)} P(n \to n')\, p_{n'}(\omega)\, \beta_0(n', \omega), \qquad \bar{\beta} = \sum_{(n', \omega)} P(n \to n')\, p_{n'}(\omega)\, \beta(n', \omega)
 $$
 
-where $\beta(n', \omega)$ is the coefficient vector read from child $n'$'s subproblem at $\hat{x}$ under opening $\omega$, and $\beta_0(n', \omega) = Q_{n'}(\hat{x}, \omega) - \beta(n', \omega)^{\top} \hat{x}$ its intercept, $Q_{n'}(\hat{x}, \omega)$ being that subproblem's optimal value ([Cut Management §2](/math/cut-management#2-reduced-cost-extraction) and [§3](/math/cut-management#3-single-cut-aggregation)). Under a risk measure, the double sum of $V_n$ is replaced by the risk measure of node $n$'s stage applied once to the joint law of the pairs $(n', \omega)$, and the products $P(n \to n')\, p_{n'}(\omega)$ in the cut by the risk-adjusted probabilities of [Risk Measures](/math/risk-measures) computed on that law.
+where $\beta(n', \omega)$ is the coefficient vector read from child $n'$'s subproblem at $\hat{x}$ under opening $\omega$, and $\beta_0(n', \omega) = Q_{n'}(\hat{x}, \omega) - \beta(n', \omega)^{\top} \hat{x}$ its intercept, $Q_{n'}(\hat{x}, \omega)$ being that subproblem's optimal value ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction) and [§3](/en/math/cut-management#3-single-cut-aggregation)). Under a risk measure, the double sum of $V_n$ is replaced by the risk measure of node $n$'s stage applied once to the joint law of the pairs $(n', \omega)$, and the products $P(n \to n')\, p_{n'}(\omega)$ in the cut by the risk-adjusted probabilities of [Risk Measures](/en/math/risk-measures) computed on that law.
 
 ## 3. Discount Is Stage-Separate, Not Edge-Separate
 
-The discount factor $d_{t \to t+1}$ defined in [Discount Rate Formulation](/math/discount-rate) is a property of the **stage transition** $t \to t+1$, not of a policy-graph edge. The stage-$t$ template carries it once, as the objective coefficient of $\theta$, and carries the delivery discount of [Discount Rate Formulation](/math/discount-rate#arrow-form-and-delivery-discount) on each anticipated decision column ([State Augmentation](/math/state-augmentation#objective-contributions)); both are fixed per stage.
+The discount factor $d_{t \to t+1}$ defined in [Discount Rate Formulation](/en/math/discount-rate) is a property of the **stage transition** $t \to t+1$, not of a policy-graph edge. The stage-$t$ template carries it once, as the objective coefficient of $\theta$, and carries the delivery discount of [Discount Rate Formulation](/en/math/discount-rate#arrow-form-and-delivery-discount) on each anticipated decision column ([State Augmentation](/en/math/state-augmentation#objective-contributions)); both are fixed per stage.
 
 An explicit node graph keeps this stage-level convention: a discount override applies to a stage, and a transition between two declared nodes may not carry its own discount override. The reason is structural, not incidental — because the discount factors are fixed in the stage template once per stage, an edge-level (and therefore potentially per-node) override would force a separate template per node, which the single shared stage template does not support. A future-proof declaration point exists per transition precisely because the implicit stage chain has one transition per stage, so a per-edge spelling there is equivalent to a per-stage one; once a stage can hold several nodes, that equivalence breaks and only the per-stage declaration remains meaningful.
 
 ## 4. Mapping onto the SDDP.jl Family
 
-The node/transition/pool structure above is the same abstraction [Dowson (2020)](/reference/bibliography/#sddp-foundations) defines as a **policy graph** and the SDDP.jl package implements ([Dowson & Kapelevich, 2021](/reference/bibliography/#software-references)): nodes each carry a local subproblem and their own cut pool, connected by probability-weighted arcs, with the backward pass aggregating successor pools into a parent's cut exactly as §1 describes. Novomodelo's graph is the finite, acyclic, leaf-terminated member of that family — every trajectory starts at a root and ends at a leaf after a bounded number of stages, with no cycle back to an earlier stage. §5 states the further restrictions Novomodelo imposes within that member.
+The node/transition/pool structure above is the same abstraction [Dowson (2020)](/en/reference/bibliography/#sddp-foundations) defines as a **policy graph** and the SDDP.jl package implements ([Dowson & Kapelevich, 2021](/en/reference/bibliography/#software-references)): nodes each carry a local subproblem and their own cut pool, connected by probability-weighted arcs, with the backward pass aggregating successor pools into a parent's cut exactly as §1 describes. Novomodelo's graph is the finite, acyclic, leaf-terminated member of that family — every trajectory starts at a root and ends at a leaf after a bounded number of stages, with no cycle back to an earlier stage. §5 states the further restrictions Novomodelo imposes within that member.
 
 ## 5. Known Limitations
 
 Novomodelo's policy graph carries three structural limitations beyond the finite/acyclic/leaf-terminated shape itself:
 
 - **A single initial node.** A case supplies one initial-conditions record for the whole graph, so the incoming state that anchors the graph is shared by construction — the graph is anchored at one root even where the schema would structurally permit more than one node at stage 0.
-- **A single terminal value shared across leaves.** Every leaf, regardless of which node or path reaches it, resolves to the same shared terminal pool, to which the backward pass adds no cut. This generalises the terminal condition of [SDDP Algorithm §2](/math/sddp-algorithm): there is one terminal future-cost value for the whole graph, not one per leaf, either zero, $V_{T+1}(x) = 0$, or the fixed imported terminal function of [SDDP Algorithm §7](/math/sddp-algorithm#7-terminal-boundary-cuts).
-- **Finite-horizon only.** Only the acyclic, leaf-terminated graph shape is accepted; the cyclic (infinite periodic horizon) variant is reserved and rejected when the case is loaded. See [Horizon Modes](/math/horizon-modes) for the cyclic target design this reservation anticipates.
+- **A single terminal value shared across leaves.** Every leaf, regardless of which node or path reaches it, resolves to the same shared terminal pool, to which the backward pass adds no cut. This generalises the terminal condition of [SDDP Algorithm §2](/en/math/sddp-algorithm): there is one terminal future-cost value for the whole graph, not one per leaf, either zero, $V_{T+1}(x) = 0$, or the fixed imported terminal function of [SDDP Algorithm §7](/en/math/sddp-algorithm#7-terminal-boundary-cuts).
+- **Finite-horizon only.** Only the acyclic, leaf-terminated graph shape is accepted; the cyclic (infinite periodic horizon) variant is reserved and rejected when the case is loaded. See [Horizon Modes](/en/math/horizon-modes) for the cyclic target design this reservation anticipates.
 
 ## 6. The Enumerated-Tree Structural Requirement
 
@@ -145,18 +145,18 @@ The methodology above defines nodes, transitions and their probabilities; the ta
 
 ## Cross-References
 
-- [SDDP Algorithm](/math/sddp-algorithm) — the forward/backward pass structure and terminal condition this chapter generalises to a graph
-- [Cut Management](/math/cut-management) — the append-only cut pool this chapter generalises from per-stage to per-node
-- [Discount Rate Formulation](/math/discount-rate) — the per-stage discount factor referenced in §3
-- [Scenario Generation](/math/scenario-generation) — the within-node opening set referenced in §2
-- [Horizon Modes](/math/horizon-modes) — the cyclic graph variant reserved in §5
-- [Stage Files](/reference/case-format/stages/#stagesjson) — the `stages.json` field-level reference for the node/transition shape introduced conceptually in §1
-- [Configuration](/running/configuration) — how a study selects an enumerated versus a sampled pass (§6)
-- [Glossary](/reference/glossary) — term definitions for node, transition, and policy graph
+- [SDDP Algorithm](/en/math/sddp-algorithm) — the forward/backward pass structure and terminal condition this chapter generalises to a graph
+- [Cut Management](/en/math/cut-management) — the append-only cut pool this chapter generalises from per-stage to per-node
+- [Discount Rate Formulation](/en/math/discount-rate) — the per-stage discount factor referenced in §3
+- [Scenario Generation](/en/math/scenario-generation) — the within-node opening set referenced in §2
+- [Horizon Modes](/en/math/horizon-modes) — the cyclic graph variant reserved in §5
+- [Stage Files](/en/reference/case-format/stages/#stagesjson) — the `stages.json` field-level reference for the node/transition shape introduced conceptually in §1
+- [Configuration](/en/running/configuration) — how a study selects an enumerated versus a sampled pass (§6)
+- [Glossary](/en/reference/glossary) — term definitions for node, transition, and policy graph
 
 ## References
 
-- [Dowson (2020)](/reference/bibliography/#sddp-foundations)
-- [Dowson & Kapelevich (2021)](/reference/bibliography/#software-references)
+- [Dowson (2020)](/en/reference/bibliography/#sddp-foundations)
+- [Dowson & Kapelevich (2021)](/en/reference/bibliography/#software-references)
 
-See the full [Bibliography](/reference/bibliography) for every source cited across the methodology.
+See the full [Bibliography](/en/reference/bibliography) for every source cited across the methodology.
