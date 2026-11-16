@@ -1,30 +1,70 @@
-/* Novomodelo brand typography for Starlight. Self-hosted via Fontsource (OFL 1.1):
-   IBM Plex Sans for body copy, JetBrains Mono for code. Fontsource bundles the
-   OFL licence text with each package (eases E10); the @import pulls each font's
-   index.css (full weight + subset @font-face set, served as WOFF2).
+/* Novomodelo typography for Starlight — the hotsite's faces
+   (docs/design/design-system.md §3).
 
-   This sets ONLY Starlight's documented font custom properties — `--sl-font`
-   (body) and `--sl-font-mono` (code) — never overriding component CSS. Starlight
-   itself appends its system stack after `--sl-font` (`--__sl-font`), so the
-   brand face fails over gracefully; we spell the same system stacks here so the
-   fallback is faithful and self-documenting. Brand accents (--sl-color-accent*,
-   brand.css) and the --dgm-* diagram palette (palette.css) are SEPARATE concerns
-   and are intentionally untouched here.
+   Inter (400, 500, 600) for text and Inter Display (500, 600) for headings,
+   self-hosted as the same Latin WOFF2 subsets the hotsite ships
+   (hotsite/assets/fonts/, copied to src/fonts/ so Vite bundles them under the
+   docs base path). OFL-1.1: LICENSE-Inter.txt sits beside the files and its
+   full text is in public/THIRD-PARTY-NOTICES.txt (scripts/gen-notices.mjs).
 
-   OFL NOTICE: the obligation to SHIP the bundled OFL text with the built site is
-   E10's job — this ticket only wires the faces. Fontsource path taken (not
-   self-hosted WOFF2 under public/fonts/), so E10 surfaces the package LICENSE,
-   not a hand-placed fonts/LICENSE. */
+   Code uses the system monospace stack, no web font (design-system.md §9, D2).
 
-@import "@fontsource/ibm-plex-sans";
-@import "@fontsource/jetbrains-mono";
+   This file sets Starlight's documented font properties (`--sl-font`,
+   `--sl-font-mono`) from the tokens in tokens.css, plus two rules the faces
+   need: headings in Inter Display, and bold capped at 600 because no 700 face
+   ships (a browser would otherwise synthesise one). */
+
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/Inter-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/Inter-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/Inter-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter Display";
+  src: url("../fonts/InterDisplay-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter Display";
+  src: url("../fonts/InterDisplay-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --sl-font:
-    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --sl-font-mono:
-    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  --sl-font: var(--font-sans);
+  --sl-font-mono: var(--font-mono);
+}
+
+/* Headings: Inter Display, as on the hotsite (h1–h3). The page title is
+   Starlight's h1#_top, outside .sl-markdown-content. */
+h1#_top,
+.sl-markdown-content :is(h1, h2, h3):not(:where(.not-content *)) {
+  font-family: var(--font-display);
+  letter-spacing: -0.012em;
+}
+
+/* No 700 face ships: cap bold at the 600 SemiBold the faces provide. */
+:is(b, strong),
+.sl-markdown-content dt:not(:where(.not-content *)) {
+  font-weight: 600;
 }

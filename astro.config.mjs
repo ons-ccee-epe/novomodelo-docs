@@ -500,11 +500,15 @@ export default defineConfig({
       // semantic aside hue families (note=blue/tip=patina/caution=amber/danger=red).
       // Both are a SEPARATE concern from palette.css (--dgm-* diagram vars); they
       // touch disjoint property sets, so neutrals-before-brand is for readability,
-      // not cascade. fonts.css (E2 / ticket-009) self-hosts the brand faces via
-      // Fontsource (IBM Plex Sans body / JetBrains Mono code, OFL 1.1) and sets
-      // ONLY --sl-font / --sl-font-mono — again a SEPARATE concern. Order is
+      // not cascade. fonts.css self-hosts the hotsite's Inter and Inter Display
+      // (OFL 1.1, WOFF2 in src/fonts/), uses the system monospace stack for code,
+      // and sets --sl-font / --sl-font-mono — again a SEPARATE concern. Order is
       // independent of the palette-before-diagrams keystone rule above.
       customCss: [
+        // tokens.css holds the design-system values (docs/design/design-system.md)
+        // every file below reads; it comes first so its custom properties are
+        // declared before any consumer.
+        "./src/styles/tokens.css",
         "./src/styles/katex.css",
         "./src/styles/palette.css",
         "./src/styles/diagrams.css",
