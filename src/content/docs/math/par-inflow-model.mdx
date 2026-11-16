@@ -186,35 +186,35 @@ $$
 
 For partial-year studies, the lag-season means $\mu_{m(t-\ell)}$ for seasons preceding the study start are sourced from the pre-study lag window (§3.8); when no such statistic exists for a given lag season, that lag's mean contribution is treated as zero.
 
-### 2.5 Lagged Inflows Pinned by Column Bounds
+### 2.5 The Realized Inflow as a Right-Hand-Side Constant
 
-The lagged inflows $a_{h,\ell}$ are **LP variables**, not substituted values. In the LP, they appear with coefficients $-\psi_{m(t),\ell}$ in the AR dynamics constraint row, and each incoming lag column is pinned to the trajectory's lag value $\hat{a}_{h,\ell}$ by setting both of its column bounds to that value: there are no fixing rows, as for every state variable in [State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds). The value $\hat{a}_{h,\ell}$ is patched per scenario from the trajectory record.
-
-Because the lag contribution $\sum_\ell \psi_{m(t),\ell} \cdot a_{h,\ell}$ is carried by the constraint matrix (not the RHS), the AR dynamics constraint RHS reduces to:
+The lagged inflows $a_{h,\ell}$ are **state values**, not LP variables: the stage LP has no column and no row for the model. Before each solve, the realized inflow of each hydro is evaluated at the trajectory's incoming lag values $\hat{a}_{h,\ell}$, taken per scenario from the trajectory record:
 
 $$
-\text{RHS}_{h,t} = b_{h,m(t)} + \sigma_{m(t)} \cdot \varepsilon_t
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \hat{a}_{h,\ell} + \sigma_{m(t)} \cdot \varepsilon_t
 $$
 
 where:
 
-- $b_{h,m(t)}$ is the deterministic base for (stage, hydro), precomputed once at LP construction (§2.4)
+- $b_{h,m(t)}$ is the deterministic base for (stage, hydro), precomputed once (§2.4)
 - $\sigma_{m(t)}$ is the noise scale for (stage, hydro), derived from the closure-derived $r_m$ (§4.1) at initialization (§2.2)
 - $\varepsilon_t$ is the scenario noise draw for this (stage, hydro)
 
-The $\psi_{m(t),\ell}$ coefficients are written into the constraint matrix **once at LP construction time** as the coefficients on the lagged inflow variables; they are not recomputed per scenario.
+$\hat{z}_h$ enters the water balance and the other rows that read the inflow as a constant on the right-hand side ([LP Formulation §5](/en/math/lp-formulation#5-realized-inflow)). The cut coefficients on the lags are computed after the solve from its duals by the chain rule, through the coefficients $\psi_{m(t),\ell}$ ([PAR(p) Folding](/en/math/par-folding)).
 
-No division, no mean subtraction, no repeated coefficient transformation — the three precomputed LP components eliminate all redundant arithmetic from the hot path.
+The $\psi_{m(t),\ell}$ coefficients are computed **once at initialization**; they are not recomputed per scenario.
+
+No division, no mean subtraction, no repeated coefficient transformation — the three precomputed components eliminate all redundant arithmetic from the hot path.
 
 Whether the lagged inflows enter a stage's cuts is a per-stage choice; a cut that projects them out carries their contribution in its intercept at the trial lag values (see [State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)).
 
 ### 2.6 Summary of LP Components
 
-| Component          | Symbol             | Shape per stage      | LP Role                                   | Source                                                                 |
+| Component          | Symbol             | Shape per stage      | Role in the stage LP                      | Source                                                                 |
 | ------------------ | ------------------ | -------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
-| Lag coefficients   | $\psi_{m(t),\ell}$ | One per (hydro, lag) | Constraint matrix (AR dynamics row)       | Derived from stored $\psi^*$ and $s_m$ at initialization (§2.2) |
-| Deterministic base | $b_{h,m(t)}$       | One per hydro        | AR dynamics constraint RHS (fixed term)   | Precomputed from $\mu$ and $\psi$                                      |
-| Noise scale        | $\sigma_{m(t)}$    | One per hydro        | AR dynamics constraint RHS (noise factor) | Derived from the closure-derived $r_m$ (§4.1) and $s_m$ at initialization (§2.2) |
+| Lag coefficients   | $\psi_{m(t),\ell}$ | One per (hydro, lag) | Realized inflow (lag terms); chain rule of the inflow-lag cut coefficients | Derived from stored $\psi^*$ and $s_m$ at initialization (§2.2) |
+| Deterministic base | $b_{h,m(t)}$       | One per hydro        | Realized inflow (fixed term)              | Precomputed from $\mu$ and $\psi$                                      |
+| Noise scale        | $\sigma_{m(t)}$    | One per hydro        | Realized inflow (noise factor)            | Derived from the closure-derived $r_m$ (§4.1) and $s_m$ at initialization (§2.2) |
 
 ## 3. Estimation
 
@@ -691,7 +691,7 @@ $$
 A_{h,t-1} = \frac{1}{12} \sum_{\ell=1}^{12} a_{h,\, t-\ell}
 $$
 
-The window always averages the last twelve observations, so $A_{h,t-1}$ is a one-year average only on a monthly cycle ($M = 12$); with the extension active on any hydro, the AR dynamics row (§2.5) spans twelve lags, or the largest classical order if that is larger.
+The window always averages the last twelve observations, so $A_{h,t-1}$ is a one-year average only on a monthly cycle ($M = 12$); with the extension active on any hydro, the realized inflow (§2.5) reads twelve lags, or the largest classical order if that is larger.
 
 The PAR(p)-A model augments §1 with the standardised deviation of $A_{h,t-1}$ from its own seasonal mean:
 
@@ -818,8 +818,9 @@ The methodology above defines the PAR(p) inflow model; the tabs below cover how 
 
 ## Cross-References
 
-- [LP Formulation](/en/math/lp-formulation) — The realized-inflow rows of the stage LP
-- [State Augmentation](/en/math/state-augmentation) — AR inflow dynamics: state expansion, lag column pinning, reduced-cost extraction
+- [LP Formulation](/en/math/lp-formulation) — The rows of the stage LP that read the realized inflow
+- [State Augmentation](/en/math/state-augmentation) — Inflow-lag state: state expansion, outgoing lags, cut-state projection
+- [PAR(p) Folding](/en/math/par-folding) — The realized inflow outside the stage LP and the inflow-lag cut coefficients by the chain rule
 - [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity) — Methods for handling negative realizations produced by the PAR(p) model
 - [Scenario Generation](/en/math/scenario-generation) — When external inflow scenarios are used in training, the backward pass turns the opening tree's noise into inflows with the applied PAR model, in which hydros of AR order 0 and no annual component take the external samples' mean and standard deviation.
 - [Notation Conventions](/en/overview/notation-conventions) — Defines inflow symbols ($a_{h,t}$, $\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) and unit conventions

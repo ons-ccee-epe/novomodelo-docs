@@ -26,7 +26,7 @@ $$
 n_{\text{state}} = N(1 + P^{\max}) + B + A \, k_{max}
 $$
 
-The state is ordered canonically: storage, inflow lags, in-transit buckets, commitment-ring slots, and within each family the hydros, receiving plants or anticipated thermals in the canonical entity order of [Notation Conventions](/en/overview/notation-conventions) (lag-major for the lags, slot-major for the ring slots). Each stage pins its incoming copy of the state by column bounds (§2), and each cut of a stage is a row over the stage's outgoing state (§3).
+The state is ordered canonically: storage, inflow lags, in-transit buckets, commitment-ring slots, and within each family the hydros, receiving plants or anticipated thermals in the canonical entity order of [Notation Conventions](/en/overview/notation-conventions) (lag-major for the lags, slot-major for the ring slots). Each stage pins its incoming storage, in-transit buckets and ring slots by column bounds (§2) and takes its incoming inflow lags as numbers of the solve (§4), and each cut of a stage is a row over the stage's outgoing state (§3).
 
 ## 2. Pinning by Column Bounds
 
@@ -44,12 +44,12 @@ where:
 - $\hat{v}_h$ = incoming state value (end-of-stage storage from the previous stage)
 
 :::note[Pinning by bounds not by a row]
-The incoming state is pinned by **column bounds**, not by an explicit equality _constraint row_ $v^{in}_h = \hat{v}_h$ whose dual would be read: the LP has no such row ([LP Layout and Scaling §1](/en/math/lp-layout-and-scaling#1-column-and-row-layout)). Pinning by bounds keeps $N(1+P^{\max})$ redundant equality rows per stage out of the model (plus one per in-transit bucket and commitment-ring slot, §6, §5); the two formulations are KKT-equivalent — see below.
+The incoming state is pinned by **column bounds**, not by an explicit equality _constraint row_ $v^{in}_h = \hat{v}_h$ whose dual would be read: the LP has no such row ([LP Layout and Scaling §1](/en/math/lp-layout-and-scaling#1-column-and-row-layout)). Pinning by bounds keeps $N$ redundant equality rows per stage out of the model (plus one per in-transit bucket and commitment-ring slot, §6, §5); the two formulations are KKT-equivalent — see below.
 :::
 
 **Cut coefficient**: the storage cut coefficient $\beta^v_h$ is the **reduced cost** of the pinned incoming-storage column (unscaled by its prescaler column factor — see [LP Layout and Scaling §2](/en/math/lp-layout-and-scaling#2-lp-scaling) and [Cut Management](/en/math/cut-management)). No fixing-constraint dual is involved.
 
-**Why this design**: By LP duality, when a column is pinned at $\underline{x} = \bar{x}$ its reduced cost is a subgradient of the optimal value in the pinned bound — the sensitivity $\partial Q_t / \partial \hat{v}_h$ where that derivative exists ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction)) — and exactly the multiplier the equivalent equality row $v^{in}_h = \hat{v}_h$ would have carried (KKT parity). This sensitivity automatically accounts for all downstream effects through water balance, FPHA, evaporation and generic constraints, so a single reduced-cost value suffices — no combination of duals from multiple constraint types is needed. The AR lags (§4), in-transit buckets (§6) and commitment-ring slots (§5) are pinned the same way.
+**Why this design**: By LP duality, when a column is pinned at $\underline{x} = \bar{x}$ its reduced cost is a subgradient of the optimal value in the pinned bound — the sensitivity $\partial Q_t / \partial \hat{v}_h$ where that derivative exists ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction)) — and exactly the multiplier the equivalent equality row $v^{in}_h = \hat{v}_h$ would have carried (KKT parity). This sensitivity automatically accounts for all downstream effects through water balance, FPHA, evaporation and generic constraints, so a single reduced-cost value suffices — no combination of duals from multiple constraint types is needed. The in-transit buckets (§6) and commitment-ring slots (§5) are pinned the same way. The inflow lags take the other route: they enter the realized inflow, a right-hand-side constant, and their cut coefficients are formed from the duals of the rows that read it (§4).
 
 **Column count**: $N$ pinned incoming-storage columns, where $N = |\mathcal{H}|$ is the number of hydros, whatever their lifecycle phase. There are no state-fixing rows: every incoming-state column is pinned by its bounds.
 
@@ -57,44 +57,37 @@ The incoming state is pinned by **column bounds**, not by an explicit equality _
 
 On a stage that completes a lag period of its own, as every stage of a uniform single-resolution study with a [season map](/en/math/multi-resolution-studies#1-season-map) does apart from the 52nd and 53rd weeks of a 53-week year under a weekly cycle, the outgoing state of stage $t$ is the vector stage $t+1$ pins as its incoming state. A stage that shares a lag period passes its lags on unchanged until the period completes ([Multi-Resolution Studies §2](/en/math/multi-resolution-studies#2-lag-accumulation)), and at a resolution change the lag state is rebuilt from the completed coarse periods ([Multi-Resolution Studies §3](/en/math/multi-resolution-studies#3-resolution-change)).
 
-The outgoing state is the outgoing storage $v_h$; the outgoing inflow lags $(z_h, a_{h,1}, \ldots, a_{h,P^{\max}-1})$, in which the realized inflow becomes lag 1, each incoming lag $a_{h,\ell}$ with $\ell < P^{\max}$ becomes lag $\ell + 1$, and $a_{h,P^{\max}}$ leaves the state; the outgoing buckets $b^{\mathrm{out}}_{h,d}$; and the outgoing ring slots $x^{\mathrm{a}}_{s,i}$. Stage $t+1$ pins each incoming column at the value of the matching outgoing column in the solution of stage $t$, canonicalized onto its bounds ([SDDP Algorithm §3.1](/en/math/sddp-algorithm#31-forward-pass)).
+The outgoing state is the outgoing storage $v_h$; the outgoing inflow lags $(\hat{z}_h, \hat{a}_{h,1}, \ldots, \hat{a}_{h,P^{\max}-1})$, numbers known before the solve ([LP Formulation §5](/en/math/lp-formulation#5-realized-inflow)), in which the realized inflow becomes lag 1, each incoming lag $\hat{a}_{h,\ell}$ with $\ell < P^{\max}$ becomes lag $\ell + 1$, and $\hat{a}_{h,P^{\max}}$ leaves the state; the outgoing buckets $b^{\mathrm{out}}_{h,d}$; and the outgoing ring slots $x^{\mathrm{a}}_{s,i}$. Stage $t+1$ pins each incoming column at the value of the matching outgoing column in the solution of stage $t$, canonicalized onto its bounds ([SDDP Algorithm §3.1](/en/math/sddp-algorithm#31-forward-pass)), and takes the outgoing inflow lags as its incoming lags.
 
 | State family       | Outgoing column                                      | Pinned incoming column at the next stage |
 | ------------------ | ---------------------------------------------------- | ---------------------------------------- |
 | Storage            | $v_h$                                                | $v^{in}_h$                               |
-| Inflow lags        | $z_h$ (lag 1) and $a_{h,\ell-1}$ (lag $\ell \ge 2$) | $a_{h,\ell}$                             |
+| Inflow lags        | none: $\hat{z}_h$ (lag 1) and $\hat{a}_{h,\ell-1}$ (lag $\ell \ge 2$) | none: $\hat{a}_{h,\ell}$ |
 | In-transit buckets | $b^{\mathrm{out}}_{h,d}$                             | $b^{\mathrm{in}}_{h,d}$                  |
 | Ring slots         | $x^{\mathrm{a}}_{s,i}$                               | $x^{\mathrm{a,in}}_{s,i}$                |
 
-Each cut of stage $t$ is a row over these outgoing columns:
+Each cut of stage $t$ is a row over the outgoing columns, its inflow-lag terms evaluated at the outgoing lags on the right-hand side:
 
 $$
-\theta \geq \beta_0 + \sum_{h \in \mathcal{H}} \beta^v_h \, v_h + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{h,1} \, z_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{h,\ell} \, a_{h,\ell-1} \Big) + \cdots
+\theta - \sum_{h \in \mathcal{H}} \beta^v_h \, v_h - \cdots \ge \beta_0 + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{h,1} \, \hat{z}_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{h,\ell} \, \hat{a}_{h,\ell-1} \Big)
 $$
 
-where $\cdots$ stands for the bucket and ring-slot terms, each coefficient on its outgoing column by identity. Each coefficient is the reduced cost of the matching pinned incoming column of stage $t+1$, unscaled ([LP Layout and Scaling §2](/en/math/lp-layout-and-scaling#2-lp-scaling)): the lag coefficient $\beta^{lag}_{h,\ell}$ prices lag $\ell$ of the next stage's incoming state, so against the lag columns of stage $t$ the lag terms are re-indexed by one stage. A storage or lag component that the cut's state projection drops has no term ([§7](#7-cut-state-projection)).
+where $\cdots$ stands for the bucket and ring-slot terms, each coefficient on its outgoing column by identity. Each storage, bucket and ring-slot coefficient is the reduced cost of the matching pinned incoming column of stage $t+1$, unscaled ([LP Layout and Scaling §2](/en/math/lp-layout-and-scaling#2-lp-scaling)). The lag coefficient $\beta^{lag}_{h,\ell}$ prices lag $\ell$ of the next stage's incoming state, so against the incoming lags of stage $t$ the lag terms are re-indexed by one stage; it comes from the duals of stage $t+1$ by the chain rule (§4). A storage or lag component that the cut's state projection drops has no term ([§7](#7-cut-state-projection)).
 
 ## 4. Inflow Lags
 
-The AR dynamics equation ([LP Formulation §5](/en/math/lp-formulation#5-realized-inflow-definition-rows)) uses lagged inflows $a_{h,\ell}$ as LP variables. To maintain the Markov property in the SDDP decomposition, each lag variable is pinned to its incoming state value via equal lower and upper **column bounds** on its lag column. This binds the lag variables to the known incoming state, and the **reduced cost** of each pinned column provides the cut coefficient $\beta^{lag}_{h,\ell}$ for the corresponding inflow-lag dimension of the Benders cuts ([LP Formulation §11](/en/math/lp-formulation#11-benders-cuts)). Whether these lag dimensions enter the cut is set by the cut-state projection, which the successor stage configures: when it projects out the inflow lags, the lag columns are still pinned for the AR dynamics, but their reduced costs carry no cut coefficient, giving a storage-only cut even under a PAR($p$) fit — see [§7](#7-cut-state-projection).
+The PAR(p) model ([LP Formulation §5](/en/math/lp-formulation#5-realized-inflow)) reads the lagged inflows of each hydro. To maintain the Markov property in the SDDP decomposition, the lags are part of the state: the incoming lags of a stage are its trial values, known before the solve. Unlike the other families they have no LP column. The realized inflow computed from them enters the rows that read it as a right-hand-side constant, and the lag terms of each cut row are evaluated at them on the right-hand side ([LP Formulation §11](/en/math/lp-formulation#11-benders-cuts)). Whether the lag dimensions enter the cut is set by the cut-state projection, which the successor stage configures: when it projects out the inflow lags, the lags still give the realized inflow, but the cut carries no lag coefficient, giving a storage-only cut even under a PAR($p$) fit — see [§7](#7-cut-state-projection).
 
-For each hydro $h \in \mathcal{H}$ and each lag $\ell \in \{1, \ldots, P^{\max}\}$:
+The incoming state of each hydro $h \in \mathcal{H}$ holds one lag $\hat{a}_{h,\ell}$ for each $\ell \in \{1, \ldots, P^{\max}\}$, where:
 
-$$
-\underline{a}_{h,\ell} = \bar{a}_{h,\ell} = \hat{a}_{h,\ell}
-$$
-
-where:
-
-- $a_{h,\ell}$ = LP variable representing the inflow at lag $\ell$ for hydro $h$
 - $\hat{a}_{h,\ell}$ = incoming state value: the inflow of the $\ell$-th most recently completed lag period ([Multi-Resolution Studies §2](/en/math/multi-resolution-studies#2-lag-accumulation)); a lag period completes only under a [season map](/en/math/multi-resolution-studies#1-season-map), so without one no period completes and the lags keep their initial values
 - $P^{\max}$ = the lag depth of the state, the same for every hydro: the largest AR order, at least twelve when any hydro carries the annual component, and widened as below when a terminal boundary is loaded
 
-**Column count**: $N \times P^{\max}$ pinned lag columns, where $N = |\mathcal{H}|$ is the number of hydros, whatever their lifecycle phase, and $P^{\max}$ is the lag depth of the state defined above. All hydros store $P^{\max}$ lags regardless of their individual AR order $P_h$; a hydro whose inflow model has no annual component reads only its first $P_h$ lags, so its slots $\ell > P_h$ carry zero coefficients in the dynamics row, while a hydro with the annual component ([PAR(p) Inflow Model §7](/en/math/par-inflow-model#7-annual-component-extension-parp-a)) reads every slot; every lag column is still present and pinned. This uniform layout keeps the lag columns contiguous, so all lag cut coefficients are read in a single slice of the reduced-cost vector ([LP Layout and Scaling §1](/en/math/lp-layout-and-scaling#1-column-and-row-layout)).
+**State count**: $N \times P^{\max}$ lag components, where $N = |\mathcal{H}|$ is the number of hydros, whatever their lifecycle phase, and $P^{\max}$ is the lag depth of the state defined above. All hydros store $P^{\max}$ lags regardless of their individual AR order $P_h$; a hydro whose inflow model has no annual component reads only its first $P_h$ lags, so its coefficients $\psi_{m(t),\ell}$ are $0$ for $\ell > P_h$, while a hydro with the annual component ([PAR(p) Inflow Model §7](/en/math/par-inflow-model#7-annual-component-extension-parp-a)) reads every slot.
 
-The lag slots a hydro does not read are structurally zero and are left out of the cut row, like a ring slot no stage holds; with a terminal boundary loaded, the cut row keeps every hydro's slots up to the boundary depth, the deepest lag any boundary cut references, to which the lag state is widened ([Post-Study Boundary & Chained Studies — Compatibility Conditions](/en/math/post-study-boundary#52-compatibility-conditions)).
+The lag slots a hydro does not read are structurally zero, like a ring slot no stage holds; with a terminal boundary loaded, the cut keeps every hydro's slots up to the boundary depth, the deepest lag any boundary cut references, to which the lag state is widened ([Post-Study Boundary & Chained Studies — Compatibility Conditions](/en/math/post-study-boundary#52-compatibility-conditions)).
 
-**Cut coefficient**: $\beta^{lag}_{h,\ell}$ (marginal value of inflow history at lag $\ell$ for hydro $h$) is the reduced cost of the pinned lag column, unscaled by its prescaler column factor ([LP Layout and Scaling §2](/en/math/lp-layout-and-scaling#2-lp-scaling)) — see [Cut Management](/en/math/cut-management).
+**Cut coefficient**: $\beta^{lag}_{h,\ell}$ (marginal value of inflow history at lag $\ell$ for hydro $h$) is computed after the solve by the chain rule, from the unscaled duals of the rows that read the realized inflow and of the cut rows ([PAR(p) Folding §4](/en/math/par-folding#4-the-inflow-lag-coefficients-by-the-chain-rule)); in exact arithmetic it equals the reduced cost of the pinned lag column of the formulation that writes the PAR(p) model as rows of the LP ([PAR(p) Folding §5](/en/math/par-folding#5-exactness-and-limits)) — see [Cut Management](/en/math/cut-management).
 
 ## 5. Anticipated Thermal Commitments
 
@@ -164,7 +157,7 @@ When an upstream release takes appreciable time to travel down the cascade, only
 
 For each receiving (downstream) plant $h$ that has at least one incoming travel-time arc, the in-transit water destined for $h$ is discretized into **maturity lags** $d \in \{1, \ldots, L_h\}$. Each lag carries the aggregate volume, summed over every upstream arc feeding $h$, in two buckets (hm³): the incoming bucket $b^{\mathrm{in}}_{h,d}$ holds the volume that matures into plant $h$'s reservoir $d - 1$ stages after the current one, so lag $1$ matures at the current stage, and the outgoing bucket $b^{\mathrm{out}}_{h,d}$ holds the volume that matures $d$ stages after it. The per-plant depth $L_h$ is the deepest maturity lag any arc into $h$ can reach on the stage calendar. The confluence of several arcs into one plant collapses into this single aggregated bucket block.
 
-The buckets extend the state vector (§1), with $B = \sum_h L_h$ the total bucket count. The bucket block sits **after** the AR inflow lags and **before** the commitment-ring slots in the canonical state order ([LP Layout and Scaling §1](/en/math/lp-layout-and-scaling#1-column-and-row-layout)). Buckets are ordered canonically by $(\text{plant}, \text{lag})$ — the receiving plant in the canonical entity order every state block uses, then ascending maturity lag. When no arc is declared, $B = 0$ and the state has no bucket block.
+The buckets extend the state vector (§1), with $B = \sum_h L_h$ the total bucket count. The bucket block sits **after** the AR inflow lags and **before** the commitment-ring slots in the canonical state order (§1). Buckets are ordered canonically by $(\text{plant}, \text{lag})$ — the receiving plant in the canonical entity order every state block uses, then ascending maturity lag. When no arc is declared, $B = 0$ and the state has no bucket block.
 
 ### State pinning (column bounds)
 
@@ -212,7 +205,7 @@ $$
 \beta^{b}_{h,d} = \bar{c}^{\,b}_{h,d} / d^{col}_{h,d}
 $$
 
-Transit buckets are always in the cut projection, whatever the stage's selection for the storage and inflow-lag dimensions ([§7](#7-cut-state-projection)). Each cut therefore carries one coefficient per bucket dimension, contiguous with the storage, lag, and anticipated coefficients and read from the same reduced-cost mechanism ([LP Formulation §11](/en/math/lp-formulation#11-benders-cuts)).
+Transit buckets are always in the cut projection, whatever the stage's selection for the storage and inflow-lag dimensions ([§7](#7-cut-state-projection)). Each cut therefore carries one coefficient per bucket dimension, contiguous with the storage, lag and anticipated coefficients and read, like the storage coefficients, from the reduced costs of the pinned incoming columns ([LP Formulation §11](/en/math/lp-formulation#11-benders-cuts)).
 
 ### Horizon limitation
 
@@ -222,7 +215,7 @@ In-transit volume that would mature **after the study's last stage** is dropped 
 
 A stage need not project the cuts it generates onto the full state of §1. Each stage selects whether the cuts it generates carry the storage components and whether they carry the inflow-lag components; the selection sets the dimension of those cuts, not the state the stage pins and passes on (§2, §3). A component left out is **projected out** of the subgradient: its reduced cost is not read into the cut, and the cut carries no coefficient for it. The intercept $\beta_0$ is the optimal value at the trial point less the products of the kept coefficients with their trial values, so the linear term of a projected-out component at its trial value is absorbed into $\beta_0$: the cut is a lower-dimensional supporting hyperplane of the cost-to-go's slice through the trial point, not a full cut with the omitted coordinates zero-padded.
 
-- With the inflow lags projected out, the $N \times P^{\max}$ lag coefficients are omitted, not zeroed, even under a PAR(p) inflow model; the lag columns stay pinned for the AR dynamics (§4). With the inflow lags kept, their reduced costs enter the cut as §4 states.
+- With the inflow lags projected out, the $N \times P^{\max}$ lag coefficients are omitted, not zeroed, even under a PAR(p) inflow model; the incoming lags still give the realized inflow (§4). With the inflow lags kept, their chain-rule coefficients enter the cut as §4 states.
 - With the storage projected out, the $N$ storage coefficients are omitted in the same way, and the cut spans the components it keeps: the inflow lags when they are kept, and the buckets and ring slots when the study has them.
 - The in-transit buckets (§6) and the commitment-ring slots (§5) are **always** projected, whatever the selection, which toggles only the storage and inflow-lag components. Every slot of every anticipated plant's ring carries a coefficient; a slot that no stage holds has a structurally zero coefficient, so the cut row holds entries only for the slots some stage holds.
 
@@ -237,6 +230,7 @@ A cut that projects out a component the cost-to-go depends on is guaranteed to l
 - [LP Formulation](/en/math/lp-formulation) — the stage LP that pins the incoming state and whose cut row reads the outgoing state
 - [Block Formulation Variants](/en/math/block-formulations) — chronological stages and the spread of a maturing bucket over their blocks
 - [PAR(p) Inflow Model](/en/math/par-inflow-model) — the inflow model whose lags the state carries
+- [PAR(p) Folding](/en/math/par-folding) — the inflow lags outside the LP and their cut coefficients by the chain rule
 - [Multi-Resolution Studies](/en/math/multi-resolution-studies) — lag periods and the lag state at a resolution change
 - [System Element Modeling Overview](/en/math/system-elements) — anticipated thermal plants and travel-time arcs as physical elements
 - [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) — the terminal boundary that prices the outgoing state of the last stage

@@ -186,35 +186,35 @@ $$
 
 Em estudos que cobrem parte do ano, as médias dos períodos sazonais das defasagens $\mu_{m(t-\ell)}$ dos períodos sazonais anteriores ao início do estudo são obtidas da janela de defasagens pré-estudo (§3.8); quando não existe tal estatística para um dado período sazonal de defasagem, a contribuição da média dessa defasagem é considerada nula.
 
-### 2.5 Afluências defasadas fixadas por limites das colunas
+### 2.5 A afluência realizada como constante do lado direito
 
-As afluências defasadas $a_{h,\ell}$ são **variáveis do PL**, e não valores substituídos. No PL, elas aparecem com coeficientes $-\psi_{m(t),\ell}$ na linha de restrição da dinâmica AR, e cada coluna de defasagem de entrada é fixada no valor de defasagem da trajetória $\hat{a}_{h,\ell}$ definindo ambos os seus limites de coluna com esse valor: não há linhas de fixação, como ocorre com toda variável de estado em [Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna). O valor $\hat{a}_{h,\ell}$ é atualizado por cenário a partir do registro da trajetória.
-
-Como a contribuição das defasagens $\sum_\ell \psi_{m(t),\ell} \cdot a_{h,\ell}$ é representada na matriz de restrições (e não no lado direito), o lado direito da restrição da dinâmica AR se reduz a:
+As afluências defasadas $a_{h,\ell}$ são **valores de estado**, e não variáveis do PL: o PL do estágio não tem coluna nem linha para o modelo. Antes de cada resolução, a afluência realizada de cada usina hidrelétrica é avaliada nos valores de defasagem de entrada da trajetória $\hat{a}_{h,\ell}$, obtidos por cenário a partir do registro da trajetória:
 
 $$
-\text{RHS}_{h,t} = b_{h,m(t)} + \sigma_{m(t)} \cdot \varepsilon_t
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \hat{a}_{h,\ell} + \sigma_{m(t)} \cdot \varepsilon_t
 $$
 
 em que:
 
-- $b_{h,m(t)}$ é a base determinística de (estágio, usina hidrelétrica), pré-calculada uma vez na construção do PL (§2.4)
+- $b_{h,m(t)}$ é a base determinística de (estágio, usina hidrelétrica), pré-calculada uma vez (§2.4)
 - $\sigma_{m(t)}$ é a escala do ruído de (estágio, usina hidrelétrica), derivada do $r_m$ obtido pelo fechamento (§4.1) na inicialização (§2.2)
 - $\varepsilon_t$ é o sorteio de ruído do cenário para esse (estágio, usina hidrelétrica)
 
-Os coeficientes $\psi_{m(t),\ell}$ são gravados na matriz de restrições **uma única vez, na construção do PL**, como coeficientes das variáveis de afluência defasada; eles não são recalculados por cenário.
+$\hat{z}_h$ entra no balanço hídrico e nas demais linhas que leem a afluência como constante do lado direito ([Formulação do PL §5](/math/lp-formulation#5-afluencia-realizada)). Os coeficientes dos cortes nas defasagens são calculados após a resolução, a partir dos seus duais, pela regra da cadeia, por meio dos coeficientes $\psi_{m(t),\ell}$ ([Folding do PAR(p)](/math/par-folding)).
 
-Nenhuma divisão, nenhuma subtração de médias, nenhuma transformação repetida de coeficientes — os três componentes pré-calculados do PL eliminam toda a aritmética redundante do caminho crítico.
+Os coeficientes $\psi_{m(t),\ell}$ são calculados **uma única vez, na inicialização**; eles não são recalculados por cenário.
+
+Nenhuma divisão, nenhuma subtração de médias, nenhuma transformação repetida de coeficientes — os três componentes pré-calculados eliminam toda a aritmética redundante do caminho crítico.
 
 A inclusão das afluências defasadas nos cortes de um estágio é uma escolha por estágio; um corte que as projeta para fora incorpora sua contribuição ao termo independente, avaliada nos valores de defasagem do estado visitado (veja [Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)).
 
 ### 2.6 Resumo dos componentes do PL
 
-| Componente         | Símbolo            | Dimensão por estágio | Papel no PL                               | Origem                                                                 |
+| Componente         | Símbolo            | Dimensão por estágio | Papel no PL do estágio                    | Origem                                                                 |
 | ------------------ | ------------------ | -------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
-| Coeficientes das defasagens | $\psi_{m(t),\ell}$ | Um por (usina hidrelétrica, defasagem) | Matriz de restrições (linha da dinâmica AR) | Derivados de $\psi^*$ e $s_m$ armazenados, na inicialização (§2.2) |
-| Base determinística | $b_{h,m(t)}$      | Uma por usina hidrelétrica | Lado direito da restrição da dinâmica AR (termo fixo) | Pré-calculada a partir de $\mu$ e $\psi$                  |
-| Escala do ruído    | $\sigma_{m(t)}$    | Uma por usina hidrelétrica | Lado direito da restrição da dinâmica AR (fator do ruído) | Derivada do $r_m$ obtido pelo fechamento (§4.1) e de $s_m$, na inicialização (§2.2) |
+| Coeficientes das defasagens | $\psi_{m(t),\ell}$ | Um por (usina hidrelétrica, defasagem) | Afluência realizada (termos de defasagem); regra da cadeia dos coeficientes dos cortes nas defasagens | Derivados de $\psi^*$ e $s_m$ armazenados, na inicialização (§2.2) |
+| Base determinística | $b_{h,m(t)}$      | Uma por usina hidrelétrica | Afluência realizada (termo fixo) | Pré-calculada a partir de $\mu$ e $\psi$                  |
+| Escala do ruído    | $\sigma_{m(t)}$    | Uma por usina hidrelétrica | Afluência realizada (fator do ruído) | Derivada do $r_m$ obtido pelo fechamento (§4.1) e de $s_m$, na inicialização (§2.2) |
 
 ## 3. Estimação
 
@@ -691,7 +691,7 @@ $$
 A_{h,t-1} = \frac{1}{12} \sum_{\ell=1}^{12} a_{h,\, t-\ell}
 $$
 
-A janela sempre calcula a média das últimas doze observações, de modo que $A_{h,t-1}$ é uma média de um ano apenas em um ciclo mensal ($M = 12$); com a extensão ativa em qualquer usina hidrelétrica, a linha da dinâmica AR (§2.5) abrange doze defasagens, ou a maior ordem clássica, se esta for maior.
+A janela sempre calcula a média das últimas doze observações, de modo que $A_{h,t-1}$ é uma média de um ano apenas em um ciclo mensal ($M = 12$); com a extensão ativa em qualquer usina hidrelétrica, a afluência realizada (§2.5) lê doze defasagens, ou a maior ordem clássica, se esta for maior.
 
 O modelo PAR(p)-A acrescenta à §1 o desvio padronizado de $A_{h,t-1}$ em relação à sua própria média sazonal:
 
@@ -818,8 +818,9 @@ A metodologia acima define o modelo de afluências PAR(p); as abas abaixo mostra
 
 ## Referências cruzadas
 
-- [Formulação do PL](/math/lp-formulation) — As linhas de vazão afluente realizada do PL do estágio
-- [Aumento do espaço de estados](/math/state-augmentation) — Dinâmica AR das afluências: expansão do estado, fixação das colunas de defasagem, extração dos custos reduzidos
+- [Formulação do PL](/math/lp-formulation) — As linhas do PL do estágio que leem a afluência realizada
+- [Aumento do espaço de estados](/math/state-augmentation) — Estado das defasagens de afluência: expansão do estado, defasagens de saída, projeção do estado do corte
+- [Folding do PAR(p)](/math/par-folding) — A afluência realizada fora do PL do estágio e os coeficientes dos cortes nas defasagens pela regra da cadeia
 - [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity) — Métodos para tratar realizações negativas produzidas pelo modelo PAR(p)
 - [Geração de cenários](/math/scenario-generation) — Quando cenários externos de afluência são usados no treinamento (training), a simulação backward transforma o ruído da árvore de aberturas em afluências com o modelo PAR aplicado, no qual as usinas hidrelétricas com ordem AR 0 e sem componente anual assumem a média e o desvio-padrão das amostras externas.
 - [Convenções de notação](/overview/notation-conventions) — Define os símbolos das afluências ($a_{h,t}$, $\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) e as convenções de unidades

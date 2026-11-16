@@ -115,14 +115,14 @@ unique — fixed by its objective, constraints, and bounds alone, and no startin
 basis can change it. Its optimal _basis_ need not be. Where the optimum is
 degenerate, several distinct bases attain that same value, and the simplex
 halts at whichever one its pivot path reaches. Because a cut's coefficients are
-read from the reduced costs of the pinned incoming-state columns, they are
+read from the reduced costs and the row duals of the solve, they are
 properties of the terminating basis rather than of the optimal value: at a
 degenerate optimum the subproblem's value function can have a kink at the trial
 point, its subgradients there form a convex set (an interval when the state has
 one component), and a solve returns the subgradient its terminating basis
 gives.
 
-Every such choice yields an equally valid cut. Each reduced-cost vector
+Every such choice yields an equally valid cut. Each cut-coefficient vector
 obtained at an optimal basis is a subgradient of the subproblem's value
 function at the trial point, so the cut it induces supports that function from
 below everywhere and meets it exactly at the trial point. Aggregation inherits
@@ -233,6 +233,13 @@ canonical scenario order and reduced there. None of these reductions therefore
 depends on how work is partitioned. See
 [Performance Accelerators — Parallel Execution Model](/en/running/performance/#parallel-execution-model)
 for the rank partition and the collectives.
+
+**Cut right-hand sides in a fixed order.** Each cut row's right-hand side is
+the sum of a part fixed by the trial point and a part fixed by the opening, and
+each part is summed in a fixed order. A stored part is the value the same
+arithmetic gives in place, so reusing it across a trial point's openings, or
+across the trial points of a node, changes no bit
+([PAR(p) Folding §3](/en/math/par-folding#3-the-cut-right-hand-side)).
 
 **Deterministic seed derivation across MPI ranks.** Each draw is produced by a
 pseudo-random number generator seeded from a value derived deterministically
