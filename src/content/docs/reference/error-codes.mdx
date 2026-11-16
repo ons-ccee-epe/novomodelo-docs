@@ -1046,7 +1046,7 @@ for each study stage in which it is active, and each missing (hydro, stage)
 pair is one error that names the hydro and the stage. A mismatch means an
 optional per-entity file provides data for some entities but not all that
 require it. When `system/fpha_hyperplanes.parquet` holds any row, every plant
-configured with the `fpha` model that has turbine capacity needs rows of its
+configured with the `fpha` model that has [turbine capacity](/en/math/hydro-production-models#no-turbine-capacity) needs rows of its
 own, whatever its `source`, and one without them is reported as
 `Hydro <id> is configured with FPHA model but has no FPHA hyperplanes`.
 
@@ -1589,7 +1589,7 @@ disabled on every study stage despite supplied autoregressive coefficients, a
 negative value in `scenarios/inflow_history.parquet`, a season with no
 observations in that file, a hydro-season with at least one, but fewer than
 `estimation.min_observations_per_season`, fully covered stage occurrences in that
-file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, or an initial
+file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW at zero turbined flow, or an initial
 storage outside the storage bounds at the end of the hydro's first operating
 stage. Each is reported as a warning.
 
@@ -1657,12 +1657,22 @@ Minimum storage rises above the previous stage's floor at {} (hydro, stage) pair
 
 Each pair is written `Hydro {hydro_id} at stage {stage_id} ({floor} > {incoming})`. The pairs are sorted by hydro id, then stage id, and joined with `, `. The check runs under the `truncation`, `truncation_with_penalty` and `none` inflow methods and is silent under `penalty`. The hard floor is 0 for a filling hydro and at a PreFilling stage, and the stage's resolved `min_storage_hm3` otherwise. The stage that receives the initial storage is left to the initial-storage message.
 
+The precomputed-plane message, reported on `system/fpha_hyperplanes.parquet` for the hydro:
+
+{/* quoted from source: check_fpha_precomputed_plane_at_zero_turbining in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo commit 9655a178160d90b283aaad6159b6865667f63604 */}
+
+```text
+FPHA plane below zero at zero turbining: {entity} -- {n_pairs} (stage, plane) pair(s) at stages {stages} fall below 0 MW with no turbined flow; the earliest crosses 0 MW at {s_star} m³/s of spillage (stage {stage_id}, plane {plane_id}, storage {v_min} hm³, spillage up to {s_ref} m³/s), so while it spills the hydro turbines water at 0 MW, or reports fpha_violation_mw where turbining cannot lift the plane to 0 MW
+```
+
+The check skips a hydro with no FPHA entry, a hydro whose FPHA is computed (`source: "computed"`) and a hydro without turbine capacity. It covers each study stage whose entry resolves to `fpha`, and a stage uses its own `stage_id` rows, else the all-stage (`stage_id` null) rows. It evaluates each row at zero turbined flow, at the fitting window's minimum storage and at the upper end of the spillage fit range (`spillage_fit_max_m3s`, or its default), with `kappa` multiplying `gamma_0` only. `{s_star}` is the spillage at which the plane reaches 0 MW, (`kappa`·`gamma_0` + `gamma_v`·v_min)/|`gamma_s`| when that sum is positive and 0 otherwise. The earliest crossing is the smallest `{s_star}`, with ties broken by stage id and then plane id. `{stages}` lists the flagged stage ids as ascending runs written `a-b` (or a single id) and joined by `, `. One warning is reported per hydro.
+
 **Resolution:** Review the flagged input. For a penalty-ordering warning, see
 [Load-time penalty checks](/en/math/penalty-system#implementation-in-novomodelo); for the
 inflow-lag warning, see
 [`stages[].state_variables` — Cut Projection](/en/math/cut-management/#stagesstate_variables--cut-projection);
 for the initial-storage warning, check that the first operating stage can reach
-its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)).
+its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_s` to at least −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, with the storage v_min and the spillage S_ref the message prints, or fit the planes from geometry with `source: "computed"`, whose planes get this limit ([Lateral-Flow Secant](/en/math/hydro-production-models#27-lateral-flow-secant)); a plane whose crossing is at 0 m³/s needs a larger `gamma_0` or `gamma_v`.
 Warnings of this type do not prevent the solver from running.
 
 ---
