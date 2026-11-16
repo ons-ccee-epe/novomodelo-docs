@@ -32,7 +32,7 @@ Operating (Filling counts as not Operating) is rejected at case load by
 `validation/semantic/pumping.rs`).
 **Hydros are the exception**: outside its window a non-filling hydro is
 **PreFilling** — turbine/spillage/diversion pinned to 0, storage decoupled by a
-frozen identity, inflow (with the inflow slack, which follows `z`) and maturing
+frozen identity, inflow (with the inflow slack, which follows the realized inflow) and maturing
 transit water passed downstream to its short-circuit target. **Spillage** is frozen to 0 in
 PreFilling only, free during Filling and Operating (`columns.rs`; the phase is
 `hydro_phase` in `lp/builder/hydro_state.rs`, over `filling_phase` in

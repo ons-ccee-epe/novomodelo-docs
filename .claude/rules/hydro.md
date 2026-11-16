@@ -90,9 +90,9 @@ When **updating inflow non-negativity** (`inflow-nonnegativity.md`,
 `running/configuration.mdx`, `reference/output/simulation.mdx`):
 
 → The methods are the strategies of Larroyd et al. (2022): the raw PAR
-realization `a_h` stays on the z row and in the inflow lags under every method,
-never clamped (`transform_inflow_noise`,
-`crates/novomodelo-sddp/src/stochastic/noise.rs`), and the correction is the
+realization `a_h` is the realized inflow ẑ the rows read as a right-hand-side
+constant and stays in the inflow lags under every method, never clamped
+(`realize_inflow`, `crates/novomodelo-sddp/src/stochastic/noise.rs`), and the correction is the
 inflow-slack column `σ^inf`, present when `has_slack_columns`
 (`truncates() || slack_is_priced()`, `stochastic/inflow_method.rs`). With the
 truncation amount `a^-_h = max(0, −a_h)`: `none` has no column; `penalty` is
@@ -101,8 +101,8 @@ truncation amount `a^-_h = max(0, −a_h)`: `none` has no column; `penalty` is
 is `[0, a^-]`, priced at `inflow_nonnegativity_cost` × stage hours. Template bounds
 are `[0, 0]` (`fill_inflow_slack_columns`, `lp/builder/columns.rs`) and every
 solve patches them from its own realization, divided by `col_scale`
-(`apply_inflow_slack_col_bounds`, `noise.rs`). The slack carries exactly z's
-water-row entries, on a PreFilling plant's short-circuit target too
+(`apply_inflow_slack_col_bounds`, `noise.rs`). The slack carries exactly the realized
+inflow's water-row coefficients, on a PreFilling plant's short-circuit target too
 (`push_local_inflow_coupling`, `lp/builder/entries.rs`). Limitation (Larroyd
 §2.5): under a PAR model with lag terms (an AR order above zero or an annual
 component) `a^-` is piecewise-linear in the lags, so the cost-to-go need not be
@@ -119,7 +119,8 @@ When **updating the generic-constraint `hydro_inflow` term**
 (`crates/novomodelo-io/src/constraints/generic.rs`) and `resolve_hydro_inflow`
 (`crates/novomodelo-sddp/src/lp/builder/generic_constraints.rs`) resolves it to a
 **rate** identity (m³/s), not the `−τ`-weighted storage-balance row: the plant's
-local `z_inflow` column, its inflow slack under the truncation methods only
+local realized inflow (a constant that shifts the row's bounds through
+`inflow_out`), its inflow slack under the truncation methods only
 (`push_local_inflow_rate`), inflow diverted into the plant, upstream releases
 weighted by the share the downstream balance row credits to the block, and
 maturing transit water. Each upstream PreFilling plant whose short-circuit

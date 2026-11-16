@@ -4,6 +4,7 @@ paths:
   - "src/content/docs/**/math/state-augmentation.md"
   - "src/content/docs/**/math/lp-layout-and-scaling.md"
   - "src/content/docs/**/math/cut-management.mdx"
+  - "src/content/docs/**/math/par-folding.mdx"
   - "src/content/docs/**/math/sddp-algorithm.mdx"
   - "src/content/docs/**/math/lp-warm-start.mdx"
   - "src/content/docs/**/math/determinism-guarantees.mdx"
@@ -36,13 +37,26 @@ When **updating the LP / SDDP / cut / warm-start cluster** (`lp-formulation.md`,
 crate-root `block_clock.rs`, `time_value.rs` and `bucket_topology.rs`, and
 `setup/lp_build_inputs.rs`. The normative contract is novomodelo's
 `docs/design/lp-builder-contract.md`.
-→ **State pinning**: incoming state (storage, AR lags, in-transit buckets,
-anticipated-thermal slots) is pinned by **column bounds** on the incoming-state
-columns, so the LP has **no** state-fixing row range. The z-inflow definition
-rows are rows `0..N`, one per hydro (`StateSpace::z_inflow_rows`), and lead each
-stage's row space.
-→ **Cut subgradient**: cut coefficients are the **reduced costs** of the pinned
-columns, unscaled by **dividing** by `col_scale[col]` — not row duals. Which
+→ **State pinning**: incoming storage, in-transit buckets and anticipated-thermal
+slots are pinned by **column bounds** on the incoming-state columns, so the LP has
+**no** state-fixing row range. **PAR folding** (`math/par-folding.mdx`): the stage
+LP has no inflow-lag column, no realized-inflow column and no realized-inflow row;
+the water-balance rows lead each stage's row space. `realize_inflow`
+(`stochastic/noise.rs`) computes ẑ before each solve, and ẑ shifts the bounds of
+every row that reads it through the one coupling route `InflowCouplingSink` /
+`InflowCoupling` (`lp/builder/inflow_coupling.rs`; Γ on the page). Each cut row
+carries only its storage, bucket and slot terms; its lag terms join its
+right-hand side, split into a per-trial-point part and a per-opening part
+(`cut/rhs.rs`: `cut_brackets_into`, `cut_noise_terms_into`, `cut_rhs_into`).
+→ **Cut subgradient**: storage, bucket and slot coefficients are the **reduced
+costs** of the pinned columns, unscaled by **dividing** by `col_scale[col]`. The
+inflow-lag coefficients come from the duals by the **chain rule**
+(`cut/chain_rule.rs`; `extract_opening_duals` in
+`training/backward/duals_extraction.rs` reads each coupled row's dual unscaled as
+`row_scale[r] * dual[r]`), aggregated once per child before the rule is applied
+(`aggregate_first_cut_into`). The dynamic method scores a candidate as its
+folded right-hand side plus the columned terms (`score_violated_candidates`,
+`cut/dcs.rs`). Which
 state dimensions a stage's cut projects onto is governed by its per-stage
 `state_variables` selection (`cut_state_projection.rs`, `duals_extraction.rs`):
 storage and inflow-lags are toggleable (default storage-only), while transit
@@ -54,9 +68,10 @@ is structural, so a coefficient on a live slot may be zero.
 (`parallel` default | `chronological`); a chronological stage chains per-block
 storage, computes per-block FPHA + evaporation on each block's **average**
 storage, and (PreFilling) freezes each block's storage identity
-(`rows.rs`/`entries.rs`). `push_local_inflow_coupling` (`entries.rs`) puts `z_h` on
-each water row of the target hydro: `−ζ` on a parallel stage, `−τ_k` per block
-on a chronological stage. `evaporation_slot_count` (`lp/builder/layout.rs`)
+(`rows.rs`/`entries.rs`). `push_local_inflow_coupling` (`entries.rs`) records the
+realized inflow's coefficient on each water row of the target hydro (`−ζ` on a
+parallel stage, `−τ_k` per block on a chronological stage) into the coupling
+sink, and puts the inflow slack on the same rows with the same coefficients. `evaporation_slot_count` (`lp/builder/layout.rs`)
 gives one stage-level evaporation slot on a parallel stage and one per block on
 a chronological stage; `StageGeometry::water_balance_row` returns the block row
 on a chronological stage and the single stage row on a parallel stage. Cut
