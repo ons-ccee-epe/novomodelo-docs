@@ -15,6 +15,11 @@
 //       outside fences: a hex in a colour position only (after a quote, `=`,
 //       or `:`), so heading anchors such as `/#23a-sampling` are not colours.
 //
+// It also compares the tokens with the hotsite (D7): a custom property that
+// both src/styles/tokens.css and hotsite/style.css declare on :root must hold
+// the same value, so a new designer version of the hotsite that changes a
+// token fails here until tokens.css follows it.
+//
 // Exceptions live in scripts/hex-allow.txt, one `path<TAB>hex<TAB>reason` per
 // line; the dark-theme values waiting for the dark variant (D1) sit there and
 // leave when it lands. A stale exception (no longer found) is reported too, so
@@ -86,6 +91,50 @@ export function findHexes(text, path) {
     hits.push({ line: lineOf(clean, m.index), hex: m[0].toLowerCase(), inD2: false });
   }
   return hits;
+}
+
+/**
+ * Custom properties declared in the first `:root { … }` block of a stylesheet,
+ * values normalised (lower case, single spaces), comments ignored.
+ * @param {string} css
+ */
+export function rootTokens(css) {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const block = clean.match(/:root\s*\{([\s\S]*?)\}/);
+  const tokens = new Map();
+  if (!block) return tokens;
+  for (const m of block[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+    // `0.14` and `.14` are the same number: drop a leading zero before comparing
+    // and `rgba(0,0,0,.5)` is `rgba(0, 0, 0, .5)`: one space after each comma
+    const value = m[2]
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/\s*,\s*/g, ", ")
+      .toLowerCase()
+      .replace(/(^|[^\d.])0\.(\d)/g, "$1.$2");
+    tokens.set(m[1], value);
+  }
+  return tokens;
+}
+
+/**
+ * D7: a token both files declare must hold the same value, so the docs and
+ * the hotsite cannot drift apart (design-system.md §9, D7).
+ * @param {string} docsTokensCss  src/styles/tokens.css
+ * @param {string} hotsiteCss     hotsite/style.css
+ */
+export function checkHotsiteSync(docsTokensCss, hotsiteCss) {
+  const docs = rootTokens(docsTokensCss);
+  const hot = rootTokens(hotsiteCss);
+  const problems = [];
+  for (const [name, value] of docs) {
+    if (hot.has(name) && hot.get(name) !== value) {
+      problems.push(
+        `check:hex: HOTSITE-DRIFT ${name} is ${value} in ${TOKENS_FILE} but ${hot.get(name)} in hotsite/style.css`,
+      );
+    }
+  }
+  return problems;
 }
 
 /** @param {string} text */
@@ -171,6 +220,14 @@ function main() {
     // no exceptions file: every hit is a problem
   }
   const problems = checkFiles(files, parseAllow(allowText));
+  const tokensFile = files.find((f) => f.path === TOKENS_FILE);
+  let hotsiteCss = "";
+  try {
+    hotsiteCss = readFileSync(join(root, "hotsite", "style.css"), "utf8");
+  } catch {
+    // no hotsite in this checkout: nothing to compare
+  }
+  if (tokensFile && hotsiteCss) problems.push(...checkHotsiteSync(tokensFile.text, hotsiteCss));
   if (problems.length) {
     process.stdout.write(`FAIL: ${problems.length} problem(s)\n${problems.join("\n")}\n`);
     process.exit(1);

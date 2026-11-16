@@ -59,3 +59,14 @@ test("exceptions allow a hit and report a stale entry", () => {
     "check:hex: STALE-EXCEPTION src/styles/brand.css #abcdef (remove it from scripts/hex-allow.txt)",
   ]);
 });
+
+import { rootTokens, checkHotsiteSync } from "./check-hex.mjs";
+
+test("D7: tokens shared with the hotsite must match, case and spaces aside", () => {
+  const docs = ":root { --color-accent: #2f6c67; --radius: 12px; --a: rgba(0, 0, 0, 0.5); }";
+  const hot = "/* x */ :root { --color-accent: #2F6C67; --radius: 14px; --a: rgba(0,0,0,.5); }";
+  assert.equal(rootTokens(hot).get("--color-accent"), "#2f6c67");
+  assert.deepEqual(checkHotsiteSync(docs, hot), [
+    "check:hex: HOTSITE-DRIFT --radius is 12px in src/styles/tokens.css but 14px in hotsite/style.css",
+  ]);
+});
