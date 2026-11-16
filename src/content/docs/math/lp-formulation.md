@@ -503,6 +503,14 @@ $$
 
 so it adds no LP variable; an absent endpoint stays absent, and a negative $\gamma_{g,e}$ lowers both endpoints.
 
+A term may also address a **stage volume** in hm³, a flow summed over the blocks of the stage with the block conversions $\zeta_k$ of §4: the released volume of hydro $h$, its diverted volume, or the pumped volume of pumping station $y$,
+
+$$
+\sum_{k \in \mathcal{K}} \zeta_k \, (q_{h,k} + s_{h,k}), \qquad \sum_{k \in \mathcal{K}} \zeta_k \, u_{h,k}, \qquad \sum_{k \in \mathcal{K}} \zeta_k \, p_{y,k}.
+$$
+
+A constraint with a stage-volume term combines it only with other stage volumes and with the storage or the useful volume at the start or end of the stage, and no coefficient or endpoint of it varies by block, so it is a single stage-level row (row materialization below).
+
 Either endpoint, $\underline{b}_g$ or $\bar{b}_g$, may be absent — never both — with an absent side read as the corresponding infinity. This single interval subsumes every shape a constraint can take: a present $\underline{b}_g$ alone is a floor, a present $\bar{b}_g$ alone is a cap, $\underline{b}_g = \bar{b}_g$ is an equality, and both present together bound a two-sided band. A constraint's shape — floor, cap, equality or band — follows from which endpoints are present and, when both are, whether they coincide.
 
 ### Coefficients and Endpoints
@@ -521,7 +529,7 @@ A constraint may optionally carry a slack, penalized per unit of violation, so t
 
 The reported violation is the **signed net** $\sigma^{gc+}_g - \sigma^{gc-}_g$: positive when the row sits below its floor, negative when it sits above its cap, matching the sign of the underlying deviation rather than reading as an unsigned magnitude. The objective charges both columns, $\sigma^{gc+}_g + \sigma^{gc-}_g$, which coincides with the net's magnitude whenever only one direction is active — the case at any optimum, since paying for both directions on the same row at once is strictly dominated by paying for neither of the excess.
 
-**Row materialization**: a constraint bound declared for every block of the stage over a **block-independent** expression — one whose every term references a stock variable (incoming storage $v^{in}_h$, outgoing storage $v_h$, evaporation (the stage-level $e_h$ on a parallel stage, a named block's $e_{h,k}$ on a chronological stage), or an anticipated-thermal commitment) — is materialized as a **single stage-level row**, since per-block rows would be identical, **provided its coefficients and endpoints are block-independent too**: a coefficient or an endpoint drawn from the per-(stage, block) parameter kind above, or from a formula that reads one, varies within the stage, which forces the per-block row set even when the expression alone would otherwise qualify for the collapse. A term whose coefficient folds to zero is dropped before this test, so it neither prevents nor causes the collapse. The slack of a stage-level row is priced over the stage, $c_g H_t \sigma$ on the rate basis and $c_g \sigma$ on the amount basis. A bound declared for every block on a block-level expression, or a bound declared for one block, still produces one row per relevant block. This is an LP row-count optimization that is cost- and parity-neutral.
+**Row materialization**: a constraint bound declared for every block of the stage over a **block-independent** expression — one whose every term references a stock variable (incoming storage $v^{in}_h$, outgoing storage $v_h$, evaporation (the stage-level $e_h$ on a parallel stage, a named block's $e_{h,k}$ on a chronological stage), or an anticipated-thermal commitment) or a stage volume, which reads the columns of every block itself — is materialized as a **single stage-level row**, since per-block rows would be identical, **provided its coefficients and endpoints are block-independent too**: a coefficient or an endpoint drawn from the per-(stage, block) parameter kind above, or from a formula that reads one, varies within the stage, which forces the per-block row set even when the expression alone would otherwise qualify for the collapse. A term whose coefficient folds to zero is dropped before this test, so it neither prevents nor causes the collapse. The slack of a stage-level row is priced over the stage, $c_g H_t \sigma$ on the rate basis and $c_g \sigma$ on the amount basis. A bound declared for every block on a block-level expression, or a bound declared for one block, still produces one row per relevant block. This is an LP row-count optimization that is cost- and parity-neutral.
 
 See [Generic Constraints](/en/reference/generic-constraints) for the authoring grammar, the activation grid, and the per-file field tables this formulation implements.
 

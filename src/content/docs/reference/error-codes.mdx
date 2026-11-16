@@ -1262,6 +1262,8 @@ The estimation-window rule is under
 [Estimation history years outside the history](#estimation-history-years-outside-the-history).
 The horizon rule of [Invalid anticipated-thermal lead](#invalid-anticipated-thermal-lead) also prints a
 `[BusinessRuleViolation]` line; that entry sits under `SchemaViolation`, where two of its four lines print.
+The stage-volume rules of generic constraints are under
+[Stage-volume generic constraints](#stage-volume-generic-constraints).
 
 #### Deterministic external inflow column under an autoregressive model
 
@@ -1583,6 +1585,50 @@ reference. To address per-block quantities, set `block_mode` to `"chronological"
 on the stage in [`stages.json`](/en/reference/case-format/stages/#stagesjson); a
 chronological stage requires a named block for evaporation, as in
 `hydro_evaporation(<hydro>, 0)`.
+
+#### Stage-volume generic constraints
+
+**When it occurs:** A generic constraint with a `hydro_outflow_volume`,
+`hydro_diversion_volume` or `pumping_volume` term is one stage-level row, so the
+check refuses three things in it:
+
+- a term that is not a stage volume, `hydro_storage`, or a
+  `hydro_storage_initial`, `hydro_storage_final`, `hydro_useful_volume_initial`
+  or `hydro_useful_volume_final` term without a block argument, whether the
+  expression writes it or a named expression brings it in;
+- a `per_stage_block` parameter that a coefficient or a bound reads, directly or
+  through `expression` parameters;
+- a row of the constraint in `constraints/generic_constraint_bounds.parquet`
+  with a `block_id`.
+
+The rules are stated under
+[Stage volumes](/en/reference/generic-constraints/#stage-volumes).
+
+**Kind, file, entity:** `BusinessRuleViolation`. A term or parameter refusal
+reports `constraints/generic_constraints.json` and the entity `constraint[id=N]`,
+where `N` is the constraint's `id`, whether or not the constraint has bounds
+rows. A bounds-row refusal reports
+`constraints/generic_constraint_bounds.parquet` and the entity
+`constraint_id=N, stage_id=S` of the row.
+
+**Messages:** `novomodelo validate` prints one `error:` line per refused term,
+parameter and bounds row. A term that a named expression brings in is quoted
+with `(from @name)` after it, naming each named expression whose own body
+writes the term. The three lines below show one refusal of each kind, in the order above.
+
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy with the check:gc-examples overlay scripts/fixtures/gc-overlay copied over it; constraints/generic_parameters.json replaced with one per_stage_block parameter, id 1, name cap, value 5000.0 at block 0 of stages 0-3; constraints/generic_constraints.json replaced with three constraints, slack disabled: id 1 release_vs_flow hydro_outflow_volume(0) - hydro_turbined(1) <= 0, id 2 release_cap hydro_outflow_volume(0) <= @cap, id 3 diverted_cap hydro_diversion_volume(1) <= 100; constraints/generic_constraint_bounds.parquet replaced with compression zstd, constraints 1 and 2 at stages 0-3 with block_id null and constraint 3 at stage 0 with block_id 0, bound_lower 0.0, bound_upper null; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
+
+```text
+error: [BusinessRuleViolation] constraints/generic_constraints.json (constraint[id=1]): Constraint "release_vs_flow": `hydro_turbined(1)` cannot appear beside a stage-volume term; such a constraint takes only stage volumes, hydro_storage, and hydro_storage_* or hydro_useful_volume_* without a block argument
+error: [BusinessRuleViolation] constraints/generic_constraints.json (constraint[id=2]): Constraint "release_cap": parameter `@cap` is per_stage_block; a constraint with a stage-volume term takes no coefficient or bound that varies by block
+error: [BusinessRuleViolation] constraints/generic_constraint_bounds.parquet (constraint_id=3, stage_id=0): Constraint "diverted_cap": the bounds row at stage_id=0 has block_id=0; a constraint with a stage-volume term takes one row per stage with a null block_id
+```
+
+**Resolution:** Keep a stage-volume constraint to stage volumes and stage-level
+storage: write a flow, generation or other per-block quantity as a constraint of
+its own, or as its stage volume where one exists; replace a `per_stage_block`
+parameter with a `per_stage` one; and set the `block_id` of each bounds row to
+null.
 
 #### Pumping station outside its endpoints' Operating windows
 
