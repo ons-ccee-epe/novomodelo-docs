@@ -1,12 +1,12 @@
 ---
 title: Stage Files
-description: The study time axis of a case, field by field — stages.json with its policy graph, stages, blocks and seasons, and the optional post-horizon calendar post_study_stages.json.
+description: The study time axis of a case, field by field — stages.json with its policy graph, stages, blocks and seasons, and the optional post_study_stages.json with the post-horizon calendars.
 ---
 
 A Novomodelo case describes its time axis in two files at the case root. `stages.json` is required: it holds the
 policy graph, the study stages with their load blocks, the optional season map, and the optional pre-study stages.
-`post_study_stages.json` is optional: it holds the calendar and the per-thermal cost and delivery bounds for commitments
-that are decided inside the study and delivered after the horizon. The [File summary](/en/reference/case-format/#file-summary)
+`post_study_stages.json` is optional: it holds the post-horizon calendars of thermal deliveries and in-transit water, and the
+per-thermal cost and delivery bounds for commitments that are decided inside the study and delivered after the horizon. The [File summary](/en/reference/case-format/#file-summary)
 maps every case file to its page, and [Conventions](/en/reference/case-format/#conventions) states the rules shared by all of them.
 
 ---
@@ -221,8 +221,10 @@ commitment, plus a per-`(thermal, post-study stage)` cost and delivery-bound tab
 slots, and `thermal_bounds[]` is the **sole surface** for declaring the bound and cost of a
 commitment an anticipated thermal decides **in-study** but delivers after the horizon (its
 decision column is charged at the cell's cost, discounted to the decision stage, and the
-loaded boundary prices the commitment it carries). The file is optional and inert when
-absent; it is **required** once any anticipated thermal's lead reaches a post-study stage —
+loaded boundary prices the commitment it carries). The file is optional. When it is absent
+there are no post-study stages, and a case in which a hydro declares a travel time loads with a
+warning and dates its in-transit buckets as the [deprecated format](#deprecated-format) does.
+The file is **required** once any anticipated thermal's lead reaches a post-study stage —
 a missing cell for a reached stage is rejected at load, naming the plant and the post-study
 stage index. See [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) for the
 boundary formulation this file feeds.
@@ -241,7 +243,8 @@ stages are **boundary-only**: they are never dispatched, never a study stage,
 and never carry Benders cuts — they exist solely to give a post-horizon
 delivery a calendar position to be priced against. No two stages may share a
 `start_date`. `thermal_stages[]` and `thermal_bounds[]` are declared together: a file
-that has one without the other is rejected at load. Post-study stages declare no discount rate: the cumulative
+that has one without the other is rejected at load. On a case with no anticipated thermal,
+`thermal_stages[]` has no effect, and the load warns. Post-study stages declare no discount rate: the cumulative
 discount continues over them at `policy_graph.annual_discount_rate`.
 
 **`water_bucket_stages[]`** — the post-horizon water-bucket calendar:
@@ -251,12 +254,15 @@ discount continues over them at `policy_graph.annual_discount_rate`.
 | `water_bucket_stages[].start_date`     | string | Yes      | —       | —     | Stage start date (inclusive), ISO 8601 YYYY-MM-DD                                                                     |
 | `water_bucket_stages[].duration_hours` | number | Yes      | —       | h     | Stage duration in hours; finite and `> 0.0`. `end_date` is derived from `start_date + duration_hours`, never declared |
 
-The calendar is **required** when any hydro declares a travel time. It follows the same
-contiguity and no-shared-`start_date` rules as `thermal_stages[]`: the first `start_date`
-equals the study horizon end, and each stage starts where the previous one ends. Its total
-duration must cover the largest travel time of any hydro. The
+The calendar is **required** when any hydro declares a travel time (a `travel_time_hours`
+above zero on its downstream arc): a file without it on such a case is rejected at load, naming
+the hydro. It follows the same contiguity and no-shared-`start_date` rules as
+`thermal_stages[]`: the first `start_date` equals the study horizon end, and each stage starts
+where the previous one ends. Its total duration must cover the largest travel time of any
+hydro; a shorter calendar is rejected at load, naming the hydro and both durations. The
 calendar is used exactly as declared: it is never padded and never digested into the thermal
-calendar, so declare every stage the travel times reach.
+calendar, so declare every stage the travel times reach. On a case where no hydro declares a
+travel time, the calendar has no effect, and the load warns.
 
 **`thermal_bounds[]`** — per-`(thermal, post-study stage)` cost and delivery
 capability:
@@ -307,17 +313,22 @@ discounted from the post-study stage to the decision stage.
 
 ### Deprecated format
 
-The earlier `stages[]` key, with the same stage fields, is still read with a warning. It
-behaves as before: one calendar serves both kinds, and the water-bucket side is padded as it
-always was. A file cannot mix `stages[]` with `thermal_stages[]` or `water_bucket_stages[]`;
-a file that does is refused. `thermal_bounds[].post_study_stage_index` indexes `stages[]` in
-this format.
+A file may instead declare one `stages[]` calendar, with the same stage fields, together with
+`thermal_bounds[]`; it loads with a warning. In this format `stages[]` dates both kinds of
+commitment: `thermal_bounds[].post_study_stage_index` indexes `stages[]`, and the in-transit
+buckets are dated on the study stages followed by `stages[]`, extended with copies of the last
+stage's duration until the calendar covers each travel time. A case without the file dates its
+in-transit buckets the same way, from the study stages alone. A file cannot mix `stages[]` with
+`thermal_stages[]` or `water_bucket_stages[]`; a file that does is rejected at load.
 
 | Name                      | Type   | Required | Default | Units | Description                                                                                                           |
 | ------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
-| `stages`                  | array  | No       | —       | —     | Deprecated: replaced by `thermal_stages[]`; cannot be combined with `thermal_stages[]` or `water_bucket_stages[]`     |
+| `stages`                  | array  | No       | —       | —     | Deprecated spelling of `thermal_stages[]`; cannot be combined with `thermal_stages[]` or `water_bucket_stages[]`      |
 | `stages[].start_date`     | string | Yes      | —       | —     | Stage start date (inclusive), ISO 8601 YYYY-MM-DD                                                                     |
 | `stages[].duration_hours` | number | Yes      | —       | h     | Stage duration in hours; finite and `> 0.0`. `end_date` is derived from `start_date + duration_hours`, never declared |
 
-To migrate a deck, run `python3 scripts/migrate/post_study_stages.py` from the
-novomodelo repository.
+`python3 scripts/migrate/post_study_stages.py DECK_DIR [DECK_DIR ...]`, run from the novomodelo
+repository, rewrites each case into `thermal_stages[]`, `thermal_bounds[]` and
+`water_bucket_stages[]`, with the water calendar this format resolves to, so the case's results
+do not change. It creates the file for a case that has none and declares a travel time, and
+leaves a file without `stages[]` untouched.
