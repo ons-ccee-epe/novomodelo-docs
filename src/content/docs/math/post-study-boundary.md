@@ -71,7 +71,7 @@ contribution enters the boundary cut's intercept.
 direction: down
 
 classes: {
-  thermal: {style: {stroke: "#f5a623"}}
+  thermal: {style: {stroke: "#9b6719"}}
 }
 
 decide: "stage t\ndecision, fuel charged" {class: thermal}
@@ -217,7 +217,7 @@ covered part's density.
 direction: down
 
 classes: {
-  thermal: {style: {stroke: "#f5a623"}}
+  thermal: {style: {stroke: "#9b6719"}}
 }
 
 horizon: "horizon edge\nend of stage T" {shape: oval}

@@ -71,7 +71,7 @@ de estado entra no termo independente do corte de fronteira.
 direction: down
 
 classes: {
-  thermal: {style: {stroke: "#f5a623"}}
+  thermal: {style: {stroke: "#9b6719"}}
 }
 
 decide: "estágio t\ndecisão, combustível cobrado" {class: thermal}
@@ -217,7 +217,7 @@ densidade da parte coberta.
 direction: down
 
 classes: {
-  thermal: {style: {stroke: "#f5a623"}}
+  thermal: {style: {stroke: "#9b6719"}}
 }
 
 horizon: "extremidade do horizonte\nfim do estágio T" {shape: oval}

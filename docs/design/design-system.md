@@ -19,8 +19,8 @@ open until it carries a decision.
 ## 1. Principles
 
 - **Institutional, quiet, light.** Graphite bands frame the page (header, footer,
-  one dark section); content sits on white or a very light cool grey. There is
-  one theme, the light one (§9, D1).
+  one dark section); content sits on white or a very light cool grey. The
+  hotsite defines the light theme only; the docs add a dark variant (§9, D1).
 - **One accent.** Sea green `#86B7B3` is the only accent hue. It marks — bars,
   dots, borders, fills, focus — and never carries body text on a light ground.
 - **Text in a darker accent.** Accent-coloured text on light grounds uses
@@ -272,10 +272,44 @@ below needs a decision before the docs port; record it here when made.
 
 | ID | Gap | Why the docs need it | Decision |
 | --- | --- | --- | --- |
-| D1 | Dark theme | The docs open in dark and offer a theme switch; the hotsite has no `prefers-color-scheme` or `data-theme` | **Provisional 2026-11-16, pending confirmation:** no dark theme for now; the docs follow the hotsite strictly and ship the light theme only. The Starlight theme switch is removed, the d2 dark render is turned off, and every contrast check targets the light theme |
+| D1 | Dark theme | The docs open in dark and offer a theme switch; the hotsite has no `prefers-color-scheme` or `data-theme` | **Decided 2026-11-16:** the light theme follows the hotsite strictly and is final. The dark theme stays: the docs keep the theme switch, and a dark variant of this design system (tokens, Starlight dark scale, d2 dark render, chart palette, contrast table) is designed and approved before the adaptation PR merges. Until then the dark scope keeps its current values |
 | D2 | Code font | Code blocks, inline code and CLI samples; the hotsite only uses the system monospace stack on one element | **Decided 2026-11-16:** keep the hotsite's system monospace stack as `--font-mono`. No web font is shipped for code, so JetBrains Mono and its Fontsource package leave the docs |
-| D3 | Element palette for diagrams and charts | Hydro, thermal, non-controllable source, deficit and generic elements need distinct hues that sit with the single sea-green accent and keep contrast on the light grounds (D1) | _open_ |
+| D3 | Element palette for diagrams and charts | Hydro, thermal, non-controllable source, deficit and generic elements need distinct hues that sit with the single sea-green accent and keep contrast on the light grounds and on the dark variant (D1) | **Proposed 2026-11-16, pending review:** see §10 |
 | D4 | Header treatment and logo | The docs header is light today; the hotsite's wordmark and logos are white-on-graphite | **Decided 2026-11-16:** follow the hotsite. The docs header is graphite (`--color-bg-dark`) with `--color-text-on-dark`, the hotsite wordmark (`.brand-mark` + `.brand-name`) and the white ONS, CCEE and EPE logos at the header sizes in §8; the focus ring on it is `--color-primary` |
-| D5 | Semantic colours | Starlight asides (note, tip, caution, danger) need info / success / warning / danger hues; the hotsite only has the warning values of `.notice--alert` | _open_ |
+| D5 | Semantic colours | Starlight asides (note, tip, caution, danger) need info / success / warning / danger hues; the hotsite only has the warning values of `.notice--alert` | **Proposed 2026-11-16, pending review with D3:** note = the hotsite's `.notice--plan` (`--color-bg-light` ground, `--color-primary` bar, `--color-accent` title, 5.54:1); caution = its `.notice--alert` (tokens `--color-warning-*`, 5.02:1); tip and danger use the ncs and deficit hues of §10 with their `-soft` grounds and `-strong` titles (7.30:1 and 7.85:1) |
 | D6 | Link style in running text | The hotsite links are `--color-accent` with a 1 px underline offset 3 px; confirm for the docs body | **Decided 2026-11-16:** follow the hotsite. Links in running text are `--color-accent` (`#2F6C67`, 6.07:1 on white), underlined with `text-decoration-thickness: 1px` and `text-underline-offset: 3px`, thickening to 2 px on hover. Links on graphite use `--color-text-on-dark` and turn `--color-primary` on hover |
 | D7 | Token file | One `tokens.css` shared by `hotsite/` and `src/styles/`, or two copies kept in sync by a check | _open_ |
+
+---
+
+## 10. Element palette for diagrams, charts and entity pages (D3, proposed)
+
+Four hues mark element types; everything else uses the accent and the neutrals.
+Each hue is solved to a relative luminance of about 0.168, so the **same hex**
+works as a stroke on every ground of both themes: at least 4.4:1 on the light
+grounds (text-safe on white) and at least 3:1 (WCAG 1.4.11, graphics) on
+graphite. That matters because d2 `classes` take a literal colour, not a CSS
+variable, so a semantic stroke cannot change with the theme.
+
+| Element | Class / token | Stroke | On white | On `#F3F5F5` | On `#23292C` | On `#1A1F21` |
+| --- | --- | --- | --- | --- | --- | --- |
+| Hydro, reservoir, inflow | `hydro` / `--color-el-hydro` | `#3378A3` | 4.82 | 4.41 | 3.06 | 3.45 |
+| Thermal | `thermal` / `--color-el-thermal` | `#9B6719` | 4.83 | 4.41 | 3.05 | 3.45 |
+| Non-controllable source (wind, solar) | `ncs` / `--color-el-ncs` | `#5D7C2F` | 4.78 | 4.37 | 3.08 | 3.48 |
+| Deficit, load shedding | `deficit` / `--color-el-deficit` | `#C7463D` | 4.80 | 4.39 | 3.07 | 3.46 |
+| Generic (bus, demand, process) | no class / `--color-accent` | theme token | 6.07 | 5.54 | — | — |
+
+Rules:
+
+1. Only the four element hues may appear as hex in a d2 fence, and only as
+   `stroke` in the `classes` block. Fills stay neutral and come from the
+   keystone in `src/styles/diagrams.css`.
+2. Generic elements take no class; the keystone draws them in the accent
+   token of the current theme.
+3. Charts read the same hues from `--color-el-*` (via `--dgm-*` in
+   `palette.css`); entity pages map their families to them in `entity.css`:
+   hydrology → hydro, equipment → thermal, network → accent, rules → muted.
+4. A label drawn in an element hue sits on a light ground only; on graphite
+   labels use `--color-text-on-dark`.
+5. Tints for chip and card backgrounds are a light-theme concern and come with
+   the dark variant (D1) for the dark theme.
