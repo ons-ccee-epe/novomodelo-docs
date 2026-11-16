@@ -27,12 +27,16 @@ separate from the d2 semantic classes), with bilingual labels, `role="img"`, a
 non-empty `aria-label` and, on entity pages, a `figcaption`
 (diagram-authoring.md §9). Never redraw an entity illustration in d2. **Mermaid was retired (2026-07)** on the site — never add a
 ` ```mermaid ` fence here (it is fine in the `novomodelo` READMEs/ARCHITECTURE.md, which
-GitHub renders). Semantic node colours (hydro→Flow Blue, thermal→Spark Amber,
-NCS→Patina, deficit→Signal Red, generic→copper) come from the `classes` vocabulary
-in diagram-authoring.md §4.2, not ad-hoc hex.
+GitHub renders). Semantic node colours (hydro `#3378a3`, thermal `#9b6719`,
+NCS `#5d7c2f`, deficit `#c7463d`, generic → the accent, no class) come from the
+`classes` vocabulary in diagram-authoring.md §4.2 and design-system.md §10, not
+ad-hoc hex; `npm run check:hex` rejects any other hex in a d2 fence.
 
-**Site colours**: the accent is **Copper** (`#B87333`), not blue — read
-`src/styles/` (`brand.css`, `neutrals.css`, `palette.css`) before any theming.
-**Never infer the accent from the diagram palette** (`--dgm-*` in
-`src/styles/palette.css`; its `--dgm-hydro` is Flow Blue for hydro/water marks
+**Site colours**: the design system is `docs/design/design-system.md` (from the
+hotsite) and every colour is a token in `src/styles/tokens.css` — read both
+before any theming. In the light theme the accent is sea green (`--color-primary`
+`#86B7B3` for fills, `--color-accent` `#2F6C67` for text and links); the dark
+theme keeps its previous copper values until its variant lands (design-system.md
+§9, D1). **Never infer the accent from the diagram palette** (`--dgm-*` in
+`src/styles/palette.css`; its `--dgm-hydro` is the hydro hue for water marks
 only, not the UI accent).

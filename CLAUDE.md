@@ -80,8 +80,15 @@ is the freeze runbook.
   `Profile` is an associated type of `SolverInterface`, resolved at compile
   time (a generic, not an enum). Reflect this if a chapter describes the solver
   interface.
-- **Site colours**: the accent is **Copper** (`#B87333`), not blue — never infer
-  it from the diagram palette (`.claude/rules/diagrams.md`).
+- **Site colours**: the design system is
+  [`docs/design/design-system.md`](docs/design/design-system.md), captured
+  from the hotsite; every colour is a token in `src/styles/tokens.css`, and
+  `npm run check:hex` fails on a hex anywhere else. In the light theme the
+  accent is sea green — `--color-primary` `#86B7B3` for fills, bars and focus
+  on graphite, `--color-accent` `#2F6C67` for text and links — and the
+  diagram element hues are design-system.md §10. The dark theme keeps its
+  previous copper values until its variant lands (design-system.md §9, D1).
+  Never infer the accent from the diagram palette (`.claude/rules/diagrams.md`).
 - **Current-state voice, both layers.** Every page in both layers states what
   novomodelo does now, with no change narration (no "now", "no longer", "previously",
   "used to", "formerly", "fixed in", "was broken", "BREAKING", "new in",
@@ -140,7 +147,7 @@ The translation guide and glossary is
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:ptbr-case && npm run check:python-api \
-  && npm run check:gc-examples && npm run check:type-spelling && npm run check:d2 \
+  && npm run check:gc-examples && npm run check:type-spelling && npm run check:hex && npm run check:d2 \
   && npm run check:spdx && npm run refresh:recordings -- --check \
   && npm run build && npm run check && npm run check:math \
   && npm run build:versions && npm run check:links && npm test && npm run check:e10
@@ -158,5 +165,6 @@ Prerequisites and CI wiring: `.claude/rules/quality-gates.md`.
 | Unified docs site         | `https://docs.modelossetoreletrico.org.br/`                                   | This site (methodology + software layer)                    |
 | Crate READMEs + ARCHITECTURE | `https://github.com/ons-ccee-epe/novomodelo/` (`crates/*/README.md`, `ARCHITECTURE.md`) | Developer/crate-internal surface (not on the site) |
 | CHANGELOG                 | `https://github.com/ons-ccee-epe/novomodelo/CHANGELOG.md`               | Per-release feature list (sync source)                      |
+| Design system             | [`docs/design/design-system.md`](docs/design/design-system.md) | Tokens, type, contrast rules and element palette, from the hotsite |
 | Diagram authoring guide   | [`docs/design/diagram-authoring.md`](docs/design/diagram-authoring.md) | Tool selection + design system for diagrams        |
 | Translation guide (pt-BR) | [`.claude/rules/glossario-traducao-ptbr.md`](.claude/rules/glossario-traducao-ptbr.md) | Form rules, approved terminology, glossary |
