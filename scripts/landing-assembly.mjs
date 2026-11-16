@@ -11,13 +11,18 @@
 //   • the files of public/ except the astro-d2 render cache, so a static URL
 //     keeps its root path, among them /schemas/<name>.schema.json, the $id of
 //     each vendored input schema;
-//   • a redirect stub at every page path of the docs tree with the base
-//     removed: dist/<p>/index.html sends /<p>/ to <base><p>/, query and
-//     fragment included, which keeps the links into the docs from when they
-//     were served at "/" (and /vX.Y/ for a frozen version) working.
+//   • a redirect stub at every pt-BR page path under pt-br/ of the latest
+//     docs: <base>pt-br/<p>/ goes to <base><p>/, where pt-BR is served (the
+//     root locale), and <base>pt-br/ to <base>;
+//   • a redirect stub at the path the docs had when they were served at "/":
+//     /<p>/ goes to <base>en/<p>/ for an English page, so those links stay in
+//     English, and to <base><p>/ for every other page (a frozen /vX.Y/ page,
+//     the Lunaria dashboard). The /en/ and /pt-br/ paths never existed at "/"
+//     and get no root stub.
 //
-// Nothing is overwritten: a hotsite or public/ entry that already exists at the
-// root, or a stub whose index.html already exists, fails the build.
+// Every stub keeps the query and fragment. Nothing is overwritten: a hotsite or
+// public/ entry that already exists at the root, or a stub whose index.html
+// already exists, fails the build.
 
 import {
   cpSync,
@@ -56,7 +61,9 @@ export function redirectStubHtml(target) {
 `;
 }
 
-export function legacyPagePaths(docsDir) {
+// Every page directory of the docs tree, relative to it, the docs root
+// excluded ("math/x" for docs/math/x/index.html).
+function pageDirs(docsDir) {
   const paths = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -70,6 +77,57 @@ export function legacyPagePaths(docsDir) {
   };
   walk(docsDir);
   return paths;
+}
+
+// The /pt-br/ stubs of the latest docs: pt-br/<p> -> /<segment>/<p>/ for each
+// pt-BR page <p> whose English page en/<p> exists, and pt-br -> /<segment>/.
+export function localeRedirects(docsDir, segment) {
+  const dirs = new Set(pageDirs(docsDir));
+  const redirects = [];
+  if (existsSync(join(docsDir, "index.html")) && dirs.has("en")) {
+    redirects.push({ path: "pt-br", target: `/${segment}/` });
+  }
+  for (const dir of dirs) {
+    if (!dir.startsWith("en/")) continue;
+    const page = dir.slice("en/".length);
+    if (dirs.has(page)) {
+      redirects.push({ path: `pt-br/${page}`, target: `/${segment}/${page}/` });
+    }
+  }
+  return redirects;
+}
+
+// The root stubs for the URLs the docs had at "/": an English page en/<p>
+// keeps /<p>/ in English; any other page <p> that is not pt-BR (its root path
+// is the English page's) or a /pt-br/ stub goes to /<segment>/<p>/.
+export function legacyRedirects(docsDir, segment) {
+  const dirs = new Set(pageDirs(docsDir));
+  const redirects = [];
+  for (const dir of dirs) {
+    if (dir === "en" || dir === "pt-br" || dir.startsWith("pt-br/")) continue;
+    if (dir.startsWith("en/")) {
+      redirects.push({
+        path: dir.slice("en/".length),
+        target: `/${segment}/${dir}/`,
+      });
+    } else if (!dirs.has(`en/${dir}`)) {
+      redirects.push({ path: dir, target: `/${segment}/${dir}/` });
+    }
+  }
+  return redirects;
+}
+
+function writeStubs(dist, root, label, redirects) {
+  for (const { path, target } of redirects) {
+    const stub = join(root, path, "index.html");
+    if (existsSync(stub)) {
+      throw new Error(
+        `build:versions: the redirect stub for ${label}${path}/ would overwrite dist/${relative(dist, stub).split(sep).join("/")}`,
+      );
+    }
+    mkdirSync(join(root, path), { recursive: true });
+    writeFileSync(stub, redirectStubHtml(target));
+  }
 }
 
 function copyEntries(fromDir, dist, exclude, label) {
@@ -103,16 +161,9 @@ export function assembleLanding({ dist, docsBase, hotsiteDir, publicDir }) {
   }
   cpSync(join(docsDir, "404.html"), notFound);
 
-  const paths = legacyPagePaths(docsDir);
-  for (const p of paths) {
-    const stub = join(dist, p, "index.html");
-    if (existsSync(stub)) {
-      throw new Error(
-        `build:versions: the redirect stub for /${p}/ would overwrite dist/${p}/index.html`,
-      );
-    }
-    mkdirSync(join(dist, p), { recursive: true });
-    writeFileSync(stub, redirectStubHtml(`/${segment}/${p}/`));
-  }
-  return { stubs: paths.length };
+  const legacy = legacyRedirects(docsDir, segment);
+  const locale = localeRedirects(docsDir, segment);
+  writeStubs(dist, docsDir, `/${segment}/`, locale);
+  writeStubs(dist, dist, "/", legacy);
+  return { stubs: legacy.length, localeStubs: locale.length };
 }
