@@ -1,0 +1,43 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'A carga do estágio, ajustada pelo fator de cada patamar',
+  y: 'carga no barramento (MW)',
+  blocks: ['leve', 'média', 'pesada'],
+  stage: 'carga do estágio (fator 1)',
+  note: 'Cada barra é a carga do estágio multiplicada pelo fator do patamar.',
+  aria: 'Gráfico de barras ilustrativo da carga de um barramento em um estágio, com três patamares: leve, com a barra mais baixa, média, com a barra intermediária, e pesada, com a barra mais alta. Uma linha tracejada marca a carga do estágio, que é a carga de um patamar sem fator informado. Cada barra é a carga do estágio multiplicada pelo fator do patamar.',
+  cap_: 'Figura: a carga de um barramento por patamar. Valores ilustrativos, sem escala.',
+} : {
+  title: 'The stage load, adjusted by the factor of each block',
+  y: 'load at the bus (MW)',
+  blocks: ['leve (light)', 'média (medium)', 'pesada (heavy)'],
+  stage: 'stage load (factor 1)',
+  note: 'Each bar is the stage load times the block factor.',
+  aria: 'Illustrative bar chart of the load of one bus in one stage, with three blocks: light, with the lowest bar, medium, with the middle bar, and heavy, with the tallest bar. A dashed line marks the stage load, which is the load of a block with no factor given. Each bar is the stage load times the block factor.',
+  cap_: 'Figure: the load of a bus per load block. Illustrative values, not to scale.',
+};
+const hs = [110, 150, 195];
+const base = 270;
+---
+<figure class="entity-illustration entity-network">
+  <svg viewBox="0 0 760 340" role="img" aria-label={T.aria}>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-network-fg)">{T.title}</text>
+    <text x="40" y="56" font-size="12" style="fill: var(--sl-color-gray-2)">{T.y}</text>
+    <line x1="60" y1="64" x2="60" y2={base} stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    <line x1="60" y1={base} x2="720" y2={base} stroke="var(--sl-color-gray-3)" stroke-width="2" />
+    {hs.map((h, i) => (
+      <g>
+        <rect x={110 + i * 210} y={base - h} width="140" height={h} rx="4" fill="var(--ent-network)" fill-opacity="0.75" />
+        <text x={180 + i * 210} y={base + 22} text-anchor="middle" font-size="13" font-weight="600">{T.blocks[i]}</text>
+      </g>
+    ))}
+    <line x1="60" y1={base - 150} x2="720" y2={base - 150} stroke="var(--ent-network-fg)" stroke-width="2" stroke-dasharray="6 4" />
+    <text x="70" y={base - 158} font-size="12" style="fill: var(--ent-network-fg)">{T.stage}</text>
+    <text x="20" y="326" font-size="12" style="fill: var(--sl-color-gray-2)">{T.note}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

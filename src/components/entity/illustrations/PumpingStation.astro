@@ -1,0 +1,65 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'A água passa de um reservatório para outro, e a energia vem do barramento',
+  src: 'Reservatório de origem', srcSub: 'usina hidrelétrica de origem',
+  dst: 'Reservatório de destino', dstSub: 'usina hidrelétrica de destino',
+  pump: 'Usina elevatória', flow: 'vazão bombeada (m³/s)', flowSub: 'entre o mínimo e o máximo da estação',
+  bus: 'Barramento', draw: 'consome potência (MW)', drawSub: 'proporcional à vazão bombeada',
+  price: 'Sem custo próprio: o bombeamento é valorado pelo custo marginal da energia no barramento',
+  aria: 'Dois reservatórios: o da usina hidrelétrica de origem, à esquerda, e o da usina de destino, à direita. A usina elevatória leva água do primeiro ao segundo, com vazão entre o mínimo e o máximo da estação, e consome potência do barramento, proporcional à vazão bombeada. A usina não tem custo próprio: o bombeamento é valorado pelo custo marginal da energia no barramento.',
+  cap_: 'Figura: uma usina elevatória entre dois reservatórios. Ilustração esquemática, sem escala.',
+} : {
+  title: 'Water moves from one reservoir to another, and the power comes from the bus',
+  src: 'Source reservoir', srcSub: 'source hydro plant',
+  dst: 'Destination reservoir', dstSub: 'destination hydro plant',
+  pump: 'Pumping station', flow: 'pumped flow (m³/s)', flowSub: 'between the station minimum and maximum',
+  bus: 'Bus', draw: 'draws power (MW)', drawSub: 'proportional to the pumped flow',
+  price: 'No cost of its own: pumping is priced by the marginal cost of energy at the bus',
+  aria: 'Two reservoirs: the source hydro plant on the left and the destination hydro plant on the right. The pumping station moves water from the first to the second, with a flow between the station minimum and maximum, and draws power from the bus in proportion to the pumped flow. The station has no cost of its own: pumping is priced by the marginal cost of energy at the bus.',
+  cap_: 'Figure: a pumping station between two reservoirs. Schematic illustration, not to scale.',
+};
+---
+<figure class="entity-illustration entity-equipment">
+  <svg viewBox="0 0 760 360" role="img" aria-label={T.aria}>
+    <defs>
+      <marker id="pu-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ent-equipment)" /></marker>
+    </defs>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-equipment-fg)">{T.title}</text>
+
+    <!-- source reservoir (lower-left) -->
+    <path d="M40 150 L40 250 L210 250 L210 150" fill="none" stroke="var(--sl-color-gray-3)" stroke-width="3" />
+    <rect x="43" y="185" width="164" height="63" fill="var(--ent-hydrology)" fill-opacity="0.35" />
+    <line x1="43" y1="185" x2="207" y2="185" stroke="var(--ent-hydrology)" stroke-width="2" />
+    <text x="125" y="276" text-anchor="middle" font-size="13" font-weight="600">{T.src}</text>
+    <text x="125" y="294" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.srcSub}</text>
+
+    <!-- destination reservoir (upper-right) -->
+    <path d="M550 80 L550 180 L720 180 L720 80" fill="none" stroke="var(--sl-color-gray-3)" stroke-width="3" />
+    <rect x="553" y="110" width="164" height="68" fill="var(--ent-hydrology)" fill-opacity="0.35" />
+    <line x1="553" y1="110" x2="717" y2="110" stroke="var(--ent-hydrology)" stroke-width="2" />
+    <text x="635" y="206" text-anchor="middle" font-size="13" font-weight="600">{T.dst}</text>
+    <text x="635" y="224" text-anchor="middle" font-size="12" style="fill: var(--sl-color-gray-2)">{T.dstSub}</text>
+
+    <!-- pipe -->
+    <path d="M210 225 L440 225 L440 130 L550 130" fill="none" stroke="var(--ent-equipment)" stroke-width="4" marker-end="url(#pu-arrow)" />
+    <circle cx="440" cy="178" r="26" fill="var(--ent-equipment-bg)" stroke="var(--ent-equipment)" stroke-width="3" />
+    <path d="M440 192 V164 M430 174 l10 -10 l10 10" fill="none" stroke="var(--ent-equipment)" stroke-width="3" />
+    <text x="406" y="174" text-anchor="end" font-size="13" font-weight="600">{T.pump}</text>
+    <text x="222" y="246" font-size="12" style="fill: var(--ent-equipment-fg)">{T.flow}</text>
+    <text x="222" y="264" font-size="12" style="fill: var(--sl-color-gray-2)">{T.flowSub}</text>
+
+    <!-- bus -->
+    <line x1="440" y1="204" x2="440" y2="300" stroke="var(--ent-equipment)" stroke-width="2" stroke-dasharray="5 4" />
+    <rect x="390" y="300" width="100" height="10" rx="2" fill="var(--ent-equipment)" />
+    <text x="506" y="298" font-size="13" font-weight="600">{T.bus}</text>
+    <text x="506" y="314" font-size="12" style="fill: var(--ent-equipment-fg)">{T.draw}</text>
+    <text x="506" y="330" font-size="12" style="fill: var(--sl-color-gray-2)">{T.drawSub}</text>
+
+    <text x="20" y="352" font-size="12" style="fill: var(--sl-color-gray-2)">{T.price}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>

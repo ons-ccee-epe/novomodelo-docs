@@ -1,0 +1,61 @@
+---
+import { key } from '../entities';
+interface Props { lang?: 'en' | 'pt-BR' }
+const lang = Astro.props.lang ?? Astro.currentLocale ?? 'en';
+const k = key(lang);
+const T = k === 'pt' ? {
+  title: 'Geração em um patamar: o modelo parte da disponibilidade',
+  avail: 'geração disponível', availSub: 'capacidade instalada × disponibilidade × fator de patamar',
+  curtRow: 'Com corte de geração (padrão)', curtBand: 'o modelo despacha qualquer valor entre zero e a disponibilidade',
+  curtGen: 'geração despachada', curtCut: 'corte de geração (curtailment)', curtCost: 'o corte tem um custo de regularização',
+  mustRow: 'Geração compulsória (must-run)', mustBand: 'geração = disponibilidade, sem corte', mw: 'MW', zero: '0',
+  aria: 'Geração de uma fonte não despachável em um patamar. A geração disponível é a capacidade instalada multiplicada pela disponibilidade e pelo fator de patamar. Acima, uma fonte com corte de geração: o modelo despacha qualquer valor entre zero e a disponibilidade, e a parte não despachada é o corte, que tem custo de regularização. Abaixo, uma fonte de geração compulsória: a geração é fixada na disponibilidade, sem corte.',
+  cap_: 'Figura: faixa de geração de uma fonte não despachável. Valores ilustrativos, sem escala.',
+} : {
+  title: 'Generation in one load block: the model starts from availability',
+  avail: 'available generation', availSub: 'installed capacity × availability × block factor',
+  curtRow: 'Curtailable (default)', curtBand: 'the model dispatches anything between zero and availability',
+  curtGen: 'dispatched generation', curtCut: 'curtailment', curtCost: 'curtailment has a regularization cost',
+  mustRow: 'Must-run', mustBand: 'generation = availability, no curtailment', mw: 'MW', zero: '0',
+  aria: 'Generation of a non-controllable source in one load block. Available generation is the installed capacity times the availability and the block factor. Top, a curtailable source: the model dispatches anything between zero and availability, and the part not dispatched is curtailment, which has a regularization cost. Bottom, a must-run source: generation is pinned to availability, with no curtailment.',
+  cap_: 'Figure: generation band of a non-controllable source. Illustrative values, not to scale.',
+};
+const X0 = 60, XA = 700, XD = 470;
+---
+<figure class="entity-illustration entity-equipment">
+  <svg viewBox="0 0 760 330" role="img" aria-label={T.aria}>
+    <defs>
+      <pattern id="nc-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="8" height="8" fill="var(--ent-equipment-bg)" />
+        <line x1="0" y1="0" x2="0" y2="8" stroke="var(--ent-equipment)" stroke-width="3" />
+      </pattern>
+    </defs>
+    <text x="20" y="26" font-size="15" font-weight="600" style="fill: var(--ent-equipment-fg)">{T.title}</text>
+
+    <!-- availability marker -->
+    <text x={XA} y="56" text-anchor="end" font-size="13" font-weight="600">{T.avail}</text>
+    <text x={XA} y="74" text-anchor="end" font-size="12" style="fill: var(--sl-color-gray-2)">{T.availSub}</text>
+    <line x1={XA} y1="82" x2={XA} y2="290" stroke="var(--ent-equipment)" stroke-width="2" stroke-dasharray="5 4" />
+
+    <!-- curtailable row -->
+    <text x={X0} y="106" font-size="13" font-weight="600">{T.curtRow}</text>
+    <rect x={X0} y="116" width={XD - X0} height="40" fill="var(--ent-equipment-bg)" stroke="var(--ent-equipment)" />
+    <rect x={XD} y="116" width={XA - XD} height="40" fill="url(#nc-hatch)" stroke="var(--ent-equipment)" />
+    <text x={(X0 + XD) / 2} y="141" text-anchor="middle" font-size="13" style="fill: var(--ent-equipment-fg)">{T.curtGen}</text>
+    <text x={(XD + XA) / 2} y="141" text-anchor="middle" font-size="12" style="fill: var(--sl-color-text)" paint-order="stroke" stroke="var(--sl-color-bg)" stroke-width="4">{T.curtCut}</text>
+    <text x={X0} y="176" font-size="12" style="fill: var(--sl-color-gray-2)">{T.curtBand}</text>
+    <text x={XA - 8} y="176" text-anchor="end" font-size="12" style="fill: var(--sl-color-gray-2)">{T.curtCost}</text>
+
+    <!-- must-run row -->
+    <text x={X0} y="216" font-size="13" font-weight="600">{T.mustRow}</text>
+    <rect x={X0} y="226" width={XA - X0} height="40" fill="var(--ent-equipment-bg)" stroke="var(--ent-equipment)" />
+    <line x1={XA} y1="226" x2={XA} y2="266" stroke="var(--ent-equipment)" stroke-width="4" />
+    <text x={(X0 + XA) / 2} y="251" text-anchor="middle" font-size="13" style="fill: var(--ent-equipment-fg)">{T.mustBand}</text>
+
+    <!-- axis -->
+    <line x1={X0} y1="296" x2={XA} y2="296" stroke="var(--sl-color-gray-3)" />
+    <text x={X0} y="314" font-size="12" text-anchor="middle" style="fill: var(--sl-color-gray-3)">{T.zero}</text>
+    <text x={XA + 18} y="300" font-size="12" style="fill: var(--sl-color-gray-3)">{T.mw}</text>
+  </svg>
+  <figcaption>{T.cap_}</figcaption>
+</figure>
