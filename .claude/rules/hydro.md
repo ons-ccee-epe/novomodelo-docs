@@ -30,12 +30,19 @@ Code facts to verify against `novomodelo` before editing these pages (code > spe
 When **updating hydro production / FPHA** (`hydro-production-models.mdx`):
 
 → Computed-FPHA fit is a **3-D convex hull** of the `(volume, turbined)` cloud at
-spillage = 0 over `[0, turbined_fit_max_m3s]` (default `max_turbined_m3s`; flow
-axis starts at 0; **no** spillage axis; **no** synthetic closing point — the q=0
+zero lateral flow (`q_lat = 0`) over `[0, turbined_fit_max_m3s]` (default `max_turbined_m3s`; flow
+axis starts at 0; **no** lateral-flow axis; **no** synthetic closing point — the q=0
 column anchors), capped at installed capacity, with a least-squares **`α`
-correction**. Each plane's `γ_S` is the mean, over the spill = 0 grid points
+correction**. Each plane's `γ_S` is the mean, over the zero-lateral-flow grid points
 where that plane binds (within `1e-8` MW of the planes' minimum), of a
-zero-anchored least-squares slope over 101 samples of `[0, S_max]`; `S_max` is
+zero-anchored least-squares slope of generation against the lateral flow
+`q_lat` over 101 samples of `[0, S_max]`, sampled through
+`φ(v, q, q_lat)` with the tailrace at `h_tail(f·q + q_lat)`, `f` being the
+plant's `own_outflow_factor` (default 1.0) and `q_lat` its `tailrace_flow`
+lateral flow (own spill times `f`, plus the declared outflow and
+incremental-inflow influences; the own spill alone when nothing is declared).
+The plane extrapolates linearly above `S_max` and is not an outer bound of
+`φ` in `q_lat`; `S_max` is
 `spillage_fit_max_m3s`, else 2 × the mean inflow history when above 0, else
 2 × `max_turbined_m3s` (`FphaColumnLayout::resolve_spillage_fit_max_m3s`, novomodelo-io `extensions/production_models.rs`). Both fit maxima are optional and must be
 finite and `> 0` (`validate_fit_maxima`, SchemaError). Planes are fit only on
