@@ -54,9 +54,10 @@ Every `config.json` key down to the second level, with its type and default; eac
 | `estimation`                                 | object          | No       | `{}`         | —     | Controls the PAR(p) model estimation pipeline. See [`estimation`](#estimation).                                                                    |
 | `estimation.max_order`                       | integer         | No       | `6`          | —     | Maximum lag order considered during model fitting. See [`estimation`](#estimation).                                                                |
 | `estimation.order_selection`                 | string          | No       | `"pacf"`     | —     | One of `"pacf"`, `"pacf_annual"`. Order selection criterion. See [`estimation`](#estimation).                                                      |
-| `estimation.min_observations_per_season`     | integer         | No       | `30`         | —     | Recommended minimum of fully covered stage occurrences per season and hydro. See [`estimation`](#estimation).                                      |
+| `estimation.min_observations_per_season`     | integer         | No       | `30`         | —     | Recommended minimum of fully covered season occurrences per season and hydro. See [`estimation`](#estimation).                                      |
 | `estimation.max_coefficient_magnitude`       | number \| null  | No       | `null`       | —     | Reduces a fit to order 0 when any coefficient exceeds this magnitude. See [`estimation`](#estimation).                                             |
 | `estimation.correlation_target`              | string          | No       | `"inflows"`  | —     | One of `"inflows"`, `"residuals"`. Series an estimated inflow correlation is computed from. See [`estimation`](#estimation).                       |
+| `estimation.history_years`                   | object \| null  | No       | `null`       | —     | Inclusive `{"from", "to"}` range of `inflow_history.parquet` years the estimation reads; `null` reads every year. See [`estimation`](#estimation). |
 | `policy`                                     | object          | No       | `{}`         | —     | Controls policy persistence. See [`policy`](#policy).                                                                                              |
 | `policy.path`                                | string          | No       | `"./policy"` | —     | Policy directory, resolved against the run's output directory. See [`policy`](#policy).                                                            |
 | `policy.mode`                                | string          | No       | `"fresh"`    | —     | One of `"fresh"`, `"warm_start"`, `"resume"`. Initialization mode. See [`policy`](#policy).                                                        |
@@ -878,9 +879,10 @@ instead of requiring pre-computed `inflow_ar_coefficients.parquet`.
 | ----------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------- |
 | `max_order`                   | integer | `6`      | Maximum lag order considered during autoregressive model fitting.                                 |
 | `order_selection`             | string  | `"pacf"` | One of `"pacf"`, `"pacf_annual"`. Order selection criterion: PACF-based, or PACF with an annual component. |
-| `min_observations_per_season` | integer | `30`     | Recommended minimum number of fully covered stage occurrences of each season, per hydro. An occurrence is a stage in `stages.json` (study or pre-study) that carries the season; it counts only when the rows of `inflow_history.parquet` that start inside its window cover all of it, so history outside every stage window is not counted. When estimation runs, a (hydro, season) group with at least one such occurrence but fewer than this draws a [`ModelQuality`](/en/reference/error-codes/#modelquality) warning naming the hydro and the season, and estimation proceeds. |
+| `min_observations_per_season` | integer | `30`     | Recommended minimum number of fully covered occurrences of each season, per hydro: the samples the estimation fits from. An occurrence is one period of the season in `season_definitions`, inside or outside the study horizon; it counts only when the rows of `inflow_history.parquet` cover all of it and, with `history_years` set, only when it starts in one of those years. When estimation runs, a (hydro, season) group with at least one such occurrence but fewer than this draws a [`ModelQuality`](/en/reference/error-codes/#modelquality) warning naming the hydro and the season, and estimation proceeds. |
 | `max_coefficient_magnitude`   | number \| null | `null`   | Safety net: reduce to order 0 if any coefficient exceeds this magnitude.                          |
 | `correlation_target`          | string  | `"inflows"` | One of `"inflows"`, `"residuals"`. Series the spatial inflow correlation is estimated from when the inflow model is fitted, in whole or in part, from `inflow_history.parquet` and the case supplies no `scenarios/correlation.json`: the standardized inflows (`"inflows"`) or the residuals of the fitted autoregression (`"residuals"`); see [PAR(p) Inflow Model §6.1](/en/math/par-inflow-model/#61-correlation-estimation). `training/model_provenance.json` records it as `inflow.correlation_target`. |
+| `history_years`               | object \| null | `null` | Inclusive `{"from": 1931, "to": 2024}` range of the `inflow_history.parquet` years the estimation reads: a sample is read when the season occurrence it belongs to starts in a year of the range. The range limits the seasonal statistics, the autoregressive coefficients, the annual component and the estimated correlation; it restricts no other reader of the file: the derived inflow-lag seed, the windows of the `historical` scheme (which `historical_years` restricts) and the `historical_residuals` openings. `null` reads every year. `from` after `to` is refused when `config.json` loads, and, when the run estimates from `inflow_history.parquet`, so is a range reaching before the first or past the last year of the file ([Estimation history years outside the history](/en/reference/error-codes/#estimation-history-years-outside-the-history)). |
 
 Example:
 
@@ -978,16 +980,17 @@ is reconciled only when the run trains, so a case with training disabled reports
   "boundary_date": "2027-12-01",
   "report": {
     "reconciled": true,
-    "storage": { "copy": 44, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
-    "inflow_lag": { "copy": 44, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
-    "transit_bucket": { "copy": 6, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
-    "anticipated": { "copy": 3, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 1 },
+    "storage": { "copy": 44, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
+    "inflow_lag": { "copy": 44, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
+    "transit_bucket": { "copy": 6, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
+    "anticipated": { "copy": 3, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 1 },
     "anticipated_coverage": { "source_interval_count": 4 },
-    "other_identity": { "copy": 0, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
+    "other_identity": { "copy": 0, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
     "dropped_source_slots": [
       { "family": "anticipated", "entity_id": 17, "subindex": 0, "interval": ["2028-01-01", "2028-02-01"], "reference_date": null }
     ],
-    "straddling_slots": []
+    "straddling_slots": [],
+    "filled_from_storage_slots": []
   }
 }
 ```
@@ -1055,14 +1058,26 @@ weekly dispatch inside a monthly stage through chronological blocks.
   lowest-id season that covers its date; a season that never has the lowest id
   therefore receives observations only from inside the `stages.json` stages of
   that season.
-- On a stage that does not close its lag period, such as a weekly stage inside a
-  month, the outgoing inflow lags are the incoming ones, and on the stage that
-  runs the monthly-to-quarterly rebuild they are the averaged quarterly lags,
-  while a cut on the inflow-lag components maps lag 1 to the stage's own inflow
-  and every later lag ℓ to incoming lag ℓ − 1. With such stages and a PAR order
-  of 1 or more, the lower bound is not guaranteed to stay below the upper bound,
-  even with inflow lags in the cut projection
-  ([`stages[].state_variables`](/en/math/cut-management/#stagesstate_variables--cut-projection)).
+- A cut on the inflow-lag components reads the stage's outgoing inflow lags
+  ([Multi-Resolution Studies §2.1](/en/math/multi-resolution-studies/#21-the-lags-the-cuts-read)).
+  On a stage that does not close its lag period, such as a weekly stage inside a
+  month, those are the incoming lags. On a stage that closes a period begun at
+  an earlier stage or before the study, lag 1 is the period's duration-weighted
+  mean, the stage's own inflow included, and every later lag ℓ is incoming lag
+  ℓ − 1. On the stage that runs the monthly-to-quarterly rebuild, the outgoing
+  lags are the averaged quarterly lags, but the cut maps lag 1 to the stage's
+  own inflow and every later lag ℓ to incoming lag ℓ − 1, as at a
+  single-resolution stage, and the study setup logs one warning:
+  `stage <stage_id>: the inflow lags step from months to quarters here; cuts at this stage evaluate inflow lags as at a single-resolution stage`.
+- With such stages and a PAR order of 1 or more, the cuts are exact only where
+  the partial inflow of every open lag period is the same on every path, as
+  when the only period split over stages begins before the study and closes at
+  its first stage. Elsewhere the lower bound is not guaranteed to stay below the
+  upper bound, even with inflow lags in the cut projection
+  ([`stages[].state_variables`](/en/math/cut-management/#stagesstate_variables--cut-projection)),
+  and no warning flags such a study.
+- Each sampled forward trajectory accumulates its own lag periods, so training
+  results do not depend on `--threads` or on the MPI rank count.
 
 ---
 
@@ -1100,7 +1115,7 @@ Each recipe is a `config.json` excerpt that merges into a case: a key in the exc
 
 Train with an enumerated forward pass and stop when the exact gap closes. `relative_tolerance` is a percent: `0.01` stops at a 0.01% gap. The `iteration_limit` entry ends the run if the gap does not close first; a sampled simulation after it logs an advisory setup warning ([`simulation.selection`](#simulationselection)). The [`gap`](#gap) rule is admitted only under `enumerated` selection with the same risk measure at every stage (the default `expectation` qualifies), and every stage declares a single opening (`num_openings: 1` in `stages.json`), because enumerated selection requires it ([`training.selection`](#trainingselection)).
 
-{/* capture: novomodelo validate case (exit 0); novomodelo run case --output <dir> (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
+{/* capture: novomodelo validate case (exit 0); novomodelo run case --output <dir> (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
 
 ```json
 {
@@ -1118,7 +1133,7 @@ Train with an enumerated forward pass and stop when the exact gap closes. `relat
 
 Bound a run by wall-clock time. Under the default [`stopping_mode`](#trainingstopping_mode) (`"any"`), training stops at the first rule that is satisfied, so pair [`time_limit`](#time_limit) with an `iteration_limit` above what the time allows: training never runs past the largest `iteration_limit` in the set.
 
-{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
 
 ```json
 {
@@ -1135,7 +1150,7 @@ Bound a run by wall-clock time. Under the default [`stopping_mode`](#trainingsto
 
 Train with in-sample noise and simulate with out-of-sample inflow. The `simulation.scenario_source.seed` (77) drives the simulation's out-of-sample draws ([Seed resolution](#seed-resolution)). The `simulation.scenario_source` fields are listed under [`simulation.scenario_source`](#simulationscenario_source).
 
-{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
 
 ```json
 {

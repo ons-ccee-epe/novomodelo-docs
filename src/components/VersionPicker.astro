@@ -1,21 +1,16 @@
 ---
 // Architecture B version picker — overrides Starlight's `SocialIcons` slot.
-// Each build knows its own base via import.meta.env.BASE_URL ("/" or "/vX.Y/"),
-// so the picker marks the current version and links across the sibling builds.
+// Each build knows its own base via import.meta.env.BASE_URL ("/docs/" or
+// "/docs/vX.Y/"), so the picker marks the current version and links across the
+// sibling builds; version-options.ts decides which versions a page lists and
+// where each option leads.
 // The select renders only when it has more than one option; the version text always shows.
 import versions from "../../versions.json";
+import { versionOptions } from "./version-options";
 
-const norm = (b: string): string => (b.endsWith("/") ? b : b + "/");
-const current = norm(import.meta.env.BASE_URL);
-const all = [versions.latest, ...versions.versions];
-const currentEntry = all.find((v) => norm(v.base) === current) ?? all[0];
 const pt = (Astro.currentLocale ?? "en").toLowerCase().startsWith("pt");
-const shown = pt ? [currentEntry] : all;
-// English readers of latest stay in English: its English home is under en/.
-// A frozen snapshot is English only and keeps its base.
-const optionValue = (v: { base: string }): string =>
-  !pt && v === versions.latest ? `${norm(v.base)}en/` : v.base;
-const hasChoice = shown.length > 1;
+const { current: currentEntry, options } = versionOptions(versions, import.meta.env.BASE_URL, pt);
+const hasChoice = options.length > 1;
 const Wrapper = hasChoice ? "label" : "div";
 ---
 
@@ -38,9 +33,9 @@ const Wrapper = hasChoice ? "label" : "div";
         aria-label={pt ? "Selecionar versão da documentação" : "Select documentation version"}
       >
         {
-          shown.map((v) => (
-            <option value={optionValue(v)} selected={norm(v.base) === current}>
-              {v.label}
+          options.map((o) => (
+            <option value={o.value} selected={o.selected}>
+              {o.label}
             </option>
           ))
         }

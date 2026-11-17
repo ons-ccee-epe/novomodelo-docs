@@ -11,8 +11,8 @@ the `constraints/` directory with the bounds files on [Constraint Files](/en/ref
 
 All penalty override files use sparse storage. Only rows for `(entity_id, stage_id)`
 pairs where the penalty differs from the entity-level or global default are required.
-Every override value must be strictly positive (> 0.0) and finite, `turbined_cost` included: unlike the
-`penalties.json` default, an override of `0.0` is rejected.
+Every override value must be finite. `turbined_cost` (hydro) and `curtailment_cost` (non-controllable source)
+must be `>= 0.0`, as their `penalties.json` defaults; every other override value must be strictly positive (`> 0.0`).
 
 ---
 
@@ -22,8 +22,9 @@ Every override value must be strictly positive (> 0.0) and finite, `turbined_cos
 
 Global penalty cost defaults used when no entity-level override is present.
 All four sections are required. Every required scalar cost must be strictly positive
-(`> 0.0`), with one exception: the hydro `turbined_cost` regularization cost is
-validated `>= 0.0` (a `0.0` turbined cost — no turbine-flow penalty — is valid).
+(`> 0.0`), with two exceptions validated `>= 0.0`: the hydro `turbined_cost`
+regularization cost (a `0.0` turbined cost — no turbine-flow penalty — is valid) and
+`non_controllable_source.curtailment_cost` (a `0.0` cost makes curtailment free).
 The optional costs, `hydro.inflow_nonnegativity_cost` and the four directional
 evaporation and withdrawal costs, are read without a range check.
 The deficit segments must be non-empty, with costs strictly increasing and the last
@@ -48,6 +49,7 @@ segment's `depth_mw` set to `null` (unbounded).
 | `hydro.outflow_violation_below_cost`        | number         | Yes      | —       | USD/(m³/s·h) | Total outflow below-minimum violation penalty                                                                                          |
 | `hydro.outflow_violation_above_cost`        | number         | Yes      | —       | USD/(m³/s·h) | Total outflow above-maximum violation penalty                                                                                          |
 | `hydro.generation_violation_below_cost`     | number         | Yes      | —       | USD/MWh      | Generation below-minimum violation penalty                                                                                             |
+| `hydro.fpha_violation_cost`                 | number         | Yes      | —       | USD/MWh      | FPHA plane violation penalty: the price of generation above an FPHA plane, per MW and hour                                             |
 | `hydro.evaporation_violation_cost`          | number         | Yes      | —       | USD/(m³/s·h) | Symmetric evaporation violation penalty                                                                                                |
 | `hydro.evaporation_violation_pos_cost`      | number \| null | No       | —       | USD/(m³/s·h) | Optional over-evaporation override; supersedes `evaporation_violation_cost` for the positive direction. Omitted = symmetric value      |
 | `hydro.evaporation_violation_neg_cost`      | number \| null | No       | —       | USD/(m³/s·h) | Optional under-evaporation override; supersedes `evaporation_violation_cost` for the negative direction. Omitted = symmetric value     |
@@ -56,7 +58,7 @@ segment's `depth_mw` set to `null` (unbounded).
 | `hydro.water_withdrawal_violation_neg_cost` | number \| null | No       | —       | USD/(m³/s·h) | Optional under-withdrawal override; supersedes `water_withdrawal_violation_cost` for the negative direction. Omitted = symmetric value |
 | `hydro.inflow_nonnegativity_cost`           | number \| null | No       | —       | USD/(m³/s·h) | Optional cost of the inflow correction under the `penalty` and `truncation_with_penalty` methods, unused under `truncation` and `none`. Omitted = default `1000.0` |
 | `non_controllable_source`                   | object         | Yes      | —       | —            | Non-controllable source penalty defaults.                                                                                              |
-| `non_controllable_source.curtailment_cost`  | number         | Yes      | —       | USD/MWh      | Curtailment penalty (USD/MWh)                                                                                                          |
+| `non_controllable_source.curtailment_cost`  | number         | Yes      | —       | USD/MWh      | Curtailment penalty (USD/MWh); `>= 0.0`                                                                                                |
 
 **Example:**
 
@@ -81,6 +83,7 @@ segment's `depth_mw` set to `null` (unbounded).
     "outflow_violation_below_cost": 500.0,
     "outflow_violation_above_cost": 500.0,
     "generation_violation_below_cost": 1000.0,
+    "fpha_violation_cost": 85000.0,
     "evaporation_violation_cost": 5000.0,
     "water_withdrawal_violation_cost": 1000.0
   },
@@ -126,7 +129,7 @@ overridden per stage for buses.
 | `hydro_id`                            | Int32   | Yes      | —       | —            | Hydro plant ID                                                                                                                                                                                                                                                                                          |
 | `stage_id`                            | Int32   | Yes      | —       | —            | Stage ID                                                                                                                                                                                                                                                                                                |
 | `spillage_cost`                       | Float64 | No       | —       | USD/(m³/s·h) | Spillage penalty override (USD/(m³/s·h))                                                                                                                                                                                                                                                                |
-| `turbined_cost`                       | Float64 | No       | —       | USD/(m³/s·h) | Turbined cost override (USD/(m³/s·h))                                                                                                                                                                                                                                                                   |
+| `turbined_cost`                       | Float64 | No       | —       | USD/(m³/s·h) | Turbined cost override (USD/(m³/s·h)); `>= 0.0`                                                                                                                                                                                                                                                         |
 | `diversion_cost`                      | Float64 | No       | —       | USD/(m³/s·h) | Diversion penalty override (USD/(m³/s·h))                                                                                                                                                                                                                                                               |
 | `storage_violation_below_cost`        | Float64 | No       | —       | USD/hm³      | Storage below-minimum violation override (USD/hm³)                                                                                                                                                                                                                                                      |
 | `filling_target_violation_cost`       | Float64 | No       | —       | USD/hm³      | Filling target violation override (USD/hm³)                                                                                                                                                                                                                                                             |
@@ -134,6 +137,7 @@ overridden per stage for buses.
 | `outflow_violation_below_cost`        | Float64 | No       | —       | USD/(m³/s·h) | Outflow below-minimum violation override (USD/(m³/s·h))                                                                                                                                                                                                                                                 |
 | `outflow_violation_above_cost`        | Float64 | No       | —       | USD/(m³/s·h) | Outflow above-maximum violation override (USD/(m³/s·h))                                                                                                                                                                                                                                                 |
 | `generation_violation_below_cost`     | Float64 | No       | —       | USD/MWh      | Generation below-minimum violation override (USD/MWh)                                                                                                                                                                                                                                                   |
+| `fpha_violation_cost`                 | Float64 | No       | —       | USD/MWh      | FPHA plane violation override (USD/MWh)                                                                                                                                                                                                                                                                 |
 | `evaporation_violation_cost`          | Float64 | No       | —       | USD/(m³/s·h) | Symmetric evaporation violation override (USD/(m³/s·h)). The stage value also sets the stage's two directional evaporation costs, except a direction the row sets in its own column. See [Directional evaporation and withdrawal costs](/en/math/penalty-system/#directional-evaporation-and-withdrawal-costs). |
 | `evaporation_violation_pos_cost`      | Float64 | No       | —       | USD/(m³/s·h) | Over-evaporation violation override, evaporation above the target (USD/(m³/s·h))                                                                                                                                                                                                                        |
 | `evaporation_violation_neg_cost`      | Float64 | No       | —       | USD/(m³/s·h) | Under-evaporation violation override, evaporation below the target (USD/(m³/s·h))                                                                                                                                                                                                                       |
@@ -148,8 +152,8 @@ overridden per stage for buses.
 
 **Methodology:** [Penalty System](/en/math/penalty-system/)
 
-| Name               | Type    | Required | Default | Units   | Description                            |
-| ------------------ | ------- | -------- | ------- | ------- | -------------------------------------- |
-| `ncs_id`           | Int32   | Yes      | —       | —       | Non-controllable source ID             |
-| `stage_id`         | Int32   | Yes      | —       | —       | Stage ID                               |
-| `curtailment_cost` | Float64 | No       | —       | USD/MWh | Curtailment penalty override (USD/MWh) |
+| Name               | Type    | Required | Default | Units   | Description                                       |
+| ------------------ | ------- | -------- | ------- | ------- | ------------------------------------------------- |
+| `ncs_id`           | Int32   | Yes      | —       | —       | Non-controllable source ID                        |
+| `stage_id`         | Int32   | Yes      | —       | —       | Stage ID                                          |
+| `curtailment_cost` | Float64 | No       | —       | USD/MWh | Curtailment penalty override (USD/MWh); `>= 0.0` |

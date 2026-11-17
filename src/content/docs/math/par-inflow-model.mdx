@@ -186,41 +186,41 @@ $$
 
 For partial-year studies, the lag-season means $\mu_{m(t-\ell)}$ for seasons preceding the study start are sourced from the pre-study lag window (§3.8); when no such statistic exists for a given lag season, that lag's mean contribution is treated as zero.
 
-### 2.5 Lagged Inflows Pinned by Column Bounds
+### 2.5 The Realized Inflow as a Right-Hand-Side Constant
 
-The lagged inflows $a_{h,\ell}$ are **LP variables**, not substituted values. In the LP, they appear with coefficients $-\psi_{m(t),\ell}$ in the AR dynamics constraint row, and each incoming lag column is pinned to the trajectory's lag value $\hat{a}_{h,\ell}$ by setting both of its column bounds to that value: there are no fixing rows, as for every state variable in [State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds). The value $\hat{a}_{h,\ell}$ is patched per scenario from the trajectory record.
-
-Because the lag contribution $\sum_\ell \psi_{m(t),\ell} \cdot a_{h,\ell}$ is carried by the constraint matrix (not the RHS), the AR dynamics constraint RHS reduces to:
+The lagged inflows $a_{h,\ell}$ are **state values**, not LP variables: the stage LP has no column and no row for the model. Before each solve, the realized inflow of each hydro is evaluated at the trajectory's incoming lag values $\hat{a}_{h,\ell}$, taken per scenario from the trajectory record:
 
 $$
-\text{RHS}_{h,t} = b_{h,m(t)} + \sigma_{m(t)} \cdot \varepsilon_t
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \hat{a}_{h,\ell} + \sigma_{m(t)} \cdot \varepsilon_t
 $$
 
 where:
 
-- $b_{h,m(t)}$ is the deterministic base for (stage, hydro), precomputed once at LP construction (§2.4)
+- $b_{h,m(t)}$ is the deterministic base for (stage, hydro), precomputed once (§2.4)
 - $\sigma_{m(t)}$ is the noise scale for (stage, hydro), derived from the closure-derived $r_m$ (§4.1) at initialization (§2.2)
 - $\varepsilon_t$ is the scenario noise draw for this (stage, hydro)
 
-The $\psi_{m(t),\ell}$ coefficients are written into the constraint matrix **once at LP construction time** as the coefficients on the lagged inflow variables; they are not recomputed per scenario.
+$\hat{z}_h$ enters the water balance and the other rows that read the inflow as a constant on the right-hand side ([LP Formulation §5](/en/math/lp-formulation#5-realized-inflow)). The cut coefficients on the lags are computed after the solve from its duals by the chain rule, through the coefficients $\psi_{m(t),\ell}$ ([PAR(p) Folding](/en/math/par-folding)).
 
-No division, no mean subtraction, no repeated coefficient transformation — the three precomputed LP components eliminate all redundant arithmetic from the hot path.
+The $\psi_{m(t),\ell}$ coefficients are computed **once at initialization**; they are not recomputed per scenario.
+
+No division, no mean subtraction, no repeated coefficient transformation — the three precomputed components eliminate all redundant arithmetic from the hot path.
 
 Whether the lagged inflows enter a stage's cuts is a per-stage choice; a cut that projects them out carries their contribution in its intercept at the trial lag values (see [State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)).
 
 ### 2.6 Summary of LP Components
 
-| Component          | Symbol             | Shape per stage      | LP Role                                   | Source                                                                 |
+| Component          | Symbol             | Shape per stage      | Role in the stage LP                      | Source                                                                 |
 | ------------------ | ------------------ | -------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
-| Lag coefficients   | $\psi_{m(t),\ell}$ | One per (hydro, lag) | Constraint matrix (AR dynamics row)       | Derived from stored $\psi^*$ and $s_m$ at initialization (§2.2) |
-| Deterministic base | $b_{h,m(t)}$       | One per hydro        | AR dynamics constraint RHS (fixed term)   | Precomputed from $\mu$ and $\psi$                                      |
-| Noise scale        | $\sigma_{m(t)}$    | One per hydro        | AR dynamics constraint RHS (noise factor) | Derived from the closure-derived $r_m$ (§4.1) and $s_m$ at initialization (§2.2) |
+| Lag coefficients   | $\psi_{m(t),\ell}$ | One per (hydro, lag) | Realized inflow (lag terms); chain rule of the inflow-lag cut coefficients | Derived from stored $\psi^*$ and $s_m$ at initialization (§2.2) |
+| Deterministic base | $b_{h,m(t)}$       | One per hydro        | Realized inflow (fixed term)              | Precomputed from $\mu$ and $\psi$                                      |
+| Noise scale        | $\sigma_{m(t)}$    | One per hydro        | Realized inflow (noise factor)            | Derived from the closure-derived $r_m$ (§4.1) and $s_m$ at initialization (§2.2) |
 
 ## 3. Estimation
 
 For multi-resolution studies (monthly→quarterly aggregation), the same fitting procedure applies after duration-weighted aggregation; see [Multi-Resolution Studies](/en/math/multi-resolution-studies).
 
-This section documents the procedure for fitting PAR(p) parameters from historical inflow data. The fitting is performed when the system derives parameters from the inflow history. When pre-computed seasonal statistics and AR coefficients are provided directly, this procedure is not executed. The innovation scale is deliberately **not** part of the fitting: it is derived from the stored coefficients at load (§4.1), identically for fitted and user-supplied models (§4.2).
+This section documents the procedure for fitting PAR(p) parameters from historical inflow data. The fitting is performed when the system derives parameters from the inflow history, and reads the observations of an estimation window: a contiguous range of history years, the whole record unless the case narrows it. The window restricts only the fitting: the initial lag values and the scenario schemes that replay or resample the history read the record independently of it. When pre-computed seasonal statistics and AR coefficients are provided directly, this procedure is not executed. The innovation scale is deliberately **not** part of the fitting: it is derived from the stored coefficients at load (§4.1), identically for fitted and user-supplied models (§4.2).
 
 The figure below traces both origins of the coefficients to the runtime model.
 When the coefficients are fitted from the inflow history, the seasonal
@@ -231,12 +231,16 @@ zero takes order 0 directly. Every other season selects its order from the
 periodic PACF ([§3.4](#34-seasonal-autocorrelations),
 [§3.6](#36-order-selection)) and solves the periodic Yule-Walker system at that
 order for its standardized coefficients $\psi^*$
-([§3.5](#35-yule-walker-equations)). A season is reset to order 0 when its first
-coefficient is negative, after the initial fit or any re-fit, or when its
-initial fit has a coefficient of magnitude above the optional magnitude bound.
-A season with a negative composed influence loses one lag of its order ceiling
-and is re-selected and re-fitted, until no season fails; the coefficients are
-then stored ([§3.7](#37-stored-standardized-coefficients)), and the spatial
+([§3.5](#35-yule-walker-equations)). A season is reset to order 0 when its
+initial fit has a coefficient of magnitude above the optional magnitude bound,
+and, on the classical path, when its first coefficient is negative, after the
+initial fit or any re-fit. A season with a negative composed influence loses
+one lag of its order ceiling and is re-selected and re-fitted, until no season
+fails, and a season whose model implies a negative residual variance is
+reduced the same way ([§3.6](#36-order-selection)); on the PAR(p)-A path the
+composed influence includes the annual term
+([§7.6](#76-iterative-order-reduction)). The coefficients are then
+stored ([§3.7](#37-stored-standardized-coefficients)), and the spatial
 correlation is estimated when the case supplies none
 ([§6.1](#61-correlation-estimation)). Supplied coefficients pass the
 stationarity gate of invariant 2 ([§5](#5-validation-invariants)) instead, and a
@@ -260,8 +264,8 @@ hist: "Inflow history" {shape: parallelogram; class: hydro}
 stats: "Seasonal statistics\nbucket classification"
 pacf: "Periodic PACF\norder selection"
 yw: "Yule-Walker fit\nstandardized ψ*"
-resets: "Order-0 resets\nψ*ₘ,₁ < 0\ninitial fit: magnitude bound"
-check: "Composed influence ≥ 0\nfor every season?" {shape: diamond}
+resets: "Order-0 resets\nclassical: ψ*ₘ,₁ < 0\ninitial fit: magnitude bound"
+check: "Composed influence ≥ 0\nand residual variance ≥ 0\nfor every season?" {shape: diamond}
 store: "Store ψ*\nspatial correlation"
 supplied: "Supplied ψ*" {shape: parallelogram}
 gate: "Stationarity gate\nsolvable, |ρ| ≤ 1,\nr² above floor,\nmonodromy < 1" {shape: diamond}
@@ -333,7 +337,7 @@ The classifier runs in the priority order constant → many negative → saturat
 When the override sets $\hat{s}_m = 0$ for a season, the fit short-circuits that season on both paths:
 
 - On the **classical PAR(p) path**, the season takes order 0 directly; its PACF (§3.6) is not evaluated.
-- On the **PAR(p)-A path**, the season likewise takes order 0 directly, with annual coefficient $\psi^{A*}_m = 0$; its conditional FACP (§7.5) is not evaluated.
+- On the **PAR(p)-A path**, the season likewise takes order 0 directly, with annual coefficient $\psi^{A*}_m = 0$; its conditional FACP (§7.5) is not evaluated. A season whose own std is positive but whose selected lags $1, \ldots, p_m$ reach a season with zero std takes order 0 too, and keeps the annual coefficient $\psi^{A*}_m$ of its extended solve at $p_m$ (§7.5).
 
 The seasonal statistics that feed the fit are estimated from the history, even when the case supplies its own, and estimating them needs at least two observations per season, so no season reaches the fit with a nonzero std and $N_m < 2$. A season with a single observation ($N_m = 1$) rejects the case. A season with none ($N_m = 0$) has no statistics; the fit reads its std as zero and short-circuits it in the same way on both paths. On the PAR(p)-A path it also does so when the season's annual-regressor bucket is empty ($N^A_m = 0$) or has zero std ($\hat{\sigma}^A_m = 0$, §7.3), and the season then carries no annual contribution.
 
@@ -358,7 +362,7 @@ $$
 \hat{\gamma}_m(\ell) = \frac{1}{N_m^{(\ell)}} \sum_{t: m(t) = m} \left( a_{h,t} - \bar{a}_m \right) \left( a_{h,t-\ell} - \bar{a}_{m-\ell} \right)
 $$
 
-where $N_m^{(\ell)}$ is the number of year-aligned valid pairs at lag $\ell$ for reference season $m$. The estimator uses the **population divisor** $1/N_m^{(\ell)}$, matching the convention adopted in §3.2 and shared by the classical and PAR(p)-A paths.
+where the sum runs over the year-aligned valid pairs at lag $\ell$ for reference season $m$, and $N_m^{(\ell)} = \max(N_m, N_{m-\ell})$ is the larger of the two seasons' observation counts. The estimator uses this **population divisor**, matching the convention adopted in §3.2 and shared by the classical and PAR(p)-A paths: a lag that crosses the year boundary has no pair for the first year of season $m$, and the divisor stays at the bucket size rather than the pair count.
 
 **Autocorrelation**:
 
@@ -368,7 +372,7 @@ $$
 
 where $\hat{s}_{m-\ell}$ is the standard deviation of season $m - \ell$ (cyclically, so season 0 = season $M$).
 
-**Zero-std guard.** $\hat{\rho}_m(\ell) = 0$ when $\hat{s}_m$ or $\hat{s}_{m-\ell}$ is zero, or when season $m$ has no year-aligned pair at lag $\ell$ ($N_m^{(\ell)} = 0$). Every estimate is clamped to $[-1, 1]$.
+**Zero-std guard.** $\hat{\rho}_m(\ell) = 0$ when $\hat{s}_m$ or $\hat{s}_{m-\ell}$ is zero, or when season $m$ has no year-aligned pair at lag $\ell$. Every estimate is clamped to $[-1, 1]$.
 
 ### 3.5 Yule-Walker Equations
 
@@ -463,7 +467,7 @@ The classical rule computes the **periodic PACF** (periodic partial autocorrelat
    p_m = \max \left\{ k : |\text{PACF}_m(k)| > \frac{z_{0.975}}{\sqrt{N_m}} \right\}
    $$
 
-   where $z_{0.975} = 1.96$ (95% confidence) and $N_m$ is the number of observations for season $m$. If no lag is significant, $p_m = 0$ (white noise).
+   where $z_{0.975} = 1.96$ (95% confidence) and $N_m$ is the number of observations for season $m$. If no lag is significant, $p_m = 0$ (white noise) on the classical path.
 
 3. Estimate AR coefficients at the selected order using the periodic Yule-Walker system (§3.5).
 
@@ -477,12 +481,15 @@ $$
 \frac{\partial a_{h,t}}{\partial a_{h,t-\ell}} = \psi_{m(t),\ell} + \sum_{\ell'=1}^{\ell-1} \psi_{m(t),\ell'}\, \frac{\partial a_{h,t-\ell'}}{\partial a_{h,t-\ell}}, \qquad \ell = 1, \ldots, p_{m(t)}
 $$
 
-where $\psi_{m,\ell}$ is the original-unit coefficient of §2.2, taken as zero when $s_{m-\ell} = 0$ or $\ell > p_m$, and each derivative on the right follows from the same recursion at stage $t-\ell'$. The check is a sign condition on the composed lag influence, not a stationarity test: a season fails when any of its composed influences is negative. A failing season loses one lag of its order ceiling (initially $p_{max}$) and is re-selected and re-fitted at the new ceiling; a season whose ceiling reaches 0 takes order 0, and the loop repeats until no season fails. A season whose first coefficient satisfies $\psi^*_{m,1} < 0$, after the initial fit or after any re-fit, is reset to order 0, and so is a season whose initial fit has a coefficient of magnitude above the optional magnitude bound.
+where $\psi_{m,\ell}$ is the original-unit coefficient of §2.2, taken as zero when $s_{m-\ell} = 0$ or $\ell > p_m$, and each derivative on the right follows from the same recursion at stage $t-\ell'$. The check is a sign condition on the composed lag influence, not a stationarity test: a season fails when any of its composed influences is negative. A failing season loses one lag of its order ceiling (initially $p_{max}$) and is re-selected and re-fitted at the new ceiling; a season whose ceiling reaches 0 takes order 0, and the loop repeats until no season fails. A season whose initial fit has a coefficient of magnitude above the optional magnitude bound is reset to order 0. On the classical path, so is a season whose first coefficient satisfies $\psi^*_{m,1} < 0$, after the initial fit or after any re-fit.
 
-For the PAR(p)-A path (§7), two additional rules extend the PACF gate:
+Once no season fails, the closure of §4.1 derives the residual variance each season's model implies. A season of order $p_m$ whose implied residual variance is negative is re-selected and re-fitted with ceiling $p_m - 1$, or takes order 0 when $p_m = 1$, and the loop repeats until neither check flags a season.
 
-- **Structural-zero short-circuit at lag 1**. When the conditional FACP value at lag 1 is exactly zero — which happens when the standardised inflow series $Z$ of §7.5 collapses in the preceding season, typically because a degenerate constant or saturated bucket has zeroed that season's std (§3.3) — the selected order is forced to 0 (white noise). This blocks degenerate buckets from injecting spurious AR structure.
-- **Minimum order 1 when lag 1 is well defined**. When the lag-1 conditional FACP is non-zero but no lag exceeds the significance threshold, the model defaults to order 1 rather than order 0. Hydrological persistence makes a strict order-0 fit a poor default unless the lag-1 value is structurally absent.
+On the PAR(p)-A path (§7), the PACF gate differs in three ways:
+
+- **Minimum order 1**. The selected order is at least 1 whenever the ceiling is at least 1, even when no lag exceeds the significance threshold. Hydrological persistence makes a strict order-0 fit a poor default. An exact zero at lag 1 does not stop the search: a significant lag beyond it still sets the order.
+- **Zero-std lags**. A season whose selected lags reach a season with zero std takes order 0 and keeps its annual coefficient (§3.3).
+- **No first-coefficient reset**. A negative $\psi^*_{m,1}$ is judged only by the composed influence, which includes the annual term (§7.6).
 
 ### 3.7 Stored Standardized Coefficients
 
@@ -585,7 +592,7 @@ supplied coefficients pass the stationarity gate of invariant 2.
 
 **Enforced during fitting, not as a post-hoc test:**
 
-4. **Non-negative composed influence**: after order selection, every season's composed lag influences (§3.6) must be non-negative; a failing season loses one lag of its order ceiling and is re-selected and re-fitted until no season fails. A season whose first coefficient satisfies $\psi^*_{m,1} < 0$, after the initial fit or after any re-fit, is reset to order 0, and so is a season whose initial fit has a coefficient of magnitude above the optional magnitude bound. On the classical path, a singular periodic Yule-Walker system bounds the selectable order below its own order (§3.5), so the classical fit never solves a singular system.
+4. **Non-negative composed influence**: after order selection, every season's composed lag influences (§3.6) must be non-negative; a failing season loses one lag of its order ceiling and is re-selected and re-fitted until no season fails. A season whose initial fit has a coefficient of magnitude above the optional magnitude bound is reset to order 0, and, on the classical path, so is a season whose first coefficient satisfies $\psi^*_{m,1} < 0$, after the initial fit or after any re-fit. A season whose model implies a negative residual variance is reduced the same way (§3.6), so the closure of §4.1 never rejects a fitted model for a negative residual variance; on the PAR(p)-A path the composed influence includes the annual term (§7.6). On the classical path, a singular periodic Yule-Walker system bounds the selectable order below its own order (§3.5), so the classical fit never solves a singular system.
 
 ## 6. Spatial Correlation Factorisation
 
@@ -684,7 +691,7 @@ $$
 A_{h,t-1} = \frac{1}{12} \sum_{\ell=1}^{12} a_{h,\, t-\ell}
 $$
 
-The window always averages the last twelve observations, so $A_{h,t-1}$ is a one-year average only on a monthly cycle ($M = 12$); with the extension active on any hydro, the AR dynamics row (§2.5) spans twelve lags, or the largest classical order if that is larger.
+The window always averages the last twelve observations, so $A_{h,t-1}$ is a one-year average only on a monthly cycle ($M = 12$); with the extension active on any hydro, the realized inflow (§2.5) reads twelve lags, or the largest classical order if that is larger.
 
 The PAR(p)-A model augments §1 with the standardised deviation of $A_{h,t-1}$ from its own seasonal mean:
 
@@ -740,17 +747,17 @@ The conversion mirrors §2.2 for the classical AR coefficients. The annual term 
 
 PAR(p)-A order selection conditions on the annual regressor. Let $Z$ be the standardised inflow series, the inflow standardised by its seasonal statistics (§3.2), and let the annual regressor $A_{t-1}$ of §7.1 be standardised by its own seasonal statistics (§7.3). The order-selection input is the **conditional FACP** at lag $k$, defined as the partial autocorrelation between the current-stage value of $Z$ and its value at lag $k$, **conditioned on** the intermediate lags of $Z$ and on $A_{t-1}$. Computing the conditional FACP requires a partitioned covariance decomposition that distinguishes $Z \otimes Z$, $Z \otimes A$, and $A \otimes Z_{-1}$ blocks.
 
-The conditional FACP feeds the PACF order-selection rule of §3.6, with the two PAR(p)-A-specific extensions (structural-zero short-circuit and minimum-order-1) already described there.
+The conditional FACP feeds the PACF order-selection rule of §3.6, with the PAR(p)-A minimum order of 1 and the zero-std lag rule described there.
 
 #### Cross-covariance divisor
 
-The $Z \otimes Z$ block uses the same year-aligned population divisor as the classical autocovariance (§3.4). The $Z \otimes A$ and $A \otimes Z_{-1}$ blocks use a **max-bucket-size divisor**:
+Every block uses a **max-bucket-size divisor**. The $Z \otimes Z$ block is the autocovariance of §3.4, divided by the larger of its two seasons' observation counts, and the $Z \otimes A$ and $A \otimes Z_{-1}$ blocks divide by the larger of their two bucket sizes:
 
 $$
 \hat{\gamma}_{Z \otimes A}(\ell) \;=\; \frac{1}{\max(|A|,\, |Z|)} \sum_w \bigl(Z^{(w)} - \bar{Z}\bigr)\bigl(A^{(w)} - \bar{A}\bigr)
 $$
 
-The max-bucket convention is required because $A$ excludes the first year of $Z$ by construction (a rolling 12-month window cannot anchor in the first 12 observations). The strict-pair count would distort the scale of the cross-correlations and bias the conditional FACP. The PAR(p) path never uses Z⊗A cross-correlations, so the divisor question is PAR(p)-A-specific.
+The max-bucket convention is required because $A$ excludes the first year of $Z$ by construction (a rolling 12-month window cannot anchor in the first 12 observations). The strict-pair count would distort the scale of the cross-correlations and bias the conditional FACP.
 
 #### Extended periodic Yule-Walker
 
@@ -770,7 +777,15 @@ As in the classical case, the innovation scale is not a fitting output. For a PA
 
 ### 7.6 Iterative Order Reduction
 
-The Maceira & Damázio iterative reduction of §3.6 is applied across the full periodic cycle on the PAR(p)-A path as well: after the initial fit, the composed influence of each AR lag through the periodic chain is evaluated, and any season with a negative composed influence has its AR ceiling reduced before refit. The annual coefficient $\psi^{A*}_m$ does not enter the composed-influence check — it is anchored to the rolling annual mean and so does not propagate through the lag chain.
+The Maceira & Damázio iterative reduction of §3.6 is applied across the full periodic cycle on the PAR(p)-A path as well, on the coefficients of the effective 12-lag system of §7.5. The annual regressor averages the last 12 inflows, so the annual term adds to every lag up to 12, and the composed influence of §3.6 is evaluated on the original-unit form (§2.2) of the combined standardized coefficients
+
+$$
+c_{m,k} \;=\; \psi^*_{m,k} \;+\; \psi^{A*}_m \cdot \frac{s_{m-k}}{12\,\sigma^A_m}, \qquad k = 1, \ldots, 12,
+$$
+
+with $\psi^*_{m,k} = 0$ for $k > p_m$, at the lags $1, \ldots, p_m$ of each season of order $p_m \ge 1$. A failing season of order $p_m > 1$ is re-selected and re-fitted with ceiling $p_m - 1$, which refreshes both $\psi^*_m$ and $\psi^{A*}_m$; a failing season of order 1 takes order 0 with $\psi^{A*}_m = 0$. The magnitude bound applies to the initial fit as on the classical path, and no season is reset for a negative $\psi^*_{m,1}$ alone.
+
+Once no season fails, the closure of §4.1 derives the residual variance each season's model implies on the effective 12-lag system. A season whose implied residual variance is negative is reduced in the same way, and the loop repeats until neither check flags a season.
 
 ### 7.7 Activation and Fallback
 
@@ -780,6 +795,7 @@ The Maceira & Damázio iterative reduction of §3.6 is applied across the full p
 | Order-selection rule with the annual component                             | PAR(p)-A — annual triple required for every (hydro, season)                              |
 | Bucket classified constant or saturated (§3.3)                             | Effective order 0 on either path; annual term suppressed when the seasonal std collapses |
 | Extended periodic Yule-Walker system singular at the selected order (§7.5) | PAR(p)-A season at order 0 with annual coefficient $\psi^{A*}_m = 0$                     |
+| Selected lags reach a season with zero std (§3.3)                          | PAR(p)-A season at order 0, keeping the annual coefficient of its extended solve         |
 | Hydro with fewer than 13 observations on PAR(p)-A path                     | Hard failure during fitting (no silent fallback to classical)                            |
 
 The two paths share the seasonal-stats producer of §3.2; switching between them does not silently change $\hat{\mu}_m$ or $\hat{s}_m$. The PAR(p)-A path uses the same spatial-correlation factorisation as the classical path (§6).
@@ -802,8 +818,9 @@ The methodology above defines the PAR(p) inflow model; the tabs below cover how 
 
 ## Cross-References
 
-- [LP Formulation](/en/math/lp-formulation) — The realized-inflow rows of the stage LP
-- [State Augmentation](/en/math/state-augmentation) — AR inflow dynamics: state expansion, lag column pinning, reduced-cost extraction
+- [LP Formulation](/en/math/lp-formulation) — The rows of the stage LP that read the realized inflow
+- [State Augmentation](/en/math/state-augmentation) — Inflow-lag state: state expansion, outgoing lags, cut-state projection
+- [PAR(p) Folding](/en/math/par-folding) — The realized inflow outside the stage LP and the inflow-lag cut coefficients by the chain rule
 - [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity) — Methods for handling negative realizations produced by the PAR(p) model
 - [Scenario Generation](/en/math/scenario-generation) — When external inflow scenarios are used in training, the backward pass turns the opening tree's noise into inflows with the applied PAR model, in which hydros of AR order 0 and no annual component take the external samples' mean and standard deviation.
 - [Notation Conventions](/en/overview/notation-conventions) — Defines inflow symbols ($a_{h,t}$, $\mu_m$, $\psi_{m,\ell}$, $\sigma_m$) and unit conventions

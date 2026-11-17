@@ -23,7 +23,7 @@ In parallel blocks mode, all blocks within a stage are **independent** — there
 A single water balance constraint spans all blocks:
 
 $$
-v_h = v^{in}_h + \zeta \, (a_h - e_h - r_h) + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
+v_h = v^{in}_h + \zeta \, (a_h - e_h - T^{eff}_h) + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
 $$
 
 where:
@@ -32,7 +32,7 @@ where:
 - $\zeta_k = 0.0036\,\tau_k = w_k\,\zeta$ is the flow-to-volume conversion of block $k$, with $\tau_k$ the duration of block $k$ in hours and $w_k = \tau_k / \sum_{k' \in \mathcal{K}} \tau_{k'}$ the block weight, so the block conversions sum to the stage conversion, $\sum_{k \in \mathcal{K}} \zeta_k = \zeta$
 - $a_h$ is the stage's realized incremental inflow
 - $e_h$ is the net evaporation: one stage-level value on $(v^{in}_h + v_h)/2$, whatever the block count
-- $r_h$ is the stage-level withdrawal target
+- $T^{eff}_h$ is the stage-level effective withdrawal: the plant's withdrawal target $r_h$ plus the targets of the PreFilling plants routed onto it, and $0$ for a PreFilling plant ([LP Formulation, Row Terms](/en/math/lp-formulation#row-terms))
 - $\text{net\_flows}_{h,k}$ is the net flow of block $k$: the turbined and spilled release credited from upstream and the flows diverted and pumped in, minus the plant's own turbined, spilled and diverted flow and its pumped-out flow
 
 This formulation assumes the reservoir can freely redistribute water across blocks within the stage. The canonical row with every term — the in-transit arrivals, the travel-time shares and the withdrawal and inflow slacks — is [LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance).
@@ -63,7 +63,7 @@ The end-of-stage storage (state variable) is: $v_h = v_{h,|\mathcal{K}|}$
 For every block $k \in \mathcal{K}$, with $v_{h,0} = v^{in}_h$ (the incoming storage, pinned at $\hat{v}_h$):
 
 $$
-v_{h,k} = v_{h,k-1} + \zeta_k \, \big( a_h - e_{h,k} - r_h + \text{net\_flows}_{h,k} \big)
+v_{h,k} = v_{h,k-1} + \zeta_k \, \big( a_h - e_{h,k} - T^{eff}_h + \text{net\_flows}_{h,k} \big)
 $$
 
 $\text{net\_flows}_{h,k}$ credits the upstream release of block $k$ in full; for an upstream plant on a travel-time arc into $h$, the row of block $k$ instead credits the per-block same-stage shares of that plant's release in blocks $k' \le k$ ([LP Formulation — Chronological-Stage Rows](/en/math/lp-formulation#chronological-stage-rows)).
@@ -75,7 +75,7 @@ Block $k$ receives $\zeta_k\,a_h = w_k\,\zeta\,a_h$ of the stage's inflow and th
 Summing the block rows over $k \in \mathcal{K}$ gives:
 
 $$
-v_h = v^{in}_h + \zeta \, (a_h - r_h) - \sum_{k \in \mathcal{K}} \zeta_k \, e_{h,k} + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
+v_h = v^{in}_h + \zeta \, (a_h - T^{eff}_h) - \sum_{k \in \mathcal{K}} \zeta_k \, e_{h,k} + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
 $$
 
 This is the §1.1 row with the per-block evaporation $\sum_{k \in \mathcal{K}} \zeta_k\,e_{h,k}$ in place of $\zeta\,e_h$ and, on a travel-time arc, per-block same-stage shares of the upstream release (see [LP Formulation — Summing the Block Rows](/en/math/lp-formulation#summing-the-block-rows)).

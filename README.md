@@ -95,7 +95,7 @@ npm run check:python-api # every public novomodelo-python stub symbol has an anc
 npm run check:ptbr-sync # each commit in origin/main..HEAD changes English pages with their pt-BR translations (also the commit-msg hook in .githooks/, installed by npm install)
 npm run check:d2      # D2 uses the ELK engine, never TALA
 npm run check:spdx    # 100% FOSS dependency audit
-npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.20.0 (NOVOMODELO_BIN or novomodelo on PATH)
+npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.21.0 (NOVOMODELO_BIN or novomodelo on PATH)
 npm run refresh:recordings -- --check # quickstart.gif matches scripts/recordings-provenance.json (check only)
 npm run check:type-spelling # reference Type cells use the reference-conventions §4 vocabulary
 npm run check:e10     # third-party-notices / content-licensing completeness
@@ -127,9 +127,14 @@ working tree and served at `/docs/`. Within `latest`, pt-BR is the root locale a
 `scripts/locale-id.mjs`), and `/docs/pt-br/*` redirects to `/docs/*`. Each
 `versions` entry is a frozen snapshot of
 one novomodelo minor, built from its `ref` (a 40-hex commit SHA on `main`) and
-served at its `base` (`/docs/vX.Y/`). The version picker lists `latest`, then `versions` in
-file order, newest first, each frozen entry under the release it documents
-(`vX.Y.z`). A novomodelo patch release updates `latest` in place. A frozen
+served at its `base` (`/docs/vX.Y/`). Each entry's `locales` names the locales
+its build serves, root locale first: `["pt-br", "en"]` serves pt-BR at `base`
+and English at `base` + `en/`, and an entry without `locales` (v0.19 and older)
+serves English only, at `base`. The version picker lists `latest`, then
+`versions` in file order, newest first, each frozen entry under the release it
+documents (`vX.Y.z`). On an English page it lists every version and opens each
+at its English home; on a pt-BR page it lists the versions whose `locales`
+include `pt-br`. A novomodelo patch release updates `latest` in place. A frozen
 snapshot is never edited: a fix branches from its `ref`, and `ref` moves to the
 fix commit (see **Fixing a frozen version**). Every frozen minor is kept until
 novomodelo v1.0.0; from then on, only the last two or three minors.
@@ -140,9 +145,10 @@ novomodelo v1.0.0; from then on, only the last two or three minors.
    `git ls-remote origin refs/heads/main` (normally the merge commit of the last
    vX.Y sync PR).
 2. Insert the new entry at the top of `versions`:
-   `{ "slug": "vX.Y", "label": "vX.Y.z", "base": "/docs/vX.Y/", "ref": "<40-hex SHA>", "novomodelo": "vX.Y.z" }`.
+   `{ "slug": "vX.Y", "label": "vX.Y.z", "base": "/docs/vX.Y/", "ref": "<40-hex SHA>", "novomodelo": "vX.Y.z", "locales": ["pt-br", "en"] }`.
    `novomodelo` is the value `latest.novomodelo` holds before the bump, and `label`
-   repeats it.
+   repeats it. `locales` repeats `latest.locales`, the layout the frozen tree
+   serves.
 3. Once the novomodelo vX.(Y+1).0 tag exists, make one commit that:
    - sets `DEFAULT_NOVOMODELO_REF` (`scripts/novomodelo-ref.mjs`) and `latest.novomodelo` to
      vX.(Y+1).0;
@@ -171,8 +177,12 @@ novomodelo v1.0.0; from then on, only the last two or three minors.
 5. Run `npm run build:versions` (it logs `=== building vX.Y.z  (base=/docs/vX.Y/) ===`),
    then `npm run check:links`, then `npm test`, and record `du -sh dist`.
 6. Serve `dist/` (`python3 -m http.server -d dist 8080`) and check the picker on
-   `/docs/` and on `/docs/vX.Y/`: it lists every version, `/docs/vX.Y/` shows
-   "documents novomodelo vX.Y.z", and selecting `latest` returns to `/docs/`.
+   `/docs/`, `/docs/en/`, `/docs/vX.Y/` and `/docs/vX.Y/en/`. On the English
+   pages it lists every version, each opening at its English home, and
+   `/docs/vX.Y/en/` shows "documents novomodelo vX.Y.z". On the pt-BR pages it
+   lists the versions that serve pt-BR, and `/docs/vX.Y/` shows "documenta o
+   Novo Modelo vX.Y.z". Selecting `latest` returns to `/docs/` from a pt-BR page
+   and to `/docs/en/` from an English one.
 7. Before merging, run `git fetch origin main`; then `git log <SHA>..origin/main`
    lists no commit outside the sync, and `git ls-remote origin refs/heads/main`
    names the same commit as `origin/main`. If another commit landed on `main`,

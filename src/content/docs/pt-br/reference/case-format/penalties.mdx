@@ -11,8 +11,8 @@ o diretório `constraints/` com os arquivos de limites descritos em [Arquivos de
 
 Todos os arquivos de substituição de penalidades usam armazenamento esparso. Só são necessárias linhas para os pares `(entity_id, stage_id)`
 em que a penalidade difere do valor padrão da entidade ou do valor padrão global.
-Todo valor de substituição deve ser estritamente positivo (> 0.0) e finito, inclusive `turbined_cost`: ao contrário do
-valor padrão de `penalties.json`, uma substituição igual a `0.0` é rejeitada.
+Todo valor de substituição deve ser finito. `turbined_cost` (usina hidrelétrica) e `curtailment_cost` (fonte não despachável)
+devem ser `>= 0.0`, como seus valores padrão de `penalties.json`; todo outro valor de substituição deve ser estritamente positivo (`> 0.0`).
 
 ---
 
@@ -22,8 +22,9 @@ valor padrão de `penalties.json`, uma substituição igual a `0.0` é rejeitada
 
 Valores padrão globais dos custos de penalidade, usados quando não há substituição no nível da entidade.
 As quatro seções são obrigatórias. Todo custo escalar obrigatório deve ser estritamente positivo
-(`> 0.0`), com uma exceção: o custo de regularização `turbined_cost` das usinas hidrelétricas é
-validado como `>= 0.0` (um custo de turbinamento `0.0` — sem penalidade sobre a vazão turbinada — é válido).
+(`> 0.0`), com duas exceções validadas como `>= 0.0`: o custo de regularização `turbined_cost` das usinas hidrelétricas
+(um custo de turbinamento `0.0` — sem penalidade sobre a vazão turbinada — é válido) e
+`non_controllable_source.curtailment_cost` (um custo `0.0` torna o corte de geração gratuito).
 Os custos opcionais, `hydro.inflow_nonnegativity_cost` e os quatro custos direcionais de
 evaporação e de retirada de água, são lidos sem verificação de faixa.
 Os segmentos de déficit não podem ser vazios, devem ter custos estritamente crescentes e o
@@ -48,6 +49,7 @@ Os segmentos de déficit não podem ser vazios, devem ter custos estritamente cr
 | `hydro.outflow_violation_below_cost`        | number         | Sim      | —       | R\$/(m³/s·h) | Penalidade por violação da vazão defluente total mínima |
 | `hydro.outflow_violation_above_cost`        | number         | Sim      | —       | R\$/(m³/s·h) | Penalidade por violação da vazão defluente total máxima |
 | `hydro.generation_violation_below_cost`     | number         | Sim      | —       | R\$/MWh      | Penalidade por violação da geração mínima |
+| `hydro.fpha_violation_cost`                 | number         | Sim      | —       | R\$/MWh      | Penalidade por violação do plano da FPHA: o preço da geração acima de um plano da FPHA, por MW e por hora |
 | `hydro.evaporation_violation_cost`          | number         | Sim      | —       | R\$/(m³/s·h) | Penalidade simétrica por violação da evaporação |
 | `hydro.evaporation_violation_pos_cost`      | number \| null | Não      | —       | R\$/(m³/s·h) | Substituição opcional para evaporação acima da meta; prevalece sobre `evaporation_violation_cost` no sentido positivo. Omitida = valor simétrico |
 | `hydro.evaporation_violation_neg_cost`      | number \| null | Não      | —       | R\$/(m³/s·h) | Substituição opcional para evaporação abaixo da meta; prevalece sobre `evaporation_violation_cost` no sentido negativo. Omitida = valor simétrico |
@@ -56,7 +58,7 @@ Os segmentos de déficit não podem ser vazios, devem ter custos estritamente cr
 | `hydro.water_withdrawal_violation_neg_cost` | number \| null | Não      | —       | R\$/(m³/s·h) | Substituição opcional para retirada abaixo da meta; prevalece sobre `water_withdrawal_violation_cost` no sentido negativo. Omitida = valor simétrico |
 | `hydro.inflow_nonnegativity_cost`           | number \| null | Não      | —       | R\$/(m³/s·h) | Custo opcional da correção da afluência nos métodos `penalty` e `truncation_with_penalty`, não usado em `truncation` e `none`. Omitido = padrão `1000.0` |
 | `non_controllable_source`                   | object         | Sim      | —       | —            | Valores padrão das penalidades das fontes não despacháveis. |
-| `non_controllable_source.curtailment_cost`  | number         | Sim      | —       | R\$/MWh      | Penalidade de corte de geração (curtailment) (R\$/MWh) |
+| `non_controllable_source.curtailment_cost`  | number         | Sim      | —       | R\$/MWh      | Penalidade de corte de geração (curtailment) (R\$/MWh); `>= 0.0` |
 
 **Exemplo:**
 
@@ -81,6 +83,7 @@ Os segmentos de déficit não podem ser vazios, devem ter custos estritamente cr
     "outflow_violation_below_cost": 500.0,
     "outflow_violation_above_cost": 500.0,
     "generation_violation_below_cost": 1000.0,
+    "fpha_violation_cost": 85000.0,
     "evaporation_violation_cost": 5000.0,
     "water_withdrawal_violation_cost": 1000.0
   },
@@ -126,7 +129,7 @@ substituído por estágio para os barramentos.
 | `hydro_id`                            | Int32   | Sim      | —       | —            | ID da usina hidrelétrica |
 | `stage_id`                            | Int32   | Sim      | —       | —            | ID do estágio |
 | `spillage_cost`                       | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição da penalidade de vertimento (R\$/(m³/s·h)) |
-| `turbined_cost`                       | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição do custo de turbinamento (R\$/(m³/s·h)) |
+| `turbined_cost`                       | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição do custo de turbinamento (R\$/(m³/s·h)); `>= 0.0` |
 | `diversion_cost`                      | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição da penalidade de desvio (R\$/(m³/s·h)) |
 | `storage_violation_below_cost`        | Float64 | Não      | —       | R\$/hm³      | Substituição da penalidade por violação do armazenamento mínimo (R\$/hm³) |
 | `filling_target_violation_cost`       | Float64 | Não      | —       | R\$/hm³      | Substituição da penalidade por violação da meta de enchimento (R\$/hm³) |
@@ -134,6 +137,7 @@ substituído por estágio para os barramentos.
 | `outflow_violation_below_cost`        | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição da penalidade por violação da vazão defluente mínima (R\$/(m³/s·h)) |
 | `outflow_violation_above_cost`        | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição da penalidade por violação da vazão defluente máxima (R\$/(m³/s·h)) |
 | `generation_violation_below_cost`     | Float64 | Não      | —       | R\$/MWh      | Substituição da penalidade por violação da geração mínima (R\$/MWh) |
+| `fpha_violation_cost`                 | Float64 | Não      | —       | R\$/MWh      | Substituição da penalidade por violação do plano da FPHA (R\$/MWh) |
 | `evaporation_violation_cost`          | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição da penalidade simétrica por violação da evaporação (R\$/(m³/s·h)). O valor do estágio também define os dois custos direcionais de evaporação do estágio, exceto em um sentido que a linha defina em sua própria coluna. Ver [Custos direcionais de evaporação e de retirada de água](/math/penalty-system/#custos-direcionais-de-evaporacao-e-de-retirada). |
 | `evaporation_violation_pos_cost`      | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição da penalidade por evaporação acima da meta (R\$/(m³/s·h)) |
 | `evaporation_violation_neg_cost`      | Float64 | Não      | —       | R\$/(m³/s·h) | Substituição da penalidade por evaporação abaixo da meta (R\$/(m³/s·h)) |
@@ -152,4 +156,4 @@ substituído por estágio para os barramentos.
 | ------------------ | ------- | -------- | ------- | ------- | -------------------------------------- |
 | `ncs_id`           | Int32   | Sim      | —       | —       | ID da fonte não despachável |
 | `stage_id`         | Int32   | Sim      | —       | —       | ID do estágio |
-| `curtailment_cost` | Float64 | Não      | —       | R\$/MWh | Substituição da penalidade de corte de geração (R\$/MWh) |
+| `curtailment_cost` | Float64 | Não      | —       | R\$/MWh | Substituição da penalidade de corte de geração (R\$/MWh); `>= 0.0` |

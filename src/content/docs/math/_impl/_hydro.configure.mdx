@@ -28,7 +28,7 @@ production function.
 | ------------------- | ------ | ----------- |
 | `model`             | string | Production function variant. See the model table below. |
 | `min_turbined_m3s`  | number | Minimum turbined flow [m³/s]. Non-zero values model a minimum stable turbine operation. |
-| `max_turbined_m3s`  | number | Maximum turbined flow (installed turbine capacity) [m³/s]. |
+| `max_turbined_m3s`  | number | Declared maximum turbined flow [m³/s]; with `max_generation_mw`, it decides whether the plant has [turbine capacity](/en/math/hydro-production-models#no-turbine-capacity). |
 | `min_generation_mw` | number | Minimum electrical generation [MW]. |
 | `max_generation_mw` | number | Maximum electrical generation (installed capacity) [MW]. |
 
@@ -192,11 +192,11 @@ All fields except `source` are optional:
 | `turbine_discretization_points`  | 5       | Number of turbined-flow grid points. Must be `>= 2`. |
 | `spillage_discretization_points` | 5       | Validated (must be `>= 2`) but does **not** add a spillage axis to the fitting grid — the cloud and the $k_{FPHA}$ regression fix spillage at `0`, and the lateral-flow secant sweeps its own sample range independently (§2.7). The field is retained for input round-tripping. |
 | `max_planes_per_hydro`           | 10      | Accepted and validated (`>= 1`) but does not trim the plane set — the hull fitter emits exactly the upper-envelope facets. |
-| `fitting_window`                 | null    | Optional volume range for fitting; absent uses the full forebay range of the plant's `system/hydro_geometry.parquet` volume-height curve. |
+| `fitting_window`                 | null    | Optional volume range for fitting; absent uses the plant's storage range, `min_storage_hm3` to `max_storage_hm3`, and each set bound is clamped into it. |
 | `turbined_fit_max_m3s`           | null    | Upper end (m³/s) of the turbined-flow axis of the fitting grid, $q^{fit}_{max}$ in §2.6.1; the axis starts at `0`. Finite and `> 0`, else rejected at load. Absent uses the plant's `max_turbined_m3s`. It may lie below or above `max_turbined_m3s`; the LP turbined-flow bounds stay the plant's own. |
 | `spillage_fit_max_m3s`           | null    | Upper end (m³/s) of the lateral-flow sample of the secant, $\bar{S}^{fit}$ in §2.7. Finite and `> 0`, else rejected at load. Absent uses twice the mean of the plant's `scenarios/inflow_history.parquet` values, or twice its `max_turbined_m3s` when that mean is not positive. |
 
-`fitting_window` restricts which portion of the operating range builds the
+`fitting_window` restricts which part of the plant's storage range builds the
 grid — useful when the plant rarely operates near one extreme:
 
 ```json
@@ -320,7 +320,9 @@ planned-outage stage, as
 | Rule                            | Error Class          | Description |
 | -------------------------------- | --------------------- | ----------- |
 | FPHA geometry coverage            | Dimensional error      | When `system/hydro_geometry.parquet` holds any row, every `fpha` plant must have at least 1 row of its own (a single row is valid for run-of-river plants); with no row in the file this rule does not run. |
-| FPHA hyperplane coverage          | Dimensional error      | When `system/fpha_hyperplanes.parquet` holds any row, every `fpha` plant with turbine capacity must have rows of its own, whatever its `source`; with no row in the file this rule does not run. |
+| FPHA geometry storage range       | Semantic error         | On a plant with a `source: "computed"` entry, the `system/hydro_geometry.parquet` volumes must cover `min_storage_hm3` to `max_storage_hm3`, the range its planes are fitted over; see [Computed-FPHA geometry short of the storage range](/en/reference/error-codes/#computed-fpha-geometry-short-of-the-storage-range). |
+| FPHA hyperplane coverage          | Dimensional error      | When `system/fpha_hyperplanes.parquet` holds any row, every `fpha` plant with [turbine capacity](/en/math/hydro-production-models#no-turbine-capacity) must have rows of its own, whatever its `source`; with no row in the file this rule does not run. |
+| FPHA plane below zero at zero turbining | Warning | On a plant with precomputed FPHA and [turbine capacity](/en/math/hydro-production-models#no-turbine-capacity), a plane a stage uses that falls below 0 MW at zero turbined flow, at the fitting window's minimum storage and the upper end of the spillage fit range, is accepted with a warning; see [`ModelQuality`](/en/reference/error-codes/#modelquality). |
 | FPHA fit ranges                   | Schema error           | `turbined_fit_max_m3s` and `spillage_fit_max_m3s`, when set, must be finite and `> 0`. |
 | FPHA stage coverage (computed)    | Setup error            | On a plant with any `source: "computed"` entry, every stage whose entry selects `"fpha"` must resolve to an entry with an `fpha_config`; an uncovered stage or a `default_model` of `"fpha"` is rejected when the study is set up. |
 | FPHA coefficient signs            | Semantic error         | `gamma_v` must be non-negative (`>= 0`; run-of-river plants have `gamma_v = 0`); `gamma_s` must be non-positive. |

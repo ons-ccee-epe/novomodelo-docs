@@ -110,8 +110,8 @@ A simulação backward aprimora a aproximação da função de valor gerando nov
 Em cada estágio $t$, para cada estado visitado $\hat{x}_{t-1}$ coletado durante a simulação forward:
 
 1. Resolve-se o PL do estágio $t$ para **todo** cenário $\omega \in \Omega_t$ (ramificação), usando o estado visitado $\hat{x}_{t-1}$ como estado de entrada
-2. De cada solução do PL, extraem-se o valor ótimo da função objetivo $Q_t(\hat{x}_{t-1}, \omega)$ e os **custos reduzidos** das colunas fixadas do estado de entrada. Os custos reduzidos do armazenamento de entrada e das defasagens AR entram no corte quando a projeção do corte do estágio mantém essas componentes; os custos reduzidos das parcelas de água em trânsito (in-transit buckets) e das posições do anel de despacho antecipado (commitment ring slots) das termelétricas com antecipação de despacho sempre entram ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)). Esses custos reduzidos fornecem diretamente os coeficientes do corte — não é necessária nenhuma combinação com os duais das restrições da FPHA ou das restrições genéricas. Veja [Gerenciamento de cortes](/math/cut-management)
-3. Calculam-se os termos do corte por cenário $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ no estado visitado, sendo cada coeficiente de $\beta(\omega)$ o custo reduzido do passo 2 dividido pelo fator de escala da sua coluna ([Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos))
+2. De cada solução do PL, extraem-se o valor ótimo da função objetivo $Q_t(\hat{x}_{t-1}, \omega)$, os **custos reduzidos** das colunas fixadas do estado de entrada e os duais das linhas que leem a afluência realizada e das linhas de corte. Os coeficientes do armazenamento e das defasagens de afluência entram no corte quando a projeção do corte do estágio mantém essas componentes; os coeficientes das parcelas de água em trânsito (in-transit buckets) e das posições do anel de despacho antecipado (commitment ring slots) das termelétricas com antecipação de despacho sempre entram ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)). Os custos reduzidos fornecem diretamente os coeficientes do armazenamento, das parcelas e das posições — não é necessária nenhuma combinação com os duais das restrições da FPHA ou das restrições genéricas —, e os duais fornecem os coeficientes das defasagens de afluência pela regra da cadeia ([Folding do PAR(p) §4](/math/par-folding#4-os-coeficientes-das-defasagens-pela-regra-da-cadeia)). Veja [Gerenciamento de cortes](/math/cut-management)
+3. Calculam-se os termos do corte por cenário $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ no estado visitado, sendo cada coeficiente de armazenamento, de parcela e de posição de $\beta(\omega)$ o custo reduzido do passo 2 dividido pelo fator de escala da sua coluna, e cada coeficiente de defasagem de afluência a regra da cadeia do passo 2 sobre os duais desescalonados ([Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos)). O Novo Modelo forma os coeficientes das defasagens de afluência uma vez por filho, a partir dos duais agregados com os pesos do passo 4, o que, em aritmética exata, dá o agregado dos coeficientes por cenário ([Folding do PAR(p) §4](/math/par-folding#4-os-coeficientes-das-defasagens-pela-regra-da-cadeia))
 4. Agregam-se os termos do corte por cenário em um único corte. Em um grafo da política, o corte de um nó $n$ agrega todo par (filho, abertura) $(n', \omega)$ de $n$, ponderado por $P(n \to n')\, p_{n'}(\omega)$, com a medida de risco atuando uma única vez sobre essa lei conjunta; na cadeia de estágios, o nó tem um único filho e os pesos são as probabilidades uniformes $p(\omega)$ sobre $\Omega_t$. Veja [Gerenciamento de cortes §3](/math/cut-management#3-agregacao-em-corte-unico)
 5. Acrescenta-se o corte agregado ao conjunto de cortes do estágio $t-1$
 
@@ -122,7 +122,7 @@ Em cada estágio $t$, para cada estado visitado $\hat{x}_{t-1}$ coletado durante
 A simulação backward produz um novo corte por estágio, por estado visitado e por iteração.
 
 :::note[Viabilidade]
-Toda resolução de PL da simulação backward deve ser viável. Isso é garantido pelo sistema de folgas de recurso (penalidades de Categoria 1) — veja [Sistema de penalidades](/math/penalty-system). O recurso relativamente completo mantém viável toda resolução da simulação backward; a validade dos cortes requer as condições de [Gerenciamento de cortes §4](/math/cut-management#4-validade-dos-cortes).
+Toda resolução de PL da simulação backward deve ser viável. O sistema de folgas de recurso (penalidades de Categoria 1) proporciona isso em todo caso que atende à [precondição de recurso completo](/math/penalty-system#precondicao-de-recurso-completo). O recurso relativamente completo mantém viável toda resolução da simulação backward; a validade dos cortes requer as condições de [Gerenciamento de cortes §4](/math/cut-management#4-validade-dos-cortes).
 :::
 
 :::note[Fator de desconto]
@@ -228,27 +228,30 @@ As duas últimas componentes estão presentes apenas quando o estudo as declara:
 arcos com tempo de viagem da água introduzem as parcelas de água
 em trânsito, e as termelétricas com antecipação de despacho introduzem as posições
 do anel de despacho antecipado. Um estudo sem nenhuma delas reduz-se ao estado clássico de armazenamento
-(+ defasagens AR). As quatro componentes são estado de Markov genuíno — cada uma é
-fixada por limites de coluna na sua coluna de estado de entrada, e o custo
-reduzido dessa coluna fornece seu coeficiente no corte (seção 3.2).
+(+ defasagens AR). As quatro componentes são estado de Markov genuíno. O
+armazenamento, as parcelas e as posições do anel são fixados por limites de coluna
+nas suas colunas de estado de entrada, e o custo reduzido de cada coluna fornece
+seu coeficiente no corte (seção 3.2); as defasagens de afluência não têm coluna no
+PL, chegam ao PL pelos lados direitos e recebem seus coeficientes no corte dos
+duais, pela regra da cadeia (§5.1).
 
 ### 5.1 Expansão do estado com as defasagens AR
 
-O modelo de afluências PAR(p) requer as afluências passadas $a_{h,t-1}, a_{h,t-2}, \ldots$ para calcular a afluência atual. Para manter a propriedade de Markov, essas defasagens são incluídas como variáveis de estado **fixadas por limites de coluna** no valor do estado de entrada correspondente:
+O modelo de afluências PAR(p) requer as afluências passadas $a_{h,t-1}, a_{h,t-2}, \ldots$ para calcular a afluência atual. Para manter a propriedade de Markov, essas defasagens são incluídas como variáveis de estado. Elas não são colunas do PL: antes de cada resolução, a afluência realizada de cada usina hidrelétrica é calculada a partir das defasagens de entrada e do ruído da abertura,
 
 $$
-\underline{a}_{h,\ell} = \bar{a}_{h,\ell} = \hat{a}_{h,\ell} \quad \forall h \in \mathcal{H}, \; \ell \in \{1, \ldots, P^{\max}\}
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{P^{\max}} \psi_{m(t),\ell} \, \hat{a}_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t
 $$
 
-em que $\hat{a}_{h,\ell}$ é o valor da afluência com defasagem $\ell$ repassado pelo estágio anterior. Os custos reduzidos dessas colunas fixadas, cada um dividido pelo fator de escala da sua coluna, fornecem os coeficientes das defasagens $\beta^{lag}_{h,\ell}$, que entram no corte quando a projeção do corte do estágio mantém as componentes de defasagem de afluência, capturando o valor marginal do histórico de afluências — veja [Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos).
+em que $\hat{a}_{h,\ell}$ é o valor da afluência com defasagem $\ell$ repassado pelo estágio anterior, e $\hat{z}_h$ entra nas linhas que leem a afluência como constante do lado direito ([Formulação do PL §5](/math/lp-formulation#5-afluencia-realizada)). Os coeficientes das defasagens $\beta^{lag}_{h,\ell}$, que entram no corte quando a projeção do corte do estágio mantém as componentes de defasagem de afluência, capturam o valor marginal do histórico de afluências; eles são calculados a partir dos duais desescalonados da resolução pela regra da cadeia — veja [Gerenciamento de cortes §2](/math/cut-management#2-extracao-pelos-custos-reduzidos) e [Folding do PAR(p)](/math/par-folding).
 
-Veja [Modelo de afluências PAR(p)](/math/par-inflow-model) para a formulação autorregressiva completa e [Aumento do espaço de estados §4](/math/state-augmentation#4-defasagens-de-afluencia) para o modo como essas restrições aparecem no PL do estágio.
+Veja [Modelo de afluências PAR(p)](/math/par-inflow-model) para a formulação autorregressiva completa e [Aumento do espaço de estados §4](/math/state-augmentation#4-defasagens-de-afluencia) para o modo como as defasagens entram no PL do estágio.
 
 ### 5.2 Expansão do estado com tempo de viagem e termelétricas com antecipação
 
 Dois outros mecanismos expandem o vetor de estado além do armazenamento e das
 defasagens AR, e ambos são tratados como estado de Markov pela mesma fixação por
-limites de coluna das defasagens AR — os custos reduzidos das suas colunas fixadas, cada um dividido pelo fator de escala da sua coluna, fornecem seus coeficientes no corte.
+limites de coluna do armazenamento — os custos reduzidos das suas colunas fixadas, cada um dividido pelo fator de escala da sua coluna, fornecem seus coeficientes no corte.
 
 **Parcelas de água em trânsito.** Quando o arco principal da cascata de uma
 usina hidrelétrica possui tempo de viagem, a água defluída chega à usina de jusante
@@ -309,13 +312,14 @@ A metodologia acima define a estrutura de simulações forward/backward e as res
 - [Gerenciamento de cortes](/math/cut-management) — Geração, agregação e seleção de cortes, condições de validade e a garantia de monotonicidade do conjunto somente de acréscimo (append-only)
 - [Determinismo e rastreabilidade](/math/determinism-guarantees) — Canonicalização, na leitura de volta, dos valores dos estados visitados sobre os limites admissíveis, e os mecanismos de reprodutibilidade (ordenação canônica dos blocos de estado, ordem de resolução fixada) em que ela se apoia
 - [Modelo de afluências PAR(p)](/math/par-inflow-model) — Modelo estocástico de afluências que gera a incerteza na simulação forward
+- [Folding do PAR(p)](/math/par-folding) — a afluência realizada como constante do lado direito e os coeficientes dos cortes nas defasagens de afluência pela regra da cadeia
 - [Formulação da taxa de desconto](/math/discount-rate) — Equação de Bellman com desconto, taxas dependentes do estágio, fator de desconto sobre θ
 - [Modos de horizonte](/math/horizon-modes) — O projeto-alvo reservado do grafo da política cíclico (função de período sazonal, inequação de convergência do ciclo, conjunto de cortes indexado por período sazonal, operador de Bellman de ponto fixo) que a restrição a horizonte finito em [Grafos da política](/math/policy-graphs) antecipa
 - [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) — a função terminal importada: conjunto de cortes de origem, condições de compatibilidade, estado propagado e reconciliação de calendário
 - [Avaliação do limite superior](/math/upper-bound-evaluation) — Métodos de estimativa do limite superior
 - [Critérios de parada](/math/stopping-rules) — Critérios de convergência que encerram o processo iterativo
 - [Medidas de risco](/math/risk-measures) — CVaR e extensões avessas ao risco da recursão de Bellman
-- [Sistema de penalidades](/math/penalty-system) — Folgas de recurso que garantem a viabilidade (recurso relativamente completo)
+- [Sistema de penalidades](/math/penalty-system) — Folgas de recurso e a precondição sob a qual elas mantêm viável todo PL de estágio (recurso relativamente completo)
 - [Formulações específicas por equipamento](/math/equipment-formulations) — Modelagem dos equipamentos térmicos
 - [Geração de cenários](/math/scenario-generation) — Árvore de aberturas fixa, abstração do esquema de amostragem, árvores de cenários enumeradas
 - **Executando o Novo Modelo:** [Executando estudos](/running/running-studies/) — o fluxo de trabalho do software que treina e executa este algoritmo.

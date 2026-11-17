@@ -133,7 +133,7 @@ if a row exists for it there.
   variable the constraint keeps is stage-level (`hydro_storage`,
   `hydro_storage_initial`, `hydro_storage_final`,
   `hydro_useful_volume_initial`, `hydro_useful_volume_final`,
-  `hydro_evaporation` or `anticipated_decision`) and no coefficient or bound
+  `hydro_evaporation`, `anticipated_decision` or a [stage volume](#stage-volumes)) and no coefficient or bound
   of the constraint resolves to a per-block value, this collapses to a
   **single** stage-level LP row rather than one row per block. A `per_hour`
   slack on that row is priced by the stage's total hours, and a `per_unit`
@@ -148,6 +148,10 @@ if a row exists for it there.
   does not hold the row per block.
   Full row-materialization derivation:
   [LP Formulation §10](/en/math/lp-formulation#10-generic-constraints).
+- **A constraint with a stage-volume term is one row per stage.** Each of its
+  bounds rows has `block_id = null`, a row with a `block_id` is refused, and the
+  constraint is always the single stage-level row above
+  ([Stage volumes](#stage-volumes)).
 
 ---
 
@@ -349,7 +353,7 @@ two constraints.
 
 ## Variable catalog
 
-An `expression` can name any of the 26 variables below. The reference
+An `expression` can name any of the 29 variables below. The reference
 grammar is `var_name(entity_id[, block_id][, bus=bus_id])` — an optional
 positional block argument, then an optional named `bus=` selector, in that
 order (`f(id)`, `f(id, block)`, `f(id, bus=b)`, `f(id, block, bus=b)` all
@@ -359,6 +363,9 @@ parse).
 | -------------------------------- | --------- | ------ | -------------------------------------------------------------------------- |
 | `hydro_storage(id)`              | No        | No     | Stage-level stock                                                        |
 | `hydro_withdrawal(id)`           | No        | No     | Stage-level                                                              |
+| `hydro_outflow_volume(id)`       | No        | No     | Stage volume in hm³ of the plant's turbined plus spilled flow ([stage volumes](#stage-volumes)) |
+| `hydro_diversion_volume(id)`     | No        | No     | Stage volume in hm³ of the plant's diverted flow ([stage volumes](#stage-volumes)) |
+| `pumping_volume(id)`             | No        | No     | Stage volume in hm³ of the station's pumped flow ([stage volumes](#stage-volumes)) |
 | `hydro_evaporation(id[, block])` | Yes       | No     | One stage-level quantity on a parallel stage, one per block on a chronological stage; some references are **rejected** on their block argument — see [block references](#hydro_evaporation-block-references) |
 | `hydro_inflow(id[, block])`      | Yes       | No     | The plant's inflow in the block ([`hydro_inflow`](#hydro_inflow)); a bound with no `block_id` expands to one row per block; a `hydro_inflow` term never collapses to a stage-level row, and a term with no block argument reads the block of its row |
 | `hydro_storage_initial(id[, block])` | Yes (boundary) | No | With a block `k`, the storage at the start of block `k`; with no block, the stage's initial storage |
@@ -480,6 +487,12 @@ total matches the water balance; the split across blocks is a convention. For a 
 water-balance row of its nearest downstream plant that is not PreFilling, so the
 term equals no row's own inflow.
 
+The local inflows are constants of each solve, computed before it from the PAR(p)
+model: a `hydro_inflow` term with coefficient `c` subtracts `c` times each local
+inflow it reads from every finite bound of its row, and the other terms of the
+list enter the row as columns
+([PAR(p) Folding §2](/en/math/par-folding#2-the-realized-inflow-outside-the-lp)).
+
 Definition: [LP Formulation — Hydro Inflow](/en/math/lp-formulation#hydro-inflow).
 
 ### `line_exchange(source_bus=, target_bus=)`
@@ -528,6 +541,64 @@ resolve -> term
 ```
 
 </div>
+
+### Stage volumes
+
+`hydro_outflow_volume(h)`, `hydro_diversion_volume(h)` and `pumping_volume(y)`
+each read a volume in hm³ over the whole stage: a flow in m³/s in each block,
+times the block's flow-to-volume conversion (0.0036 × the block's hours), summed
+over the stage's blocks. The flow is the plant's turbined plus spilled flow
+(the `hydro_outflow` sum, over every (hydro, bus) cell of the plant), the
+plant's diverted flow, or the station's pumped flow. A coefficient on one of
+these terms multiplies hm³.
+
+A constraint with a stage-volume term is one stage-level LP row at each stage
+where it is active, and none of its parts varies by block:
+
+- Every other term is a stage volume, `hydro_storage`, or a
+  `hydro_storage_initial`, `hydro_storage_final`, `hydro_useful_volume_initial`
+  or `hydro_useful_volume_final` term without a block argument. Any other
+  variable beside a stage volume is refused, whether the expression writes it
+  or a named expression brings it in.
+- No coefficient or bound reads a `per_stage_block` parameter, directly or
+  through `expression` parameters.
+- Every row of the constraint in `generic_constraint_bounds.parquet` has a null
+  `block_id`.
+
+Each refusal is a
+[`BusinessRuleViolation`](/en/reference/error-codes/#stage-volume-generic-constraints).
+The row's quantity is an amount in hm³, so [Penalty basis](#penalty-basis) gives
+`per_unit` for its slack.
+
+For example, a cap on the volume hydro `0` releases and diverts over each stage:
+
+```json title="constraints/generic_constraints.json" gc-check="accept"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "release_cap",
+      "expression": "hydro_outflow_volume(0) + hydro_diversion_volume(0) <= 5000",
+      "slack": { "enabled": true, "penalty": 10.0, "penalty_basis": "per_unit" }
+    }
+  ]
+}
+```
+
+A flow beside a stage volume is refused:
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "release_vs_flow",
+      "expression": "hydro_outflow_volume(0) - hydro_turbined(1) <= 0",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
 
 ---
 
@@ -944,7 +1015,7 @@ The row is an amount, a stored energy, so its slack is priced `per_unit`: the
 penalty is a price per unit of missed stored energy on every stage, whatever
 its length.
 
-{/* capture: novomodelo run case --output out --quiet | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (ticket-179 overlay + the security-curve fences; constraints/generic_constraint_bounds.parquet rows for constraint 1, stages 0-3, both bounds null; config.json training stopped at 3 iterations, simulation disabled; run with NO_COLOR=1, exit code 0) */}
+{/* capture: novomodelo run case --output out --quiet | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (ticket-179 overlay + the security-curve fences; constraints/generic_constraint_bounds.parquet rows for constraint 1, stages 0-3, both bounds null; config.json training stopped at 3 iterations, simulation disabled; run with NO_COLOR=1, exit code 0) */}
 
 **What the echo shows.** On a plant with `reservoir.min_storage_hm3 = 100`,
 `reservoir.max_storage_hm3 = 1000`, `specific_productivity_mw_per_m3s_per_m = 0.0088`
@@ -1003,7 +1074,7 @@ brackets, as in `error: [SchemaViolation] …`.
 | An unknown variable name, including a catalog name written in another case (`Hydro_generation(0)`) | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
 | An `@name` declared as neither a scalar parameter nor a named expression, a product of two LP-variable terms or a division by one, a constant built from numbers that divides by zero or is not finite, nesting deeper than 256 levels, or any construct under [Not supported](#not-supported) | [`SchemaViolation`](/en/reference/error-codes/#generic-constraint-expression-rejected) |
 | A named-expression body with a relational operator, or one that reads no LP variable | [`SchemaViolation`](/en/reference/error-codes/#generic-constraint-expression-rejected) |
-| `bus=` on a variable other than `hydro_turbined` and `hydro_generation`, or a block argument on `hydro_storage`, `hydro_withdrawal` or `anticipated_decision`, or a second positional block argument (`hydro_turbined(5, 0, 1)`) | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
+| `bus=` on a variable other than `hydro_turbined` and `hydro_generation`, or a block argument on `hydro_storage`, `hydro_withdrawal`, a [stage volume](#stage-volumes) or `anticipated_decision`, or a second positional block argument (`hydro_turbined(5, 0, 1)`) | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
 | A duplicate constraint `id`, or a duplicate parameter `id` or `name` | [`SchemaViolation`](/en/reference/error-codes/#schemaviolation) |
 | A name declared both as a scalar parameter and as a named expression | [`SchemaViolation`](/en/reference/error-codes/#namespace-collision-between-a-scalar-parameter-and-a-named-expression) |
 | A reference cycle among named expressions, a self-reference included | [`SchemaViolation`](/en/reference/error-codes/#named-expression-reference-cycle) |
@@ -1023,6 +1094,9 @@ brackets, as in `error: [SchemaViolation] …`.
 | A bounds row with neither endpoint, and no affine remainder to fill one      | [`InvalidValue`](/en/reference/error-codes/#invalidvalue) |
 | Inverted interval (`bound_upper < bound_lower`, both statically resolvable)  | [`InvalidValue`](/en/reference/error-codes/#invalidvalue) |
 | A bounds row whose `block_id` is not a block of its stage | [`BusinessRuleViolation`](/en/reference/error-codes/#businessruleviolation) |
+| Beside a [stage-volume](#stage-volumes) term, a term that is not a stage volume, `hydro_storage`, or a `hydro_storage_*` or `hydro_useful_volume_*` term without a block argument | [`BusinessRuleViolation`](/en/reference/error-codes/#stage-volume-generic-constraints) |
+| A `per_stage_block` parameter that a coefficient or bound of a constraint with a stage-volume term reads, directly or through `expression` parameters | [`BusinessRuleViolation`](/en/reference/error-codes/#stage-volume-generic-constraints) |
+| A bounds row with a `block_id` for a constraint with a stage-volume term | [`BusinessRuleViolation`](/en/reference/error-codes/#stage-volume-generic-constraints) |
 | An evaporation or storage reference naming a block that its stage does not have ([block references](#hydro_evaporation-block-references)) | [`BusinessRuleViolation`](/en/reference/error-codes/#per-block-generic-constraint-references) |
 | The same bound column (`bound_lower` or `bound_upper`) set twice for one `(constraint_id, stage_id, block_id)` — a `bound_lower` row and a `bound_upper` row for the same triple are distinct keys and legal | [`DuplicateId`](/en/reference/error-codes/#duplicateid) |
 | A `contract_import` or `contract_export` term naming no declared contract | [`UnusedEntity`](/en/reference/error-codes/#unusedentity) — warning, the case still validates |

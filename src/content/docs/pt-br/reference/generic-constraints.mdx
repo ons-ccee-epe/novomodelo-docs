@@ -133,7 +133,7 @@ se, existir uma linha para ela ali.
   variáveis que a restrição mantém são do nível do estágio (`hydro_storage`,
   `hydro_storage_initial`, `hydro_storage_final`,
   `hydro_useful_volume_initial`, `hydro_useful_volume_final`,
-  `hydro_evaporation` ou `anticipated_decision`) e nenhum coeficiente ou limite
+  `hydro_evaporation`, `anticipated_decision` ou um [volume do estágio](#volumes-do-estagio)) e nenhum coeficiente ou limite
   da restrição resolve para um valor por patamar, isso se reduz a uma
   **única** linha do PL no nível do estágio, em vez de uma linha por patamar. Uma folga `per_hour`
   nessa linha é valorada pelo total de horas do estágio, e uma folga `per_unit`
@@ -148,6 +148,10 @@ se, existir uma linha para ela ali.
   não mantém a linha por patamar.
   Derivação completa da materialização das linhas:
   [Formulação do PL §10](/math/lp-formulation#10-restricoes-genericas).
+- **Uma restrição com um termo de volume do estágio é uma linha por estágio.** Cada
+  uma de suas linhas de limites tem `block_id = null`, uma linha com `block_id` é
+  recusada, e a restrição é sempre a única linha no nível do estágio acima
+  ([Volumes do estágio](#volumes-do-estagio)).
 
 ---
 
@@ -349,7 +353,7 @@ duas restrições.
 
 ## Catálogo de variáveis
 
-Uma `expression` pode referenciar qualquer uma das 26 variáveis abaixo. A gramática
+Uma `expression` pode referenciar qualquer uma das 29 variáveis abaixo. A gramática
 de referência é `var_name(entity_id[, block_id][, bus=bus_id])` — um argumento
 posicional opcional de patamar e, em seguida, um seletor nomeado opcional `bus=`, nessa
 ordem (`f(id)`, `f(id, block)`, `f(id, bus=b)` e `f(id, block, bus=b)` são todos
@@ -359,6 +363,9 @@ válidos).
 | -------------------------------- | --------- | ------ | -------------------------------------------------------------------------- |
 | `hydro_storage(id)`              | Não        | Não     | Estoque no nível do estágio                                                        |
 | `hydro_withdrawal(id)`           | Não        | Não     | Nível do estágio                                                              |
+| `hydro_outflow_volume(id)`       | Não        | Não     | Volume do estágio, em hm³, da vazão turbinada mais a vertida da usina ([volumes do estágio](#volumes-do-estagio)) |
+| `hydro_diversion_volume(id)`     | Não        | Não     | Volume do estágio, em hm³, da vazão desviada da usina ([volumes do estágio](#volumes-do-estagio)) |
+| `pumping_volume(id)`             | Não        | Não     | Volume do estágio, em hm³, da vazão bombeada da usina elevatória ([volumes do estágio](#volumes-do-estagio)) |
 | `hydro_evaporation(id[, block])` | Sim       | Não     | Uma grandeza no nível do estágio em um estágio paralelo, uma por patamar em um estágio cronológico; algumas referências são **rejeitadas** por causa do argumento de patamar — ver [referências de patamar](#referencias-de-patamar-em-hydro_evaporation) |
 | `hydro_inflow(id[, block])`      | Sim       | Não     | A afluência da usina no patamar ([`hydro_inflow`](#hydro_inflow)); um limite sem `block_id` se expande em uma linha por patamar; um termo `hydro_inflow` nunca se reduz a uma linha no nível do estágio, e um termo sem argumento de patamar lê o patamar da sua linha |
 | `hydro_storage_initial(id[, block])` | Sim (fronteira) | Não | Com um patamar `k`, o armazenamento no início do patamar `k`; sem patamar, o armazenamento inicial do estágio |
@@ -480,6 +487,12 @@ do estágio ponderado pela duração corresponde ao balanço hídrico; a divisã
 linha de balanço hídrico da usina a jusante mais próxima que não esteja em pré-enchimento; assim, o
 termo não é igual à afluência própria de nenhuma linha.
 
+As afluências locais são constantes de cada resolução, calculadas antes dela pelo
+modelo PAR(p): um termo `hydro_inflow` com coeficiente `c` subtrai `c` vezes cada
+afluência local que lê de todo limite finito da sua linha, e os demais termos da
+lista entram na linha como colunas
+([Folding do PAR(p) §2](/math/par-folding#2-a-afluencia-realizada-fora-do-pl)).
+
 Definição: [Formulação do PL — Afluência da UHE](/math/lp-formulation#afluencia-das-usinas-hidreletricas).
 
 ### `line_exchange(source_bus=, target_bus=)`
@@ -528,6 +541,66 @@ resolve -> term
 ```
 
 </div>
+
+### Volumes do estágio
+
+`hydro_outflow_volume(h)`, `hydro_diversion_volume(h)` e `pumping_volume(y)`
+leem, cada um, um volume em hm³ no estágio inteiro: uma vazão em m³/s em cada
+patamar, multiplicada pela conversão de vazão em volume do patamar (0,0036 × as
+horas do patamar) e somada sobre os patamares do estágio. A vazão é a vazão
+turbinada mais a vertida da usina (a soma de `hydro_outflow`, sobre todas as
+células (usina, barramento) da usina), a vazão desviada da usina ou a vazão
+bombeada da usina elevatória. Um coeficiente sobre um desses termos multiplica
+hm³.
+
+Uma restrição com um termo de volume do estágio é uma única linha do PL no nível
+do estágio em cada estágio em que está ativa, e nenhuma de suas partes varia por
+patamar:
+
+- Todo outro termo é um volume do estágio, `hydro_storage`, ou um termo
+  `hydro_storage_initial`, `hydro_storage_final`, `hydro_useful_volume_initial`
+  ou `hydro_useful_volume_final` sem argumento de patamar. Qualquer outra
+  variável ao lado de um volume do estágio é recusada, esteja ela escrita na
+  expressão ou trazida por uma expressão nomeada.
+- Nenhum coeficiente ou limite lê um parâmetro `per_stage_block`, diretamente
+  ou por meio de parâmetros `expression`.
+- Toda linha da restrição em `generic_constraint_bounds.parquet` tem `block_id`
+  nulo.
+
+Cada recusa é um
+[`BusinessRuleViolation`](/reference/error-codes/#restricoes-genericas-com-volume-do-estagio).
+A grandeza da linha é uma quantidade em hm³; por isso, a
+[Base de penalização](#base-de-penalizacao) indica `per_unit` para a sua folga.
+
+Por exemplo, um teto para o volume que a hidrelétrica `0` deflui e desvia em cada estágio:
+
+```json title="constraints/generic_constraints.json" gc-check="accept"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "release_cap",
+      "expression": "hydro_outflow_volume(0) + hydro_diversion_volume(0) <= 5000",
+      "slack": { "enabled": true, "penalty": 10.0, "penalty_basis": "per_unit" }
+    }
+  ]
+}
+```
+
+Uma vazão ao lado de um volume do estágio é recusada:
+
+```json title="constraints/generic_constraints.json" gc-check="reject"
+{
+  "constraints": [
+    {
+      "id": 1,
+      "name": "release_vs_flow",
+      "expression": "hydro_outflow_volume(0) - hydro_turbined(1) <= 0",
+      "slack": { "enabled": false }
+    }
+  ]
+}
+```
 
 ---
 
@@ -944,7 +1017,7 @@ A linha é uma quantidade, uma energia armazenada; por isso, sua folga é valora
 penalidade é um preço por unidade de energia armazenada não atendida em cada estágio, qualquer que seja
 sua duração.
 
-{/* capture: novomodelo run case --output out --quiet | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (ticket-179 overlay + the security-curve fences; constraints/generic_constraint_bounds.parquet rows for constraint 1, stages 0-3, both bounds null; config.json training stopped at 3 iterations, simulation disabled; run with NO_COLOR=1, exit code 0) */}
+{/* capture: novomodelo run case --output out --quiet | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (ticket-179 overlay + the security-curve fences; constraints/generic_constraint_bounds.parquet rows for constraint 1, stages 0-3, both bounds null; config.json training stopped at 3 iterations, simulation disabled; run with NO_COLOR=1, exit code 0) */}
 
 **O que o eco mostra.** Em uma usina com `reservoir.min_storage_hm3 = 100`,
 `reservoir.max_storage_hm3 = 1000`, `specific_productivity_mw_per_m3s_per_m = 0.0088`
@@ -1003,7 +1076,7 @@ colchetes, como em `error: [SchemaViolation] …`.
 | Um nome de variável desconhecido, incluindo um nome do catálogo escrito com outra grafia de maiúsculas/minúsculas (`Hydro_generation(0)`) | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
 | Um `@name` declarado nem como parâmetro escalar nem como expressão nomeada, o produto de dois termos de variáveis do PL ou a divisão por um deles, uma constante formada por números que divida por zero ou não seja finita, aninhamento com mais de 256 níveis ou qualquer construção listada em [Não suportado](#nao-suportado) | [`SchemaViolation`](/reference/error-codes/#expressao-de-restricao-generica-rejeitada) |
 | Um corpo de expressão nomeada com operador relacional, ou que não leia nenhuma variável do PL | [`SchemaViolation`](/reference/error-codes/#expressao-de-restricao-generica-rejeitada) |
-| `bus=` em uma variável diferente de `hydro_turbined` e `hydro_generation`, um argumento de patamar em `hydro_storage`, `hydro_withdrawal` ou `anticipated_decision`, ou um segundo argumento posicional de patamar (`hydro_turbined(5, 0, 1)`) | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
+| `bus=` em uma variável diferente de `hydro_turbined` e `hydro_generation`, um argumento de patamar em `hydro_storage`, `hydro_withdrawal`, um [volume do estágio](#volumes-do-estagio) ou `anticipated_decision`, ou um segundo argumento posicional de patamar (`hydro_turbined(5, 0, 1)`) | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
 | Um `id` de restrição duplicado, ou um `id` ou `name` de parâmetro duplicado | [`SchemaViolation`](/reference/error-codes/#schemaviolation) |
 | Um nome declarado tanto como parâmetro escalar quanto como expressão nomeada | [`SchemaViolation`](/reference/error-codes/#colisao-de-namespace-entre-um-parametro-escalar-e-uma-expressao-nomeada) |
 | Um ciclo de referências entre expressões nomeadas, incluindo autorreferência | [`SchemaViolation`](/reference/error-codes/#ciclo-de-referencias-entre-expressoes-nomeadas) |
@@ -1023,6 +1096,9 @@ colchetes, como em `error: [SchemaViolation] …`.
 | Uma linha de limites sem nenhum dos extremos e sem resto afim que preencha algum      | [`InvalidValue`](/reference/error-codes/#invalidvalue) |
 | Intervalo invertido (`bound_upper < bound_lower`, ambos estaticamente resolvíveis)  | [`InvalidValue`](/reference/error-codes/#invalidvalue) |
 | Uma linha de limites cujo `block_id` não é um patamar do seu estágio | [`BusinessRuleViolation`](/reference/error-codes/#businessruleviolation) |
+| Ao lado de um termo de [volume do estágio](#volumes-do-estagio), um termo que não é um volume do estágio, `hydro_storage`, nem um termo `hydro_storage_*` ou `hydro_useful_volume_*` sem argumento de patamar | [`BusinessRuleViolation`](/reference/error-codes/#restricoes-genericas-com-volume-do-estagio) |
+| Um parâmetro `per_stage_block` lido, diretamente ou por meio de parâmetros `expression`, por um coeficiente ou limite de uma restrição com um termo de volume do estágio | [`BusinessRuleViolation`](/reference/error-codes/#restricoes-genericas-com-volume-do-estagio) |
+| Uma linha de limites com `block_id` em uma restrição com um termo de volume do estágio | [`BusinessRuleViolation`](/reference/error-codes/#restricoes-genericas-com-volume-do-estagio) |
 | Uma referência de evaporação ou de armazenamento indicando um patamar que o estágio não tem ([referências de patamar](#referencias-de-patamar-em-hydro_evaporation)) | [`BusinessRuleViolation`](/reference/error-codes/#referencias-por-patamar-de-restricao-generica) |
 | A mesma coluna de limite (`bound_lower` ou `bound_upper`) definida duas vezes para um mesmo `(constraint_id, stage_id, block_id)` — uma linha `bound_lower` e uma linha `bound_upper` para a mesma tripla são chaves distintas e válidas | [`DuplicateId`](/reference/error-codes/#duplicateid) |
 | Um termo `contract_import` ou `contract_export` que não indica nenhum contrato declarado | [`UnusedEntity`](/reference/error-codes/#unusedentity) — aviso; o caso continua válido |

@@ -170,8 +170,13 @@ não modela não tem onde se apoiar e é **descartada** — contabilizada, por
 família, no resumo de reconciliação descrito abaixo, em vez de ser descartada silenciosamente —
 e a carga ainda assim é bem-sucedida **por padrão**. No sentido inverso, uma coordenada de armazenamento
 ou de defasagem AR do estudo atual que a origem não precifica
-faz a carga ser recusada (§5.2), e somente uma posição do anel de despacho antecipado ou uma parcela de água em trânsito
-sem intervalo de origem sobreposto recebe coeficiente nulo. Existe uma admissão mais
+faz a carga ser recusada (§5.2). Uma posição do anel de despacho antecipado sem intervalo de origem
+sobreposto recebe coeficiente nulo. Uma parcela de água em trânsito ativa cuja usina receptora não
+tem água em trânsito precificada pela origem recebe, em vez disso, o coeficiente de armazenamento da
+receptora, do mesmo corte e sem desconto, qualquer que seja o estado operativo da receptora. Essa é
+uma aproximação da fronteira: ela ignora o atraso de chegada. A parcela permanece nula quando a
+origem não precifica o armazenamento da receptora e quando a origem tem parcelas para essa usina em
+outras datas. Existe uma admissão mais
 estrita que, em vez disso, **rejeita** uma origem que seja um superconjunto — que
 precifica estado que o estudo atual não modela — em vez de descartá-lo e
 relatá-lo; veja
@@ -185,10 +190,10 @@ antecipados, quantas coordenadas de destino foram copiadas de forma idêntica de
 da origem associada pela identidade da entidade, quantas foram resolvidas pela distribuição
 datada (uma janela dentro de um único mês da origem conta aqui, como uma combinação de um
 só termo, e as renormalizadas por avançarem sobre um trecho que a origem nunca
-precificou também são contadas separadamente como transpassantes), quantas não tinham
-informação correspondente na origem e receberam coeficiente nulo, em vez de um
-valor estimado, e quantas coordenadas da origem o estudo atual não
-modela e descartou. Para armazenamento e defasagens de afluência, as contagens de distribuídas e de nulas
+precificou também são contadas separadamente como transpassantes), quantas parcelas de
+água em trânsito foram preenchidas com o coeficiente de armazenamento da usina receptora, quantas
+não tinham informação correspondente na origem e receberam coeficiente nulo, e quantas coordenadas
+da origem o estudo atual não modela e descartou. Para armazenamento e defasagens de afluência, as contagens de distribuídas e de nulas
 são sempre zero em uma carga bem-sucedida, pois uma coordenada não precificada de
 qualquer dessas famílias faz a carga ser recusada (§5.2). O
 resumo é um diagnóstico de carga, não uma variável de estado — existe para que uma

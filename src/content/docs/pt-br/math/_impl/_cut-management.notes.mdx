@@ -4,11 +4,19 @@ para as deduções, em vez de reproduzi-las.
 
 ### A remoção do escalonamento do custo reduzido divide pela escala da coluna
 
-A §2 da metodologia deduz cada coeficiente do corte a partir do custo reduzido de uma
-coluna de estado de entrada fixada, sem o escalonamento dado pelo fator de pré-escalonamento
-dessa coluna. Em termos de código, a remoção do escalonamento é uma **divisão**:
+A §2 da metodologia deduz cada coeficiente do corte no armazenamento, nas parcelas de água
+em trânsito e nas posições do anel a partir do custo reduzido de uma coluna de estado de
+entrada fixada, sem o escalonamento dado pelo fator de pré-escalonamento dessa coluna. Em
+termos de código, a remoção do escalonamento é uma **divisão**:
 `coefficient = reduced_cost / col_scale[col]` (`col_scale` vazio ⇒ o custo reduzido
 bruto, sem escalonamento).
+
+Os coeficientes das defasagens de afluência não têm coluna. A regra da cadeia
+([Folding do PAR(p) §4](/math/par-folding#4-os-coeficientes-das-defasagens-pela-regra-da-cadeia))
+lê o dual de cada linha que lê a afluência realizada sem o escalonamento por meio de uma
+**multiplicação**, `dual_raw = row_scale[row] * dual` (`row_scale` vazio ⇒ o dual
+bruto), de modo que os coeficientes das defasagens que ela forma não precisam de outra
+remoção de escalonamento.
 
 ### Projeção dos cortes apenas no armazenamento
 
