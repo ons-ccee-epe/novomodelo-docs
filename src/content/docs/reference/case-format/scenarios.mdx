@@ -3,7 +3,7 @@ title: Scenario Files
 description: The input files in scenarios/ — the inflow history and PAR(p) model inputs, the external scenario libraries, the load and non-controllable-source statistics and factors, the noise correlation, and the user-supplied opening tree.
 ---
 
-The `scenarios/` directory holds the stochastic inputs of a case: the inflow history and the inputs of the PAR(p) inflow model, the external scenario libraries, the load and non-controllable-source statistics and factors, the noise correlation, and the user-supplied noise openings. The Parquet column types, the compression rule and the `$schema` key are described under [Conventions](/en/reference/case-format/#conventions).
+The `scenarios/` directory holds the stochastic inputs of a case: the inflow history and the inputs of the PAR(p) inflow model, the external scenario libraries, the load and non-controllable-source statistics and factors, the noise correlation, and the user-supplied noise openings. The Parquet column names and types, the compression rule and the `$schema` key are described under [Conventions](/en/reference/case-format/#conventions).
 
 ---
 
@@ -21,6 +21,10 @@ point-in-time reading: `[start_date, end_date)` bounds the period and
 | `start_date` | Date32  | Yes      | —       | —     | Window start, inclusive                   |
 | `end_date`   | Date32  | Yes      | —       | —     | Window end, exclusive; after `start_date` |
 | `value_m3s`  | Float64 | Yes      | —       | m³/s  | Mean inflow over the window (m³/s)        |
+
+A `date` column is refused at load with an instruction to write the windows
+as `start_date` and `end_date` in its place
+([Unknown Parquet column](/en/reference/error-codes/#unknown-parquet-column)).
 
 Rows may appear in any order. For a given `hydro_id`, windows must not overlap;
 adjacent windows (`start_date == previous end_date`)
@@ -89,9 +93,9 @@ coefficients below via the periodic-ACF closure — see
 | `lag`         | Int32   | Yes      | —       | —     | Lag index (1-based)                         |
 | `coefficient` | Float64 | Yes      | —       | —     | AR coefficient for this (hydro, stage, lag) |
 
-Columns beyond this schema are ignored — a file carrying an extra column (for
-example a stored innovation-scale ratio produced by another tool) loads with
-that column ignored outright; the derived value always wins.
+A `residual_std_ratio` column is refused at load with an instruction to remove
+it, because the innovation scale is derived from the coefficients
+([Unknown Parquet column](/en/reference/error-codes/#unknown-parquet-column)).
 
 ---
 

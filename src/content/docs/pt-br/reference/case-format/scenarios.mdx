@@ -3,7 +3,7 @@ title: "Arquivos de cenários"
 description: Os arquivos de entrada em scenarios/ — o histórico de vazões e as entradas do modelo PAR(p), as bibliotecas de cenários externos, as estatísticas e os fatores de carga e de fontes não despacháveis, a correlação dos ruídos e a árvore de aberturas fornecida pelo usuário.
 ---
 
-O diretório `scenarios/` contém as entradas estocásticas de um caso: o histórico de vazões e as entradas do modelo de afluências PAR(p), as bibliotecas de cenários externos, as estatísticas e os fatores de carga e de fontes não despacháveis, a correlação dos ruídos e as aberturas de ruído fornecidas pelo usuário. Os tipos de coluna Parquet, a regra de compressão e a chave `$schema` estão descritos em [Convenções](/reference/case-format/#convencoes).
+O diretório `scenarios/` contém as entradas estocásticas de um caso: o histórico de vazões e as entradas do modelo de afluências PAR(p), as bibliotecas de cenários externos, as estatísticas e os fatores de carga e de fontes não despacháveis, a correlação dos ruídos e as aberturas de ruído fornecidas pelo usuário. Os nomes e tipos das colunas Parquet, a regra de compressão e a chave `$schema` estão descritos em [Convenções](/reference/case-format/#convencoes).
 
 ---
 
@@ -21,6 +21,10 @@ janela, e não uma leitura pontual: `[start_date, end_date)` delimita o período
 | `start_date` | Date32  | Sim         | —      | —       | Início da janela, inclusivo                   |
 | `end_date`   | Date32  | Sim         | —      | —       | Fim da janela, exclusivo; posterior a `start_date` |
 | `value_m3s`  | Float64 | Sim         | —      | m³/s    | Vazão média na janela (m³/s)                  |
+
+Uma coluna `date` é recusada na carga com a instrução de gravar as janelas
+como `start_date` e `end_date` em seu lugar
+([Coluna Parquet desconhecida](/reference/error-codes/#coluna-parquet-desconhecida)).
 
 As linhas podem aparecer em qualquer ordem. Para um dado `hydro_id`, as janelas não
 podem se sobrepor; janelas adjacentes (`start_date == previous end_date`)
@@ -90,9 +94,9 @@ coeficientes abaixo, pelo fechamento da ACF periódica — veja
 | `lag`         | Int32   | Sim         | —      | —       | Índice da defasagem (a partir de 1)                |
 | `coefficient` | Float64 | Sim         | —      | —       | Coeficiente AR para este (usina, estágio, defasagem) |
 
-Colunas além deste esquema são ignoradas — um arquivo com uma coluna adicional (por
-exemplo, uma razão de escala do ruído armazenada, produzida por outra ferramenta) é
-carregado com essa coluna simplesmente ignorada; o valor derivado sempre prevalece.
+Uma coluna `residual_std_ratio` é recusada na carga com a instrução de removê-la,
+porque a escala do ruído é derivada dos coeficientes
+([Coluna Parquet desconhecida](/reference/error-codes/#coluna-parquet-desconhecida)).
 
 ---
 
