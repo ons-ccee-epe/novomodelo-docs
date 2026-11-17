@@ -1,42 +1,20 @@
-/* Novomodelo accent, links and asides for Starlight — the hotsite's sea green
-   (docs/design/design-system.md). Every value comes from tokens.css.
+/* Accent, links and asides for Starlight, from tokens.css (design-system.md).
+   Starlight inverts its accent ramp in light: there the base is accent text and the
+   focus ring, so it must be --color-accent, never #86b7b3 (2.23:1 on white). */
 
-   This file overrides Starlight's documented accent ramp (`--sl-color-accent*`:
-   sidebar-active pill, focus rings, hover, buttons), the prose-link rule and the
-   aside hue families. The neutral scale is neutrals.css and the chart palette
-   palette.css: separate concerns.
-
-   Starlight's ramp has three stops. In the dark scope (the default `:root`):
-   low = pressed / text-invert on the pill, base = focus and UI, high = accent
-   text and the pill. In the light scope it is inverted: high = darkest, base =
-   accent text and the pill, low = lightest background. */
-
-/* Dark (default scope), design-system.md §11. Sea green is both the accent
-   text and the pill; the pill text is the on-primary ink.
-     accent text (--color-dark-accent) on --color-dark-bg       7.48:1
-     pill text (--color-on-primary) on the sea-green pill       7.53:1 */
 :root {
   --sl-color-accent-low: var(--color-on-primary);
   --sl-color-accent: var(--color-dark-accent);
   --sl-color-accent-high: var(--color-dark-accent);
 }
 
-/* Light, design-system.md §2.3. The base is --color-accent #2F6C67, not the
-   #86B7B3 fill colour, because Starlight uses the base as text and as the
-   focus ring, and #86B7B3 is 2.23:1 on white (rules 2 and 5).
-     accent (--color-accent) as text on white                   6.07:1
-     active-pill text (white page bg) on the accent pill        6.07:1 */
 :root[data-theme="light"] {
   --sl-color-accent-high: var(--color-on-primary);
   --sl-color-accent: var(--color-accent);
   --sl-color-accent-low: var(--color-primary-soft);
 }
 
-/* Prose links follow the hotsite (design-system.md §9, D6): a 1 px underline
-   offset 3 px, thickening to 2 px on hover. The rule is unlayered (customCss),
-   so it wins over Starlight's `@layer` rule; the selector mirrors Starlight's.
-     dark  --color-dark-accent on --color-dark-bg   7.48:1 (hover 8.85:1)
-     light --color-accent on white                  6.07:1 */
+/* Prose links (D6) */
 :root {
   --novomodelo-link: var(--color-dark-accent);
   --novomodelo-link-hover: var(--color-dark-accent-hover);
@@ -56,26 +34,8 @@
   text-decoration-thickness: 2px;
 }
 
-/* === Asides (design-system.md §9, D5) ==========================================
-   In the hotsite's tone: every aside takes the shape of the hotsite's
-   .notice (neutral ground, 1 px border, 3 px bar at the start, 12 px radius)
-   and only two grounds exist, as on the hotsite:
-     note, tip = .notice--plan: neutral ground, sea-green bar, accent title;
-     caution   = .notice--alert: the amber ground, border, bar and title;
-     danger    = .notice--plan's neutral ground with the deficit bar and title,
-                 the one place the hotsite shape carries red.
-   The hue families below still feed Starlight's other uses (badges, the
-   blue family as the hydro hue).
-
-   Contrast (WCAG AA), title on the aside ground:
-             light                                  dark
-     note    #2F6C67 on #F3F5F5   5.54              #86B7B3 on #23292C   6.62
-     tip     #2F6C67 on #F3F5F5   5.54              #86B7B3 on #23292C   6.62
-     caution #8A6418 on #FBF7EF   5.02              #E3C27A on #2E2618   8.72
-     danger  #7E2824 on #F3F5F5   8.66              #F09A92 on #23292C   6.84
-   Body text on each ground: light >= 14.21:1, dark >= 13.44:1. */
-
-/* Dark (default scope) */
+/* Asides (D5): the hotsite .notice shape. The hue families also feed Starlight's badges. */
+/* Dark is Starlight's default scope */
 :root {
   --sl-color-blue-low: var(--color-dark-el-hydro-soft);
   --sl-color-blue: var(--color-el-hydro);
@@ -97,7 +57,6 @@
   --novomodelo-aside-text: var(--color-dark-heading);
 }
 
-/* Light */
 :root[data-theme="light"] {
   --sl-color-blue-low: var(--color-el-hydro-soft);
   --sl-color-blue: var(--color-el-hydro);
@@ -119,7 +78,6 @@
   --novomodelo-aside-text: var(--color-text);
 }
 
-/* The hotsite's .notice shape, for every aside */
 .sl-markdown-content .starlight-aside {
   padding: 1.125rem 1.25rem;
   border: 1px solid var(--novomodelo-aside-border);
@@ -128,20 +86,17 @@
   color: var(--novomodelo-aside-text);
 }
 
-/* note and tip = .notice--plan */
 .sl-markdown-content :is(.starlight-aside--note, .starlight-aside--tip) {
   --sl-color-asides-text-accent: var(--novomodelo-note-title);
   --sl-color-asides-border: var(--color-primary);
   background-color: var(--novomodelo-note-bg);
 }
 
-/* caution = .notice--alert (the orange family above) */
 .sl-markdown-content .starlight-aside--caution {
   border-color: var(--novomodelo-caution-border);
   border-inline-start-color: var(--sl-color-asides-border);
 }
 
-/* danger = .notice--plan's ground with the deficit bar and title */
 .sl-markdown-content .starlight-aside--danger {
   --sl-color-asides-text-accent: var(--novomodelo-danger-title);
   --sl-color-asides-border: var(--color-el-deficit);

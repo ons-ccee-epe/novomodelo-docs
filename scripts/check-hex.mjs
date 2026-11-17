@@ -1,33 +1,9 @@
-// Hex-colour gate (docs/design/design-system.md §2 and §10).
-//
-// The design system keeps every colour of the docs site in one file,
-// src/styles/tokens.css. This gate fails when a hex colour appears anywhere
-// else in the styles, the components or the pages, so a new colour has to go
-// through the tokens (and the design-system document) first.
-//
-// What is read, and what counts as a hex colour:
-//   src/styles/**/*.css, src/components/**/*.{css,astro,ts}
-//       every `#rgb`, `#rrggbb` or `#rrggbbaa` outside comments
-//       (`/* */`, `//`, `<!-- -->`). tokens.css is the one file exempt.
-//   src/content/docs/**/*.{md,mdx}
-//       inside a ```d2 fence: every hex, which must be one of the four element
-//       hues of design-system.md §10 (D2_ELEMENT_HUES);
-//       outside fences: a hex in a colour position only (after a quote, `=`,
-//       or `:`), so heading anchors such as `/#23a-sampling` are not colours.
-//
-// It also compares the tokens with the hotsite (D7): a custom property that
-// both src/styles/tokens.css and hotsite/style.css declare on :root must hold
-// the same value, so a new designer version of the hotsite that changes a
-// token fails here until tokens.css follows it.
-//
-// An exception, if one is ever needed, goes in scripts/hex-allow.txt (absent
-// today), one `path<TAB>hex<TAB>reason` per line. A stale exception (no longer
-// found) is reported too, so the file shrinks with the code.
-//
-// Exports `findHexes(text, path)`, `checkFiles(files, allow)` and
-// `parseAllow(text)` behind a direct-run guard.
-//
-// Run any time (reads sources, no build needed):
+// check:hex (docs/design/design-system.md §2, §10). Fails on a hex colour outside
+// src/styles/tokens.css in the styles, components and pages (comments ignored); in d2
+// fences only the four element hues pass; in prose only a hex after `"`, `'`, `=` or `:`
+// counts, so anchors like `/#23a-sampling` do not. Also fails when a token both
+// tokens.css and hotsite/style.css declare holds different values (D7).
+// Exceptions: scripts/hex-allow.txt, `path<TAB>hex<TAB>reason`; stale ones are reported.
 //   node scripts/check-hex.mjs [--root <dir>]
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
