@@ -485,9 +485,6 @@ export default defineConfig({
       // pt-br) is untouched — the two coexist in the header.
       components: {
         SocialIcons: "./src/components/VersionPicker.astro",
-        // SiteTitle override: the hotsite's wordmark and institutional logos on
-        // the graphite header (docs/design/design-system.md §9, D4).
-        SiteTitle: "./src/components/SiteTitle.astro",
         // Footer override (E10 ticket-031): appends third-party notices link;
         // ticket-034 extended this same component with the content-license line.
         Footer: "./src/components/Footer.astro",
@@ -497,11 +494,13 @@ export default defineConfig({
       // currentColor/var() inline SVG. The astro-d2 KEYSTONE in diagrams.css uses
       // HARDCODED d2-palette hex (NOT --dgm vars), so the two files are independent
       // and the order between them is arbitrary (corrected per E2 review,
-      // 2026-06-24). neutrals.css + brand.css (ticket-011b) override Starlight's
-      // own --sl-color-* tokens onto the BRAND palette: neutrals.css owns the warm
-      // greyscale (--sl-color-{black,gray-1..7,white}); brand.css owns the COPPER
-      // accent triple (--sl-color-accent*), the FLOW-BLUE prose-link rule, and the
-      // semantic aside hue families (note=blue/tip=patina/caution=amber/danger=red).
+      // 2026-06-24). neutrals.css + brand.css override Starlight's own
+      // --sl-color-* tokens onto the design-system tokens (tokens.css,
+      // docs/design/design-system.md): neutrals.css owns the greyscale
+      // (--sl-color-{black,gray-1..7,white}); brand.css owns the sea-green accent
+      // triple (--sl-color-accent*), the prose-link rule and the asides. The
+      // header follows the theme through these tokens (light in light, graphite
+      // in dark).
       // Both are a SEPARATE concern from palette.css (--dgm-* diagram vars); they
       // touch disjoint property sets, so neutrals-before-brand is for readability,
       // not cascade. fonts.css self-hosts the hotsite's Inter and Inter Display
@@ -524,8 +523,6 @@ export default defineConfig({
         // column floors and the right-sidebar TOC width, so its order among them
         // is arbitrary.
         "./src/styles/layout.css",
-        // header.css paints the header graphite in the light theme (D4).
-        "./src/styles/header.css",
         "./src/components/entity/entity.css",
       ],
       // pt-BR is the root locale, served at the docs base, and English is
