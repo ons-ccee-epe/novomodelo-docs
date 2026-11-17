@@ -655,6 +655,22 @@ chaves de `scenario_source`. Localize a mensagem na tabela acima e corrija a reg
 Um arquivo de árvore de aberturas declarado e ausente é reportado na fase
 estocástica: [Arquivo da árvore de aberturas ausente](#arquivo-da-arvore-de-aberturas-ausente).
 
+#### Intervalo `estimation.history_years` invertido
+
+**Quando ocorre:** O intervalo `estimation.history_years` de `config.json` tem um ano
+`from` posterior ao seu ano `to`. O intervalo é verificado quando `config.json`
+é carregado, de modo que `novomodelo validate` e `novomodelo run` encerram com código `1`, quer
+a execução estime ou não a partir do histórico de afluências.
+
+{/* quoted from source: EstimationConfig::check_history_years in crates/novomodelo-io/src/config/estimation.rs at novomodelo v0.21.0; the printed line, after the error: prefix (error: constraint violation: under novomodelo run), confirmed by novomodelo validate and novomodelo run (exit code 1) on a temporary 1dtoy derivative with the novomodelo v0.21.0 release binary (novomodelo-cli sha256 e484b9f8) */}
+
+```text
+[SchemaViolation] config.json: field estimation.history_years: range 'from' ({from}) must be <= 'to' ({to})
+```
+
+**Solução:** Defina `from` não posterior a `to`; veja
+[Configuração — `estimation`](/running/configuration/#estimation).
+
 #### Antecedência inválida de térmica antecipada
 
 **Quando ocorre:** O `anticipated_config` de uma térmica em `system/thermals.json`
@@ -1102,6 +1118,8 @@ A regra da usina elevatória está em
 [Usina elevatória fora das janelas de operação de suas extremidades](#usina-elevatoria-fora-das-janelas-de-operacao-de-suas-extremidades).
 A regra da geometria da FPHA calculada está em
 [Geometria da FPHA calculada que não cobre a faixa de armazenamento](#geometria-da-fpha-calculada-que-nao-cobre-a-faixa-de-armazenamento).
+A regra da janela de estimação está em
+[Anos do histórico de estimação fora do histórico](#anos-do-historico-de-estimacao-fora-do-historico).
 A regra do horizonte de [Antecedência inválida de térmica antecipada](#antecedencia-invalida-de-termica-antecipada) também imprime uma
 linha `[BusinessRuleViolation]`; essa entrada fica sob `SchemaViolation`, onde são impressas duas de suas quatro linhas.
 
@@ -1454,6 +1472,28 @@ PumpingStation {id}: active at stage {stage_id} while its {side} hydro {hid} is 
 
 **Solução:** Estenda a geometria em `system/hydro_geometry.parquet` para cobrir de `min_storage_hm3` a `max_storage_hm3` ou corrija a faixa de armazenamento da hidrelétrica.
 
+#### Anos do histórico de estimação fora do histórico
+
+**Quando ocorre:** A execução estima o modelo de afluências a partir de
+`scenarios/inflow_history.parquet` (o caso não fornece ao mesmo tempo
+`scenarios/inflow_seasonal_stats.parquet` e
+`scenarios/inflow_ar_coefficients.parquet`), e `estimation.history_years`
+começa antes do primeiro ano ou termina depois do último ano do arquivo. Os anos
+do arquivo são os anos de início de suas linhas, considerando todas as hidrelétricas. Um caso que
+não estima nada a partir do histórico não é verificado.
+
+{/* quoted from source: check_estimation_history_years in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo v0.21.0; the printed line confirmed by novomodelo validate (exit code 1) on a temporary 1dtoy derivative with the novomodelo v0.21.0 release binary (novomodelo-cli sha256 e484b9f8) */}
+
+```text
+estimation.history_years ({from} to {to}) reaches outside the years of scenarios/inflow_history.parquet ({first} to {last}); narrow the range to those years
+```
+
+A linha é impressa como `[BusinessRuleViolation] config.json: <message>`.
+
+**Solução:** Restrinja `estimation.history_years` aos anos que o arquivo contém,
+ou estenda o arquivo; veja
+[Configuração — `estimation`](/running/configuration/#estimation).
+
 ---
 
 ### `WarmStartIncompatible`
@@ -1586,8 +1626,8 @@ o caso válido. Exemplos: uma ordenação de penalidades invertida, um preço da
 custo de déficit mais o preço de geração mínima, o estado de tendência hidrológica
 desabilitado em todos os estágios do estudo apesar de terem sido fornecidos coeficientes autorregressivos, um
 valor negativo em `scenarios/inflow_history.parquet`, um período sazonal sem
-observações nesse arquivo, um par hidrelétrica-período sazonal com pelo menos uma, mas menos de
-`estimation.min_observations_per_season`, ocorrências de estágio totalmente cobertas nesse
+nenhuma das amostras desse arquivo a partir das quais a estimação faz o ajuste, um par hidrelétrica-período sazonal com pelo menos uma, mas menos de
+`estimation.min_observations_per_season`, ocorrências do período sazonal totalmente cobertas nesse
 arquivo, um alerta sobre o `travel_time_hours` declarado de uma hidrelétrica, um piso rígido de armazenamento que sobe acima do piso deixado pelo estágio anterior, um plano da FPHA pré-calculado que fica abaixo de 0 MW com vazão turbinada nula, ou um armazenamento
 inicial fora dos limites de armazenamento ao final do primeiro estágio de operação
 da hidrelétrica. Cada um é reportado como aviso.
@@ -1619,7 +1659,7 @@ ocorre e o que altera:
 
 A mensagem de contagem de observações:
 
-{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:1281-1285 at novomodelo v0.21.0 */}
+{/* quoted from source: check_estimation_prerequisites in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo v0.21.0 */}
 
 ```text
 hydro {hid} season {sid} has {n} observations (minimum recommended: {min_obs}); estimation accuracy may be insufficient with so few observations
@@ -1629,7 +1669,9 @@ hydro {hid} season {sid} has {n} observations (minimum recommended: {min_obs}); 
 o aviso apenas quando o modelo de afluências é estimado a partir de
 `scenarios/inflow_history.parquet` (isto é, quando o caso não fornece ao mesmo tempo
 `scenarios/inflow_seasonal_stats.parquet` e `scenarios/inflow_ar_coefficients.parquet`)
-e `stages.json` declara `season_definitions`.
+e `stages.json` declara `season_definitions`. `{n}` conta as ocorrências do período sazonal
+totalmente cobertas a partir das quais a estimação faz o ajuste, dentro ou fora do horizonte do estudo;
+com `estimation.history_years` definido, apenas as que começam em seus anos.
 
 As mensagens de armazenamento inicial, reportadas em `initial_conditions.json` para a hidrelétrica:
 
@@ -1939,7 +1981,7 @@ desta fase, como um erro de carga (após o rótulo, sua mensagem começa com
 a que ele se refere.
 
 **Exemplo:** Uma biblioteca histórica sem nenhuma janela completa, um
-modelo de afluências ajustado não estacionário (escala de ruído não finita), um
+modelo de afluências não estacionário (escala de ruído não finita), um
 estágio autorregressivo com desvio-padrão nulo, um estágio com mais aberturas que o
 primeiro estágio do seu grupo de ruído, ou um arquivo de árvore de aberturas declarado e
 ausente.
@@ -2030,14 +2072,18 @@ estudo. Duas recusas têm mensagem fixa:
   prefixo `scenarios/inflow_history.parquet: stochastic error: ` e encerra com código `1`.
   `novomodelo run` o imprime como `error: stochastic error: invalid PAR parameters …`
   com a dica de validação e encerra com código `1`.
-- Os coeficientes ajustados a partir do histórico implicam um processo não estacionário, de modo que uma
-  razão derivada de desvio-padrão dos resíduos não é finita. A mensagem nomeia o
+- Os coeficientes do modelo implicam um processo não estacionário, de modo que uma
+  razão derivada de desvio-padrão dos resíduos não é finita. Um modelo ajustado a partir do
+  histórico não chega a essa recusa: o ajuste reduz a ordem de um período sazonal cujo
+  modelo implica uma variância residual negativa, e o
+  [`fitting_report.json`](/reference/output/stochastic/#stochasticfitting_reportjson)
+  o registra como `negative_residual_variance`. A mensagem nomeia o
   id da hidrelétrica e o id do período sazonal:
   {/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:144-152, crates/novomodelo-io/src/error.rs:60 and crates/novomodelo-sddp/src/error.rs:45-46 at novomodelo v0.21.0 */}
   ```text
   I/O error: constraint violation: derived residual_std_ratio is non-finite for hydro_id={hydro_id} season={season}: the coefficients imply a non-stationary process (implied residual variance 1 - sum(psi*rho) is negative)
   ```
-  Este é um [`ConstraintError`](#constrainterror) gerado durante o ajuste do
+  Este é um [`ConstraintError`](#constrainterror) gerado durante a montagem do
   modelo, de modo que chega ao comando como erro de carga. `novomodelo validate` o imprime
   com o rótulo de arquivo `scenarios/` e encerra com código `1`. `novomodelo run` o imprime sem
   o prefixo `I/O error: `, seguido de uma dica para executar `novomodelo validate`, e também
