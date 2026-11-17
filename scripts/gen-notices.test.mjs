@@ -49,6 +49,8 @@ const NPM_PACKAGES = [
   "@lunariajs/starlight",
   "@astrojs/check",
   "typescript",
+  "@fontsource/ibm-plex-sans",
+  "@fontsource/jetbrains-mono",
 ];
 
 for (const pkg of NPM_PACKAGES) {
@@ -140,6 +142,13 @@ test("contains SIL Open Font License text (OFL-1.1 body present)", () => {
   );
 });
 
+test("contains IBM Plex Sans foundry copyright (IBM Corp 2019)", () => {
+  assert.ok(
+    noticesText.includes("IBM Corp"),
+    "Expected 'IBM Corp' in THIRD-PARTY-NOTICES.txt — IBM Plex Sans OFL copyright must be present.",
+  );
+});
+
 test("contains Inter foundry copyright (The Inter Project Authors)", () => {
   assert.ok(
     noticesText.includes("The Inter Project Authors"),
@@ -147,10 +156,10 @@ test("contains Inter foundry copyright (The Inter Project Authors)", () => {
   );
 });
 
-test("names no retired web font (IBM Plex Sans, JetBrains Mono)", () => {
+test("contains JetBrains Mono foundry copyright", () => {
   assert.ok(
-    !noticesText.includes("@fontsource/"),
-    "THIRD-PARTY-NOTICES.txt still lists a Fontsource package; the docs ship Inter only (docs/design/design-system.md §3).",
+    noticesText.includes("JetBrains Mono Project Authors"),
+    "Expected 'JetBrains Mono Project Authors' in THIRD-PARTY-NOTICES.txt — JetBrains Mono OFL copyright must be present.",
   );
 });
 
