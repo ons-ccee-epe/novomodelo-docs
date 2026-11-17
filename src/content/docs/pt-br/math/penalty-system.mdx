@@ -9,7 +9,7 @@ import { Content as PenaltiesIO } from './_impl/_penalties.io.mdx';
 
 ## Objetivo
 
-Este capítulo define o sistema unificado de penalidades, que garante a viabilidade do PL em todos os cenários e, ao mesmo tempo, valora corretamente os custos operativos e as violações de restrições. Cada penalidade entra na função objetivo do estágio conforme enunciado em [Formulação do PL §2](/math/lp-formulation#2-funcao-objetivo) e [§9](/math/lp-formulation#9-termos-de-penalidade-por-violacao-de-restricoes).
+Este capítulo define o sistema unificado de penalidades, que proporciona a viabilidade do PL em todos os cenários sob a [precondição de recurso completo](#precondicao-de-recurso-completo) e, ao mesmo tempo, valora corretamente os custos operativos e as violações de restrições. Cada penalidade entra na função objetivo do estágio conforme enunciado em [Formulação do PL §2](/math/lp-formulation#2-funcao-objetivo) e [§9](/math/lp-formulation#9-termos-de-penalidade-por-violacao-de-restricoes).
 
 Para a visão por entidade deste capítulo, veja [Linhas e intercâmbios](/entities/network/lines/), [Déficit](/entities/consumption/deficit/) e [Penalidades e custo de déficit](/entities/penalties/).
 
@@ -25,19 +25,38 @@ As penalidades cumprem três finalidades distintas na formulação do PL. Compre
 
 ### Categoria 1: folgas de recurso (viabilidade do PL)
 
-Essas penalidades garantem que o algoritmo de PDDE (SDDP) tenha recurso relativamente completo — todo subproblema deve ser viável, qualquer que seja a realização do cenário. Sem essas folgas, o PL seria inviável quando a geração não consegue atender à demanda, quando o excesso de geração não controlável não pode ser absorvido ou quando uma realização negativa de afluência deixa o balanço hídrico de uma usina hidrelétrica sem solução.
+Essas penalidades garantem que o algoritmo de PDDE (SDDP) tenha recurso relativamente completo sob a precondição abaixo — todo subproblema deve ser viável, qualquer que seja a realização do cenário. Sem essas folgas, o PL seria inviável quando a geração não consegue atender à demanda, quando o excesso de geração não controlável não pode ser absorvido ou quando uma realização negativa de afluência deixa o balanço hídrico de uma usina hidrelétrica sem solução.
 
 | Penalidade            | Unidade  | Aplica-se a                | Finalidade                         |
 | ------------------ | ------ | ------------------------- | ------------------------------- |
 | Déficit ($c^{def}_{b,s}$) | R\$/MWh | Carga não atendida por barramento, por patamar de déficit | Custo linear por partes do corte de carga |
 | Excesso ($c^{exc}_b$) | R\$/MWh | Excesso de geração por barramento | Absorver o excedente não controlável |
 | Não negatividade da afluência ($c^{inf}_h$) | R\$/(m³/s·h) | Água adicionada ao balanço hídrico de uma UHE (métodos de afluência `penalty` e `truncation_with_penalty`) | Manter o balanço hídrico viável sob uma realização negativa de afluência |
+| Folga do plano da FPHA ($c^{fpha}_h$) | R\$/MWh | Geração acima de um plano da FPHA, por célula e patamar | Manter o PL do estágio viável quando um piso de geração ou uma restrição força a geração acima dos planos |
 
 Déficit e excesso são, conceitualmente, variáveis de folga da restrição de atendimento à carga, mas recebem nomes específicos pela sua importância na aplicação de despacho hidrotérmico. O déficit representa o valor da carga não suprida; o excesso é um custo de nível de regularização para eliminar geração espúria por folga.
 
 :::note[Observação sobre a faixa do custo de excesso]
 O custo abrange uma faixa ampla porque atende a dois casos de uso distintos. No extremo inferior, atua como termo de regularização pura, que desfaz a degenerescência do solver sem distorcer a política. No extremo superior, cumpre um papel de conformação da política, desestimulando ativamente o excesso de geração para manter as soluções de despacho fisicamente realistas. Consulte a aba Configurar abaixo para o valor padrão concreto no nível do caso.
 :::
+
+#### Precondição de recurso completo
+
+O recurso relativamente completo vale para um armazenamento de entrada entre $F_{in}(t)$ e $C(t-1)$. $F_{in}(t)$ é o piso do armazenamento de entrada: o piso rígido de armazenamento do estágio anterior ou, no primeiro estágio e após um estágio em pré-enchimento, o piso do intervalo em que o armazenamento inicial é ajustado. $C(t-1)$ é o teto de armazenamento do estágio anterior ou, nesses estágios, o `max_storage_hm3` da própria usina. Para um armazenamento assim, todo PL de estágio é viável quando todas as condições a seguir valem:
+
+- (a) o método de afluência consegue elevar a 0 uma afluência local negativa;
+- (b) nenhuma defluência forçada rígida se aplica: nenhum `min_spillage_m3s` ou `min_diversion_m3s` positivo e nenhum `min_flow_m3s` positivo de uma usina elevatória cujo `source_hydro_id` seja a usina;
+- (c) o piso rígido de armazenamento do estágio $t$ não sobe acima de $F_{in}(t)$;
+- (d) a água em excesso consegue sair do reservatório quando `max_spillage_m3s` é finito. Em um mês cujo coeficiente de evaporação é negativo, o teto da evaporação líquida $e_h$ impede que a evaporação retire água, de modo que a água acima do teto do estágio sai pela vazão turbinada, onde uma célula tem capacidade de turbinamento, pelo vertimento, pela vazão desviada, pela captação de uma usina elevatória e pela folga de entrega a maior da retirada $\sigma^{w+}_h$. Essa folga só é ilimitada enquanto a retirada efetiva $T^{eff}_h$ ([Formulação do PL, Termos das linhas](/math/lp-formulation#termos-das-linhas)) é positiva; caso contrário, ela é limitada de modo que a retirada realizada não remova água, e um `max_spillage_m3s` finito pode deixar o excesso sem saída;
+- (e) toda restrição genérica sobre água ou geração hidrelétrica tem uma folga.
+
+O método de afluência decide por si só quais condições valem:
+
+- `penalty` atende (a), (b) e (c) incondicionalmente: sua folga de afluência é valorada e ilimitada, de modo que adiciona qualquer água que falte.
+- `truncation` e `truncation_with_penalty` atendem (a) por meio de uma folga de afluência limitada ([Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity)).
+- `none` não atende nenhuma delas.
+
+O Novo Modelo verifica apenas (c). Em todo método de afluência exceto `penalty`, ele emite, na carga, um aviso para cada usina e estágio cujo piso rígido de armazenamento sobe acima do piso deixado pelo estágio anterior, como a mensagem de piso crescente de [`ModelQuality`](/reference/error-codes/#modelquality). O estágio que recebe o armazenamento inicial é coberto pela mensagem de armazenamento inicial em todo método. O Novo Modelo não verifica (b), (d) nem (e).
 
 ### Categoria 2: penalidades por violação de restrições (conformação da política)
 
@@ -98,9 +117,23 @@ $$
 
 Um cronograma de enchimento para a entrada em operação não deve ser defendido com o mesmo rigor que o corte de carga — quando a natureza fisicamente não permite atender à carga e, ao mesmo tempo, manter um reservatório em fase de enchimento no seu cronograma de acumulação, o solver deve atender à carga e deixar o piso de enchimento ceder. A posição da penalidade de meta de enchimento _em relação ao nível de restrições operativas_ (vazão turbinada mínima, vazão defluente, geração, evaporação, retirada) fica a cargo da calibração do estudo: o Novo Modelo espera que ela fique abaixo do déficit e não impõe nada em relação a essas folgas operativas.
 
+A **folga do plano da FPHA** $\sigma^{fpha}_{h,b,k}$ está apenas nas linhas de plano da sua célula e do seu patamar, e o seu preço $c^{fpha}_h$ é em R\$/MWh, como o do déficit. Com a geração $g_{h,b,k}$ da célula na base e o seu plano ativo na solução, a variável dual da linha do plano é igual, em módulo, à soma de:
+
+- a variável dual da linha de atendimento à carga do barramento da célula;
+- a variável dual da linha de geração mínima da célula;
+- as variáveis duais das linhas de restrição genérica que contêm $g_{h,b,k}$, cada uma por MWh.
+
+A folga só fica em 0 enquanto $c^{fpha}_h$ supera essa soma. A variável dual do atendimento à carga é no máximo o maior custo de déficit, e a da geração mínima é no máximo $c^{gv-}_h$, de modo que a ordenação a configurar é
+
+$$
+c^{fpha}_h \;>\; \max_{b,s} c^{def}_{b,s} + c^{gv-}_h
+$$
+
+Uma restrição genérica com limite inferior sobre a geração da FPHA, cujo preço de folga seja igual ou superior a $c^{fpha}_h$, acrescenta um terceiro termo, de modo que a folga pode ficar ativa a um preço acima da soma dos dois termos.
+
 ### Validação da ordem das penalidades
 
-O Novo Modelo verifica os custos configurados no carregamento do caso. As verificações comparam os valores como informados, sem a conversão acima; portanto, um caso aprovado nelas ainda pode inverter a ordenação equivalente em energia. Elas emitem avisos sem interromper a execução, e duas regras rejeitam o caso: um custo de turbinamento negativo em uma UHE com FPHA e um cronograma de enchimento que não consegue atingir o volume morto. A [aba Configurar](#implementacao-no-novo-modelo) as lista.
+O Novo Modelo verifica os custos configurados no carregamento do caso. As verificações comparam os valores como informados, sem a conversão acima; portanto, um caso aprovado nelas ainda pode inverter a ordenação equivalente em energia. Elas emitem avisos sem interromper a execução, e duas regras rejeitam o caso: um custo de turbinamento negativo em uma UHE com FPHA e um cronograma de enchimento que não consegue atingir o volume morto. A [aba Configurar](#implementacao-no-novo-modelo) as lista. Uma verificação compara $c^{fpha}_h$ com o maior custo de déficit mais $c^{gv-}_h$ em todo estágio em que a UHE usa a FPHA, com as sobrescritas por estágio aplicadas, e deixa de fora o termo de restrição genérica da variável dual do plano descrito acima.
 
 ## 3. Valores padrão e sobreposições das penalidades
 
@@ -108,7 +141,7 @@ Cada custo tem um valor padrão no nível do caso e pode ser sobreposto por enti
 
 ### Déficit linear por partes
 
-O déficit é valorado de forma linear por partes. Cada patamar cobre uma profundidade de carga não atendida a um custo próprio, os custos crescem de um patamar para o seguinte e o último patamar é ilimitado, de modo que o PL é sempre viável. Os patamares podem ser sobrepostos por barramento, mas não por estágio.
+O déficit é valorado de forma linear por partes. Cada patamar cobre uma profundidade de carga não atendida a um custo próprio, os custos crescem de um patamar para o seguinte e o último patamar é ilimitado, de modo que o balanço de carga sempre tem solução. Os patamares podem ser sobrepostos por barramento, mas não por estágio.
 
 ## 4. Cobertura das violações de restrições
 
@@ -169,9 +202,15 @@ As restrições genéricas definidas pelo usuário podem, opcionalmente, ter var
 
 A vazão de evaporação na superfície do reservatório $e_h$ ($e_{h,k}$ por patamar em um estágio cronológico) é um **fluxo líquido com sinal**: valores positivos representam perda líquida por evaporação, e valores negativos representam aporte líquido de chuva sobre a superfície do lago (a precipitação sobre o reservatório supera a evaporação de superfície livre). Em bacias tropicais e subtropicais, o coeficiente líquido é negativo durante boa parte do período úmido, de modo que o caso negativo é comum, e não excepcional. Outras situações que podem produzir um valor negativo incluem condensação em climas úmidos e artefatos de linearização em determinadas combinações de volume e coeficiente.
 
-A coluna de evaporação tem limites simétricos, $e_h \in [-q^{\max}_{ev,h},\, +q^{\max}_{ev,h}]$, em que $q^{\max}_{ev,h}$ é recalculado em cada estágio como o módulo da meta linearizada desse estágio no armazenamento máximo, multiplicado por uma margem de segurança fixa. O limite simétrico permite que a mesma coluna absorva os dois sentidos sem forçar o acionamento da folga de sobre-evaporação em todos os estágios dos meses úmidos. Um $e_h$ negativo entra na equação de balanço hídrico com o mesmo coeficiente de um valor positivo; o próprio sinal de $e_h$ determina se o termo subtrai (perda) ou adiciona (aporte de chuva) ao armazenamento.
+A caixa da coluna de evaporação segue o sinal do coeficiente de evaporação do mês do estágio, com $q^{\max}_{ev,h}$ recalculado em cada estágio como o módulo da meta linearizada desse estágio no armazenamento máximo, multiplicado por uma margem de segurança fixa. A [linha de evaporação](/math/lp-formulation#linha-de-evaporacao) define os extremos da meta $\underline{e}^{tgt}_h$, $\bar{e}^{tgt}_h$ e $\bar{e}^{hard}_h$ que a caixa lê:
 
-A [linha de evaporação](/math/lp-formulation#linha-de-evaporacao) iguala $e_h$ à meta de evaporação linearizada mais $\sigma^{e+}_h$ menos $\sigma^{e-}_h$. As folgas são unilaterais, $\sigma^{e+}_h \geq 0$ e $\sigma^{e-}_h \geq 0$: absorvem a evaporação acima e abaixo da meta e são valoradas a $c^{ev+}_h$ e $c^{ev-}_h$. Os sinais de $e_h$ e da meta, e não as folgas, carregam o sentido do fluxo líquido. Um estágio paralelo tem um único par no nível do estágio, e um estágio cronológico tem um par por patamar, $\sigma^{e+}_{h,k}$ e $\sigma^{e-}_{h,k}$.
+- mês positivo: $e_h \in [\min(0, \underline{e}^{tgt}_h),\, q^{\max}_{ev,h}]$. O piso impede que $e_h$ fique negativa o bastante para que a folga abaixo da meta crie água;
+- mês negativo: $e_h \in [-q^{\max}_{ev,h},\, \max(0, \bar{e}^{tgt}_h)]$. O teto impede que a evaporação retire mais água do que a meta permite;
+- mês nulo: $e_h \in [-q^{\max}_{ev,h},\, q^{\max}_{ev,h}]$.
+
+A linha sempre tem solução: $e_h = 0$, com $\sigma^{e-}_h = \max(0, \text{target})$ e $\sigma^{e+}_h = \max(0, -\text{target})$. Um $e_h$ negativo entra na equação de balanço hídrico com o mesmo coeficiente de um valor positivo; o próprio sinal de $e_h$ determina se o termo subtrai (perda) ou adiciona (aporte de chuva) ao armazenamento.
+
+A [linha de evaporação](/math/lp-formulation#linha-de-evaporacao) iguala $e_h$ à meta de evaporação linearizada mais $\sigma^{e+}_h$ menos $\sigma^{e-}_h$. As duas folgas são $\ge 0$ e absorvem a evaporação acima e abaixo da meta, valoradas a $c^{ev+}_h$ e $c^{ev-}_h$. $\sigma^{e+}_h$ é ilimitada em todos os meses. $\sigma^{e-}_h$ é ilimitada em um mês positivo e em um mês nulo; em um mês negativo, ela é limitada, $\sigma^{e-}_h \le \max(0, \bar{e}^{hard}_h)$: o limite restringe a folga abaixo da meta à quantidade que leva uma meta positiva a $0$. Os sinais de $e_h$ e da meta, e não as folgas, carregam o sentido do fluxo líquido. Um estágio paralelo tem um único par no nível do estágio, e um estágio cronológico tem um par por patamar, $\sigma^{e+}_{h,k}$ e $\sigma^{e-}_{h,k}$.
 
 :::note[Valoração das folgas de evaporação]
 Em um estágio paralelo, uma usina tem uma linha de evaporação e um par de folgas para o estágio inteiro, qualquer que seja o número de patamares, e cada folga é valorada ao seu custo multiplicado pelas horas do estágio. Em um estágio cronológico, cada patamar tem sua própria linha e seu par de folgas, valorados ao custo multiplicado pelas horas do patamar. Os custos são expressos em R\$/(m³/s·h).
@@ -183,7 +222,9 @@ A meta linearizada exige a curva área–volume do reservatório. Uma usina que 
 
 ### Folgas de retirada
 
-A meta de retirada com sinal $r_h$, em m³/s, é positiva para uma retirada e negativa para um retorno entre bacias. É uma grandeza no nível do estágio no lado direito do balanço hídrico da UHE ([Formulação do PL §4](/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas)). Duas folgas unilaterais no nível do estágio a relaxam, de modo que a retirada realizada é $r_h - \sigma^{w-}_h + \sigma^{w+}_h$: a retirada abaixo do previsto $\sigma^{w-}_h$ é valorada a $c^{wv-}_h$ e a retirada acima do previsto $\sigma^{w+}_h$ a $c^{wv+}_h$, ambas sobre as horas do estágio $H_t$. A folga que inverteria o sinal da retirada realizada é limitada a $\lvert r_h \rvert$ ([Formulação do PL §9](/math/lp-formulation#9-termos-de-penalidade-por-violacao-de-restricoes)).
+A retirada efetiva com sinal $T^{eff}_h$, em m³/s, é positiva para uma retirada e negativa para um retorno entre bacias. É a meta de retirada declarada da usina, $r_h$, somada às metas das usinas em pré-enchimento cuja água ela recebe, e é uma grandeza no nível do estágio no lado direito do balanço hídrico da UHE ([Formulação do PL, Termos das linhas](/math/lp-formulation#termos-das-linhas)). Duas folgas unilaterais no nível do estágio a relaxam, de modo que a retirada realizada é $T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$: a retirada abaixo do previsto $\sigma^{w-}_h$ é valorada a $c^{wv-}_h$ e a retirada acima do previsto $\sigma^{w+}_h$ a $c^{wv+}_h$, ambas sobre as horas do estágio $H_t$. A folga que inverteria o sinal da retirada realizada é limitada a $\lvert T^{eff}_h \rvert$ ([Formulação do PL §9](/math/lp-formulation#9-termos-de-penalidade-por-violacao-de-restricoes)): para $T^{eff}_h > 0$, $\sigma^{w-}_h \leq T^{eff}_h$ e $\sigma^{w+}_h$ é ilimitada; para $T^{eff}_h < 0$, $\sigma^{w+}_h \leq \lvert T^{eff}_h \rvert$ e $\sigma^{w-}_h = 0$; para $T^{eff}_h = 0$, ambas valem 0.
+
+A retirada efetiva de cada usina e o seu limite de sinal independem dos das vizinhas. Quando uma usina retira água e uma usina próxima a devolve como meta negativa, as duas não são acopladas: cada uma pode ser relaxada sozinha, ao seu próprio preço, e os valores da água das usinas próximas a esse par podem ficar no preço de uma folga de retirada.
 
 ## 6. Resumo dos limites das variáveis hidráulicas
 
@@ -203,7 +244,7 @@ O enchimento é regido por uma **taxa mínima de acumulação**, e não por uma 
 
 **Restrições operativas durante a fase de enchimento**:
 
-- **Sem geração**: a vazão turbinada e a geração são $0$ (restrição rígida — turbinas não instaladas/não operacionais, de modo que a usina é excluída das restrições da função de produção); um piso positivo de turbinamento ou de geração da usina recai então inteiramente sobre sua folga ([Fases do ciclo de vida](/math/lp-formulation#fases-do-ciclo-de-vida))
+- **Sem geração**: a vazão turbinada e a geração são $0$ (restrição rígida — turbinas não instaladas/não operacionais, de modo que a usina é excluída das restrições da função de produção); os mínimos de vazão turbinada e de geração da usina são descartados enquanto ela enche, pois ela não pode produzir ([Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina))
 - **Defluência somente por vertimento**: as turbinas e o desvio são fixados em zero enquanto a usina enche, de modo que ela libera água apenas vertendo; o vertimento é uma decisão livre dentro de seus limites, qualquer que seja o nível de armazenamento.
 - **Exigência de vazão defluente mínima**: uma vazão defluente mínima é atendida por vertimento; quando o reservatório não consegue liberar água suficiente, a folga de vazão defluente abaixo do mínimo absorve a diferença ao custo de sua penalidade.
 - **A vazão natural afluente escoa livremente**: a vazão incremental e as defluências da cascata a montante entram no reservatório pelo balanço hídrico usual — não há retenção nem teto de represamento que desvie afluência para o armazenamento. O que a natureza fornece é o que enche o reservatório.

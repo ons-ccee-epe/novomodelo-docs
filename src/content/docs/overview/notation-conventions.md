@@ -68,7 +68,7 @@ A glyph takes a second meaning only on pages that never carry its first; each su
 - $k$ indexes the blocks of a stage, $k \in \mathcal{K}$, in the System Modelling chapters and [Scenario Generation](/en/math/scenario-generation); it counts training iterations in [SDDP Algorithm](/en/math/sddp-algorithm), [Cut Management](/en/math/cut-management), [LP Warm-Start](/en/math/lp-warm-start), [Stopping Rules](/en/math/stopping-rules), [Upper Bound Evaluation](/en/math/upper-bound-evaluation), [Horizon Modes](/en/math/horizon-modes), [Discount Rate Formulation](/en/math/discount-rate), [Risk Measures](/en/math/risk-measures) and the worked examples; in [PAR(p) Inflow Model](/en/math/par-inflow-model) it is the candidate order of the partial-autocorrelation test.
 - $k_{max}$ is the number of slots in every anticipated thermal's commitment ring in [State Augmentation](/en/math/state-augmentation) and [Policy Checkpoint](/en/reference/output/policy); in [Stopping Rules](/en/math/stopping-rules) it is the iteration limit.
 - $\ell$ is the lag index of the autoregressive inflow model; in [Stopping Rules](/en/math/stopping-rules) and [Upper Bound Evaluation](/en/math/upper-bound-evaluation) it indexes the leaf paths of an enumerated scenario tree.
-- $\lambda$ is the risk-aversion weight of the convex-combination risk measure; in [PAR(p) Inflow Model](/en/math/par-inflow-model) $\lambda_i$ are the eigenvalues of the correlation matrix, and in [LP Formulation](/en/math/lp-formulation), [Block Formulation Variants](/en/math/block-formulations) and [Hydro Production Function Models](/en/math/hydro-production-models) $\lambda_{h,b}$ is the share of cell $(h, b)$ in the turbine capacity of plant $h$.
+- $\lambda$ is the risk-aversion weight of the convex-combination risk measure; in [PAR(p) Inflow Model](/en/math/par-inflow-model) $\lambda_i$ are the eigenvalues of the correlation matrix, and in [LP Formulation](/en/math/lp-formulation), [Block Formulation Variants](/en/math/block-formulations) and [Hydro Production Function Models](/en/math/hydro-production-models) $\lambda_{h,b}$ is the share of cell $(h, b)$ in the declared maximum turbined flow of plant $h$.
 - $L$ is the last filling stage of a filling hydro in [LP Formulation](/en/math/lp-formulation) and [Penalty System](/en/math/penalty-system); in [PAR(p) Inflow Model](/en/math/par-inflow-model) it is the lower-triangular Cholesky factor of the correlation matrix, in [State Augmentation](/en/math/state-augmentation) $L_h$ is the bucket depth of receiving plant $h$, and in [Upper Bound Evaluation](/en/math/upper-bound-evaluation) $L_t$ is the vector of per-state-component Lipschitz constants $L_{t,j}$ of the stage-$t$ value function.
 - $\psi_{m,\ell}$ is the autoregressive coefficient of the inflow model ($\psi^*_{m,\ell}$ standardized; $\psi^{A*}_m$ and $\psi^A_m$ the annual coefficient of PAR(p)-A); in [Risk Measures](/en/math/risk-measures) $\psi(p, \mu)$ is the penalty function of the dual representation of a convex risk measure.
 - A hat on a state quantity marks its incoming (trial) value ($\hat{x}_{t-1}$, $\hat{v}_h$, $\hat{a}_{h,\ell}$); a hat on a model parameter marks its sample estimate from the historical record ($\hat{\mu}_m$, $\hat{s}_m$, $\hat{\rho}_m(\ell)$); the two never decorate the same base symbol.
@@ -207,6 +207,7 @@ Cost coefficients use $c$ with a superscript naming the cost type.
 | $c^{tv-}_h$ | \$/(m³/s·h) | Turbined-flow-minimum violation penalty, charged on every cell of hydro $h$ |
 | $c^{ov-}_h$, $c^{ov+}_h$ | \$/(m³/s·h) | Outflow below-minimum and above-maximum violation penalties |
 | $c^{gv-}_h$ | \$/MWh | Generation-minimum violation penalty, charged on every cell of hydro $h$ |
+| $c^{fpha}_h$ | \$/MWh | FPHA plane-slack penalty, charged on every cell of hydro $h$ |
 | $c^{ev+}_h$, $c^{ev-}_h$ | \$/(m³/s·h) | Evaporation above-target and below-target violation penalties |
 | $c^{wv+}_h$, $c^{wv-}_h$ | \$/(m³/s·h) | Water-withdrawal over-delivery and under-delivery penalties |
 | $c^{inf}_h$ | \$/(m³/s·h) | Inflow non-negativity penalty (`penalty` and `truncation_with_penalty` inflow methods) |
@@ -227,10 +228,11 @@ Cost coefficients use $c$ with a superscript naming the cost type.
 | $\bar{Q}_u$ | m³/s | Turbined-flow maximum of unit group $u$ |
 | $\bar{G}_h$, $\underline{G}_h$ | MW | Plant generation bounds; the plant maximum caps every cell |
 | $\bar{G}_{h,b}$, $\underline{G}_{h,b}$ | MW | Cell generation bounds: the maximum sums the cell's unit-group maxima and is capped by the plant maximum; the minimum sums their minima and is a soft floor |
-| $\lambda_{h,b}$ | - | Share of cell $(h, b)$ in plant $h$'s declared turbine capacity; it apportions the flow-independent part of each FPHA plane among the cells |
+| $\lambda_{h,b}$ | - | Share of cell $(h, b)$ in plant $h$'s declared maximum turbined flow; it apportions the flow-independent part of each FPHA plane among the cells |
 | $\bar{O}_h$, $\underline{O}_h$                   | m³/s      | Outflow bounds                                                                                                                                                                                                          |
 | $\bar{U}_h$ | m³/s | Maximum diversion flow |
 | $r_h$                                            | m³/s      | Water withdrawal target — stage-level, signed fixed RHS parameter (not a per-block LP decision variable); negative = inter-basin return/addition. See [LP Formulation](/en/math/lp-formulation).                           |
+| $T^{eff}_h$ | m³/s | Effective withdrawal — the plant's $r_h$ plus the targets of the PreFilling plants routed onto it; 0 for a PreFilling plant. It is the water-balance right-hand side the slacks $\sigma^{w\pm}_h$ relax. See [LP Formulation](/en/math/lp-formulation#row-terms). |
 | $\rho_h$                                         | MW/(m³/s) | Productivity (constant model)                                                                                                                                                                                           |
 | $V^{min}_h$, $V^{max}_h$ | hm³ | Physical storage range — stage-invariant plant property (dead-volume floor, full-reservoir ceiling); distinct from the operative storage-variable bounds $\underline{V}_h$, $\bar{V}_h$. See [Hydro Production Function Models](/en/math/hydro-production-models). |
 | $\rho_{eq,h,t}$ | MW/(m³/s) | Equivalent productivity at the reference operating point. See [Hydro Production Function Models](/en/math/hydro-production-models). |
@@ -252,6 +254,9 @@ Cost coefficients use $c$ with a superscript naming the cost type.
 | $\nu_{h',t,0}$ | - | Same-stage share of $h'$'s release on the downstream water balance at stage $t$, $(H_t - \Delta^{tt}_{h'})^+ / H_t$ |
 | $\nu^{k' \to k}_{h',t}$ | - | Within-stage routing share on a chronological stage, from $h'$'s block $k'$ to the downstream block $k \ge k'$ |
 | $\gamma^{ev}_{0,h}$, $\gamma^{ev}_{v,h}$ | m³/s, (m³/s)/hm³ | Linearized net-evaporation intercept and storage slope of hydro $h$ at the current stage |
+| $q^{\max}_{ev,h}$ | m³/s | Magnitude of the evaporation box of hydro $h$: the target at the stage's maximum storage times a fixed safety margin |
+| $\underline{e}^{tgt}_h$, $\bar{e}^{tgt}_h$ | m³/s | Smallest and largest evaporation target of hydro $h$ over the average storages its row can read, with the stage floor taken as the minimum storage even where it is soft |
+| $\bar{e}^{hard}_h$ | m³/s | Largest evaporation target of hydro $h$ with the stage floor taken as the hard floor |
 
 ### 3.4 Thermal, Network and Equipment Parameters
 
@@ -379,9 +384,10 @@ Slack variables for soft constraints:
 | $\sigma^{o-}_{h,k}$                      | $\geq 0$ | m³/s  | Outflow below minimum (per plant — no per-cell outflow column to attribute a floor to)                                                            |
 | $\sigma^{o+}_{h,k}$                      | $\geq 0$ | m³/s  | Outflow above maximum (per plant)                                                                                                                 |
 | $\sigma^{g-}_{h,b,k}$                    | $\geq 0$ | MW    | Generation below minimum — one per (hydro, bus) cell $b \in \mathcal{B}_h$ of a split plant                                                       |
+| $\sigma^{fpha}_{h,b,k}$                  | $\geq 0$ | MW    | Generation above the FPHA planes — one per (hydro, bus) cell $b \in \mathcal{B}_h$ and block, in the plane rows of that cell only; priced by $c^{fpha}_h$ |
 | $\sigma^{G-}_{h,k}$                      | $\geq 0$ | MW    | Plant generation below the plant minimum, beyond what the cell slacks cover (a plant with several cells whose minimum binds) |
-| $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Evaporation above-target and below-target violation (per plant): one stage-level pair $\sigma^{e\pm}_h$ on a parallel stage, priced over the stage hours $H_t$; one pair per block on a chronological stage, priced over $\tau_k$ |
-| $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Water withdrawal under-/over-delivery relative to the target $r_h$ (stage-level, not per-block); priced by $c^{wv-}_h$ / $c^{wv+}_h$ respectively |
+| $\sigma^{e+}_{h,k}$, $\sigma^{e-}_{h,k}$ | $\geq 0$ | m³/s | Evaporation above-target and below-target violation (per plant; $\sigma^{e-}$ capped in a negative month): one stage-level pair $\sigma^{e\pm}_h$ on a parallel stage, priced over the stage hours $H_t$; one pair per block on a chronological stage, priced over $\tau_k$ |
+| $\sigma^{w-}_h$, $\sigma^{w+}_h$         | $\geq 0$ | m³/s  | Water withdrawal under-/over-delivery relative to the effective withdrawal $T^{eff}_h$ (stage-level, not per-block); priced by $c^{wv-}_h$ / $c^{wv+}_h$ respectively |
 | $\sigma^{inf}_h$                         | $\geq 0$ | m³/s  | Inflow non-negativity, every inflow method except `none`; its bounds follow the method                                                            |
 
 ## 5. Duals and Cut Slopes

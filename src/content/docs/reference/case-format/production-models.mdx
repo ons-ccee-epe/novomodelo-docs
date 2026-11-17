@@ -170,7 +170,7 @@ source of truth for V_ref: when absent, the case-wide default fraction is used.
 | `production_models[].stage_ranges[].fpha_config.turbine_discretization_points`  | integer \| null | No       | —       | —     | Number of turbine-flow grid points; at least `2`; absent or `null` uses `5`                                                                                                                                                                                              |
 | `production_models[].stage_ranges[].fpha_config.spillage_discretization_points` | integer \| null | No       | —       | —     | Validated (`>= 2`); does not add a spillage axis to the fit — accepted for input round-tripping (see [Hydro Production Function Models — Configure](/en/math/hydro-production-models#implementation-in-novomodelo)); absent or `null` uses `5`                                   |
 | `production_models[].stage_ranges[].fpha_config.max_planes_per_hydro`           | integer \| null | No       | —       | —     | Validated (`>= 1`); the fit keeps every upper-envelope facet and does not trim to this count; only `fpha_plane_reduction` reduces the set (see [Hydro Production Function Models — Configure](/en/math/hydro-production-models#implementation-in-novomodelo)); absent or `null` uses `10` |
-| `production_models[].stage_ranges[].fpha_config.fitting_window`                 | object \| null  | No       | —       | —     | Volume range restriction for hyperplane computation; absent or `null` uses the full forebay range of the plant's `system/hydro_geometry.parquet` volume–height curve                                                                                                     |
+| `production_models[].stage_ranges[].fpha_config.fitting_window`                 | object \| null  | No       | —       | —     | Volume range restriction for hyperplane computation; absent or `null` uses the plant's storage range, `min_storage_hm3` to `max_storage_hm3`, and each set bound is clamped into it                                                                                      |
 | `production_models[].stage_ranges[].fpha_config.turbined_fit_max_m3s` | number \| null | No | — | m³/s | Upper end of the turbined-flow range a fit from geometry samples, from `0`; finite and `> 0.0`, else rejected at load; absent or `null` uses the plant's `max_turbined_m3s` |
 | `production_models[].stage_ranges[].fpha_config.spillage_fit_max_m3s` | number \| null | No | — | m³/s | Upper end of the spillage range a fit from geometry reads each plane's spillage coefficient over, from `0`; finite and `> 0.0`, else rejected at load; absent or `null` uses twice the mean of the plant's `scenarios/inflow_history.parquet` values, or twice its `max_turbined_m3s` when that mean is not positive or the plant has no history |
 
@@ -201,12 +201,12 @@ mutually exclusive per bound — set at most one of `volume_min_hm3` and
 `volume_min_percentile`, and at most one of `volume_max_hm3` and
 `volume_max_percentile`.
 
-| Name                                                                                  | Type           | Required | Default | Units | Description                                          |
-| ------------------------------------------------------------------------------------- | -------------- | -------- | ------- | ----- | ---------------------------------------------------- |
-| `production_models[].stage_ranges[].fpha_config.fitting_window.volume_min_hm3`        | number \| null | No       | —       | hm³   | Explicit minimum volume for fitting (hm³)            |
-| `production_models[].stage_ranges[].fpha_config.fitting_window.volume_max_hm3`        | number \| null | No       | —       | hm³   | Explicit maximum volume for fitting (hm³)            |
-| `production_models[].stage_ranges[].fpha_config.fitting_window.volume_min_percentile` | number \| null | No       | —       | —     | Minimum as a percentile of the operating range (0–1) |
-| `production_models[].stage_ranges[].fpha_config.fitting_window.volume_max_percentile` | number \| null | No       | —       | —     | Maximum as a percentile of the operating range (0–1) |
+| Name                                                                                  | Type           | Required | Default | Units | Description                                                                               |
+| ------------------------------------------------------------------------------------- | -------------- | -------- | ------- | ----- | ----------------------------------------------------------------------------------------- |
+| `production_models[].stage_ranges[].fpha_config.fitting_window.volume_min_hm3`        | number \| null | No       | —       | hm³   | Explicit minimum volume for fitting (hm³)                                                 |
+| `production_models[].stage_ranges[].fpha_config.fitting_window.volume_max_hm3`        | number \| null | No       | —       | hm³   | Explicit maximum volume for fitting (hm³)                                                 |
+| `production_models[].stage_ranges[].fpha_config.fitting_window.volume_min_percentile` | number \| null | No       | —       | —     | Minimum as a fraction (0–1) of the plant's storage range, measured from `min_storage_hm3` |
+| `production_models[].stage_ranges[].fpha_config.fitting_window.volume_max_percentile` | number \| null | No       | —       | —     | Maximum as a fraction (0–1) of the plant's storage range, measured from `min_storage_hm3` |
 
 **Example — hydro 0 uses computed FPHA for stages 0–24 and computed FPHA on a finer grid from stage 25:**
 
@@ -361,11 +361,11 @@ required per `(hydro_id, stage_id)` group.
 `gamma_q`, `gamma_s`) must be present with the correct types. Optional columns
 that are present must also have the correct types. Every row must have
 `gamma_v` `>= 0` and `gamma_s` `<= 0` at load, and once the file holds any row,
-every FPHA plant with turbine capacity, computed included, needs rows in it (the
+every FPHA plant with [turbine capacity](/en/math/hydro-production-models#no-turbine-capacity), computed included, needs rows in it (the
 computed fit does not read them). Each stage a plant runs with precomputed FPHA
 uses the rows carrying its `stage_id`, else the all-stage (`stage_id` null)
 rows, and must have one of the two; each row a stage uses must have `gamma_q`
-`>= 0` and `kappa` in `(0, 1]`, at least one with `gamma_q > 0`, when the study is set up.
+`>= 0` and `kappa` in `(0, 1]`, at least one with `gamma_q > 0`, when the study is set up. A plane a precomputed-FPHA stage uses that falls below 0 MW at zero turbined flow, at the fitting window's minimum storage and the upper end of the spillage fit range, is accepted with a [`ModelQuality`](/en/reference/error-codes/#modelquality) warning.
 
 The file produced by `output/hydro_models/fpha_hyperplanes.parquet` (written when
 `source: "computed"` is used) has this exact same 11-column schema. It loads unedited as precomputed input: its flat cap plane (`gamma_q = 0`) is accepted, and a plant without turbine capacity needs no rows.

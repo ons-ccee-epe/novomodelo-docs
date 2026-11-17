@@ -85,7 +85,7 @@ $$
 
 **Vantagens**:
 
-- PL sempre viável
+- Atende às condições (a) a (c) da [precondição de recurso completo](/math/penalty-system#precondicao-de-recurso-completo) em toda realização de afluência
 - Sinal de custo claro para eventos de afluência negativa
 - Limites da folga que não dependem do estado de entrada, de modo que o método preserva a validade do limite inferior (§7)
 
@@ -168,10 +168,12 @@ Os limites dependem do estado de entrada apenas por meio das suas defasagens de 
 
 | Método                    | Tamanho do PL              | Água acrescentada ao balanço         | Custo da água acrescentada | Viabilidade    | Limite inferior sob PAR(p > 0) |
 | ------------------------- | -------------------------- | ------------------------------------ | -------------------------- | -------------- | ------------------------------ |
-| `none`                    | Base                       | Nenhuma                              | —                          | Pode falhar    | Não afetado                    |
-| `penalty`                 | +1 coluna por usina hidrelétrica | Qualquer quantidade, em qualquer realização | $c^{inf}_h$       | Garantida      | Não afetado                    |
-| `truncation`              | +1 coluna por usina hidrelétrica | Exatamente $a^-_h$             | Nenhum                     | Garantida      | Não garantido (§7)             |
-| `truncation_with_penalty` | +1 coluna por usina hidrelétrica | Até $a^-_h$                    | $c^{inf}_h$                | Garantida      | Não garantido (§7)             |
+| `none`                    | Base                       | Nenhuma                              | —                          | Nenhuma        | Não afetado                    |
+| `penalty`                 | +1 coluna por usina hidrelétrica | Qualquer quantidade, em qualquer realização | $c^{inf}_h$       | (a) a (c)      | Não afetado                    |
+| `truncation`              | +1 coluna por usina hidrelétrica | Exatamente $a^-_h$             | Nenhum                     | (a)            | Não garantido (§7)             |
+| `truncation_with_penalty` | +1 coluna por usina hidrelétrica | Até $a^-_h$                    | $c^{inf}_h$                | (a)            | Não garantido (§7)             |
+
+A coluna Viabilidade indica as condições da precondição de recurso completo de Sistema de penalidades que o método atende por si só; um PL de estágio é viável quando o caso atende também às demais.
 
 Todos os métodos mantêm a realização bruta no estado de defasagens (§1).
 

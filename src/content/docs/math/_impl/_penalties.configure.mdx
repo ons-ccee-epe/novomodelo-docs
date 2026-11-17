@@ -35,6 +35,7 @@ directional costs and `inflow_nonnegativity_cost`) are omitted.
     "outflow_violation_below_cost": 500.0,
     "outflow_violation_above_cost": 500.0,
     "generation_violation_below_cost": 1000.0,
+    "fpha_violation_cost": 85000.0,
     "evaporation_violation_cost": 5000.0,
     "water_withdrawal_violation_cost": 1000.0
   },
@@ -46,7 +47,7 @@ Bus (`deficit_segments[].cost`, `excess_cost`), line (`exchange_cost`) and
 non-controllable-source (`curtailment_cost`) costs are in \$ per MWh. Hydro
 costs are in \$ per hm³ for `storage_violation_below_cost` and
 `filling_target_violation_cost`, in \$ per MWh for
-`generation_violation_below_cost`, and in \$ per (m³/s)·h for every other hydro
+`generation_violation_below_cost` and `fpha_violation_cost`, and in \$ per (m³/s)·h for every other hydro
 cost.
 
 A parallel stage prices its one evaporation slack pair over the stage hours,
@@ -81,9 +82,9 @@ cumulative — the first `depth_mw` MW of unmet demand cost the first segment's
 ]
 ```
 
-The last segment is unbounded, so the LP is always feasible whatever the
-shortfall. The field rules (a non-empty list, positive and strictly increasing
-costs, and a last `depth_mw` of `null`) are under
+The last segment is unbounded, so the load balance always has a solution
+whatever the shortfall. The field rules (a non-empty list, positive and strictly
+increasing costs, and a last `depth_mw` of `null`) are under
 [`penalties.json`](/en/reference/case-format/penalties/#penaltiesjson) and
 [`system/buses.json`](/en/reference/case-format/system/#systembusesjson).
 
@@ -164,10 +165,10 @@ defaults only; no slack is priced at a symmetric cost.
 | Variable                   | Lower Bound                                                                                                | Upper Bound            | Lower Slack                                    | Upper Slack  |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------- | ------------ |
 | `storage`                  | `min_storage_hm3`; `0` for a filling hydro in every phase and for a hydro outside its commissioning window | `max_storage_hm3`; while the hydro is PreFilling, never below its own `reservoir.max_storage_hm3` | Hard (soft for a filling hydro once operating) | Spillage     |
-| `turbined_flow`            | `0`; the `min_turbined_m3s` minimum, summed over a (hydro, bus) cell's unit groups, is a soft row, plus a soft plant-total row where the plant's own `min_turbined_m3s` exceeds that sum | `max_turbined_m3s`, also on the plant's total where it is below the cells' summed capacities | With penalty, when that minimum is `> 0`       | Hard         |
+| `turbined_flow`            | `0`; the `min_turbined_m3s` minimum, summed over a (hydro, bus) cell's unit groups, is a soft row, plus a soft plant-total row where the plant's own `min_turbined_m3s` exceeds that sum; both are dropped where the plant cannot produce ([Plant Minimum and Maximum](/en/math/lp-formulation#plant-minimum-and-maximum)) | `max_turbined_m3s`, also on the plant's total where it is below the cells' summed capacities | With penalty, when that minimum is `> 0`       | Hard         |
 | `spillage`                 | `min_spillage_m3s` (default `0`)                                                                           | `max_spillage_m3s` (default unbounded) | Hard                                           | Hard         |
 | `outflow`                  | `min_outflow_m3s`                                                                                          | `max_outflow_m3s` (optional) | With penalty, when that minimum is `> 0`       | With penalty, when that maximum is set |
-| `generation`               | `0`; the `min_generation_mw` minimum, summed over a (hydro, bus) cell's unit groups, is a soft row, plus a soft plant-total row where the plant's own `min_generation_mw` exceeds that sum | `max_generation_mw`, also on the plant's total where it is below the cells' summed capacities | With penalty, when that minimum is `> 0`       | Hard         |
+| `generation`               | `0`; the `min_generation_mw` minimum, summed over a (hydro, bus) cell's unit groups, is a soft row, plus a soft plant-total row where the plant's own `min_generation_mw` exceeds that sum; both are dropped where the plant cannot produce ([Plant Minimum and Maximum](/en/math/lp-formulation#plant-minimum-and-maximum)) | `max_generation_mw`, also on the plant's total where it is below the cells' summed capacities | With penalty, when that minimum is `> 0`       | Hard         |
 | `evaporation`              | minus the per-stage bound of [Signed Net Evaporation](#signed-net-evaporation)                             | plus that bound        | With penalty                                   | With penalty |
 | `withdrawal` (stage-level) | `water_withdrawal_m3s`                                                                                     | `water_withdrawal_m3s` | With penalty                                   | With penalty |
 
@@ -182,6 +183,8 @@ installed capacity provides a natural hard upper bound. A positive cell minimum 
 enforced by a soft row whose slack is priced at `generation_violation_below_cost`;
 a zero cell minimum leaves that slack fixed at `0`. A plant-total minimum row
 prices its own slack at the same cost, and a shortfall is charged once.
+Where the plant cannot produce, the cell minimum is `0` with its slack fixed at
+`0`, and the plant-total row is free ([Plant Minimum and Maximum](/en/math/lp-formulation#plant-minimum-and-maximum)).
 :::
 
 Relationship: `outflow = turbined_flow + spillage`,
@@ -189,9 +192,11 @@ Relationship: `outflow = turbined_flow + spillage`,
 
 ### Load-time penalty checks
 
-Novomodelo checks the configured costs when the case loads. The checks read each
-hydro's entity-level costs: the `penalties.json` defaults with the plant's
-`penalties` block applied. Stage overrides are not checked. The deficit side of
+Novomodelo checks the configured costs when the case loads. The three cost-ordering
+checks read each hydro's entity-level costs: the `penalties.json` defaults with the
+plant's `penalties` block applied. The stage overrides do not enter them. The FPHA
+price check reads the costs each stage resolves, stage overrides included, at the
+stages where the hydro's production model selects FPHA. The deficit side of
 the first comparison is the largest deficit-segment cost of any bus, and 0 when the
 case has no bus. The comparisons use the configured values as given, without
 converting them to energy, so a case that passes them can still invert the
@@ -206,15 +211,16 @@ and a worst-case hydro.
 | Deficit above generation violation | a hydro's `generation_violation_below_cost` is at least the largest deficit cost | every hydro that meets the condition; the worst case has the largest generation-violation cost |
 | Flow violations above resource costs | a hydro's smallest flow-violation cost is at most the largest resource cost over all hydros | every hydro that meets the condition; the worst case has the smallest flow-violation cost |
 | Resource costs positive                    | a hydro's smaller resource cost is at most 0                                                                          | every hydro that meets the condition; the worst case has the smallest of those costs     |
+| FPHA price above deficit plus generation violation | at an FPHA stage, a hydro's `fpha_violation_cost` is at most the largest deficit cost plus its `generation_violation_below_cost` | every (hydro, stage) pair that meets the condition; the named pair has the smallest margin |
 
 The flow-violation costs of a hydro are `turbined_violation_below_cost`,
 `outflow_violation_below_cost`, `outflow_violation_above_cost` and the four
 directional evaporation and withdrawal costs. "Resource costs" means the hydro
 `spillage_cost` and `diversion_cost`. Each check compares only costs of one unit.
-These three checks read no thermal, contract, excess, exchange or curtailment
+The checks read no thermal, contract, excess, exchange or curtailment
 cost, and neither `turbined_cost` nor `inflow_nonnegativity_cost`.
 
-{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:57-62, 101-107, 131-137 at novomodelo v0.20.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:58-63, 102-108 and 132-138 at novomodelo v0.21.0 */}
 
 Each warning text is fixed apart from its numbers and hydro ids, written `{…}`
 here, and begins `Penalty ordering violation:`:
@@ -226,6 +232,22 @@ here, and begins `Penalty ordering violation:`:
 - Resource costs positive:
   `Penalty ordering violation: min(resource_costs) ({…}) should be > 0 (regularization costs must be positive to prevent LP degeneracy) -- {…} hydro(s) affected, worst case: Hydro {…}`
 
+The fourth check begins its warning with `FPHA price ordering violation:`. The
+named pair has the smallest margin `fpha_violation_cost - (largest deficit cost +
+generation_violation_below_cost)`; ties go to the lower hydro id, then the lower
+stage id. A hydro with no production-model entry is never checked. The check
+leaves out the generic-constraint term of the plane dual, so a case that passes it
+can still have an active FPHA slack: see
+[Penalty Priority Ordering](/en/math/penalty-system#penalty-priority-ordering). One
+such case is a lower-bounded generic constraint on FPHA generation whose slack
+price is at or above the FPHA price.
+
+{/* quoted from source: check_fpha_price_dominance in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo v0.21.0 */}
+
+```text
+FPHA price ordering violation: fpha_violation_cost ({…}) should be > max(deficit_segment_costs) ({…}) + generation_violation_below_cost ({…}) (all $/MWh) -- {…} (hydro, stage) pair(s) at FPHA stages, {…} hydro(s) affected, smallest margin: Hydro {…} at stage {…}
+```
+
 To clear a warning, change the costs in `penalties.json` or in the plant's
 `penalties` block until the comparison in the message holds: for `should be >`,
 raise the cost on the left or lower the one on the right. A warning names `penalties.json` even when a plant's
@@ -235,7 +257,7 @@ numeric `id`.
 Two rules reject the case as a `BusinessRuleViolation` error (see
 [Error Codes — `BusinessRuleViolation`](/en/reference/error-codes/#businessruleviolation)):
 
-{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:164-167, 1138-1144 at novomodelo v0.20.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:427-430 and 1398-1404 at novomodelo v0.21.0 */}
 
 - **Negative turbined cost on an FPHA hydro.** A hydro whose `generation.model`
   is `fpha` and whose `turbined_cost` is negative is rejected on

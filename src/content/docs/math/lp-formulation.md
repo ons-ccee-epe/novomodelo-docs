@@ -21,7 +21,7 @@ $$
 \begin{aligned}
 & \min\; C^{resource} + C^{recourse} + C^{violation} + C^{regularization} + d_{t \to t+1}\,\theta \\
 & z_h = b_{h,m(t)} + \sum_{\ell=1}^{P_h} \psi_{m(t),\ell} \, a_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t \quad (1) \\
-& v_h - v^{in}_h - \zeta \, z_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = -\zeta \, r_h \quad (2) \\
+& v_h - v^{in}_h - \zeta \, z_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = -\zeta \, T^{eff}_h \quad (2) \\
 & \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (4) \\
 & g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (5) \\
 & e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (6) \\
@@ -116,7 +116,7 @@ $$
 $$
 
 $$
-  + \underbrace{\text{Constraint violation penalties}}_{\text{See }\S 9}
+  + \underbrace{\text{Constraint violation penalties}}_{\text{See }\S 9\text{, including the FPHA plane slack } c^{fpha}_h \sigma^{fpha}_{h,b,k}}
 \Bigg]
 $$
 
@@ -178,7 +178,7 @@ $$
 & \quad + \sum_{k \in \mathcal{K}} \zeta_k \Big( q_{h,k} + s_{h,k} + u_{h,k}
   - \sum_{h' \in \mathcal{U}_h} \nu_{h',t,0} \, (q_{h',k} + s_{h',k})
   - \sum_{h':\,\text{div}=h} u_{h',k} \\
-& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta \, r_h
+& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta \, T^{eff}_h
 \end{aligned}
 $$
 
@@ -193,7 +193,7 @@ $$
   + \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) \\
 & \quad - \sum_{h' \in \mathcal{U}_h} \sum_{k' \le k} \nu^{k' \to k}_{h',t} \, \zeta_{k'} \, (q_{h',k'} + s_{h',k'})
   - \zeta_k \sum_{h':\,\text{div}=h} u_{h',k}
-  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta_k \, r_h
+  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta_k \, T^{eff}_h
 \end{aligned}
 $$
 
@@ -203,7 +203,9 @@ $$
 - $b^{\mathrm{in}}_{h,1}$ = in-transit volume maturing at this stage on the travel-time arcs into $h$, in hm³ and therefore outside the conversion ([State Augmentation §6](/en/math/state-augmentation#6-water-travel-time)); a chronological stage spreads it over its blocks by the arrival density $\phi_{h,k}$, $\sum_k \phi_{h,k} = 1$. Absent when no travel-time arc enters $h$
 - $z_h = a_h$ = realized incremental inflow (§5), so block $k$ of a chronological stage receives the share $w_k\,\zeta\,\sigma_{m(t)}\,\varepsilon_t$ of the innovation
 - $\sigma^{inf}_h$ = inflow non-negativity slack, present under every inflow method except `none`, which adds water: unbounded under `penalty`, capped at the truncation amount $a^-_h$, a constant of the solve computed from the realization at its pinned lags, under `truncation_with_penalty`, and fixed at it under `truncation` (see [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity))
-- $r_h$, $\sigma^{w-}_h$, $\sigma^{w+}_h$ = signed stage-level withdrawal target ($r_h < 0$ adds water) and its stage-level under- and over-delivery slacks; the realized withdrawal is $R_h = r_h - \sigma^{w-}_h + \sigma^{w+}_h$, with the slack caps in §9
+- $r_h$ = the plant's own declared withdrawal target, signed and stage-level ($r_h < 0$ adds water)
+- $T^{eff}_h$ = effective withdrawal, the quantity on the right-hand side. For a non-PreFilling plant, $T^{eff}_h = r_h + \sum_{h' \in \mathcal{P}_h} r_{h'}$, where $\mathcal{P}_h$ is the set of PreFilling plants whose first non-PreFilling downstream plant is $h$; for a PreFilling plant, $T^{eff}_h = 0$ ([PreFilling Pass-Through](#prefilling-pass-through))
+- $\sigma^{w-}_h$, $\sigma^{w+}_h$ = stage-level under- and over-delivery slacks of the effective withdrawal; the realized withdrawal is $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$, with the slack caps in §9
 - $e_h$ / $e_{h,k}$ = signed net evaporation of a hydro with an evaporation model (a negative value is net rainfall on the lake and adds water): one stage-level column on a parallel stage of any block count, one per block on a chronological stage, each a bounded column tied to storage by its evaporation row (see [Evaporation Row](#evaporation-row))
 - $q_{h,k} = \sum_{b \in \mathcal{B}_h} q_{h,b,k}$, $s_{h,k}$, $u_{h,k}$ = the plant's own turbined, spilled and diverted flow in block $k$; every (hydro, bus) cell's turbined column carries the same coefficient, and spillage and diversion are single per-plant columns
 - Upstream release: only the turbined and spilled flow of each $h' \in \mathcal{U}_h$ reaches $h$; a plant's diverted flow reaches only its diversion target (the $\text{div}$ sum)
@@ -214,7 +216,7 @@ $$
 
 ### PreFilling Pass-Through
 
-A PreFilling hydro (see [Lifecycle Phases](#lifecycle-phases) for the phase) has the frozen identity row $v_h - v^{in}_h = 0$, and on a chronological stage $v_{h,k} - v_{h,k-1} = 0$ per block, with right-hand side $0$. Its local inflow $z_h$ with its inflow non-negativity slack $\sigma^{inf}_h$, the releases of its upstream plants and the flows diverted into it enter the row of the first non-PreFilling plant downstream with the coefficients they would carry on the PreFilling plant's own row ($-\zeta$ on $z_h$ and $\sigma^{inf}_h$ on a parallel stage and $-\zeta_k$ on each block row of a chronological stage, $-\zeta_k$ on every block-$k$ flow) and no travel-time share, and its withdrawal target moves to that plant's right-hand side. Its maturing in-transit volume $b^{\mathrm{in}}_{h,1}$ enters the same row, with coefficient $-1$ on a parallel stage and $-\phi_{h,k}$ on block $k$'s row of a chronological stage, $\phi_{h,k}$ being the PreFilling plant's own arrival density. With no such plant downstream the water leaves the system.
+A PreFilling hydro (see [Lifecycle Phases](#lifecycle-phases) for the phase) has the frozen identity row $v_h - v^{in}_h = 0$, and on a chronological stage $v_{h,k} - v_{h,k-1} = 0$ per block, with right-hand side $0$. Its local inflow $z_h$ with its inflow non-negativity slack $\sigma^{inf}_h$, the releases of its upstream plants and the flows diverted into it enter the row of the first non-PreFilling plant downstream with the coefficients they would carry on the PreFilling plant's own row ($-\zeta$ on $z_h$ and $\sigma^{inf}_h$ on a parallel stage and $-\zeta_k$ on each block row of a chronological stage, $-\zeta_k$ on every block-$k$ flow) and no travel-time share, and its withdrawal target joins that plant's effective withdrawal $T^{eff}_h$, so the receiving plant's slacks $\sigma^{w-}_h$ and $\sigma^{w+}_h$ relax it at that plant's withdrawal-slack prices. Its maturing in-transit volume $b^{\mathrm{in}}_{h,1}$ enters the same row, with coefficient $-1$ on a parallel stage and $-\phi_{h,k}$ on block $k$'s row of a chronological stage, $\phi_{h,k}$ being the PreFilling plant's own arrival density. With no such plant downstream the water leaves the system and the withdrawal enters no row.
 
 ### Summing the Block Rows
 
@@ -225,7 +227,7 @@ Summing a chronological stage's block rows over $k \in \mathcal{K}$ telescopes t
 
 - Storage ($v_h$, $v^{in}_h$, $v_{h,k}$) and $b^{\mathrm{in}}_{h,1}$ are in hm³
 - $\zeta$ and $\zeta_k$ are in hm³/(m³/s)
-- Every flow, every slack and $r_h$ are in m³/s
+- Every flow, every slack, $r_h$ and $T^{eff}_h$ are in m³/s
 - The conversion to volume happens only through $\zeta$ and $\zeta_k$
 :::
 
@@ -246,8 +248,15 @@ e_{h,k} - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v_{h,k-1} + v_{h,k} \big) - \sig
 $$
 
 - $\gamma^{ev}_{v,h}$ and $\gamma^{ev}_{0,h}$ = slope and intercept, at a reference volume, of the tangent of the evaporation flux of $h$: the evaporation coefficient of the stage's calendar month times the reservoir surface area from its area–volume curve, converted to a monthly-average rate in m³/s. Both are recomputed at every stage; the row's target is the tangent evaluated at the average of the two storages the row reads. The flux, and so $e_h$ or $e_{h,k}$, can be negative (net rainfall on the lake)
-- $e_h$ / $e_{h,k}$ = net evaporation (Row Terms above), bounded symmetrically about zero by a fixed safety margin times $\lvert \gamma^{ev}_{0,h} + \gamma^{ev}_{v,h} \bar{V}_h \rvert$, the magnitude of the target at the maximum storage $\bar{V}_h$, recomputed at every stage; it is not a free column. It enters the parallel water-balance row as $\zeta \, e_h$ and the block-$k$ row of a chronological stage as $\zeta_k \, e_{h,k}$
+- $e_h$ / $e_{h,k}$ = net evaporation (Row Terms above), a bounded column, not a free one. Its box follows the sign of the stage month's evaporation coefficient, the sign of the coefficient itself and not of $\gamma^{ev}_{0,h}$ or $\gamma^{ev}_{v,h}$. With $q^{\max}_{ev,h}$ the magnitude of the target at the maximum storage $\bar{V}_h$ times a fixed safety margin, recomputed at every stage:
+  - positive month: $e_h \in [\min(0, \underline{e}^{tgt}_h),\, q^{\max}_{ev,h}]$;
+  - negative month: $e_h \in [-q^{\max}_{ev,h},\, \max(0, \bar{e}^{tgt}_h)]$;
+  - zero month: $e_h \in [-q^{\max}_{ev,h},\, q^{\max}_{ev,h}]$.
+
+  The same box applies to $e_{h,k}$ of each block, with the extremes taken over that block's average storage. It enters the parallel water-balance row as $\zeta \, e_h$ and the block-$k$ row of a chronological stage as $\zeta_k \, e_{h,k}$
+- $\underline{e}^{tgt}_h$, $\bar{e}^{tgt}_h$ and $\bar{e}^{hard}_h$ = extremes of the row's target over the average storages the row can read. $\underline{e}^{tgt}_h$ and $\bar{e}^{tgt}_h$ are the smallest and largest target, with the stage's storage floor taken as the hydro's minimum storage even where that floor is soft; $\bar{e}^{hard}_h$ is the largest target with the floor taken as the hard floor, which is $0$ for a filling hydro and for a PreFilling stage and the stage's minimum storage otherwise ([§8](#8-variable-bounds-and-minimum-constraints)). The incoming storage ranges over the previous stage's floors and ceiling, or, at the first stage and after a PreFilling stage, over the interval the initial storage is clamped into. The target is evaluated at both ends of each range, because the area–volume slope can take either sign
 - $\sigma^{e+}_h$ / $\sigma^{e+}_{h,k}$ and $\sigma^{e-}_h$ / $\sigma^{e-}_{h,k}$ = evaporation above and below the target, priced at $c^{ev+}_h$ and $c^{ev-}_h$: the row sets the evaporation to the target plus $\sigma^{e+}$ minus $\sigma^{e-}$. On a parallel stage the one pair is priced over the stage hours $H_t$, on a chronological stage each block's pair over its duration $\tau_k$ (§9)
+- $\sigma^{e+}_h$ is unbounded in every month. $\sigma^{e-}_h$ is unbounded in a positive and in a zero month, and in a negative month it is capped, $\sigma^{e-}_h \le \max(0, \bar{e}^{hard}_h)$, which holds it to the amount that brings a positive target down to $0$. In a positive month the floor of $e_h$ keeps it from going negative far enough for $\sigma^{e-}_h$ to create water, and in a negative month the ceiling keeps evaporation from removing more water than the target can
 
 With one block the parallel and chronological forms coincide, rows and pricing alike. A PreFilling hydro has no evaporation row.
 
@@ -290,18 +299,20 @@ Constant-productivity hydros carry no separate generation column: $g_{h,b,k}$ is
 **FPHA Model** (for each plane $m \in \mathcal{M}_h$, cell $(h, b)$ of hydro $h \in \mathcal{H}^{fpha}$, block $k$):
 
 $$
-g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
 $$
 
-where $v^{avg}_h = (v^{in}_h + v_h)/2$ is the average storage during the stage, with $v^{in}_h$ being the incoming storage LP variable ([State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)) and $v_h$ the end-of-stage storage on a parallel stage; on a chronological stage the row of block $k$ reads that block's own average $(v_{h,k-1} + v_{h,k})/2$ ([Block Formulation Variants §2.4](/en/math/block-formulations#24-per-block-production-and-evaporation)) — a single plant-level quantity shared by every cell, since storage is not partitioned. $\lambda_{h,b}$ is cell $(h,b)$'s **apportionment share** of plant $h$'s declared turbine capacity,
+where $\sigma^{fpha}_{h,b,k} \geq 0$ (MW) is the **FPHA plane slack**, one per cell $(h, b)$ and block $k$, and $v^{avg}_h = (v^{in}_h + v_h)/2$ is the average storage during the stage, with $v^{in}_h$ being the incoming storage LP variable ([State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)) and $v_h$ the end-of-stage storage on a parallel stage; on a chronological stage the row of block $k$ reads that block's own average $(v_{h,k-1} + v_{h,k})/2$ ([Block Formulation Variants §2.4](/en/math/block-formulations#24-per-block-production-and-evaporation)) — a single plant-level quantity shared by every cell, since storage is not partitioned. $\lambda_{h,b}$ is cell $(h,b)$'s **apportionment share** of plant $h$'s declared maximum turbined flow,
 
 $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
-(the ratio of the cell's own unit groups' declared maximum turbined flow to the plant's total, $0$ when the plant's total is $0$), so that $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ for every plant with positive declared turbine capacity. Only the plane's flow-independent part — the intercept $\gamma^m_0$, the storage term, and the spillage term — is apportioned by $\lambda_{h,b}$; the flow coefficient $\gamma^m_q$ stays on the cell's own $q_{h,b,k}$ unscaled, because it alone is homogeneous in the cell partition (summing the per-cell rows at fixed $v^{avg}_h$, $s_{h,k}$, and $\sum_b q_{h,b,k}$ recovers the plant-level bound this replaces). A single-cell plant with positive declared turbine capacity has $\lambda_{h,b} = 1$ exactly, so its row is the plant-level row.
+(the ratio of the cell's own unit groups' declared maximum turbined flow to the plant's total, $0$ when the plant's total is $0$), so that $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ for every plant with a positive declared maximum turbined flow. Only the plane's flow-independent part — the intercept $\gamma^m_0$, the storage term, and the spillage term — is apportioned by $\lambda_{h,b}$; the flow coefficient $\gamma^m_q$ stays on the cell's own $q_{h,b,k}$ unscaled, because it alone is homogeneous in the cell partition (summing the per-cell rows at fixed $v^{avg}_h$, $s_{h,k}$, and $\sum_b q_{h,b,k}$ recovers the plant-level bound this replaces). A single-cell plant with a positive declared maximum turbined flow has $\lambda_{h,b} = 1$ exactly, so its row is the plant-level row.
 
-For a plant with positive declared turbine capacity the shares sum to $1$, so the per-cell rows of each plane sum to that plane's plant-level row (above). A sum of minima is at most the minimum of the sums, so at the same $v^{avg}_h$, $s_{h,k}$ and total turbined flow the cap the per-cell rows put on the plant's generation $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, on the left, is at most the plant-level envelope, the minimum over the planes of the plant-level rows, on the right:
+The slack enters the row of every plane $m \in \mathcal{M}_h$ of its cell and block with coefficient $-1$, so generation may exceed every plane of the cell by the slack. It sits only in those plane rows: in no water-balance, load-balance or generic-constraint row, so the water balance and the inflow coupling carry no term for it. It is priced at $c^{fpha}_h$ (\$/MWh) times the block duration $\tau_k$ (§9). The plane displays that follow hold at $\sigma^{fpha}_{h,b,k} = 0$.
+
+For a plant with a positive declared maximum turbined flow the shares sum to $1$, so the per-cell rows of each plane sum to that plane's plant-level row (above). A sum of minima is at most the minimum of the sums, so at the same $v^{avg}_h$, $s_{h,k}$ and total turbined flow the cap the per-cell rows put on the plant's generation $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, on the left, is at most the plant-level envelope, the minimum over the planes of the plant-level rows, on the right:
 
 $$
 \sum_{b \in \mathcal{B}_h} \min_{m} \Big( \lambda_{h,b}\big(\gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s s_{h,k}\big) + \gamma^m_q q_{h,b,k} \Big)
@@ -309,6 +320,8 @@ $$
 $$
 
 Equality holds when the same plane attains the minimum in every cell, in particular when the cells turbine in proportion to their shares $\lambda_{h,b}$. For $\lambda_{h,b} > 0$ the minimum of cell $(h,b)$ is $\lambda_{h,b}$ times the plant-level envelope at the flow $q_{h,b,k}/\lambda_{h,b}$, so when every share is positive the display is Jensen's inequality for the concave envelope with the weights $\lambda_{h,b}$. A cell with $\lambda_{h,b} = 0$ keeps only its $\gamma^m_q \, q_{h,b,k}$ term, and the display still holds by the sum-of-minima argument.
+
+At a block where cell $(h,b)$ has no turbine capacity ([Hydro Production Function Models §2.9](/en/math/hydro-production-models#plants-and-cells-without-turbine-capacity)), its plane rows are free and $\sigma^{fpha}_{h,b,k}$ is fixed at $0$, while a cell with capacity keeps its rows at its share $\lambda_{h,b}$, which is not re-apportioned. An FPHA plant without turbine capacity at every block of the stage has no generation column, no plane rows and no plane slack at that stage.
 
 **Generation Bounds** (per cell $(h, b)$, block $k$ — the FPHA generation column's own bound; a constant-productivity cell has no such column, so its generation cap is folded into the turbined-flow bound below instead):
 
@@ -319,6 +332,8 @@ $$
 $$
 \underline{G}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{G}_u, \qquad \bar{G}_{h,b} = \min\!\Big( \sum_{u \,\in\, (h,b)} \bar{G}_u,\ \ \bar{G}_h \Big)
 $$
+
+Both sums run over the cell's unit groups with turbine capacity at block $k$, and $\bar{G}_{h,b} = 0$ when the plant's own limits have none.
 
 Generation bounds are user-defined (declared per unit group, not derived from turbined flow). The lower bound is soft, with one slack $\sigma^{g-}_{h,b,k}$ **per cell** — priced at the plant's own penalty $c^{gv-}_h$ at full magnitude on every cell of a split plant, never divided by cell count; a constant-productivity cell's floor couples this same slack to $\rho_h \cdot q_{h,b,k}$ rather than to a generation column. The upper bound's plain sum over the cell's own unit groups closes against the plant's own resolved maximum $\bar{G}_h$ — a bounds override may never raise a cell above it. The plant's own minimum $\underline{G}_h$ and, on a plant with several cells, its maximum $\bar{G}_h$ also bind on the total of its cells ([§8 Plant Minimum and Maximum](#plant-minimum-and-maximum)). See [System Element Modeling Overview §5](/en/math/system-elements). Matches the per-cell $\sigma^{g-}_{h,b,k}$ defined in [Notation Conventions §4.3](/en/overview/notation-conventions#43-slack-variables).
 
@@ -338,7 +353,7 @@ Outflow $o$ represents water released to the downstream channel (affecting tailr
 - **Withdrawal** $r_h$: A signed consumptive-use parameter (positive = removal from system for irrigation/water supply; negative = inter-basin return/addition). This is a fixed parameter (not a decision variable) — see §4 for the signed-target semantics and §9 for the slack bounds
 - **Diversion** $u_{h,k}$: Water bypassed to a separate channel (not affecting main tailrace)
 
-The water balance (§4) accounts for all flows: inflow $-$ $(q + s + u)$ $-$ evaporation $-$ withdrawal = storage change. Withdrawal $r_h$ enters as a signed fixed RHS parameter; bidirectional violation slacks ($\sigma^{w-}_h$, $\sigma^{w+}_h$) allow the LP to relax the withdrawal commitment when necessary (see §9).
+The water balance (§4) accounts for all flows: inflow $-$ $(q + s + u)$ $-$ evaporation $-$ withdrawal = storage change. The effective withdrawal $T^{eff}_h$, derived from the declared $r_h$ (§4), enters as a signed fixed RHS parameter; bidirectional violation slacks ($\sigma^{w-}_h$, $\sigma^{w+}_h$) allow the LP to relax the withdrawal commitment when necessary (see §9).
 :::
 
 **Outflow Bounds** (with slacks for soft enforcement):
@@ -373,25 +388,25 @@ $$
 \underline{Q}_{h,b} - \sigma^{q-}_{h,b,k} \leq q_{h,b,k} \leq \bar{Q}_{h,b}
 $$
 
-The lower bound is soft, with one slack $\sigma^{q-}_{h,b,k}$ per cell, priced at the plant's own penalty $c^{tv-}_h$ at full magnitude on every cell — never divided by cell count; it is the plain sum of the cell's own unit groups' resolved minimum turbined flow, $\underline{Q}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{Q}_u$, except on a single-cell plant whose own minimum is tighter ([Plant Minimum and Maximum](#plant-minimum-and-maximum)). The upper bound is hard and closes against the plant's own resolved maximum, never raised above it:
+The lower bound is soft, with one slack $\sigma^{q-}_{h,b,k}$ per cell, priced at the plant's own penalty $c^{tv-}_h$ at full magnitude on every cell — never divided by cell count; it is the plain sum of the resolved minimum turbined flow of the cell's own unit groups with turbine capacity at the block, $\underline{Q}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{Q}_u$, except on a single-cell plant whose own minimum is tighter ([Plant Minimum and Maximum](#plant-minimum-and-maximum)). The upper bound is hard and closes against the plant's own resolved maximum, never raised above it:
 
 $$
 \bar{Q}_{h,b} = \min\!\left( \sum_{u \,\in\, (h,b)} \mathrm{fold}(u),\ \ \bar{Q}_h \right)
 $$
 
-where $\mathrm{fold}(u) = \bar{Q}_u$ for an FPHA hydro (turbined flow and generation are independent columns there) and $\mathrm{fold}(u) = \min(\bar{Q}_u,\ \bar{G}_u / \rho_h)$ for a constant-productivity hydro — each group's own flow cap and MW-implied flow cap must be folded **before** summing across the cell, since $\min$ does not distribute over a sum of groups that bind on different sides. This is the mechanism that enforces a constant-productivity cell's generation cap (§6): there is no separate generation column to bound directly. Matches the per-cell $\sigma^{q-}_{h,b,k}$ defined in [Notation Conventions §4.3](/en/overview/notation-conventions#43-slack-variables).
+where $\mathrm{fold}(u) = \bar{Q}_u$ for an FPHA hydro (turbined flow and generation are independent columns there) and $\mathrm{fold}(u) = \min(\bar{Q}_u,\ \bar{G}_u / \rho_h)$ for a constant-productivity hydro, and $\mathrm{fold}(u) = 0$ for a unit group without turbine capacity at the block, in every model; the closing term $\bar{Q}_h$ is $0$ when the plant itself has none, so $\bar{Q}_{h,b} = 0$ there. Each group's own flow cap and MW-implied flow cap must be folded **before** summing across the cell, since $\min$ does not distribute over a sum of groups that bind on different sides. This is the mechanism that enforces a constant-productivity cell's generation cap (§6): there is no separate generation column to bound directly. Matches the per-cell $\sigma^{q-}_{h,b,k}$ defined in [Notation Conventions §4.3](/en/overview/notation-conventions#43-slack-variables).
 
 ### Plant Minimum and Maximum
 
-A plant's own resolved minimum turbined flow $\underline{Q}_h$ and minimum generation $\underline{G}_h$ bind on the total of its cells where they are tighter than the cells' floors. Take the relative tolerance $\epsilon(x) = 10^{-9} \max(\lvert x \rvert, 1)$. At a block where $\underline{Q}_h \le \sum_{b \in \mathcal{B}_h} \underline{Q}_{h,b} + \epsilon(\underline{Q}_h)$ the cell floors already enforce the plant minimum. Elsewhere, a single-cell plant takes $\underline{Q}_h$ as its cell floor, and a plant with several cells gets one residual row on top of its cell rows:
+A plant's own resolved minimum turbined flow $\underline{Q}_h$ and minimum generation $\underline{G}_h$ bind on the total of its cells where they are tighter than the cells' floors. Take the relative tolerance $\epsilon(x) = 10^{-9} \max(\lvert x \rvert, 1)$. The plant minimum binds at a block where $\underline{Q}_h > \sum_{u \in h} \underline{Q}_u + \epsilon(\underline{Q}_h)$, the sum running over every unit group of the plant, those without turbine capacity included; elsewhere the cell floors already enforce it. Where it binds, the plant enforces $\underline{Q}'_h = \underline{Q}_h - \sum_{u \in h,\ \text{no capacity}} \underline{Q}_u$, and $\underline{G}'_h$ alike. A single-cell plant takes $\underline{Q}'_h$ as its cell floor, and a plant with several cells gets one residual row on top of its cell rows:
 
 $$
-\sum_{b \in \mathcal{B}_h} \big( q_{h,b,k} + \sigma^{q-}_{h,b,k} \big) + \sigma^{Q-}_{h,k} \;\geq\; \underline{Q}_h,
+\sum_{b \in \mathcal{B}_h} \big( q_{h,b,k} + \sigma^{q-}_{h,b,k} \big) + \sigma^{Q-}_{h,k} \;\geq\; \underline{Q}'_h,
 \qquad
-\sum_{b \in \mathcal{B}_h} \big( \pi_{h,b,k} + \sigma^{g-}_{h,b,k} \big) + \sigma^{G-}_{h,k} \;\geq\; \underline{G}_h
+\sum_{b \in \mathcal{B}_h} \big( \pi_{h,b,k} + \sigma^{g-}_{h,b,k} \big) + \sigma^{G-}_{h,k} \;\geq\; \underline{G}'_h
 $$
 
-$\pi_{h,b,k}$ is the cell's generation: $g_{h,b,k}$ for an FPHA cell, $\rho_h \, q_{h,b,k}$ for a constant-productivity cell, and nothing for an FPHA plant without a generation column, which is PreFilling or in its filling window. The residual slacks are priced at the plant's own penalties, $c^{tv-}_h$ on $\sigma^{Q-}_{h,k}$ and $c^{gv-}_h$ on $\sigma^{G-}_{h,k}$, at full magnitude. Because each residual row also carries the cell slacks, the cheapest slacks charge $c^{tv-}_h \max\big(\underline{Q}_h - \sum_{b} q_{h,b,k},\ \sum_{b} (\underline{Q}_{h,b} - q_{h,b,k})^+\big)$ for the turbined flow and the same form for the generation, so a shortfall is charged once. A plant with a residual row at some block of the stage has the row at every block of the stage; at a block where its cells cover the plant minimum the row is free and the residual slack is fixed at $[0, 0]$. The minima apply in every lifecycle phase.
+$\pi_{h,b,k}$ is the cell's generation: $g_{h,b,k}$ for an FPHA cell, $\rho_h \, q_{h,b,k}$ for a constant-productivity cell, and nothing for an FPHA plant without a generation column, which is PreFilling, in its filling window, or without turbine capacity at every block of the stage. The residual slacks are priced at the plant's own penalties, $c^{tv-}_h$ on $\sigma^{Q-}_{h,k}$ and $c^{gv-}_h$ on $\sigma^{G-}_{h,k}$, at full magnitude. Because each residual row also carries the cell slacks, the cheapest slacks charge $c^{tv-}_h \max\big(\underline{Q}'_h - \sum_{b} q_{h,b,k},\ \sum_{b} (\underline{Q}_{h,b} - q_{h,b,k})^+\big)$ for the turbined flow and the same form for the generation, so a shortfall is charged once. A plant with a residual row at some block of the stage has the row at every block of the stage; at a block where its cells cover the plant minimum the row is free and the residual slack is fixed at $[0, 0]$. Where the plant cannot produce at a block (it is PreFilling or in its filling window, or it has no turbine capacity at the block), every turbined-flow and generation minimum it has there is dropped: each cell floor, a single cell's plant floor included, is $0$ with its slack fixed at $0$, and the residual row is free. The minimum outflow is not dropped ([Lifecycle Phases](#lifecycle-phases)).
 
 A plant minimum below its cells' floors does not loosen them: the cell floors still bind. A plant with several cells also gets one hard row per block for its maximum turbined flow and one for its maximum generation, without a slack:
 
@@ -401,7 +416,7 @@ $$
 \sum_{b \in \mathcal{B}_h} \pi_{h,b,k} \;\leq\; \bar{G}_h
 $$
 
-Each binds at a block where the plant maximum is below the sum of its cells' caps by more than $\epsilon$ of it, the cells' caps being $\bar{Q}_{h,b}$ for the turbined flow, and $\rho_h \bar{Q}_{h,b}$ (constant productivity) or $\bar{G}_{h,b}$ (FPHA) for the generation; at any other block of the stage the row is free. A single-cell plant has no such row, since its cell bound already closes against $\bar{Q}_h$ and $\bar{G}_h$, and neither has a plant that is PreFilling or in its filling window, whose turbined flow is fixed at $0$.
+Each binds at a block where the plant maximum is below the sum of its cells' caps by more than $\epsilon$ of it, the cells' caps being $\bar{Q}_{h,b}$ for the turbined flow, and $\rho_h \bar{Q}_{h,b}$ (constant productivity) or $\bar{G}_{h,b}$ (FPHA) for the generation; at any other block of the stage the row is free. A cell without turbine capacity at the block has cap $0$, so the row is free where no cell can turbine. A single-cell plant has no such row, since its cell bound already closes against $\bar{Q}_h$ and $\bar{G}_h$, and neither has a plant that is PreFilling or in its filling window, whose turbined flow is fixed at $0$.
 
 ### Diversion Flow Bounds (per hydro $h$, block $k$)
 
@@ -429,9 +444,9 @@ At each stage a hydro is in exactly one lifecycle phase, set by its [commissioni
 
 | Phase | Applies at | Storage row and floor | Turbined flow and generation | Spillage | Diversion | Inflow, upstream releases and withdrawal | Operational floors |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PreFilling | A hydro without a filling configuration: every stage outside its commissioning window, before its entry stage or from its exit stage on. A filling hydro: every stage before its filling start         | Frozen identity $v_h - v^{in}_h = 0$, per block on a chronological stage, with right-hand side $0$ (§4); floor $0$, and a ceiling never below the hydro's own maximum storage (§8); no evaporation row                                                                                                                                        | $q_{h,b,k}$ fixed at $[0, 0]$ on every cell; no FPHA rows and no generation column            | $s_{h,k}$ fixed at $[0, 0]$, whatever its bounds | $u_{h,k}$ fixed at $[0, 0]$                                                                                               | The local inflow with its inflow non-negativity slack, the releases of the upstream plants, the flows diverted in and the in-transit volume maturing into the plant enter the row of the first non-PreFilling plant downstream, and the withdrawal target moves to that plant's right-hand side; with no such plant the water leaves the system | The minimum-outflow, minimum-turbined-flow and minimum-generation rows are present; with turbined flow, spillage and generation at $0$, a positive minimum falls wholly on its slack, at its penalty (§9)                                            |
-| Filling | A filling hydro: every stage from its filling start up to, but not including, its entry stage | Water balance of §4, with the evaporation row of an evaporating hydro; floor $0$ and the per-stage filling floor $v_h + \sigma^{fill}_h \geq V^{\text{target}}_t$ of [§8 Storage Bounds](#8-variable-bounds-and-minimum-constraints) | $q_{h,b,k}$ fixed at $[0, 0]$ on every cell; no FPHA rows and no generation column | Within its bounds | $u_{h,k}$ fixed at $[0, 0]$ | On the plant's own row (§4) | The same rows are present; a positive minimum turbined flow or minimum generation falls wholly on its slack, and spillage can meet a positive minimum outflow |
-| Operating | A hydro without a filling configuration: every stage inside its commissioning window, so every stage when it declares none. A filling hydro: every stage from its entry stage on; it has no exit stage | Water balance of §4, with the evaporation row of an evaporating hydro; the hard dead-volume floor $\underline{V}_h$ for a hydro without a filling configuration, and for a filling hydro floor $0$ with the soft dead-volume floor $v_h + \sigma^{v-}_h \geq \underline{V}_h$ | Turbined flow within the Turbined Flow Bounds above; generation by the production model of §6 | Within its bounds | Within the Diversion Flow Bounds above for a hydro without a filling configuration; fixed at $[0, 0]$ for a filling hydro | On the plant's own row (§4) | The same rows are present; the minimum turbined flow is met by the cell's turbined flow, the minimum generation by its generation, and the minimum outflow by turbined flow plus spillage, with the slack covering any shortfall at its penalty (§9) |
+| PreFilling | A hydro without a filling configuration: every stage outside its commissioning window, before its entry stage or from its exit stage on. A filling hydro: every stage before its filling start         | Frozen identity $v_h - v^{in}_h = 0$, per block on a chronological stage, with right-hand side $0$ (§4); floor $0$, and a ceiling never below the hydro's own maximum storage (§8); no evaporation row                                                                                                                                        | $q_{h,b,k}$ fixed at $[0, 0]$ on every cell; no FPHA rows and no generation column            | $s_{h,k}$ fixed at $[0, 0]$, whatever its bounds | $u_{h,k}$ fixed at $[0, 0]$                                                                                               | The local inflow with its inflow non-negativity slack, the releases of the upstream plants, the flows diverted in and the in-transit volume maturing into the plant enter the row of the first non-PreFilling plant downstream, and the withdrawal target moves to that plant's right-hand side; with no such plant the water leaves the system | The minimum-outflow row is present, and with turbined flow, spillage and generation at $0$, a positive minimum outflow falls wholly on its slack, at its penalty (§9). The minimum turbined flow and minimum generation are dropped ([Plant Minimum and Maximum](#plant-minimum-and-maximum))                                            |
+| Filling | A filling hydro: every stage from its filling start up to, but not including, its entry stage | Water balance of §4, with the evaporation row of an evaporating hydro; floor $0$ and the per-stage filling floor $v_h + \sigma^{fill}_h \geq V^{\text{target}}_t$ of [§8 Storage Bounds](#8-variable-bounds-and-minimum-constraints) | $q_{h,b,k}$ fixed at $[0, 0]$ on every cell; no FPHA rows and no generation column | Within its bounds | $u_{h,k}$ fixed at $[0, 0]$ | On the plant's own row (§4) | Spillage can meet a positive minimum outflow, and the outflow slack covers any shortfall. The minimum turbined flow and minimum generation are dropped ([Plant Minimum and Maximum](#plant-minimum-and-maximum)) |
+| Operating | A hydro without a filling configuration: every stage inside its commissioning window, so every stage when it declares none. A filling hydro: every stage from its entry stage on; it has no exit stage | Water balance of §4, with the evaporation row of an evaporating hydro; the hard dead-volume floor $\underline{V}_h$ for a hydro without a filling configuration, and for a filling hydro floor $0$ with the soft dead-volume floor $v_h + \sigma^{v-}_h \geq \underline{V}_h$ | Turbined flow within the Turbined Flow Bounds above; generation by the production model of §6 | Within its bounds | Within the Diversion Flow Bounds above for a hydro without a filling configuration; fixed at $[0, 0]$ for a filling hydro | On the plant's own row (§4) | The same rows are present; the minimum turbined flow is met by the cell's turbined flow, the minimum generation by its generation, and the minimum outflow by turbined flow plus spillage, with the slack covering any shortfall at its penalty (§9); at a block where the plant has no turbine capacity, its turbined-flow and generation minima are dropped ([Plant Minimum and Maximum](#plant-minimum-and-maximum)) |
 
 Outside its commissioning window a thermal's generation, a line's flow in each direction, a non-controllable source's generation, a pumping station's pumped flow and a contract's power are fixed at $[0, 0]$ in every block; an anticipated thermal's commitment is gated by its delivery stage in addition, and is opened only when the plant is in service at that delivery stage, whatever its status at the decision stage ([State Augmentation §5](/en/math/state-augmentation#5-anticipated-thermal-commitments)).
 
@@ -442,8 +457,11 @@ The per-block constraint violation penalties in the objective (referenced from �
 $$
 \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \Big[
   c^{tv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{q-}_{h,b,k} + \sigma^{Q-}_{h,k} \Big) + c^{ov-}_h \sigma^{o-}_{h,k} + c^{ov+}_h \sigma^{o+}_{h,k} + c^{gv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{g-}_{h,b,k} + \sigma^{G-}_{h,k} \Big)
+  + c^{fpha}_h \sum_{b \in \mathcal{B}_h} \sigma^{fpha}_{h,b,k}
 \Big]
 $$
+
+The FPHA plane slack $\sigma^{fpha}_{h,b,k}$ is per cell, like the generation-minimum slack, and is priced at the plant's $c^{fpha}_h$ at full magnitude on every cell; it exists wherever the FPHA plane rows of §6 exist and is absent for every other hydro. [Penalty System](/en/math/penalty-system) lists it with the recourse slacks because it keeps the stage LP feasible when a generation floor or a constraint forces generation above the planes.
 
 The turbined- and generation-minimum slacks are **per cell** — each of a split plant's cells carries its own slack column and its own row, priced at the plant's penalty at full magnitude, never divided across cells. The residual slacks $\sigma^{Q-}_{h,k}$ and $\sigma^{G-}_{h,k}$ exist only for a plant with a residual row ([§8 Plant Minimum and Maximum](#plant-minimum-and-maximum)) and are $0$ for every other plant. The outflow slacks stay per plant: outflow has no per-cell column to attribute a floor to. The evaporation slacks are per plant too, stage-level on a parallel stage and per block on a chronological stage ([Evaporation Row](#evaporation-row)).
 
@@ -455,13 +473,13 @@ $$
 + \sum_{h \in \mathcal{H}} H_t \cdot \bigl(c^{ev+}_h \sigma^{e+}_h + c^{ev-}_h \sigma^{e-}_h\bigr) \;\; \text{(parallel stage)}, \qquad + \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \bigl(c^{ev+}_h \sigma^{e+}_{h,k} + c^{ev-}_h \sigma^{e-}_{h,k}\bigr) \;\; \text{(chronological stage)}
 $$
 
-where $H_t = \sum_k \tau_k$ is the total stage duration in hours, and the evaporation sums run over the hydros that model evaporation. Withdrawal violation slacks ($\sigma^{w-}_h$, $\sigma^{w+}_h$) are stage-level (not per-block) and bidirectional: $\sigma^{w-}_h$ penalizes under-delivery (the realized withdrawal $R_h = r_h - \sigma^{w-}_h + \sigma^{w+}_h$ falls short of the target), and $\sigma^{w+}_h$ penalizes over-delivery. The **withdrawal target $r_h$ is signed** (§4), and the slack bounds ensure the realized withdrawal cannot flip sign relative to the target:
+where $H_t = \sum_k \tau_k$ is the total stage duration in hours, and the evaporation sums run over the hydros that model evaporation. Withdrawal violation slacks ($\sigma^{w-}_h$, $\sigma^{w+}_h$) are stage-level (not per-block) and bidirectional: $\sigma^{w-}_h$ penalizes under-delivery (the realized withdrawal $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$ falls short of the effective withdrawal), and $\sigma^{w+}_h$ penalizes over-delivery. The **effective withdrawal $T^{eff}_h$ is signed** (§4), and the slack bounds ensure the realized withdrawal cannot flip sign relative to it:
 
-- $r_h > 0$ (scheduled removal): $\sigma^{w-}_h \leq r_h$ (under-delivery slack capped at the target magnitude; floors $R_h \geq 0$), $\sigma^{w+}_h$ unbounded.
-- $r_h < 0$ (scheduled inter-basin return/addition): $\sigma^{w+}_h \leq |r_h|$ (over-delivery slack capped at $|r_h|$; caps $R_h \leq 0$), $\sigma^{w-}_h$ unbounded.
-- $r_h = 0$: both slacks are pinned to zero.
+- $T^{eff}_h > 0$ (scheduled removal): $\sigma^{w-}_h \leq T^{eff}_h$ (under-delivery slack capped at the effective withdrawal; floors $R_h \geq 0$), $\sigma^{w+}_h$ unbounded.
+- $T^{eff}_h < 0$ (scheduled inter-basin return/addition): $\sigma^{w+}_h \leq |T^{eff}_h|$ (over-delivery slack capped at $|T^{eff}_h|$; caps $R_h \leq 0$), $\sigma^{w-}_h = 0$.
+- $T^{eff}_h = 0$: both slacks are pinned to zero.
 
-This cap guards a degenerate case: an unbounded under-delivery slack would let a run-of-river plant "un-withdraw" past its target and inject phantom water into the reservoir.
+This cap guards a degenerate case: an unbounded under-delivery slack would let a run-of-river plant "un-withdraw" past its effective withdrawal and inject phantom water into the reservoir.
 
 ## 10. Generic Constraints
 

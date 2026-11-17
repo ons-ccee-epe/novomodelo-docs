@@ -154,7 +154,7 @@ $$
 g_{h,k} \leq \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_q^m \cdot q_{h,k} + \gamma_s^m \cdot s_{h,k}
 $$
 
-The plane is fitted once per plant (§2.1–§2.8); a plant split across buses evaluates it **per (hydro, bus) cell** at LP-integration time, apportioning its flow-independent terms by each cell's share of the plant's turbine capacity — see §2.9 for the exact per-cell form.
+The plane is fitted once per plant (§2.1–§2.8); a plant split across buses evaluates it **per (hydro, bus) cell** at LP-integration time, apportioning its flow-independent terms by each cell's share of the plant's declared maximum turbined flow — see §2.9 for the exact per-cell form.
 
 **Physical interpretation of coefficients**:
 
@@ -175,14 +175,14 @@ The computed-FPHA path produces hyperplanes from topology data in four stages: c
 
 The fitter evaluates the exact production function $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ on a uniform two-dimensional grid over the fitting window, **with spillage $s = 0$ and lateral flow $= 0$**. The grid has:
 
-- **Volume axis**: a configurable number of uniformly spaced values spanning the fitting window $[v_{min}, v_{max}]$. The window lies within the plant's forebay storage range (the full range unless narrowed) and is distinct from the reference volume (§4.1), which fixes an operating point, not this window. The point counts and the window are set on the Configure tab.
+- **Volume axis**: a configurable number of uniformly spaced values spanning the fitting window $[v_{min}, v_{max}]$. The window defaults to the plant's storage range $[V^{min}_h, V^{max}_h]$ (the [physical storage range](#43-useful-range-mean-productivity)), and each configured bound is clamped into that range. It is distinct from the reference volume (§4.1), which fixes an operating point, not this window. The point counts and the window are set on the [Configure tab](#implementation-in-novomodelo).
 - **Flow axis**: a configurable number of uniformly spaced values spanning $[0, q^{fit}_{max}]$, where the upper end $q^{fit}_{max}$ of the turbined-flow fit range is the plant's maximum turbined flow $q_{max}$ unless another upper end is set on the Configure tab. The axis **starts at $q = 0$**, where generation is zero; this zero-flow column anchors the lower closure of the cloud and eliminates the need for any synthetic closing point.
 
 Each cloud point is capped at the plant's installed capacity $\bar{G}_h$. Spillage is not a cloud dimension — it is fixed at zero throughout.
 
-**Plants without turbine capacity**: when $q_{max} = 0$ the flow axis collapses onto $q = 0$, where generation is zero, so the cloud carries no production and no plane survives the hull. Such a plant is modelled with zero productivity at every stage instead of a plane set; the [implementation notes](#implementation-in-novomodelo) give the capacity threshold and how the plant is reported.
+**Plants without turbine capacity**: a plant has turbine capacity when its maximum turbined flow $q_{max}$ and its maximum generation $\bar{G}_h$ are both positive, each compared with a small absolute threshold in place of 0. Without it the cloud carries no production and no plane survives the hull: with $q_{max} = 0$ the flow axis collapses onto $q = 0$, where generation is zero, and with $\bar{G}_h = 0$ every point is capped at 0. Such a plant is modelled with zero productivity at every stage instead of a plane set; the [implementation notes](#no-turbine-capacity) give the threshold and how the plant is reported.
 
-**Run-of-river plants**: when the plant has a single fitting volume ($v_{min} \approx v_{max}$, or a single volume sample requested), two nearby volume samples are synthesized to keep the 3-D hull non-degenerate (Implementation notes, "Run-of-river support"). The resulting $\gamma_v^m$ is **snapped to exactly 0** when its magnitude is negligible, enforcing the run-of-river semantics ($\gamma_v^m = 0$).
+**Run-of-river plants**: when the plant has a single fitting volume ($v_{min} \approx v_{max}$, or a single volume sample requested), two nearby volume samples are placed around the window's single volume to keep the 3-D hull non-degenerate (Implementation notes, "Run-of-river support"). Both samples see the head of that one volume, so $\gamma_v^m = 0$, which is the run-of-river semantics; a negligible rounding residual is set to exactly 0.
 
 **Determinism**: the cloud points and the hull output are canonically sorted, so the fitted hyperplanes are bit-identical regardless of input ordering and MPI rank count.
 
@@ -246,6 +246,14 @@ $$
 
 where MLT is the plant's long-term mean inflow (m³/s), the mean of its recorded inflow history, and $q_{max}$ is the plant's maximum turbined flow, whatever the turbined-flow fit range of §2.6.1. The upper end $\bar{S}^{fit}$ is set on the Configure tab.
 
+**Limit.** After the averaging, each slope is bounded below so that the plane is not below 0 at zero turbining at the corner $(v_{min}, S_{max})$:
+
+$$
+\gamma_s^m \leftarrow \max\!\Big(\gamma_s^m,\ \min\!\big(0,\ -(\gamma_0^m + \gamma_v^m \, v_{min}) / S_{max}\big)\Big)
+$$
+
+with $v_{min}$ the fitting window's lower volume (§2.6.1). Whenever $\gamma_0^m + \gamma_v^m v_{min} \ge 0$, the plane is then at or above 0 at zero turbining at $(v_{min}, S_{max})$. The limit applies before the sign snap below, and to a run-of-river plant too. With $S_{max} = 0$ it does nothing, and $\gamma_s^m$ stays 0.
+
 **Sign**: $\gamma_s^m \le 0$ (more lateral flow raises the tailrace, reduces generation). A slope that is non-negative or negligibly negative is **snapped to exactly 0** (Implementation notes, "Computed-FPHA fitting behavior") to protect LP column scaling from near-zero structural coefficients.
 
 **Lateral axis**: the plant's own spillage ($q_{lat} = s$); upstream releases and post-incremental inflows do not enter it.
@@ -257,7 +265,9 @@ An optional post-fit step merges consecutive **near-parallel or near-coincident*
 - **Angle**: merge consecutive pairs whose normal-vector angle $\theta = \arccos(\mathbf{n}_1 \cdot \mathbf{n}_2 / \|\mathbf{n}_1\|\|\mathbf{n}_2\|)$ satisfies $\theta < \varepsilon$ (strict), with $\theta$ and the tolerance $\varepsilon$ in degrees. Fully deterministic from coefficients.
 - **Distance**: merge consecutive pairs whose normalised mean-squared generation difference $\delta = \text{EQM}/\phi_{\max}^2 < \varepsilon/100$, where $\phi_{\max}$ is the largest value of the exact production $\phi$ (uncapped) over the fitting grid, with the tolerance $\varepsilon$ in percent and EQM estimated over sampled operating points. Uses a deterministically-seeded PRNG (seeded from stable plant/stage/plane-pair identity, never from wall clock or MPI rank), so results are bit-identical across input ordering and rank count.
 
-**Origin-plane invariant**: the plane through the origin ($\gamma_0^m \approx 0 \wedge \gamma_v^m \approx 0$, generating zero power at zero turbining) is **never merged**. This guarantees the zero-generation floor.
+**Origin-plane invariant**: the plane through the origin ($\gamma_0^m \approx 0 \wedge \gamma_v^m \approx 0$, generating zero power at zero turbining) is **never merged**.
+
+**Zero generation at zero turbining**: every computed plane, merged or not, is at or above 0 at $q = 0$ for $v \in [v_{min}, v_{max}]$ and $s \in [0, S_{max}]$ whenever $\gamma_0^m + \gamma_v^m v_{min} \ge 0$. The limit of §2.7 places the corner $(v_{min}, 0, S_{max})$, where the plane is lowest, at or above 0. A merge takes the coefficient-wise mean of two planes, and the corner value is linear in the coefficients, so the merged plane keeps the property. Outside that range, at a spillage above $S_{max}$, a plane can fall below 0 at zero turbining, and the LP then turbines water that produces nothing or pays plane slack (§2.9). Planes supplied precomputed are not limited (see the [implementation notes](#implementation-in-novomodelo)).
 
 Reduction is optional and applies only when selected (Configure tab).
 
@@ -270,20 +280,30 @@ A hydro plant is partitioned into one or more **(hydro, bus) cells** — one per
 For each cell $(h, b)$ of a hydro $h$ using FPHA, block $k$, and plane $m \in \mathcal{M}_h$:
 
 $$
-g_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot s_{h,k} \leq \lambda_{h,b} \, \gamma_0^m
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot s_{h,k} \leq \lambda_{h,b} \, \gamma_0^m
 $$
 
-Every variable sits on the left with its plane coefficient negated, and the apportioned intercept is the row's upper bound; the row is the cap $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot s_{h,k} \big) + \gamma_q^m \cdot q_{h,b,k}$.
+Every variable sits on the left with its plane coefficient negated, and the apportioned intercept is the row's upper bound; the row is the cap $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot s_{h,k} \big) + \gamma_q^m \cdot q_{h,b,k} + \sigma^{fpha}_{h,b,k}$.
 
-The coefficients are already $k_{FPHA}$-scaled — there is no separate pre-scaling step. These are **hard constraints** — no slack variables.
+The coefficients are already $k_{FPHA}$-scaled — there is no separate pre-scaling step. The plane rows carry one slack $\sigma^{fpha}_{h,b,k} \geq 0$ per cell and block, with coefficient $-1$ in every plane row of that cell and block and in no other row; see [Hydro Generation Constraints](/en/math/lp-formulation#6-hydro-generation-constraints) for its price.
 
-$\lambda_{h,b}$ apportions the plane's **flow-independent** part — the intercept $\gamma_0^m$, the storage term, and the spillage term — by cell $(h,b)$'s share of the plant's declared turbine capacity:
+$\lambda_{h,b}$ apportions the plane's **flow-independent** part — the intercept $\gamma_0^m$, the storage term, and the spillage term — by cell $(h,b)$'s share of the plant's declared maximum turbined flow:
 
 $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
 ($0$ when the plant's declared total is $0$), a study-time constant derived from each unit group's declared maximum turbined flow — never recomputed per stage or block, and never re-derived from a resolved per-stage override, which would double-count an availability derate already enforced on the flow path by each cell's own column bounds. It satisfies $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$, and a single-cell plant has $\lambda_{h,b} = 1$ exactly. The flow coefficient $\gamma_q^m$ stays on the cell's own $q_{h,b,k}$ **unscaled** — it is the only term homogeneous in the cell partition, which is what makes $\sum_{b} g_{h,b,k}$ at fixed $v^{avg}_h$, $s_{h,k}$, and $\sum_b q_{h,b,k}$ recover the plant-level bound this per-cell form replaces.
+
+#### Plants and Cells Without Turbine Capacity
+
+Capacity is decided per unit group, cell and block on the resolved limits, with the predicate of §2.6.1. A cell has capacity when the plant's own limits and at least one of its unit groups pass, and a plant has capacity when at least one of its cells does.
+
+- A unit group or plant term without capacity adds 0 to the cell's turbined-flow and generation caps, under every production model.
+- An FPHA plant without capacity at every block of a stage carries no generation variable, no plane rows and no plane slack at that stage, and its turbined flow is fixed at 0, so it releases water by spilling.
+- In an FPHA plant with capacity at some block, a cell without capacity at a block keeps its plane rows free and its plane slack at 0 there, so it adds nothing to the reported plane violation. A cell with capacity keeps its rows at its declared share $\lambda_{h,b}$, which is not re-apportioned.
+- Where the plant cannot produce (no capacity at the block, or the PreFilling and Filling phases), its turbined-flow and generation minima are dropped; see [LP Formulation, Plant Minimum and Maximum](/en/math/lp-formulation#plant-minimum-and-maximum) for the floor rule. The minimum outflow is not dropped.
+- The hydros and stages concerned are reported (see the [implementation notes](#no-turbine-capacity)).
 
 #### Average Storage Computation
 
@@ -380,7 +400,7 @@ The **equivalent productivity** $\rho_{eq,h,t}$ (MW per m³/s) is the single-sca
 | Constant productivity   | A per-(hydro, stage) numeric value authored by the case (see below).                                                                                                                                                                                                                                                                                                |
 | FPHA                    | $\rho_{eq,h,t} = \rho_{esp,h,t} \cdot h_{eq}(V^{ref}_{h,t},\, Q^{ref}_{h,t})$, where $h_{eq}$ is the net head computed from the VHA geometry (section 2.3) at the reference point and $\rho_{esp,h,t}$ is resolved per stage: a per-stage override, else a per-plant default override, else the plant's own value. FPHA hydros author no separate $\rho_{eq}$ scalar — it is derived, and an override of this reference-point value is accepted (see below). |
 
-**Reference volume**: the reference operating volume $V^{ref}_{h,t}$ is declared once per production-model entry (a stage range or a season), either as an absolute volume or as a fraction of the useful volume between $V^{min}_h$ and $V^{max}_h$; when absent a default fraction of the useful volume applies (Configure tab). This single declaration is the source of truth for the $\rho_{eq}$ derivation above and for the reservoir reference level at which the computed-FPHA piecewise-quartic tailrace families are interpolated (§2.3.1 — a plant's reference volume sets the downstream forebay level seen by the plant immediately upstream). It does **not** set the computed-FPHA volume fitting window $[V_{min}, V_{max}]$: that window is configured separately on the Configure tab, defaulting to the plant's full forebay storage range (§2.6.1).
+**Reference volume**: the reference operating volume $V^{ref}_{h,t}$ is declared once per production-model entry (a stage range or a season), either as an absolute volume or as a fraction of the useful volume between $V^{min}_h$ and $V^{max}_h$; when absent a default fraction of the useful volume applies (Configure tab). This single declaration is the source of truth for the $\rho_{eq}$ derivation above and for the reservoir reference level at which the computed-FPHA piecewise-quartic tailrace families are interpolated (§2.3.1 — a plant's reference volume sets the downstream forebay level seen by the plant immediately upstream). It does **not** set the computed-FPHA volume fitting window $[V_{min}, V_{max}]$: that window is configured separately on the Configure tab, defaulting to the plant's storage range (§2.6.1).
 
 The reference flow $Q^{ref}_{h,t}$ at which both evaluators compute the net head is the plant's installed turbined-flow capacity.
 

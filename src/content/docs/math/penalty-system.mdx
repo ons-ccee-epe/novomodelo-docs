@@ -9,7 +9,7 @@ import { Content as PenaltiesIO } from './_impl/_penalties.io.mdx';
 
 ## Purpose
 
-This chapter defines the unified penalty system that ensures LP feasibility across all scenarios while correctly pricing operational costs and constraint violations. Each penalty enters the stage objective as [LP Formulation §2](/en/math/lp-formulation#2-objective-function) and [§9](/en/math/lp-formulation#9-constraint-violation-penalty-terms) state it.
+This chapter defines the unified penalty system that provides LP feasibility across all scenarios under the [complete-recourse precondition](#complete-recourse-precondition) while correctly pricing operational costs and constraint violations. Each penalty enters the stage objective as [LP Formulation §2](/en/math/lp-formulation#2-objective-function) and [§9](/en/math/lp-formulation#9-constraint-violation-penalty-terms) state it.
 
 For the entity view of this chapter, see [Lines and interchanges](/en/entities/network/lines/), [Deficit](/en/entities/consumption/deficit/) and [Penalties and deficit cost](/en/entities/penalties/).
 
@@ -25,19 +25,38 @@ Penalties serve three distinct purposes in the LP formulation. Understanding the
 
 ### Category 1: Recourse Slacks (LP Feasibility)
 
-These penalties ensure that the SDDP algorithm has relatively complete recourse — every subproblem must be feasible regardless of the scenario realization. Without these slacks, the LP would be infeasible when generation cannot meet demand or when excess uncontrollable generation cannot be absorbed, or when a negative inflow realization leaves a hydro's water balance without a solution.
+These penalties ensure that the SDDP algorithm has relatively complete recourse under the precondition below — every subproblem must be feasible regardless of the scenario realization. Without these slacks, the LP would be infeasible when generation cannot meet demand or when excess uncontrollable generation cannot be absorbed, or when a negative inflow realization leaves a hydro's water balance without a solution.
 
 | Penalty            | Units  | Applied To                | Purpose                         |
 | ------------------ | ------ | ------------------------- | ------------------------------- |
 | Deficit ($c^{def}_{b,s}$) | \$/MWh | Unmet load per bus, by segment | Piecewise cost of load shedding |
 | Excess ($c^{exc}_b$) | \$/MWh | Excess generation per bus | Absorb uncontrollable surplus |
 | Inflow non-negativity ($c^{inf}_h$) | \$/(m³/s·h) | Water added to a hydro's water balance (`penalty` and `truncation_with_penalty` inflow methods) | Keep the water balance feasible under a negative inflow realization |
+| FPHA plane slack ($c^{fpha}_h$) | \$/MWh | Generation above an FPHA plane, per cell and block | Keep the stage LP feasible when a generation floor or a constraint forces generation above the planes |
 
 Deficit and excess are conceptually slack variables on the load balance constraint, but they have special names because of their importance in the hydrothermal dispatch application. Deficit represents the value of lost load; excess is a regularization-level cost to eliminate spurious slack generation.
 
 :::note[Note on the excess cost range]
 The cost spans a wide range because it serves two distinct use cases. At the low end, it acts as a pure regularization term that breaks solver degeneracy without distorting the policy. At the high end, it serves a policy-shaping role, actively discouraging excess generation to keep dispatch solutions physically realistic. See the Configure tab below for the concrete case-level default.
 :::
+
+#### Complete-Recourse Precondition
+
+Relatively complete recourse holds for an incoming storage between $F_{in}(t)$ and $C(t-1)$. $F_{in}(t)$ is the floor of the incoming storage: the hard storage floor of the previous stage, or, at the first stage and after a PreFilling stage, the floor of the interval the initial storage is clamped into. $C(t-1)$ is the previous stage's storage ceiling, or the hydro's own `max_storage_hm3` at those stages. For such a storage, every stage LP is feasible when all of the following hold:
+
+- (a) the inflow method can lift a negative local inflow to 0;
+- (b) no hard forced release applies: no positive `min_spillage_m3s` or `min_diversion_m3s`, and no positive `min_flow_m3s` of a pumping station whose `source_hydro_id` is the hydro;
+- (c) the hard storage floor of stage $t$ does not rise above $F_{in}(t)$;
+- (d) excess water can leave the reservoir when `max_spillage_m3s` is finite. In a month whose evaporation coefficient is negative, the ceiling on net evaporation $e_h$ keeps evaporation from removing water, so water above the stage's ceiling leaves through turbining where a cell has turbine capacity, spillage, diversion, a pumping station's draw and the over-withdrawal slack $\sigma^{w+}_h$. That slack is unbounded only while the effective withdrawal $T^{eff}_h$ ([LP Formulation, Row Terms](/en/math/lp-formulation#row-terms)) is positive; otherwise it is capped so that the realized withdrawal removes no water, and a finite `max_spillage_m3s` can leave the excess no outlet;
+- (e) every generic constraint on water or hydro generation carries a slack.
+
+The inflow method decides which conditions hold on its own:
+
+- `penalty` meets (a), (b) and (c) unconditionally: its inflow slack is priced and unbounded, so it adds any missing water.
+- `truncation` and `truncation_with_penalty` meet (a) through a bounded inflow slack ([Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity)).
+- `none` meets none of them.
+
+Novomodelo checks only (c). Under every inflow method except `penalty`, it warns at load time on each hydro and stage whose hard storage floor rises above the floor the previous stage leaves, as the rising-floor message of [`ModelQuality`](/en/reference/error-codes/#modelquality). The stage that receives the initial storage is covered by the initial-storage message under every method. Novomodelo does not check (b), (d) or (e).
 
 ### Category 2: Constraint Violation Penalties (Policy Shaping)
 
@@ -98,9 +117,23 @@ $$
 
 A commissioning fill schedule must not be defended as hard as load shedding — when nature physically cannot both serve load and keep a filling reservoir on its accumulation schedule, the solver should serve load and let the filling floor slip. The filling-target penalty's position _relative to the operational-constraint tier_ (minimum turbined flow, outflow, generation, evaporation, withdrawal) is left to study calibration: Novomodelo expects it below deficit and sets nothing against those operational slacks.
 
+The **FPHA plane slack** $\sigma^{fpha}_{h,b,k}$ sits only in the plane rows of its cell and block, and its price $c^{fpha}_h$ is in \$/MWh, like deficit. With the cell's generation $g_{h,b,k}$ basic and its plane binding, the plane row's dual equals, in magnitude, the sum of:
+
+- the dual of the load-balance row of the cell's bus;
+- the dual of the cell's minimum-generation row;
+- the duals of the generic-constraint rows that hold $g_{h,b,k}$, each per MWh.
+
+The slack stays 0 only while $c^{fpha}_h$ exceeds that sum. The load-balance dual is at most the largest deficit cost and the minimum-generation dual is at most $c^{gv-}_h$, so the ordering to configure is
+
+$$
+c^{fpha}_h \;>\; \max_{b,s} c^{def}_{b,s} + c^{gv-}_h
+$$
+
+A lower-bounded generic constraint on FPHA generation whose slack price is at or above $c^{fpha}_h$ adds a third term, so the slack can be active at a price above the two-term sum.
+
 ### Penalty Ordering Validation
 
-Novomodelo checks the configured costs when the case loads. The checks compare the values as given, without the conversion above, so a case that passes them can still invert the energy-equivalent ordering. They warn without stopping the run, and two rules reject a case: a negative turbined cost on an FPHA hydro, and a filling schedule that cannot reach the dead volume. The [Configure tab](#implementation-in-novomodelo) lists them.
+Novomodelo checks the configured costs when the case loads. The checks compare the values as given, without the conversion above, so a case that passes them can still invert the energy-equivalent ordering. They warn without stopping the run, and two rules reject a case: a negative turbined cost on an FPHA hydro, and a filling schedule that cannot reach the dead volume. The [Configure tab](#implementation-in-novomodelo) lists them. One check compares $c^{fpha}_h$ with the largest deficit cost plus $c^{gv-}_h$ at every stage where the hydro uses FPHA, with stage overrides applied, and it leaves out the generic-constraint term of the plane dual above.
 
 ## 3. Penalty Defaults and Overrides
 
@@ -108,7 +141,7 @@ Each cost has a case-level default and may be overridden per entity and per stag
 
 ### Piecewise Deficit
 
-Deficit is priced piecewise linearly. Each segment covers a depth of unmet load at its own cost, the costs rise from segment to segment, and the last segment is unbounded, so the LP is always feasible. Segments may be overridden per bus but not per stage.
+Deficit is priced piecewise linearly. Each segment covers a depth of unmet load at its own cost, the costs rise from segment to segment, and the last segment is unbounded, so the load balance always has a solution. Segments may be overridden per bus but not per stage.
 
 ## 4. Constraint Violation Coverage
 
@@ -169,9 +202,15 @@ User-defined generic constraints can optionally have slack variables with user-s
 
 The reservoir-surface evaporation flow $e_h$ ($e_{h,k}$ per block on a chronological stage) is a **signed net flux**: positive values represent net evaporative loss, negative values represent net rainfall input on the lake surface (precipitation on the reservoir exceeds open-water evaporation). On tropical and subtropical basins, the net coefficient is negative through much of the wet season, so the negative case is common rather than exceptional. Other situations that can yield a negative value include condensation in humid climates and linearisation artefacts at certain volume/coefficient combinations.
 
-The evaporation column is bounded symmetrically, $e_h \in [-q^{\max}_{ev,h},\, +q^{\max}_{ev,h}]$, where $q^{\max}_{ev,h}$ is recomputed at each stage as the magnitude of that stage's linearised target at maximum storage, multiplied by a fixed safety margin. The symmetric bound lets the same column absorb both directions without forcing the over-evaporation slack to fire on every wet-month stage. A negative $e_h$ enters the water-balance equation with the same coefficient as a positive value; the sign of $e_h$ itself controls whether the term subtracts (loss) or adds (rainfall input) from storage.
+The evaporation column's box follows the sign of the stage month's evaporation coefficient, with $q^{\max}_{ev,h}$ recomputed at each stage as the magnitude of that stage's linearised target at maximum storage, multiplied by a fixed safety margin. The [evaporation row](/en/math/lp-formulation#evaporation-row) defines the target extremes $\underline{e}^{tgt}_h$, $\bar{e}^{tgt}_h$ and $\bar{e}^{hard}_h$ that the box reads:
 
-The [evaporation row](/en/math/lp-formulation#evaporation-row) sets $e_h$ equal to the linearised evaporation target plus $\sigma^{e+}_h$ minus $\sigma^{e-}_h$. The slacks are one-sided, $\sigma^{e+}_h \geq 0$ and $\sigma^{e-}_h \geq 0$: they absorb evaporation above and below the target and are priced at $c^{ev+}_h$ and $c^{ev-}_h$. The signs of $e_h$ and of the target, not the slacks, carry the direction of the net flux. A parallel stage has one stage-level pair, and a chronological stage one pair per block, $\sigma^{e+}_{h,k}$ and $\sigma^{e-}_{h,k}$.
+- positive month: $e_h \in [\min(0, \underline{e}^{tgt}_h),\, q^{\max}_{ev,h}]$. The floor keeps $e_h$ from going negative far enough for the below-target slack to create water;
+- negative month: $e_h \in [-q^{\max}_{ev,h},\, \max(0, \bar{e}^{tgt}_h)]$. The ceiling keeps evaporation from removing more water than the target can;
+- zero month: $e_h \in [-q^{\max}_{ev,h},\, q^{\max}_{ev,h}]$.
+
+The row always has a solution: $e_h = 0$, with $\sigma^{e-}_h = \max(0, \text{target})$ and $\sigma^{e+}_h = \max(0, -\text{target})$. A negative $e_h$ enters the water-balance equation with the same coefficient as a positive value; the sign of $e_h$ itself controls whether the term subtracts (loss) or adds (rainfall input) from storage.
+
+The [evaporation row](/en/math/lp-formulation#evaporation-row) sets $e_h$ equal to the linearised evaporation target plus $\sigma^{e+}_h$ minus $\sigma^{e-}_h$. Both slacks are $\ge 0$ and absorb evaporation above and below the target, priced at $c^{ev+}_h$ and $c^{ev-}_h$. $\sigma^{e+}_h$ is unbounded in every month. $\sigma^{e-}_h$ is unbounded in a positive and in a zero month, and in a negative month it is capped, $\sigma^{e-}_h \le \max(0, \bar{e}^{hard}_h)$: the cap keeps the below-target slack to the amount that brings a positive target down to $0$. The signs of $e_h$ and of the target, not the slacks, carry the direction of the net flux. A parallel stage has one stage-level pair, and a chronological stage one pair per block, $\sigma^{e+}_{h,k}$ and $\sigma^{e-}_{h,k}$.
 
 :::note[Evaporation slack pricing]
 On a parallel stage a plant has one evaporation row and one slack pair for the whole stage, whatever its block count, and each slack is priced at its cost times the stage hours. On a chronological stage each block has its own row and slack pair, priced at the cost times the block hours. The costs are in \$/(m³/s·h).
@@ -183,7 +222,9 @@ The linearised target needs the reservoir's area–volume curve. A plant that de
 
 ### Withdrawal Slacks
 
-The signed withdrawal target $r_h$, in m³/s, is positive for a removal and negative for an inter-basin return. It is a stage-level quantity on the right-hand side of the hydro's water balance ([LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance)). Two one-sided stage-level slacks relax it, so the realized withdrawal is $r_h - \sigma^{w-}_h + \sigma^{w+}_h$: the under-delivery $\sigma^{w-}_h$ is priced at $c^{wv-}_h$ and the over-delivery $\sigma^{w+}_h$ at $c^{wv+}_h$, each over the stage hours $H_t$. The slack that would flip the sign of the realized withdrawal is capped at $\lvert r_h \rvert$ ([LP Formulation §9](/en/math/lp-formulation#9-constraint-violation-penalty-terms)).
+The signed effective withdrawal $T^{eff}_h$, in m³/s, is positive for a removal and negative for an inter-basin return. It is the plant's declared withdrawal target $r_h$ plus the targets of the PreFilling plants whose water it receives, and it is a stage-level quantity on the right-hand side of the hydro's water balance ([LP Formulation, Row Terms](/en/math/lp-formulation#row-terms)). Two one-sided stage-level slacks relax it, so the realized withdrawal is $T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$: the under-delivery $\sigma^{w-}_h$ is priced at $c^{wv-}_h$ and the over-delivery $\sigma^{w+}_h$ at $c^{wv+}_h$, each over the stage hours $H_t$. The slack that would flip the sign of the realized withdrawal is capped at $\lvert T^{eff}_h \rvert$ ([LP Formulation §9](/en/math/lp-formulation#9-constraint-violation-penalty-terms)): for $T^{eff}_h > 0$, $\sigma^{w-}_h \leq T^{eff}_h$ and $\sigma^{w+}_h$ is unbounded; for $T^{eff}_h < 0$, $\sigma^{w+}_h \leq \lvert T^{eff}_h \rvert$ and $\sigma^{w-}_h = 0$; for $T^{eff}_h = 0$, both are 0.
+
+Each plant's effective withdrawal and its sign bound are independent of its neighbours'. Where one plant withdraws and a nearby plant takes the water back as a negative target, the two are not coupled, so each can be relaxed alone at its own price, and the water values of plants near such a pair can sit at a withdrawal-slack price.
 
 ## 6. Hydro Variable Bounds Summary
 
@@ -203,7 +244,7 @@ Filling is governed by a **minimum accumulation rate** rather than a single end-
 
 **Operational constraints during filling**:
 
-- **No generation**: turbined flow and generation are $0$ (hard constraint — turbines not installed/operational, so the plant is excluded from the production-function constraints); a positive turbined or generation floor of the plant then falls wholly on its slack ([Lifecycle Phases](/en/math/lp-formulation#lifecycle-phases))
+- **No generation**: turbined flow and generation are $0$ (hard constraint — turbines not installed/operational, so the plant is excluded from the production-function constraints); the plant's turbined-flow and generation minima are dropped while it fills, since it cannot produce ([Plant Minimum and Maximum](/en/math/lp-formulation#plant-minimum-and-maximum))
 - **Outflow via spillage only**: the turbines and the diversion are pinned to zero while the plant fills, so it releases water only by spilling; spillage is a free decision within its bounds, whatever the storage level.
 - **Min outflow requirement**: a minimum outflow is met through spillage; when the reservoir cannot release enough water, the outflow-below slack absorbs the shortfall at its penalty.
 - **Natural inflow flows freely**: incremental inflow and upstream cascade releases enter the reservoir through the ordinary water balance — there is no retention or impound cap that diverts inflow to storage. Whatever nature provides is what fills the reservoir.

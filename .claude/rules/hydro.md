@@ -37,18 +37,29 @@ correction**. Each plane's `γ_S` is the mean, over the spill = 0 grid points
 where that plane binds (within `1e-8` MW of the planes' minimum), of a
 zero-anchored least-squares slope over 101 samples of `[0, S_max]`; `S_max` is
 `spillage_fit_max_m3s`, else 2 × the mean inflow history when above 0, else
-2 × `max_turbined_m3s` (`secant.rs`). Both fit maxima are optional and must be
+2 × `max_turbined_m3s` (`FphaColumnLayout::resolve_spillage_fit_max_m3s`, novomodelo-io `extensions/production_models.rs`). Both fit maxima are optional and must be
 finite and `> 0` (`validate_fit_maxima`, SchemaError). Planes are fit only on
 the stages that select `fpha` (`fit_computed_planes_per_stage`), so a plant may
 mix FPHA and other models across stages; on a computed plant every `fpha` entry
 is fit from geometry (`determine_source`). Run-of-river supported (`γ_V`
 snapped to 0). **`reference_volume`**
 (`volume_hm3` XOR `percentile`) is the single source of truth. A plant without
-turbine capacity (`max_turbined_m3s` ≤ `1e-9` m³/s, `Hydro::has_turbine_capacity`)
+turbine capacity (`max_turbined_m3s` or `max_generation_mw` ≤ `1e-9`, `Hydro::has_turbine_capacity`)
 whose FPHA source is computed, or precomputed with no hyperplane rows, resolves
 to constant productivity `0.0` with provenance
 `ProductionModelSource::NoTurbineCapacity`, no export rows, and a
-`no_turbine_capacity` entry in `training/hydro_models.json`. Verify against
+`no_turbine_capacity` entry in `training/hydro_models.json`. After the
+slope average and before the snap, `fit_gamma_s_for_planes` limits each `γ_S`
+to `max(γ_S, min(0, −(γ₀ + γ_V·v_min)/S_max))` over the fitting window's
+`v_min` (skipped when `S_max ≤ 0`; precomputed planes are not limited), so a
+computed plane is ≥ 0 at zero turbining over the window. In the LP, a term
+without capacity folds to 0 in the turbined and generation caps; an FPHA plant
+without capacity at every block of a stage is Dormant (no generation column,
+plane rows or slack; it spills); a (cell, block) without capacity in a live
+plant has free plane rows and slack fixed at 0, with λ unchanged; turbined and
+generation minima are dropped where the plant cannot produce (the minimum
+outflow is not); affected hydros are listed under `frozen_turbining` in
+`training/hydro_models.json`. Verify against
 `crates/novomodelo-sddp/src/production/fpha_fitting/` and
 `crates/novomodelo-sddp/src/production/hydro_models/production.rs`.
 

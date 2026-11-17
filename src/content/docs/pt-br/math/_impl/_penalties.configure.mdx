@@ -36,6 +36,7 @@ custos direcionais e `inflow_nonnegativity_cost`) foram omitidos.
     "outflow_violation_below_cost": 500.0,
     "outflow_violation_above_cost": 500.0,
     "generation_violation_below_cost": 1000.0,
+    "fpha_violation_cost": 85000.0,
     "evaporation_violation_cost": 5000.0,
     "water_withdrawal_violation_cost": 1000.0
   },
@@ -48,7 +49,7 @@ Os custos de barramento (`deficit_segments[].cost`, `excess_cost`), de linha
 expressos em R\$ por MWh. Os custos de usinas hidrelétricas são expressos em
 R\$ por hm³ para `storage_violation_below_cost` e
 `filling_target_violation_cost`, em R\$ por MWh para
-`generation_violation_below_cost`, e em R\$ por (m³/s)·h para todos os demais
+`generation_violation_below_cost` e `fpha_violation_cost`, e em R\$ por (m³/s)·h para todos os demais
 custos hidráulicos.
 
 Um estágio paralelo precifica seu único par de folgas de evaporação ao longo
@@ -86,8 +87,8 @@ custam o `cost` do segundo segmento, e assim por diante:
 ]
 ```
 
-O último segmento é ilimitado, de modo que o PL é sempre viável, qualquer que
-seja o déficit. As regras dos campos (lista não vazia, custos positivos e
+O último segmento é ilimitado, de modo que o balanço de carga sempre tem solução,
+qualquer que seja o déficit. As regras dos campos (lista não vazia, custos positivos e
 estritamente crescentes e último `depth_mw` igual a `null`) estão em
 [`penalties.json`](/reference/case-format/penalties/#penaltiesjson) e
 [`system/buses.json`](/reference/case-format/system/#systembusesjson).
@@ -173,10 +174,10 @@ nenhuma folga é precificada por um custo simétrico.
 | Variável | Limite inferior | Limite superior | Folga inferior | Folga superior |
 | --- | --- | --- | --- | --- |
 | `storage` | `min_storage_hm3`; `0` para uma usina com fase de enchimento em todas as fases e para uma usina fora de sua janela de operação | `max_storage_hm3`; enquanto a usina está em pré-enchimento (PreFilling), nunca abaixo de seu próprio `reservoir.max_storage_hm3` | Rígida (flexível para uma usina com fase de enchimento depois que entra em operação) | Vertimento |
-| `turbined_flow` | `0`; o mínimo `min_turbined_m3s`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_turbined_m3s` próprio da usina excede essa soma | `max_turbined_m3s`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
+| `turbined_flow` | `0`; o mínimo `min_turbined_m3s`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_turbined_m3s` próprio da usina excede essa soma; ambas são descartadas onde a usina não pode produzir ([Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina)) | `max_turbined_m3s`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
 | `spillage` | `min_spillage_m3s` (padrão `0`) | `max_spillage_m3s` (padrão: ilimitado) | Rígida | Rígida |
 | `outflow` | `min_outflow_m3s` | `max_outflow_m3s` (opcional) | Com penalidade, quando esse mínimo é `> 0` | Com penalidade, quando esse máximo é definido |
-| `generation` | `0`; o mínimo `min_generation_mw`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_generation_mw` próprio da usina excede essa soma | `max_generation_mw`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
+| `generation` | `0`; o mínimo `min_generation_mw`, somado sobre os grupos de unidades geradoras de uma célula (usina, barramento), é uma restrição flexível, acrescida de uma restrição flexível do total da usina quando o `min_generation_mw` próprio da usina excede essa soma; ambas são descartadas onde a usina não pode produzir ([Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina)) | `max_generation_mw`, aplicado também ao total da usina quando este é inferior à soma das capacidades das células | Com penalidade, quando esse mínimo é `> 0` | Rígida |
 | `evaporation` | menos o limite por estágio de [Evaporação líquida com sinal](#evaporacao-liquida-com-sinal) | mais esse limite | Com penalidade | Com penalidade |
 | `withdrawal` (nível do estágio) | `water_withdrawal_m3s` | `water_withdrawal_m3s` | Com penalidade | Com penalidade |
 
@@ -193,6 +194,8 @@ flexível cuja folga é precificada a `generation_violation_below_cost`; um
 mínimo nulo da célula mantém essa folga fixada em `0`. Uma restrição de mínimo
 do total da usina precifica sua própria folga ao mesmo custo, e uma insuficiência é
 cobrada uma única vez.
+Onde a usina não pode produzir, o mínimo da célula é `0`, com sua folga fixada em
+`0`, e a restrição do total da usina é livre ([Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina)).
 :::
 
 Relação: `outflow = turbined_flow + spillage`,
@@ -201,9 +204,12 @@ Relação: `outflow = turbined_flow + spillage`,
 ### Verificações de penalidades na carga
 
 O Novo Modelo verifica os custos configurados quando o caso é carregado. As
-verificações leem os custos de cada usina no nível da entidade: os padrões de
-`penalties.json` com o bloco `penalties` da usina aplicado. As sobrescritas
-por estágio não são verificadas. O lado do déficit da primeira comparação é o
+três verificações de ordenação de custos leem os custos de cada usina no nível
+da entidade: os padrões de `penalties.json` com o bloco `penalties` da usina
+aplicado. As sobrescritas por estágio não entram nelas. A verificação do preço
+da FPHA lê os custos que cada estágio resolve, sobrescritas por estágio
+incluídas, nos estágios em que o modelo de produção da usina seleciona a FPHA.
+O lado do déficit da primeira comparação é o
 maior custo de segmento de déficit entre todos os barramentos, ou 0 quando o
 caso não tem barramentos. As comparações usam os valores configurados tal como
 foram informados, sem convertê-los em energia; portanto, um caso que passa
@@ -219,16 +225,17 @@ de usinas afetadas e a usina de pior caso.
 | Déficit acima da violação de geração | o `generation_violation_below_cost` de uma usina é maior ou igual ao maior custo de déficit | todas as usinas que atendem à condição; o pior caso tem o maior custo de violação de geração |
 | Violações de vazão acima dos custos de recurso | o menor custo de violação de vazão de uma usina é menor ou igual ao maior custo de recurso entre todas as usinas | todas as usinas que atendem à condição; o pior caso tem o menor custo de violação de vazão |
 | Custos de recurso positivos | o menor custo de recurso de uma usina é menor ou igual a 0 | todas as usinas que atendem à condição; o pior caso tem o menor desses custos |
+| Preço da FPHA acima do déficit mais a violação de geração | em um estágio com FPHA, o `fpha_violation_cost` de uma usina é menor ou igual ao maior custo de déficit mais o seu `generation_violation_below_cost` | todos os pares (usina, estágio) que atendem à condição; o par informado tem a menor margem |
 
 Os custos de violação de vazão de uma usina são `turbined_violation_below_cost`,
 `outflow_violation_below_cost`, `outflow_violation_above_cost` e os quatro
 custos direcionais de evaporação e de retirada. "Custos de recurso" designa os
 custos `spillage_cost` e `diversion_cost` da usina. Cada verificação compara
-apenas custos de mesma unidade. Essas três verificações não leem nenhum custo
+apenas custos de mesma unidade. As verificações não leem nenhum custo
 de térmica, de contrato, de excesso, de intercâmbio ou de corte de geração, nem
 `turbined_cost` ou `inflow_nonnegativity_cost`.
 
-{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:57-62, 101-107, 131-137 at novomodelo v0.20.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:58-63, 102-108 and 132-138 at novomodelo v0.21.0 */}
 
 O texto de cada aviso é fixo, exceto pelos números e ids de usinas, aqui
 representados por `{…}`, e começa com `Penalty ordering violation:`:
@@ -240,6 +247,23 @@ representados por `{…}`, e começa com `Penalty ordering violation:`:
 - Custos de recurso positivos:
   `Penalty ordering violation: min(resource_costs) ({…}) should be > 0 (regularization costs must be positive to prevent LP degeneracy) -- {…} hydro(s) affected, worst case: Hydro {…}`
 
+A quarta verificação começa o seu aviso com `FPHA price ordering violation:`. O
+par informado tem a menor margem `fpha_violation_cost - (maior custo de déficit +
+generation_violation_below_cost)`; empates vão para o menor id de usina e, depois,
+para o menor id de estágio. Uma usina sem entrada de modelo de produção nunca é
+verificada. A verificação deixa de fora o termo de restrição genérica da variável
+dual do plano, de modo que um caso aprovado nela ainda pode ter uma folga da FPHA
+ativa: veja a
+[Ordem de prioridade das penalidades](/math/penalty-system#ordem-de-prioridade-das-penalidades). Um
+desses casos é uma restrição genérica com limite inferior sobre a geração da FPHA
+cujo preço de folga é igual ou superior ao preço da FPHA.
+
+{/* quoted from source: check_fpha_price_dominance in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo v0.21.0 */}
+
+```text
+FPHA price ordering violation: fpha_violation_cost ({…}) should be > max(deficit_segment_costs) ({…}) + generation_violation_below_cost ({…}) (all $/MWh) -- {…} (hydro, stage) pair(s) at FPHA stages, {…} hydro(s) affected, smallest margin: Hydro {…} at stage {…}
+```
+
 Para eliminar um aviso, altere os custos em `penalties.json` ou no bloco
 `penalties` da usina até que a comparação da mensagem seja satisfeita: para
 `should be >`, aumente o custo à esquerda ou reduza o da direita. O aviso
@@ -249,7 +273,7 @@ menciona `penalties.json` mesmo quando o custo é fornecido pelo bloco
 Duas regras rejeitam o caso com um erro `BusinessRuleViolation` (veja
 [Códigos de erro — `BusinessRuleViolation`](/reference/error-codes/#businessruleviolation)):
 
-{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:164-167, 1138-1144 at novomodelo v0.20.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:427-430 and 1398-1404 at novomodelo v0.21.0 */}
 
 - **Custo de turbinamento negativo em uma usina com FPHA.** Uma usina cujo
   `generation.model` é `fpha` e cujo `turbined_cost` é negativo é rejeitada em

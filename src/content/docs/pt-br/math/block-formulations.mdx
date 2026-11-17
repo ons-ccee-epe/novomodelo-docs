@@ -23,7 +23,7 @@ No modo de patamares paralelos, todos os patamares de um estágio são **indepen
 Uma única restrição de balanço hídrico abrange todos os patamares:
 
 $$
-v_h = v^{in}_h + \zeta \, (a_h - e_h - r_h) + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
+v_h = v^{in}_h + \zeta \, (a_h - e_h - T^{eff}_h) + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
 $$
 
 em que:
@@ -32,7 +32,7 @@ em que:
 - $\zeta_k = 0.0036\,\tau_k = w_k\,\zeta$ é a conversão de vazão em volume do patamar $k$, com $\tau_k$ a duração do patamar $k$ em horas e $w_k = \tau_k / \sum_{k' \in \mathcal{K}} \tau_{k'}$ o peso do patamar, de modo que as conversões dos patamares somam a conversão do estágio, $\sum_{k \in \mathcal{K}} \zeta_k = \zeta$
 - $a_h$ é a vazão incremental realizada do estágio
 - $e_h$ é a evaporação líquida: um único valor no nível do estágio, calculado sobre $(v^{in}_h + v_h)/2$, qualquer que seja o número de patamares
-- $r_h$ é a meta de retirada no nível do estágio
+- $T^{eff}_h$ é a retirada efetiva no nível do estágio: a meta de retirada $r_h$ da usina somada às metas das usinas em pré-enchimento cuja água ela recebe, e $0$ para uma usina em pré-enchimento ([Formulação do PL, Termos das linhas](/math/lp-formulation#termos-das-linhas))
 - $\text{net\_flows}_{h,k}$ é a vazão líquida do patamar $k$: a defluência turbinada e vertida creditada pelas usinas de montante e as vazões desviadas e bombeadas para a usina, menos as vazões turbinada, vertida e desviada da própria usina e a vazão bombeada para fora dela
 
 Essa formulação supõe que o reservatório pode redistribuir livremente a água entre os patamares do estágio. A linha canônica com todos os termos — as chegadas de água em trânsito, as parcelas de tempo de viagem e as folgas de retirada e de afluência — está em [Formulação do PL §4](/math/lp-formulation#4-balanco-hidrico-das-usinas-hidreletricas).
@@ -63,7 +63,7 @@ O armazenamento ao fim do estágio (variável de estado) é: $v_h = v_{h,|\mathc
 Para todo patamar $k \in \mathcal{K}$, com $v_{h,0} = v^{in}_h$ (o armazenamento de entrada, fixado em $\hat{v}_h$):
 
 $$
-v_{h,k} = v_{h,k-1} + \zeta_k \, \big( a_h - e_{h,k} - r_h + \text{net\_flows}_{h,k} \big)
+v_{h,k} = v_{h,k-1} + \zeta_k \, \big( a_h - e_{h,k} - T^{eff}_h + \text{net\_flows}_{h,k} \big)
 $$
 
 $\text{net\_flows}_{h,k}$ credita integralmente a defluência de montante do patamar $k$; para uma usina de montante ligada a $h$ por um arco com tempo de viagem, a linha do patamar $k$ credita, em vez disso, as parcelas por patamar, no mesmo estágio, da defluência dessa usina nos patamares $k' \le k$ ([Formulação do PL — Linhas do estágio cronológico](/math/lp-formulation#linhas-do-estagio-cronologico)).
@@ -75,7 +75,7 @@ O patamar $k$ recebe $\zeta_k\,a_h = w_k\,\zeta\,a_h$ da afluência do estágio 
 Somando as linhas dos patamares sobre $k \in \mathcal{K}$, obtém-se:
 
 $$
-v_h = v^{in}_h + \zeta \, (a_h - r_h) - \sum_{k \in \mathcal{K}} \zeta_k \, e_{h,k} + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
+v_h = v^{in}_h + \zeta \, (a_h - T^{eff}_h) - \sum_{k \in \mathcal{K}} \zeta_k \, e_{h,k} + \sum_{k \in \mathcal{K}} \zeta_k \, \text{net\_flows}_{h,k}
 $$
 
 Essa é a linha da §1.1 com a evaporação por patamar $\sum_{k \in \mathcal{K}} \zeta_k\,e_{h,k}$ no lugar de $\zeta\,e_h$ e, em um arco com tempo de viagem, com as parcelas por patamar, no mesmo estágio, da defluência de montante (veja [Formulação do PL — Soma das linhas dos patamares](/math/lp-formulation#soma-das-linhas-dos-patamares)).
