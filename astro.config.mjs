@@ -521,6 +521,9 @@ export default defineConfig({
         // column floors and the right-sidebar TOC width, so its order among them
         // is arbitrary.
         "./src/styles/layout.css",
+        // components.css: Starlight's type scale, buttons and active state in
+        // the hotsite's terms (design-system.md §3, §5, §8).
+        "./src/styles/components.css",
         // header.css: the hotsite's fixed graphite header in both themes (D4).
         "./src/styles/header.css",
         "./src/components/entity/entity.css",

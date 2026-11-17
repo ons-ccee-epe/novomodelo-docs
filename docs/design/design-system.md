@@ -250,6 +250,17 @@ dash), bullet lists with a 6 px accent dot, cards (`.ed-card` with a 32 × 3 px
 accent tab, `.pillar`, `.val-card`, `.path`), timeline, status strip, sticky
 graphite header with submenu, footer.
 
+**In the docs** (`src/styles/components.css`, `src/styles/brand.css`, `src/components/entity/entity.css`), Starlight's pieces take these components' rules:
+
+| Starlight | Follows | Rule |
+| --- | --- | --- |
+| Running text, page title, h2–h4 | §3.2 scale | body 17 px at 1.65; h1 = hero title, h2 = hotsite h2, h3 19 px, h4 15 px |
+| Link buttons (home actions) | `.btn`, `.btn--primary` | 8 px corners, 48 px tall, weight 500; primary = `--color-primary` fill with `--color-on-primary` ink (7.53:1) |
+| Sidebar current page | pressed `.chip` | `--color-primary` fill with `--color-on-primary` ink, both themes |
+| Asides | `.notice` | §9, D5 |
+| Cards, panels, illustrations | `.ed-card`, `.pillar` | `--radius` (12 px) for cards, `--radius-lg` (16 px) for panels, `--radius-sm` (8 px) for small items |
+| Header | `.site-header` | §9, D4 |
+
 **Brand assets** in `hotsite/assets/`:
 
 | Asset | File | Note |
