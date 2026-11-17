@@ -866,6 +866,49 @@ canal sem limite de capacidade omite `max_flow_m3s` ou o define como
 omita-o para um canal sem limite de capacidade. Um `max_diversion_m3s` por estágio ou por patamar
 em `constraints/hydro_bounds.parquet` continua limitando a vazão.
 
+#### Declaração inválida de vazão de canal de fuga
+
+**Quando ocorre:** O objeto `tailrace_flow` de uma hidrelétrica em `system/hydros.json` viola uma de quatro regras:
+
+- `own_outflow_factor` é negativo ou não finito.
+- Um `factor` em `outflow_influences` ou `incremental_inflow_influences` é negativo ou não finito.
+- Uma hidrelétrica aparece mais de uma vez na mesma lista de influências.
+- Uma hidrelétrica lista a si mesma em `outflow_influences`. A defluência própria da usina é ponderada apenas por `own_outflow_factor`; a usina pode listar a si mesma em `incremental_inflow_influences`.
+
+**Campos:**
+
+| Campo         | Descrição |
+| ------------- | ----------- |
+| `description` | Contém uma linha `[SchemaViolation] system/hydros.json: field hydros[<i>].tailrace_flow.<path>: <message>`, em que `<i>` é a posição da hidrelétrica no arquivo, a partir de zero, e `<path>` nomeia a chave ou a entrada de lista problemática, como `own_outflow_factor` ou `outflow_influences[<j>].factor` |
+
+**Exemplo:** Uma linha para cada forma de mensagem.
+
+{/* quoted from source: validate_tailrace_flow in crates/novomodelo-io/src/system/hydros.rs at novomodelo 94ac09e7 */}
+
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].tailrace_flow.own_outflow_factor: own_outflow_factor must be finite and >= 0, got -1
+```
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].tailrace_flow.outflow_influences[0].factor: factor must be finite and >= 0, got -0.1
+```
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].tailrace_flow.incremental_inflow_influences[1].hydro_id: hydro 20 is listed more than once in incremental_inflow_influences
+```
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].tailrace_flow.outflow_influences[0].hydro_id: hydro 10 lists itself in outflow_influences; a hydro's own outflow is set by own_outflow_factor, not by listing itself
+```
+
+**Solução:** Use um fator finito de `0` ou mais. Liste cada hidrelétrica uma vez
+por lista de influências. Defina a parcela própria da usina na vazão do canal de
+fuga com `own_outflow_factor`. Uma entrada da própria usina pertence apenas a
+`incremental_inflow_influences`. Veja o
+[formato de caso de hydros](/reference/case-format/hydros) para os campos de
+`tailrace_flow`.
+
 ---
 
 ### `InvalidReference`
@@ -885,10 +928,24 @@ de uma usina hidrelétrica referencia um barramento que não está em
 [InvalidReference] system/hydros.json (Hydro 0 unit group 0): Hydro 0 unit group 0 references non-existent Bus 99 via field 'bus_id'
 ```
 
+Uma hidrelétrica cuja lista de influências de `tailrace_flow` cita uma hidrelétrica que não existe:
+
+{/* quoted from source: HYDRO_TAILRACE_OUTFLOW_INFLUENCE and HYDRO_TAILRACE_INCREMENTAL_INFLOW_INFLUENCE in crates/novomodelo-io/src/validation/referential.rs at novomodelo 94ac09e7 */}
+
+```text
+[InvalidReference] system/hydros.json (Hydro 3): Hydro 3 references non-existent Hydro 100 via field 'tailrace_flow.outflow_influences.hydro_id'
+```
+
+```text
+[InvalidReference] system/hydros.json (Hydro 3): Hydro 3 references non-existent Hydro 200 via field 'tailrace_flow.incremental_inflow_influences.hydro_id'
+```
+
 **Solução:** Adicione a entidade referenciada ao seu arquivo de cadastro ou
 corrija o ID no arquivo que a referencia. Verifique todas as referências de ID:
 `unit_groups[].bus_id`, `thermals.bus_id`, `lines.source_bus_id`,
-`lines.target_bus_id`, `hydros.downstream_id`.
+`lines.target_bus_id`, `hydros.downstream_id`,
+`hydros.tailrace_flow.outflow_influences[].hydro_id`,
+`hydros.tailrace_flow.incremental_inflow_influences[].hydro_id`.
 
 **Veja também:** uma linha de `constraints/ncs_bounds.parquet` com um `stage_id` não declarado é reportada sob este
 tipo — veja
@@ -1819,9 +1876,9 @@ desabilitado em todos os estágios do estudo apesar de terem sido fornecidos coe
 valor negativo em `scenarios/inflow_history.parquet`, um período sazonal sem
 nenhuma das amostras desse arquivo a partir das quais a estimação faz o ajuste, um par hidrelétrica-período sazonal com pelo menos uma, mas menos de
 `estimation.min_observations_per_season`, ocorrências do período sazonal totalmente cobertas nesse
-arquivo, um alerta sobre o `travel_time_hours` declarado de uma hidrelétrica, um piso rígido de armazenamento que sobe acima do piso deixado pelo estágio anterior, um plano da FPHA pré-calculado que fica abaixo de 0 MW com vazão turbinada nula, ou um armazenamento
+arquivo, um alerta sobre o `travel_time_hours` declarado de uma hidrelétrica, um piso rígido de armazenamento que sobe acima do piso deixado pelo estágio anterior, um plano da FPHA pré-calculado que fica abaixo de 0 MW com vazão turbinada nula, um armazenamento
 inicial fora dos limites de armazenamento ao final do primeiro estágio de operação
-da hidrelétrica. Cada um é reportado como aviso.
+da hidrelétrica, ou uma declaração `tailrace_flow` em uma hidrelétrica que usa a FPHA em nenhum estágio do estudo. Cada um é reportado como aviso.
 
 **Exemplo:**
 
@@ -1899,12 +1956,22 @@ FPHA plane below zero at zero turbining: {entity} -- {n_pairs} (stage, plane) pa
 
 A verificação ignora uma hidrelétrica sem entrada de FPHA, uma hidrelétrica cuja FPHA é calculada (`source: "computed"`) e uma hidrelétrica sem capacidade de turbinamento. Ela cobre cada estágio do estudo cuja entrada resolve para `fpha`, e um estágio usa as linhas com o seu próprio `stage_id` ou, na falta delas, as linhas válidas para todos os estágios (`stage_id` nulo). Ela avalia cada linha com vazão turbinada nula, no armazenamento mínimo da janela de ajuste e no extremo superior da faixa de ajuste do vertimento (`spillage_fit_max_m3s`, ou o seu padrão), com `kappa` multiplicando apenas `gamma_0`. `{s_star}` é o vertimento no qual o plano atinge 0 MW, (`kappa`·`gamma_0` + `gamma_v`·v_min)/|`gamma_s`| quando essa soma é positiva e 0 caso contrário. O primeiro cruzamento é o menor `{s_star}`, com empates desfeitos pelo id do estágio e, depois, pelo id do plano. `{stages}` lista os ids dos estágios sinalizados como sequências crescentes escritas `a-b` (ou um id isolado) e unidas por `, `. É reportado um aviso por hidrelétrica.
 
+A mensagem da vazão do canal de fuga, reportada em `system/hydros.json` sob a regra `semantic.5a.68`:
+
+{/* quoted from source: check_tailrace_flow_effect in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo 94ac09e7 */}
+
+```text
+Hydro {name} (id={id}): tailrace_flow has no effect because the hydro uses FPHA at no study stage; select FPHA in extensions/production_models.json or remove tailrace_flow
+```
+
+O aviso é emitido para uma hidrelétrica com `tailrace_flow` diferente do padrão que não tem entrada em `extensions/production_models.json` ou cuja entrada seleciona a FPHA em nenhum estágio do estudo. Um `tailrace_flow` afeta apenas a função de produção FPHA, de modo que a declaração não tem efeito nessa hidrelétrica.
+
 **Solução:** Revise a entrada sinalizada. Para um aviso de ordenação de penalidades, veja
 [Verificações de penalidades na carga](/math/penalty-system#implementacao-no-novo-modelo); para o
 aviso de tendência hidrológica, veja
 [`stages[].state_variables` — Projeção de Cortes](/math/cut-management/#stagesstate_variables--projecao-dos-cortes);
 para o aviso de armazenamento inicial, verifique se o primeiro estágio de operação consegue atingir
-seus limites de armazenamento ou mova o armazenamento inicial para dentro deles; para o aviso de piso crescente, reduza o piso que sobe, eleve o piso do estágio anterior ou use o método de afluência `penalty` (veja [a precondição de recurso completo](/math/penalty-system#precondicao-de-recurso-completo)); para o aviso do plano pré-calculado, eleve o `gamma_s` do plano sinalizado para pelo menos −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, com o armazenamento v_min e o vertimento S_ref que a mensagem imprime, ou ajuste os planos a partir da geometria com `source: "computed"`, cujos planos recebem esse limite ([Secante de vazão lateral](/math/hydro-production-models#27-secante-de-vazao-lateral)); um plano cujo cruzamento está em 0 m³/s precisa de um `gamma_0` ou `gamma_v` maior.
+seus limites de armazenamento ou mova o armazenamento inicial para dentro deles; para o aviso de piso crescente, reduza o piso que sobe, eleve o piso do estágio anterior ou use o método de afluência `penalty` (veja [a precondição de recurso completo](/math/penalty-system#precondicao-de-recurso-completo)); para o aviso do plano pré-calculado, eleve o `gamma_s` do plano sinalizado para pelo menos −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, com o armazenamento v_min e o vertimento S_ref que a mensagem imprime, ou ajuste os planos a partir da geometria com `source: "computed"`, cujos planos recebem esse limite ([Secante de vazão lateral](/math/hydro-production-models#27-secante-de-vazao-lateral)); um plano cujo cruzamento está em 0 m³/s precisa de um `gamma_0` ou `gamma_v` maior; para o aviso da vazão do canal de fuga, selecione a FPHA para a hidrelétrica em `extensions/production_models.json` ou remova `tailrace_flow` da hidrelétrica.
 Avisos deste tipo não impedem a execução do solver.
 
 ---
