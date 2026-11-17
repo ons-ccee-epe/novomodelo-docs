@@ -15,6 +15,10 @@ const SLUG = /^v(\d+)\.(\d+)$/;
 const SHA = /^[0-9a-f]{40}$/;
 // The hotsite is served at "/" and every documentation version under /docs/.
 const DOCS_BASE = "/docs/";
+// The locale layouts a build can serve (src/components/version-options.ts):
+// English only at the base, or pt-BR at the base and English under en/.
+const EN_ONLY = JSON.stringify(["en"]);
+const PT_ROOT_LAYOUT = JSON.stringify(["pt-br", "en"]);
 
 function minorKey(slug) {
   const m = SLUG.exec(slug);
@@ -31,6 +35,11 @@ function latestProblems(latest) {
   }
   if ("slug" in latest) {
     problems.push(`latest: has a slug; latest is served at ${DOCS_BASE}`);
+  }
+  if (JSON.stringify(latest.locales) !== PT_ROOT_LAYOUT) {
+    problems.push(
+      `latest: locales ${JSON.stringify(latest.locales)} is not ${PT_ROOT_LAYOUT}; the working tree serves pt-BR at ${DOCS_BASE} and English under en/`,
+    );
   }
   return problems;
 }
@@ -70,6 +79,11 @@ function entryProblems(v, i, isAncestor) {
   if (/^(v\d+\.\d+)\.\d+$/.exec(v.novomodelo)?.[1] !== v.slug) {
     problems.push(
       `${at}: novomodelo ${JSON.stringify(v.novomodelo)} is not a ${v.slug}.N release`,
+    );
+  }
+  if ("locales" in v && ![EN_ONLY, PT_ROOT_LAYOUT].includes(JSON.stringify(v.locales))) {
+    problems.push(
+      `${at}: locales ${JSON.stringify(v.locales)} is neither ${EN_ONLY} nor ${PT_ROOT_LAYOUT}`,
     );
   }
   if (!SHA.test(v.ref)) {
@@ -173,6 +187,7 @@ function tempRepo() {
 }
 
 const ABSENT_SHA = "1234567890abcdef1234567890abcdef12345678";
+const PT_ROOT = ["pt-br", "en"];
 const anyRefIsAncestor = () => true;
 
 const entry = (slug, ref) => ({
@@ -184,7 +199,7 @@ const entry = (slug, ref) => ({
 });
 
 const config = (...versions) => ({
-  latest: { label: "latest", base: DOCS_BASE, novomodelo: "v0.17.0" },
+  latest: { label: "latest", base: DOCS_BASE, novomodelo: "v0.17.0", locales: PT_ROOT },
   versions,
 });
 
@@ -268,5 +283,26 @@ test("rejects a label that is not the frozen release", () => {
   assertOneProblem(
     validateVersions(cfg, anyRefIsAncestor),
     /label "v0\.18" does not equal the frozen release "v0\.18\.0"/,
+  );
+});
+
+test("accepts a frozen entry that serves pt-BR at its base and English under en/", () => {
+  const cfg = config({ ...entry("v0.20", ABSENT_SHA), locales: PT_ROOT });
+  assert.deepEqual(validateVersions(cfg, anyRefIsAncestor), []);
+});
+
+test("rejects a locales layout the build does not serve", () => {
+  const cfg = config({ ...entry("v0.20", ABSENT_SHA), locales: ["en", "pt-br"] });
+  assertOneProblem(
+    validateVersions(cfg, anyRefIsAncestor),
+    /versions\[0\] "v0\.20": locales \["en","pt-br"\] is neither \["en"\] nor \["pt-br","en"\]/,
+  );
+});
+
+test("rejects a latest that does not declare pt-BR at its base and English under en/", () => {
+  const { locales: _locales, ...latest } = config().latest;
+  assertOneProblem(
+    validateVersions({ latest, versions: [] }, anyRefIsAncestor),
+    /latest: locales undefined is not \["pt-br","en"\]/,
   );
 });
