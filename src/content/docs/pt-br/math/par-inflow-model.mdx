@@ -220,7 +220,7 @@ A inclusão das afluências defasadas nos cortes de um estágio é uma escolha p
 
 Em estudos com múltiplas resoluções (agregação mensal→trimestral), o mesmo procedimento de ajuste se aplica após a agregação ponderada pela duração; veja [Estudos com múltiplas resoluções](/math/multi-resolution-studies).
 
-Esta seção documenta o procedimento de ajuste dos parâmetros do PAR(p) a partir do histórico de vazões. O ajuste é feito quando o sistema deriva os parâmetros do histórico de vazões. Quando estatísticas sazonais e coeficientes AR previamente calculados são fornecidos diretamente, esse procedimento não é executado. A escala do ruído deliberadamente **não** faz parte do ajuste: ela é derivada dos coeficientes armazenados na carga (§4.1), de forma idêntica para modelos ajustados e fornecidos pelo usuário (§4.2).
+Esta seção documenta o procedimento de ajuste dos parâmetros do PAR(p) a partir do histórico de vazões. O ajuste é feito quando o sistema deriva os parâmetros do histórico de vazões e lê as observações de uma janela de estimação: um intervalo contíguo de anos do histórico, o registro inteiro a menos que o caso o restrinja. A janela restringe apenas o ajuste: os valores iniciais das defasagens e os esquemas de cenários que reproduzem ou reamostram o histórico leem o registro independentemente dela. Quando estatísticas sazonais e coeficientes AR previamente calculados são fornecidos diretamente, esse procedimento não é executado. A escala do ruído deliberadamente **não** faz parte do ajuste: ela é derivada dos coeficientes armazenados na carga (§4.1), de forma idêntica para modelos ajustados e fornecidos pelo usuário (§4.2).
 
 A figura abaixo acompanha as duas origens dos coeficientes até o modelo em execução.
 Quando os coeficientes são ajustados a partir do histórico de vazões, as estatísticas
@@ -231,12 +231,16 @@ nulo assume ordem 0 diretamente. Cada um dos demais períodos sazonais seleciona
 FACP periódica ([§3.4](#34-autocorrelacoes-sazonais),
 [§3.6](#36-selecao-de-ordem)) e resolve o sistema periódico de Yule-Walker nessa
 ordem para obter seus coeficientes padronizados $\psi^*$
-([§3.5](#35-equacoes-de-yule-walker)). Um período sazonal é redefinido para ordem 0 quando seu primeiro
-coeficiente é negativo, após o ajuste inicial ou qualquer novo ajuste, ou quando seu
-ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude.
-Um período sazonal com influência composta negativa perde uma defasagem em seu teto de ordem
-e passa novamente por seleção e ajuste, até que nenhum período sazonal falhe; os coeficientes são
-então armazenados ([§3.7](#37-coeficientes-padronizados-armazenados)), e a correlação
+([§3.5](#35-equacoes-de-yule-walker)). Um período sazonal é redefinido para ordem 0 quando seu
+ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude,
+e, no caminho clássico, quando seu primeiro coeficiente é negativo, após o ajuste
+inicial ou qualquer novo ajuste. Um período sazonal com influência composta negativa perde
+uma defasagem em seu teto de ordem e passa novamente por seleção e ajuste, até que nenhum
+período sazonal falhe, e um período sazonal cujo modelo implica uma variância residual negativa
+é reduzido da mesma forma ([§3.6](#36-selecao-de-ordem)); no caminho do PAR(p)-A, a
+influência composta inclui o termo anual
+([§7.6](#76-reducao-iterativa-de-ordem)). Os coeficientes são então
+armazenados ([§3.7](#37-coeficientes-padronizados-armazenados)), e a correlação
 espacial é estimada quando o caso não a fornece
 ([§6.1](#61-estimacao-da-correlacao)). Coeficientes fornecidos passam, em vez disso, pelo
 filtro de estacionariedade do invariante 2 ([§5](#5-invariantes-de-validacao)), e um
@@ -260,8 +264,8 @@ hist: "Histórico de vazões" {shape: parallelogram; class: hydro}
 stats: "Estatísticas sazonais\nclassificação dos grupos"
 pacf: "FACP periódica\nseleção de ordem"
 yw: "Ajuste de Yule-Walker\nψ* padronizado"
-resets: "Redefinições para ordem 0\nψ*ₘ,₁ < 0\najuste inicial: limite de magnitude"
-check: "Influência composta ≥ 0\nem todos os períodos sazonais?" {shape: diamond}
+resets: "Redefinições para ordem 0\nclássico: ψ*ₘ,₁ < 0\najuste inicial: limite de magnitude"
+check: "Influência composta ≥ 0\ne variância residual ≥ 0\nem todos os períodos sazonais?" {shape: diamond}
 store: "Armazena ψ*\ncorrelação espacial"
 supplied: "ψ* fornecido" {shape: parallelogram}
 gate: "Filtro de estacionariedade\nsolúvel, |ρ| ≤ 1,\nr² acima do piso,\nmonodromia < 1" {shape: diamond}
@@ -333,7 +337,7 @@ O classificador segue a ordem de prioridade constante → muitos negativos → s
 Quando a substituição define $\hat{s}_m = 0$ para um período sazonal, o ajuste desse período sazonal é interrompido nos dois caminhos:
 
 - No **caminho do PAR(p) clássico**, o período sazonal assume ordem 0 diretamente; sua FACP (§3.6) não é avaliada.
-- No **caminho do PAR(p)-A**, o período sazonal também assume ordem 0 diretamente, com coeficiente anual $\psi^{A*}_m = 0$; sua FACP condicional (§7.5) não é avaliada.
+- No **caminho do PAR(p)-A**, o período sazonal também assume ordem 0 diretamente, com coeficiente anual $\psi^{A*}_m = 0$; sua FACP condicional (§7.5) não é avaliada. Um período sazonal cujo próprio desvio-padrão é positivo, mas cujas defasagens selecionadas $1, \ldots, p_m$ alcançam um período sazonal com desvio-padrão nulo, também assume ordem 0 e mantém o coeficiente anual $\psi^{A*}_m$ de sua resolução estendida em $p_m$ (§7.5).
 
 As estatísticas sazonais que alimentam o ajuste são estimadas a partir do histórico, mesmo quando o caso fornece as suas próprias, e estimá-las exige pelo menos duas observações por período sazonal, de modo que nenhum período sazonal chega ao ajuste com desvio-padrão não nulo e $N_m < 2$. Um período sazonal com uma única observação ($N_m = 1$) faz o caso ser rejeitado. Um período sazonal sem observações ($N_m = 0$) não tem estatísticas; o ajuste lê seu desvio-padrão como nulo e o interrompe da mesma forma nos dois caminhos. No caminho do PAR(p)-A, isso também ocorre quando o grupo do regressor anual do período sazonal está vazio ($N^A_m = 0$) ou tem desvio-padrão nulo ($\hat{\sigma}^A_m = 0$, §7.3), e o período sazonal passa então a não ter contribuição anual.
 
@@ -358,7 +362,7 @@ $$
 \hat{\gamma}_m(\ell) = \frac{1}{N_m^{(\ell)}} \sum_{t: m(t) = m} \left( a_{h,t} - \bar{a}_m \right) \left( a_{h,t-\ell} - \bar{a}_{m-\ell} \right)
 $$
 
-em que $N_m^{(\ell)}$ é o número de pares válidos alinhados por ano na defasagem $\ell$ para o período sazonal de referência $m$. O estimador usa o **divisor populacional** $1/N_m^{(\ell)}$, seguindo a convenção adotada na §3.2 e compartilhada pelos caminhos clássico e do PAR(p)-A.
+em que a soma percorre os pares válidos alinhados por ano na defasagem $\ell$ para o período sazonal de referência $m$, e $N_m^{(\ell)} = \max(N_m, N_{m-\ell})$ é a maior das contagens de observações dos dois períodos sazonais. O estimador usa esse **divisor populacional**, seguindo a convenção adotada na §3.2 e compartilhada pelos caminhos clássico e do PAR(p)-A: uma defasagem que cruza a fronteira do ano não tem par no primeiro ano do período sazonal $m$, e o divisor permanece no tamanho do grupo em vez da contagem de pares.
 
 **Autocorrelação**:
 
@@ -368,7 +372,7 @@ $$
 
 em que $\hat{s}_{m-\ell}$ é o desvio-padrão do período sazonal $m - \ell$ (ciclicamente, de modo que o período sazonal 0 = período sazonal $M$).
 
-**Proteção contra desvio-padrão nulo.** $\hat{\rho}_m(\ell) = 0$ quando $\hat{s}_m$ ou $\hat{s}_{m-\ell}$ é nulo, ou quando o período sazonal $m$ não tem par alinhado por ano na defasagem $\ell$ ($N_m^{(\ell)} = 0$). Toda estimativa é limitada ao intervalo $[-1, 1]$.
+**Proteção contra desvio-padrão nulo.** $\hat{\rho}_m(\ell) = 0$ quando $\hat{s}_m$ ou $\hat{s}_{m-\ell}$ é nulo, ou quando o período sazonal $m$ não tem par alinhado por ano na defasagem $\ell$. Toda estimativa é limitada ao intervalo $[-1, 1]$.
 
 ### 3.5 Equações de Yule-Walker
 
@@ -463,7 +467,7 @@ A regra clássica calcula a **FACP periódica** (função de autocorrelação pa
    p_m = \max \left\{ k : |\text{PACF}_m(k)| > \frac{z_{0.975}}{\sqrt{N_m}} \right\}
    $$
 
-   em que $z_{0.975} = 1.96$ (95% de confiança) e $N_m$ é o número de observações do período sazonal $m$. Se nenhuma defasagem for significativa, $p_m = 0$ (ruído branco).
+   em que $z_{0.975} = 1.96$ (95% de confiança) e $N_m$ é o número de observações do período sazonal $m$. Se nenhuma defasagem for significativa, $p_m = 0$ (ruído branco) no caminho clássico.
 
 3. Estime os coeficientes AR na ordem selecionada usando o sistema periódico de Yule-Walker (§3.5).
 
@@ -477,12 +481,15 @@ $$
 \frac{\partial a_{h,t}}{\partial a_{h,t-\ell}} = \psi_{m(t),\ell} + \sum_{\ell'=1}^{\ell-1} \psi_{m(t),\ell'}\, \frac{\partial a_{h,t-\ell'}}{\partial a_{h,t-\ell}}, \qquad \ell = 1, \ldots, p_{m(t)}
 $$
 
-em que $\psi_{m,\ell}$ é o coeficiente em unidades originais da §2.2, considerado nulo quando $s_{m-\ell} = 0$ ou $\ell > p_m$, e cada derivada do lado direito decorre da mesma recursão no estágio $t-\ell'$. A verificação é uma condição de sinal sobre a influência composta das defasagens, e não um teste de estacionariedade: um período sazonal falha quando alguma de suas influências compostas é negativa. Um período sazonal que falha perde uma defasagem em seu teto de ordem (inicialmente $p_{max}$) e passa novamente por seleção e ajuste com o novo teto; um período sazonal cujo teto chega a 0 assume ordem 0, e o laço se repete até que nenhum período sazonal falhe. Um período sazonal cujo primeiro coeficiente satisfaz $\psi^*_{m,1} < 0$, após o ajuste inicial ou após qualquer novo ajuste, é redefinido para ordem 0, assim como um período sazonal cujo ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude.
+em que $\psi_{m,\ell}$ é o coeficiente em unidades originais da §2.2, considerado nulo quando $s_{m-\ell} = 0$ ou $\ell > p_m$, e cada derivada do lado direito decorre da mesma recursão no estágio $t-\ell'$. A verificação é uma condição de sinal sobre a influência composta das defasagens, e não um teste de estacionariedade: um período sazonal falha quando alguma de suas influências compostas é negativa. Um período sazonal que falha perde uma defasagem em seu teto de ordem (inicialmente $p_{max}$) e passa novamente por seleção e ajuste com o novo teto; um período sazonal cujo teto chega a 0 assume ordem 0, e o laço se repete até que nenhum período sazonal falhe. Um período sazonal cujo ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude é redefinido para ordem 0. No caminho clássico, o mesmo ocorre com um período sazonal cujo primeiro coeficiente satisfaz $\psi^*_{m,1} < 0$, após o ajuste inicial ou após qualquer novo ajuste.
 
-Para o caminho do PAR(p)-A (§7), duas regras adicionais estendem o critério da FACP:
+Quando nenhum período sazonal falha, o fechamento da §4.1 deriva a variância residual implicada pelo modelo de cada período sazonal. Um período sazonal de ordem $p_m$ cuja variância residual implicada é negativa passa novamente por seleção e ajuste com teto $p_m - 1$, ou assume ordem 0 quando $p_m = 1$, e o laço se repete até que nenhuma das duas verificações aponte um período sazonal.
 
-- **Interrupção por zero estrutural na defasagem 1**. Quando o valor da FACP condicional na defasagem 1 é exatamente zero — o que ocorre quando a série padronizada de afluências $Z$ da §7.5 colapsa no período sazonal anterior, tipicamente porque um grupo degenerado constante ou saturado anulou o desvio-padrão desse período sazonal (§3.3) —, a ordem selecionada é forçada a 0 (ruído branco). Isso impede que grupos degenerados injetem estrutura AR espúria.
-- **Ordem mínima 1 quando a defasagem 1 está bem definida**. Quando a FACP condicional na defasagem 1 é não nula, mas nenhuma defasagem excede o limiar de significância, o modelo adota ordem 1 em vez de ordem 0. A persistência hidrológica torna um ajuste estrito de ordem 0 uma escolha padrão ruim, a menos que o valor na defasagem 1 esteja estruturalmente ausente.
+No caminho do PAR(p)-A (§7), o critério da FACP difere em três aspectos:
+
+- **Ordem mínima 1**. A ordem selecionada é pelo menos 1 sempre que o teto é pelo menos 1, mesmo quando nenhuma defasagem excede o limiar de significância. A persistência hidrológica torna um ajuste estrito de ordem 0 uma escolha padrão ruim. Um zero exato na defasagem 1 não interrompe a busca: uma defasagem significativa além dela ainda define a ordem.
+- **Defasagens com desvio-padrão nulo**. Um período sazonal cujas defasagens selecionadas alcançam um período sazonal com desvio-padrão nulo assume ordem 0 e mantém seu coeficiente anual (§3.3).
+- **Sem redefinição pelo primeiro coeficiente**. Um $\psi^*_{m,1}$ negativo é julgado apenas pela influência composta, que inclui o termo anual (§7.6).
 
 ### 3.7 Coeficientes padronizados armazenados
 
@@ -585,7 +592,7 @@ os coeficientes fornecidos passam pelo filtro de estacionariedade do invariante 
 
 **Imposto durante o ajuste, e não como teste a posteriori:**
 
-4. **Influência composta não negativa**: após a seleção de ordem, as influências compostas das defasagens de cada período sazonal (§3.6) devem ser não negativas; um período sazonal que falha perde uma defasagem em seu teto de ordem e passa novamente por seleção e ajuste até que nenhum período sazonal falhe. Um período sazonal cujo primeiro coeficiente satisfaz $\psi^*_{m,1} < 0$, após o ajuste inicial ou após qualquer novo ajuste, é redefinido para ordem 0, assim como um período sazonal cujo ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude. No caminho clássico, um sistema periódico de Yule-Walker singular limita a ordem selecionável a valores inferiores à sua própria ordem (§3.5), de modo que o ajuste clássico nunca resolve um sistema singular.
+4. **Influência composta não negativa**: após a seleção de ordem, as influências compostas das defasagens de cada período sazonal (§3.6) devem ser não negativas; um período sazonal que falha perde uma defasagem em seu teto de ordem e passa novamente por seleção e ajuste até que nenhum período sazonal falhe. Um período sazonal cujo ajuste inicial tem um coeficiente de magnitude acima do limite opcional de magnitude é redefinido para ordem 0, e, no caminho clássico, o mesmo ocorre com um período sazonal cujo primeiro coeficiente satisfaz $\psi^*_{m,1} < 0$, após o ajuste inicial ou após qualquer novo ajuste. Um período sazonal cujo modelo implica uma variância residual negativa é reduzido da mesma forma (§3.6), de modo que o fechamento da §4.1 nunca rejeita um modelo ajustado por uma variância residual negativa; no caminho do PAR(p)-A, a influência composta inclui o termo anual (§7.6). No caminho clássico, um sistema periódico de Yule-Walker singular limita a ordem selecionável a valores inferiores à sua própria ordem (§3.5), de modo que o ajuste clássico nunca resolve um sistema singular.
 
 ## 6. Fatoração da correlação espacial
 
@@ -740,17 +747,17 @@ A conversão espelha a da §2.2 para os coeficientes AR clássicos. O termo anua
 
 A seleção de ordem do PAR(p)-A é condicionada ao regressor anual. Seja $Z$ a série padronizada de afluências, isto é, a afluência padronizada por suas estatísticas sazonais (§3.2), e seja o regressor anual $A_{t-1}$ da §7.1 padronizado por suas próprias estatísticas sazonais (§7.3). A entrada da seleção de ordem é a **FACP condicional** na defasagem $k$, definida como a autocorrelação parcial entre o valor de $Z$ no estágio corrente e seu valor na defasagem $k$, **condicionada** às defasagens intermediárias de $Z$ e a $A_{t-1}$. O cálculo da FACP condicional exige uma decomposição particionada da covariância que distingue os blocos $Z \otimes Z$, $Z \otimes A$ e $A \otimes Z_{-1}$.
 
-A FACP condicional alimenta a regra de seleção de ordem pela FACP da §3.6, com as duas extensões específicas do PAR(p)-A (interrupção por zero estrutural e ordem mínima 1) já descritas ali.
+A FACP condicional alimenta a regra de seleção de ordem pela FACP da §3.6, com a ordem mínima 1 do PAR(p)-A e a regra das defasagens com desvio-padrão nulo descritas ali.
 
 #### Divisor da covariância cruzada
 
-O bloco $Z \otimes Z$ usa o mesmo divisor populacional alinhado por ano da autocovariância clássica (§3.4). Os blocos $Z \otimes A$ e $A \otimes Z_{-1}$ usam um **divisor pelo tamanho do maior grupo**:
+Todo bloco usa um **divisor pelo tamanho do maior grupo**. O bloco $Z \otimes Z$ é a autocovariância da §3.4, dividida pela maior das contagens de observações de seus dois períodos sazonais, e os blocos $Z \otimes A$ e $A \otimes Z_{-1}$ dividem pelo maior dos tamanhos de seus dois grupos:
 
 $$
 \hat{\gamma}_{Z \otimes A}(\ell) \;=\; \frac{1}{\max(|A|,\, |Z|)} \sum_w \bigl(Z^{(w)} - \bar{Z}\bigr)\bigl(A^{(w)} - \bar{A}\bigr)
 $$
 
-A convenção do maior grupo é necessária porque $A$ exclui, por construção, o primeiro ano de $Z$ (uma janela móvel de 12 meses não pode se ancorar nas 12 primeiras observações). A contagem estrita de pares distorceria a escala das correlações cruzadas e enviesaria a FACP condicional. O caminho do PAR(p) nunca usa correlações cruzadas Z⊗A, de modo que a questão do divisor é específica do PAR(p)-A.
+A convenção do maior grupo é necessária porque $A$ exclui, por construção, o primeiro ano de $Z$ (uma janela móvel de 12 meses não pode se ancorar nas 12 primeiras observações). A contagem estrita de pares distorceria a escala das correlações cruzadas e enviesaria a FACP condicional.
 
 #### Yule-Walker periódico estendido
 
@@ -770,7 +777,15 @@ Como no caso clássico, a escala do ruído não é uma saída do ajuste. Para um
 
 ### 7.6 Redução iterativa de ordem
 
-A redução iterativa de Maceira & Damázio da §3.6 também é aplicada a todo o ciclo periódico no caminho do PAR(p)-A: após o ajuste inicial, avalia-se a influência composta de cada defasagem AR ao longo da cadeia periódica, e todo período sazonal com influência composta negativa tem seu teto AR reduzido antes do novo ajuste. O coeficiente anual $\psi^{A*}_m$ não entra na verificação da influência composta — ele está ancorado na média anual móvel e, portanto, não se propaga pela cadeia de defasagens.
+A redução iterativa de Maceira & Damázio da §3.6 também é aplicada a todo o ciclo periódico no caminho do PAR(p)-A, sobre os coeficientes do sistema efetivo de 12 defasagens da §7.5. O regressor anual é a média das últimas 12 afluências, de modo que o termo anual se soma a toda defasagem até 12, e a influência composta da §3.6 é avaliada na forma em unidades originais (§2.2) dos coeficientes padronizados combinados
+
+$$
+c_{m,k} \;=\; \psi^*_{m,k} \;+\; \psi^{A*}_m \cdot \frac{s_{m-k}}{12\,\sigma^A_m}, \qquad k = 1, \ldots, 12,
+$$
+
+com $\psi^*_{m,k} = 0$ para $k > p_m$, nas defasagens $1, \ldots, p_m$ de cada período sazonal de ordem $p_m \ge 1$. Um período sazonal de ordem $p_m > 1$ que falha passa novamente por seleção e ajuste com teto $p_m - 1$, o que atualiza tanto $\psi^*_m$ quanto $\psi^{A*}_m$; um período sazonal de ordem 1 que falha assume ordem 0 com $\psi^{A*}_m = 0$. O limite de magnitude se aplica ao ajuste inicial como no caminho clássico, e nenhum período sazonal é redefinido apenas por um $\psi^*_{m,1}$ negativo.
+
+Quando nenhum período sazonal falha, o fechamento da §4.1 deriva a variância residual implicada pelo modelo de cada período sazonal no sistema efetivo de 12 defasagens. Um período sazonal cuja variância residual implicada é negativa é reduzido da mesma forma, e o laço se repete até que nenhuma das duas verificações aponte um período sazonal.
 
 ### 7.7 Ativação e alternativas
 
@@ -780,6 +795,7 @@ A redução iterativa de Maceira & Damázio da §3.6 também é aplicada a todo 
 | Regra de seleção de ordem com componente anual                             | PAR(p)-A — tripla anual obrigatória para todo (usina hidrelétrica, período sazonal)              |
 | Grupo classificado como constante ou saturado (§3.3)                       | Ordem efetiva 0 em ambos os caminhos; termo anual suprimido quando o desvio-padrão sazonal colapsa |
 | Sistema periódico de Yule-Walker estendido singular na ordem selecionada (§7.5) | Período sazonal do PAR(p)-A com ordem 0 e coeficiente anual $\psi^{A*}_m = 0$               |
+| Defasagens selecionadas alcançam um período sazonal com desvio-padrão nulo (§3.3) | Período sazonal do PAR(p)-A com ordem 0, mantendo o coeficiente anual de sua resolução estendida |
 | Usina hidrelétrica com menos de 13 observações no caminho do PAR(p)-A      | Falha bloqueante durante o ajuste (sem retorno silencioso ao caminho clássico)           |
 
 Os dois caminhos compartilham o produtor de estatísticas sazonais da §3.2; alternar entre eles não altera silenciosamente $\hat{\mu}_m$ nem $\hat{s}_m$. O caminho do PAR(p)-A usa a mesma fatoração da correlação espacial do caminho clássico (§6).

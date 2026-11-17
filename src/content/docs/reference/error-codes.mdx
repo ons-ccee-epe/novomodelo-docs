@@ -654,6 +654,22 @@ it after `error: constraint violation: `.
 A declared opening-tree file that is missing is reported in the stochastic
 phase: [Opening-tree file missing](#opening-tree-file-missing).
 
+#### Inverted `estimation.history_years` range
+
+**When it occurs:** `config.json`'s `estimation.history_years` range has a
+`from` year after its `to` year. The range is checked when `config.json`
+loads, so `novomodelo validate` and `novomodelo run` both exit `1`, whether or
+not the run estimates from the inflow history.
+
+{/* quoted from source: EstimationConfig::check_history_years in crates/novomodelo-io/src/config/estimation.rs at novomodelo v0.21.0; the printed line, after the error: prefix (error: constraint violation: under novomodelo run), confirmed by novomodelo validate and novomodelo run (exit code 1) on a temporary 1dtoy derivative with the novomodelo v0.21.0 release binary (novomodelo-cli sha256 e484b9f8) */}
+
+```text
+[SchemaViolation] config.json: field estimation.history_years: range 'from' ({from}) must be <= 'to' ({to})
+```
+
+**Resolution:** Set `from` no later than `to`; see
+[Configuration — `estimation`](/en/running/configuration/#estimation).
+
 #### Invalid anticipated-thermal lead
 
 **When it occurs:** A thermal's `anticipated_config` in `system/thermals.json`
@@ -1102,6 +1118,8 @@ The pumping-station rule is under
 [Pumping station outside its endpoints' Operating windows](#pumping-station-outside-its-endpoints-operating-windows).
 The computed-FPHA geometry rule is under
 [Computed-FPHA geometry short of the storage range](#computed-fpha-geometry-short-of-the-storage-range).
+The estimation-window rule is under
+[Estimation history years outside the history](#estimation-history-years-outside-the-history).
 The horizon rule of [Invalid anticipated-thermal lead](#invalid-anticipated-thermal-lead) also prints a
 `[BusinessRuleViolation]` line; that entry sits under `SchemaViolation`, where two of its four lines print.
 
@@ -1454,6 +1472,28 @@ PumpingStation {id}: active at stage {stage_id} while its {side} hydro {hid} is 
 
 **Resolution:** Extend the geometry in `system/hydro_geometry.parquet` to cover `min_storage_hm3` to `max_storage_hm3`, or correct the storage range of the hydro.
 
+#### Estimation history years outside the history
+
+**When it occurs:** The run estimates the inflow model from
+`scenarios/inflow_history.parquet` (the case does not supply both
+`scenarios/inflow_seasonal_stats.parquet` and
+`scenarios/inflow_ar_coefficients.parquet`), and `estimation.history_years`
+starts before the first year or ends after the last year of the file. The years
+of the file are the start years of its rows, over every hydro. A case that
+estimates nothing from the history is not checked.
+
+{/* quoted from source: check_estimation_history_years in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo v0.21.0; the printed line confirmed by novomodelo validate (exit code 1) on a temporary 1dtoy derivative with the novomodelo v0.21.0 release binary (novomodelo-cli sha256 e484b9f8) */}
+
+```text
+estimation.history_years ({from} to {to}) reaches outside the years of scenarios/inflow_history.parquet ({first} to {last}); narrow the range to those years
+```
+
+The line prints as `[BusinessRuleViolation] config.json: <message>`.
+
+**Resolution:** Narrow `estimation.history_years` to the years the file holds,
+or extend the file; see
+[Configuration — `estimation`](/en/running/configuration/#estimation).
+
 ---
 
 ### `WarmStartIncompatible`
@@ -1585,9 +1625,9 @@ ignored.
 the case valid. Examples: an inverted penalty ordering, an FPHA price at or below the largest
 deficit cost plus the minimum-generation price, inflow-lag state
 disabled on every study stage despite supplied autoregressive coefficients, a
-negative value in `scenarios/inflow_history.parquet`, a season with no
-observations in that file, a hydro-season with at least one, but fewer than
-`estimation.min_observations_per_season`, fully covered stage occurrences in that
+negative value in `scenarios/inflow_history.parquet`, a season with none of
+the samples the estimation fits from that file, a hydro-season with at least one, but fewer than
+`estimation.min_observations_per_season`, fully covered season occurrences in that
 file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW at zero turbined flow, or an initial
 storage outside the storage bounds at the end of the hydro's first operating
 stage. Each is reported as a warning.
@@ -1619,7 +1659,7 @@ fires and what it changes:
 
 The observation-count message:
 
-{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:1281-1285 at novomodelo v0.21.0 */}
+{/* quoted from source: check_estimation_prerequisites in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo v0.21.0 */}
 
 ```text
 hydro {hid} season {sid} has {n} observations (minimum recommended: {min_obs}); estimation accuracy may be insufficient with so few observations
@@ -1629,7 +1669,9 @@ hydro {hid} season {sid} has {n} observations (minimum recommended: {min_obs}); 
 the warning only when the inflow model is estimated from
 `scenarios/inflow_history.parquet` (that is, the case does not supply both
 `scenarios/inflow_seasonal_stats.parquet` and `scenarios/inflow_ar_coefficients.parquet`)
-and `stages.json` declares `season_definitions`.
+and `stages.json` declares `season_definitions`. `{n}` counts the fully covered
+season occurrences the estimation fits from, inside or outside the study horizon;
+with `estimation.history_years` set, only those that start in its years.
 
 The initial-storage messages, reported on `initial_conditions.json` for the hydro:
 
@@ -1939,7 +1981,7 @@ in this phase, such as a load error (after the label, its message begins
 it traces to.
 
 **Example:** A historical library that holds no complete window, a
-non-stationary fitted inflow model (non-finite innovation scale), an
+non-stationary inflow model (non-finite innovation scale), an
 autoregressive stage whose standard deviation is zero, a stage with more
 openings than the first stage of its noise group, or a declared
 opening-tree file that is absent.
@@ -2030,15 +2072,19 @@ study. Two refusals carry a fixed message:
   `scenarios/inflow_history.parquet: stochastic error: ` prefix and exits `1`.
   `novomodelo run` prints it as `error: stochastic error: invalid PAR parameters …`
   with the validate hint, and exits `1`.
-- The coefficients fitted from the history imply a non-stationary process, so a
-  derived residual standard-deviation ratio is not finite. The message names the
-  hydro id and the season id:
+- The model's coefficients imply a non-stationary process, so a derived
+  residual standard-deviation ratio is not finite. A model fitted from the
+  history does not reach this refusal: the fit lowers the order of a season whose
+  model implies a negative residual variance, and
+  [`fitting_report.json`](/en/reference/output/stochastic/#stochasticfitting_reportjson)
+  lists it as `negative_residual_variance`. The message names the hydro id and
+  the season id:
   {/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:144-152, crates/novomodelo-io/src/error.rs:60 and crates/novomodelo-sddp/src/error.rs:45-46 at novomodelo v0.21.0 */}
   ```text
   I/O error: constraint violation: derived residual_std_ratio is non-finite for hydro_id={hydro_id} season={season}: the coefficients imply a non-stationary process (implied residual variance 1 - sum(psi*rho) is negative)
   ```
   This is a [`ConstraintError`](#constrainterror) raised while the model is
-  fitted, so it reaches the command as a load error. `novomodelo validate` prints it
+  assembled, so it reaches the command as a load error. `novomodelo validate` prints it
   with the `scenarios/` file label and exits `1`. `novomodelo run` prints it without
   the `I/O error: ` prefix, followed by a hint to run `novomodelo validate`, and also
   exits `1`.
