@@ -110,8 +110,8 @@ The backward pass improves the value function approximation by generating new Be
 At each stage $t$, for each trial point $\hat{x}_{t-1}$ collected during the forward pass:
 
 1. Solve the stage $t$ LP for **every** scenario $\omega \in \Omega_t$ (branching), using the trial state $\hat{x}_{t-1}$ as incoming state
-2. From each LP solution, extract the optimal objective value $Q_t(\hat{x}_{t-1}, \omega)$ and the **reduced costs** of the pinned incoming-state columns. The incoming-storage and AR-lag reduced costs enter the cut when the stage's cut projection keeps those components; the in-transit water-bucket and anticipated-thermal-slot reduced costs always do ([State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)). These reduced costs give the cut coefficients directly — no combination with FPHA or generic constraint duals is needed. See [Cut Management](/en/math/cut-management)
-3. Compute per-scenario cut terms $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ at the trial point, each coefficient of $\beta(\omega)$ being the reduced cost of step 2 divided by its column's scale factor ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction))
+2. From each LP solution, extract the optimal objective value $Q_t(\hat{x}_{t-1}, \omega)$, the **reduced costs** of the pinned incoming-state columns, and the duals of the rows that read the realized inflow and of the cut rows. The storage and inflow-lag coefficients enter the cut when the stage's cut projection keeps those components; the in-transit water-bucket and anticipated-thermal-slot coefficients always do ([State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)). The reduced costs give the storage, bucket and slot coefficients directly — no combination with FPHA or generic constraint duals is needed — and the duals give the inflow-lag coefficients by the chain rule ([PAR(p) Folding §4](/en/math/par-folding#4-the-inflow-lag-coefficients-by-the-chain-rule)). See [Cut Management](/en/math/cut-management)
+3. Compute per-scenario cut terms $(Q_t(\hat{x}_{t-1}, \omega), \beta(\omega))$ at the trial point, each storage, bucket and slot coefficient of $\beta(\omega)$ being the reduced cost of step 2 divided by its column's scale factor, and each inflow-lag coefficient the chain rule of step 2 over the unscaled duals ([Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction)). Novomodelo forms the inflow-lag coefficients once per child, from the duals aggregated under the weights of step 4, which in exact arithmetic gives the aggregate of the per-scenario coefficients ([PAR(p) Folding §4](/en/math/par-folding#4-the-inflow-lag-coefficients-by-the-chain-rule))
 4. Aggregate the per-scenario cut terms into a single cut. On a policy graph, the cut of a node $n$ aggregates every (child, opening) pair $(n', \omega)$ of $n$, weighted by $P(n \to n')\, p_{n'}(\omega)$, with the risk measure acting once on that joint law; on the stage chain the node has one child and the weights are the uniform $p(\omega)$ over $\Omega_t$. See [Cut Management §3](/en/math/cut-management#3-single-cut-aggregation)
 5. Add the aggregated cut to stage $t-1$'s cut pool
 
@@ -122,7 +122,7 @@ At each stage $t$, for each trial point $\hat{x}_{t-1}$ collected during the for
 The backward pass produces one new cut per stage per trial point per iteration.
 
 :::note[Feasibility]
-Every backward LP solve must be feasible. This is guaranteed by the recourse slack system (Category 1 penalties) — see [Penalty System](/en/math/penalty-system). Relatively complete recourse keeps every backward solve feasible; cut validity needs the conditions of [Cut Management §4](/en/math/cut-management#4-cut-validity).
+Every backward LP solve must be feasible. The recourse slack system (Category 1 penalties) provides this for every case that meets the [complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition). Relatively complete recourse keeps every backward solve feasible; cut validity needs the conditions of [Cut Management §4](/en/math/cut-management#4-cut-validity).
 :::
 
 :::note[Discount factor]
@@ -227,27 +227,30 @@ For SDDP to generate valid cuts, the subproblem must satisfy the **Markov proper
 The last two components are present only when the study declares them: water
 travel-time arcs introduce the in-transit buckets, and anticipated thermals
 introduce the ring slots. A study with neither reduces to the classical
-storage (+ AR-lag) state. All four components are genuine Markov state — each is
-pinned by column bounds on its incoming-state column, and the reduced cost of
-that column gives its cut coefficient (section 3.2).
+storage (+ AR-lag) state. All four components are genuine Markov state. The
+storage, the buckets and the ring slots are pinned by column bounds on their
+incoming-state columns, and the reduced cost of each column gives its cut
+coefficient (section 3.2); the inflow lags have no LP column, reach the LP through
+right-hand sides, and take their cut coefficients from the duals by the chain
+rule (§5.1).
 
 ### 5.1 AR Lag State Expansion
 
-The PAR(p) inflow model requires past inflows $a_{h,t-1}, a_{h,t-2}, \ldots$ to compute current inflow. To maintain the Markov property, these lags are included as state variables **pinned by column bounds** to the corresponding incoming state value:
+The PAR(p) inflow model requires past inflows $a_{h,t-1}, a_{h,t-2}, \ldots$ to compute current inflow. To maintain the Markov property, these lags are included as state variables. They are not LP columns: before each solve, the realized inflow of each hydro is computed from the incoming lags and the noise of the opening,
 
 $$
-\underline{a}_{h,\ell} = \bar{a}_{h,\ell} = \hat{a}_{h,\ell} \quad \forall h \in \mathcal{H}, \; \ell \in \{1, \ldots, P^{\max}\}
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{P^{\max}} \psi_{m(t),\ell} \, \hat{a}_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t
 $$
 
-where $\hat{a}_{h,\ell}$ is the lag $\ell$ inflow value passed from the previous stage. The reduced costs of these pinned columns, each divided by its column's scale factor, give the lag coefficients $\beta^{lag}_{h,\ell}$, which enter the cut when the stage's cut projection keeps the inflow-lag components, capturing the marginal value of inflow history — see [Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction).
+where $\hat{a}_{h,\ell}$ is the lag $\ell$ inflow value passed from the previous stage, and $\hat{z}_h$ enters the rows that read the inflow as a right-hand-side constant ([LP Formulation §5](/en/math/lp-formulation#5-realized-inflow)). The lag coefficients $\beta^{lag}_{h,\ell}$, which enter the cut when the stage's cut projection keeps the inflow-lag components, capture the marginal value of inflow history; they are computed from the unscaled duals of the solve by the chain rule — see [Cut Management §2](/en/math/cut-management#2-reduced-cost-extraction) and [PAR(p) Folding](/en/math/par-folding).
 
-See [PAR(p) Inflow Model](/en/math/par-inflow-model) for the complete autoregressive formulation and [State Augmentation §4](/en/math/state-augmentation#4-inflow-lags) for how these constraints appear in the stage LP.
+See [PAR(p) Inflow Model](/en/math/par-inflow-model) for the complete autoregressive formulation and [State Augmentation §4](/en/math/state-augmentation#4-inflow-lags) for how the lags enter the stage LP.
 
 ### 5.2 Travel-Time and Anticipated-Thermal State Expansion
 
 Two further mechanisms expand the state vector beyond storage and AR lags, and
-both are carried as Markov state by the same column-bound pinning as the AR
-lags — their pinned columns' reduced costs, each divided by its column's scale factor, give their cut coefficients.
+both are carried as Markov state by the same column-bound pinning as the
+storage — their pinned columns' reduced costs, each divided by its column's scale factor, give their cut coefficients.
 
 **In-transit water buckets.** When a hydro's main cascade arc carries a
 travel time, released water reaches its downstream plant only after a
@@ -307,13 +310,14 @@ The methodology above defines the forward/backward pass structure and the execut
 - [Cut Management](/en/math/cut-management) — Cut generation, aggregation, selection, validity conditions, and the append-only monotonicity guarantee
 - [Determinism & Provenance](/en/math/determinism-guarantees) — Read-back canonicalization of the trial-point values onto admissible bounds, and the reproducibility mechanisms (canonical state-block ordering, pinned solve order) it rests on
 - [PAR(p) Inflow Model](/en/math/par-inflow-model) — Stochastic inflow model driving uncertainty in the forward pass
+- [PAR(p) Folding](/en/math/par-folding) — the realized inflow as a right-hand-side constant and the inflow-lag cut coefficients by the chain rule
 - [Discount Rate Formulation](/en/math/discount-rate) — Discounted Bellman equation, stage-dependent rates, discount factor on θ
 - [Horizon Modes](/en/math/horizon-modes) — The reserved cyclic policy-graph target design (season function, cycle convergence inequality, season-indexed cut pool, fixed-point Bellman operator) that the finite-horizon-only restriction in [Policy Graphs](/en/math/policy-graphs) anticipates
 - [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) — the imported terminal function: source pool, compatibility conditions, carried state and calendar reconciliation
 - [Upper Bound Evaluation](/en/math/upper-bound-evaluation) — Upper bound estimation methods
 - [Stopping Rules](/en/math/stopping-rules) — Convergence criteria that terminate the iterative process
 - [Risk Measures](/en/math/risk-measures) — CVaR and risk-averse extensions to the Bellman recursion
-- [Penalty System](/en/math/penalty-system) — Recourse slacks guaranteeing feasibility (relatively complete recourse)
+- [Penalty System](/en/math/penalty-system) — Recourse slacks and the precondition under which they keep every stage LP feasible (relatively complete recourse)
 - [Equipment-Specific Formulations](/en/math/equipment-formulations) — Thermal equipment modelling
 - [Scenario Generation](/en/math/scenario-generation) — Fixed opening tree, sampling scheme abstraction, enumerated scenario trees
 - **Running Novomodelo:** [Running Studies](/en/running/running-studies/) — the software workflow that trains and runs this algorithm.

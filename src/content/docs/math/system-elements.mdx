@@ -344,7 +344,7 @@ op -> pre: "exit stage,\nno filling"
 **State variables** ($v_h$ and $a_{h,\ell}$) link stages through the Bellman recursion. The storage $v_h$ tracks reservoir volume and is a true decision variable within each stage (the optimizer chooses its end-of-stage value). The AR lags $a_{h,\ell}$ carry inflow history for the PAR(p) model: they are _state variables_ in the SDDP sense (passed between stages; whether a cut carries them is set by the [cut-state projection](/en/math/state-augmentation#7-cut-state-projection)), but are [**fixed at the beginning of each stage**](/en/math/state-augmentation#4-inflow-lags) to the realized inflow values — they are not free for the optimizer to choose. All other variables are **control variables** determined within each stage.
 
 :::note[Evaporation and withdrawal]
-Evaporation is a bounded LP column tied to storage by an evaporation row that linearizes the reservoir's surface flux. Withdrawal is the stage-level target $r_h$ on the right-hand side of the water balance; the stage-level slacks $\sigma^{w-}_h$ and $\sigma^{w+}_h$ relax the target when the reservoir cannot sustain it (for example, in a drought). See [LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance).
+Evaporation is a bounded LP column tied to storage by an evaporation row that linearizes the reservoir's surface flux. The effective withdrawal $T^{eff}_h$, derived from the declared target $r_h$, is the right-hand side of the water balance; the stage-level slacks $\sigma^{w-}_h$ and $\sigma^{w+}_h$ relax it when the reservoir cannot sustain it (for example, in a drought). See [LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance).
 :::
 
 ### Connections to Other Elements
@@ -397,7 +397,8 @@ res -> wd: "r"
 | $\rho_h$                                         | MW/(m³/s) | Productivity (constant model)                           |
 | FPHA hyperplanes | — | The fitted plane set of the FPHA production model ([Hydro Production Function Models](/en/math/hydro-production-models)) |
 | $a_h$                                            | m³/s      | Incremental inflow (stochastic, from PAR model)         |
-| $r_h$                                            | m³/s      | Signed water-withdrawal target of the stage (negative = inter-basin return), relaxed by the stage-level slacks $\sigma^{w-}_h$, $\sigma^{w+}_h$ |
+| $r_h$                                            | m³/s      | Signed water-withdrawal target of the stage as declared (negative = inter-basin return) |
+| $T^{eff}_h$                                      | m³/s      | Effective withdrawal, the right-hand side of the water balance: $r_h$ plus the targets of the PreFilling plants routed onto the plant, and $0$ for a PreFilling plant; the stage-level slacks $\sigma^{w-}_h$, $\sigma^{w+}_h$ relax it |
 | $\hat{v}_h$, $\hat{a}_{h,\ell}$                  | hm³, m³/s | Incoming state (from previous stage)                    |
 
 ### Water Balance Phenomena
@@ -415,7 +416,7 @@ The reservoir dynamics account for all water flows in and out of the plant:
 | $q_h + s_h$                                   | Outflow   | Turbined and spilled flow, released to the downstream plant                 |
 | $u_h$                                         | Outflow   | Diverted flow, sent to the diversion target                                 |
 | $e_h$                                         | Outflow   | Evaporation (reservoir surface loss; can be negative for net precipitation; stage-level on a parallel stage, per block on a chronological stage) |
-| $r_h$                                         | Outflow   | Water withdrawal (stage-level target, relaxed by $\sigma^{w-}_h$, $\sigma^{w+}_h$) |
+| $r_h$                                         | Outflow   | Water withdrawal (enters the balance as the effective withdrawal $T^{eff}_h$, relaxed by $\sigma^{w-}_h$, $\sigma^{w+}_h$) |
 | $\sum_{y:\text{src}=h} p_y$                   | Outflow   | Pumped water extracted by pumping stations                                  |
 
 Every row except the incoming storage and the in-transit arrival, both already volumes, is a flow rate: the balance converts it to volume over the stage or block duration and adds or subtracts it as its Direction column states, pumping included. The canonical row with every term is [LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance).
@@ -442,7 +443,7 @@ Novomodelo supports two production models for converting turbined flow to electr
 
 1. **Constant Productivity**: $g_{h,b,k} = \rho_h \cdot q_{h,b,k}$ (per cell $(h,b)$) — simple linear relationship with fixed $\rho_h$ [MW/(m³/s)], suitable for plants with stable head.
 
-2. **FPHA (approximate hydroelectric production function)**: Piecewise-linear approximation via hyperplanes that captures head variation with storage level and accounts for tailrace effects from spillage, fitted once per plant. Each cell's generation is bounded above by every plane of the plant's fitted set, evaluated at the cell's turbined flow, the plant's spillage and the average storage (of the stage, or of each block on a chronological stage), with the plane's flow-independent terms apportioned by the cell's share of the plant's declared turbine capacity — see [Hydro Production Function Models](/en/math/hydro-production-models).
+2. **FPHA (approximate hydroelectric production function)**: Piecewise-linear approximation via hyperplanes that captures head variation with storage level and accounts for tailrace effects from spillage, fitted once per plant. Each cell's generation is bounded above by every plane of the plant's fitted set, evaluated at the cell's turbined flow, the plant's spillage and the average storage (of the stage, or of each block on a chronological stage), with the plane's flow-independent terms apportioned by the cell's share of the plant's declared maximum turbined flow — see [Hydro Production Function Models](/en/math/hydro-production-models).
 
 :::note[Training models]
 Each production model can be used in training (policy construction) and in simulation (policy evaluation).
@@ -464,7 +465,7 @@ Several hydro constraints are enforced as **soft constraints** with slack variab
 | $g_{h,b,k} \geq \underline{G}_{h,b}$ (per cell) | Minimum generation (grid services)           | $\sigma^{g-}_{h,b,k}$ |
 | $\sum_b g_{h,b,k} \geq \underline{G}_h$ (plant total, where tighter than its cells) | Plant minimum generation | $\sigma^{G-}_{h,k}$ |
 | $e_{h,k}$ feasible                             | Evaporation within physical limits            | $\sigma^{e\pm}_{h,k}$ (stage-level on a parallel stage, per block on a chronological stage) |
-| realized withdrawal meets $r_h$                | Water withdrawal commitment                   | $\sigma^{w-}_h$, $\sigma^{w+}_h$ (stage-level) |
+| realized withdrawal meets $T^{eff}_h$          | Water withdrawal commitment                   | $\sigma^{w-}_h$, $\sigma^{w+}_h$ (stage-level) |
 | $v_h \geq V^{\text{target}}_t$ (filling floor) | Per-stage filling target during commissioning | $\sigma^{fill}_{h}$   |
 
 Soft constraints allow the optimizer to violate bounds when physically necessary (e.g., drought conditions preventing minimum outflow), with high penalty costs signaling undesirable operation. Maximum storage ($\bar{V}_h$) is a **hard** physical limit — excess water is handled by spillage, not a slack variable. A plant's maximum turbined flow and maximum generation are hard too, on each cell and on the plant's total. The dead volume is a hard bound too, except for a filling hydro once it operates and a plant that is not in service (see [LP Formulation §8](/en/math/lp-formulation#8-variable-bounds-and-minimum-constraints)). For the penalty priority ordering and cost magnitudes, see [Penalty System](/en/math/penalty-system). For the complete hydro constraint formulations, see [LP Formulation](/en/math/lp-formulation).
@@ -475,7 +476,7 @@ A hydro is **PreFilling** whenever it does not yet exist in the dispatch — a f
 
 - **Turbine, spillage, and diversion are pinned to zero** ($q_{h,k} = s_{h,k} = u_{h,k} = 0$) — a dam that does not yet exist can neither generate nor spill.
 - **Storage is decoupled** by a frozen identity $v_h = v^{in}_h$: the reservoir volume is held constant, injecting no phantom storage and trapping no water. A plant dormant at the start of the study therefore keeps its initial storage at every dormant stage; for a plant without filling, that storage lies in its storage range $[\underline{V}_h, \bar{V}_h]$. The dead-volume floor does not apply while PreFilling, and the storage ceiling is never below $\bar{V}_h$, so a tighter per-stage storage ceiling cannot make a dormant stage infeasible.
-- **Natural inflow is passed through** to the first downstream plant that is not PreFilling (or leaves the modeled system if none), so incremental inflow with its [inflow non-negativity](/en/math/inflow-nonnegativity) slack, upstream releases, the flows diverted into the plant and the in-transit water maturing into it reach the cascade below without being lost at the un-built site; the plant's withdrawal target moves with them to that plant.
+- **Natural inflow is passed through** to the first downstream plant that is not PreFilling (or leaves the modeled system if none), so incremental inflow with its [inflow non-negativity](/en/math/inflow-nonnegativity) slack, upstream releases, the flows diverted into the plant and the in-transit water maturing into it reach the cascade below without being lost at the un-built site; the plant's withdrawal target joins that plant's effective withdrawal $T^{eff}_h$, so that plant's slacks relax it at its prices; with no non-PreFilling plant downstream it enters no row.
 
 The defining contrast with the filling phase below is **spillage**: it is frozen to zero while PreFilling (there is no reservoir to shed from), and becomes a free decision once filling begins. [LP Formulation — Lifecycle Phases](/en/math/lp-formulation#lifecycle-phases) gives the LP treatment of every phase.
 
@@ -503,7 +504,7 @@ Each hydro contributes the regularization costs of its spillage, turbined flow a
 
 ### LP Constraint Preview
 
-Each hydro's **water balance** carries its storage from the incoming to the outgoing value through the inflows and outflows above ([LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance)). Each hydro's inflow lags are pinned to their incoming values ([State Augmentation §4](/en/math/state-augmentation#4-inflow-lags)). The **generation constraint** of each cell follows the plant's production model ([Hydro Production Function Models](/en/math/hydro-production-models)).
+Each hydro's **water balance** carries its storage from the incoming to the outgoing value through the inflows and outflows above ([LP Formulation §4](/en/math/lp-formulation#4-hydro-water-balance)). Each hydro's inflow lags give its realized inflow, which enters the water balance as a right-hand-side constant ([State Augmentation §4](/en/math/state-augmentation#4-inflow-lags)). The **generation constraint** of each cell follows the plant's production model ([Hydro Production Function Models](/en/math/hydro-production-models)).
 
 ## 6. Non-Controllable Generation Sources
 

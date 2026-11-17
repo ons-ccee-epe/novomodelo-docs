@@ -28,6 +28,12 @@ Inclinações de vazão lateral acima de `-1e-10` — um resíduo negativo próx
 valor positivo — são fixadas em exatamente `0`, de modo que nenhum coeficiente próximo de zero chega
 à coluna de vertimento.
 
+O limite da §2.7 é aplicado antes desse ajuste. Ele lê o volume inferior da janela de
+ajuste e o extremo superior `S_max` da amostra de vazão lateral, e não é aplicado quando
+`S_max` é `0`. Os planos de `system/fpha_hyperplanes.parquet` (pré-calculados) não são
+limitados; `novomodelo validate` avisa sobre um plano que fica abaixo de 0 MW com turbinamento
+nulo (veja [Qualidade do modelo](/reference/error-codes/#modelquality)).
+
 Quando alguma usina usa FPHA calculada, as famílias de `system/tailrace_curves.parquet` são verificadas à medida que os
 modelos de produção são construídos: segmentos consecutivos de uma família devem se encontrar (o
 `outflow_max_m3s` anterior e o `outflow_min_m3s` seguinte diferem no máximo `1e-6` m³/s) e dar o mesmo
@@ -37,26 +43,30 @@ id e a fronteira.
 
 ### Suporte a usinas a fio d'água
 
-Uma usina cuja faixa de volume de ajuste se reduz a um único ponto (nível de
-montante constante) é ajustada sintetizando-se duas amostras de volume próximas, para que a envoltória 3-D
-permaneça não degenerada, e depois ajustando o resíduo `gamma_v` resultante para
-exatamente `0` quando sua magnitude é no máximo `1e-6` MW por hm³. Isso impõe a
-semântica correta de fio d'água — a geração nesses
-planos não varia com o armazenamento — e é por isso que as usinas a fio d'água são
-suportadas no caminho calculado, em vez de rejeitadas.
+Uma usina cuja janela de ajuste se reduz a um único volume (nível de
+montante constante) é ajustada posicionando-se duas amostras em torno do limite inferior da
+janela, cada uma deslocada pelo maior valor entre meio por cento do armazenamento útil da
+usina e `1` hm³, de modo que uma usina sem armazenamento útil ainda recebe duas amostras
+distintas. As amostras não são limitadas à curva cota-volume. Ambas usam o nível de
+montante desse volume único, de modo que `gamma_v` é `0` por construção, e um resíduo de
+no máximo `1e-6` MW por hm³ decorrente de arredondamento é ajustado para exatamente `0`.
+Isso impõe a semântica de fio d'água (a geração nesses planos não varia com o
+armazenamento) e é por isso que as usinas a fio d'água são suportadas no caminho
+calculado, em vez de rejeitadas.
 
-As duas amostras ficam uma de cada lado desse volume único, cada uma deslocada pelo
-maior valor entre meio por cento do armazenamento útil da usina e `1` hm³, de modo que uma
-usina sem armazenamento útil ainda recebe duas amostras distintas; quando a
-curva cota-volume abrange uma faixa de volumes, ambas as amostras são limitadas a
-essa faixa.
+### Sem capacidade de turbinamento
 
-### FPHA sem capacidade de turbinamento
+Um grupo de unidades ou uma usina não tem capacidade de turbinamento quando seu
+`max_turbined_m3s` ou seu `max_generation_mw` é menor ou igual a `1e-9`. A regra de
+substituição do ajuste, descrita abaixo, lê os limites declarados em `system/hydros.json`.
+O PL do estágio lê os limites resolvidos de cada grupo de unidades e de cada usina em cada
+patamar, após as sobrescritas de `constraints/hydro_bounds.parquet` e
+`constraints/hydro_unit_group_bounds.parquet`.
 
 Uma usina que solicita FPHA, calculada (`fpha_config.source: "computed"` em
 qualquer uma das suas entradas de modelo de produção) ou pré-calculada sem nenhuma linha em
-`system/fpha_hyperplanes.parquet`, e que declara `max_turbined_m3s` menor ou igual a
-`1e-9` não é ajustada; ela é modelada com produtibilidade nula em todos os estágios
+`system/fpha_hyperplanes.parquet`, e que declara `max_turbined_m3s` ou
+`max_generation_mw` menor ou igual a `1e-9` não é ajustada; ela é modelada com produtibilidade nula em todos os estágios
 ([§2.6.1](#261-grade-e-nuvem) acima). Os pré-requisitos da FPHA calculada se aplicam
 a uma usina calculada: `tailrace`, `hydraulic_losses` e `efficiency` em `hydros.json` e
 linhas de geometria em `system/hydro_geometry.parquet`; a ausência de qualquer um deles é um erro
@@ -64,10 +74,10 @@ na carga.
 
 Um aviso identifica a usina; `novomodelo validate` e `novomodelo run` o imprimem:
 
-{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json hydro 0: generation.model fpha, generation.max_turbined_m3s and unit_groups[0].max_turbined_m3s 0.0, specific_productivity_mw_per_m3s_per_m 0.0091 added, tailrace polynomial with coefficients [5.0, 0.001] added, hydraulic_losses factor 0.03 added, efficiency constant 0.93 added; system/hydro_production_models.json: the one stage range set to model fpha with fpha_config.source computed, productivity_mw_per_m3s removed; system/hydro_geometry.parquet added with hydro_id [0, 0, 0], volume_hm3 [0, 500, 1000], height_m [100, 110, 120], area_km2 [10, 15, 20], zstd compression; run with NO_COLOR=1; exit 0; excerpt: the WARN line is quoted, the closing Valid case line is not) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json hydro 0: generation.model fpha, generation.max_turbined_m3s and unit_groups[0].max_turbined_m3s 0.0, specific_productivity_mw_per_m3s_per_m 0.0091 added, tailrace polynomial with coefficients [5.0, 0.001] added, hydraulic_losses factor 0.03 added, efficiency constant 0.93 added; system/hydro_production_models.json: the one stage range set to model fpha with fpha_config.source computed, productivity_mw_per_m3s removed; system/hydro_geometry.parquet added with hydro_id [0, 0, 0], volume_hm3 [0, 500, 1000], height_m [100, 110, 120], area_km2 [10, 15, 20], zstd compression; run with NO_COLOR=1; exit 0; excerpt: the WARN line is quoted, the closing Valid case line is not) */}
 
 ```text
- WARN hydro UHE1 (id=0) requests FPHA but has no turbine capacity (max_turbined_m3s = 0); modeling it with zero productivity
+ WARN hydro UHE1 (id=0) requests FPHA but has no turbine capacity (max_turbined_m3s = 0, max_generation_mw = 50); modeling it with zero productivity
 ```
 
 Todo processo MPI prepara os modelos de produção, de modo que uma execução com vários processos imprime o
@@ -81,6 +91,11 @@ contagem `constant` da linha `Production:` da CLI. Ela não aparece em
 `n_fpha_computed_from_geometry` e `n_fpha_precomputed_hyperplanes` de
 `training/model_provenance.json`, nem em
 `hydro_models/fpha_hyperplanes.parquet`.
+
+O PL congela o turbinamento onde um estágio não tem capacidade. `training/hydro_models.json`
+lista em `frozen_turbining` cada hidrelétrica com um estágio do estudo sem capacidade ou com
+um mínimo que o PL não aplica, com esses estágios e mínimos (veja
+[Artefatos dos modelos hidrelétricos](/reference/output/hydro-models/#traininghydro_modelsjson)).
 
 ### Aviso de qualidade do ajuste
 
@@ -232,6 +247,6 @@ entrada `system/fpha_hyperplanes.parquet`. Para reutilizar um ajuste anterior se
 reajustar em uma execução subsequente, copie esse arquivo de saída para `system/` e
 altere `source` para `"precomputed"` em `hydro_production_models.json`.
 
-Uma usina sem capacidade de turbinamento não tem linhas no arquivo exportado e não precisa
+Uma usina [sem capacidade de turbinamento](#sem-capacidade-de-turbinamento) não tem linhas no arquivo exportado e não precisa
 de nenhuma: copiado para `system/`, o arquivo é carregado sem edição, e a usina permanece com
 produtibilidade nula.

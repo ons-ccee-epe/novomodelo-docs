@@ -41,8 +41,12 @@ de um estágio decorre da sua data de início, e um estágio mais curto que a ja
 do seu período sazonal pode informar o período sazonal que ele subdivide.
 
 Estágios finos que subdividem um período sazonal — por exemplo, estágios semanais que
-informam o período sazonal do seu mês — compartilham os parâmetros desse período sazonal. O mapa
-de períodos sazonais fixa, assim, os parâmetros de todos os estágios; as §2 e §3 descrevem
+informam o período sazonal do seu mês — compartilham os parâmetros desse período sazonal. Estágios
+de durações diferentes podem compartilhar um período sazonal desde que cada um abranja
+uma janela inteira do período sazonal ou uma parte de uma de suas ocorrências; em um
+mapa que sobrepõe duas resoluções, uma parte de um período sazonal grosso não pode ter a
+duração de um período sazonal fino, de modo que um estágio mensal informa um período
+sazonal mensal. O mapa de períodos sazonais fixa, assim, os parâmetros de todos os estágios; as §2 e §3 descrevem
 como se formam as defasagens sobre as quais esses parâmetros atuam quando os
 estágios têm durações diferentes.
 
@@ -77,7 +81,7 @@ defasagem $\ell$ lida por um estágio é o valor do $\ell$-ésimo período mais 
 concluído antes dele. Em todo estágio anterior do período, o estado de defasagens
 não se altera, de modo que os estágios dentro de um mesmo período enxergam as
 mesmas defasagens. A acumulação parcial, isto é, as duas somas correntes da média,
-acompanha cada trajetória e não é coordenada do estado dos cortes.
+acompanha cada trajetória e não é coordenada do estado dos cortes (§2.1).
 
 Em um estudo uniforme de resolução única, em que todo estágio abrange exatamente
 um período sazonal, todo estágio é um período com fração 1 e a defasagem é a
@@ -154,6 +158,55 @@ coarse: "De mensal para trimestral" {
 weekly -> coarse: "mesma regra de fração\ne de transbordamento"
 ```
 
+### 2.1 As defasagens que os cortes leem
+
+Um corte do estágio $t$ limita o custo futuro do estágio $t+1$, de modo que seus
+termos de defasagem de afluência avaliam as defasagens de saída do estágio $t$, as
+defasagens que o estágio $t+1$ lê
+([Aumento do espaço de estados §3](/math/state-augmentation#3-estado-de-saida-e-a-linha-de-corte)).
+Sejam $S_{h,t}$ e $W_{h,t}$ a soma das afluências ponderada pela duração e o peso
+que o período de defasagem $\mathcal{W}$ do estágio $t$ acumula para a hidrelétrica
+$h$ ao entrar no estágio $t$, somados sobre os estágios anteriores a $t$ que
+interceptam $\mathcal{W}$, incluída a parte de $\mathcal{W}$ que antecede o estudo:
+
+$$
+S_{h,t} = \sum_{t' < t} w_{t',\mathcal{W}}\, a_{h,t'}, \qquad W_{h,t} = \sum_{t' < t} w_{t',\mathcal{W}}
+$$
+
+Com $\hat{z}_h$ a afluência realizada do estágio $t$ e $\hat{a}_{h,\ell}$ suas
+defasagens de entrada, as defasagens de saída dependem de onde o estágio $t$ cai no
+seu período de defasagem:
+
+| Estágio $t$                           | Defasagem 1 de saída | Defasagem $\ell \ge 2$ de saída |
+| ------------------------------------- | -------------------- | ------------------------------- |
+| completa um período que começa nele   | $\hat{z}_h$          | $\hat{a}_{h,\ell-1}$            |
+| deixa seu período aberto              | $\hat{a}_{h,1}$       | $\hat{a}_{h,\ell}$             |
+| completa um período iniciado antes    | $\dfrac{S_{h,t} + w_{t,\mathcal{W}}\, \hat{z}_h}{W_{h,t} + w_{t,\mathcal{W}}}$ | $\hat{a}_{h,\ell-1}$ |
+
+A primeira linha é a terceira com $S_{h,t} = W_{h,t} = 0$ e abrange todo estágio de
+um estudo uniforme de resolução única, exceto as 52ª e 53ª semanas de um ano de 53
+semanas (§2). Cada defasagem de saída é afim em $\hat{z}_h$ e nas defasagens de
+entrada, de modo que o lado direito dos cortes e a regra da cadeia do
+[Folding do PAR(p)](/math/par-folding) tomam cada forma como ela é: em um estágio que
+deixa seu período aberto, os cortes não têm termo em $\hat{z}_h$, e, em um estágio
+que completa um período iniciado antes, seu termo de defasagem 1 lê $\hat{z}_h$ com o
+peso $w_{t,\mathcal{W}} / (W_{h,t} + w_{t,\mathcal{W}})$.
+
+No estágio que reconstrói o estado de defasagens em uma mudança de resolução (§3), as
+defasagens de saída são as defasagens grossas reconstruídas, mas os cortes leem as
+defasagens da primeira linha, como em um estágio de resolução única: ali, os cortes
+são avaliados nessas defasagens, no lugar das reconstruídas.
+
+**Limite.** A soma parcial $S_{h,t}$ não é coordenada do estado: o estado carrega
+apenas períodos concluídos. Um corte gerado ao longo de uma trajetória, na soma
+parcial dessa trajetória, é lido ao longo de outras nas somas parciais delas, de modo
+que os cortes são exatos apenas onde a soma parcial de todo período aberto é a mesma
+em todos os caminhos, como quando o único período dividido entre estágios começa
+antes do estudo e se completa no seu primeiro estágio. Nos demais casos, os cortes
+são aproximados, e não há garantia de que o limite inferior permaneça abaixo do
+limite superior
+([Gerenciamento de cortes — Camada 1](/math/cut-management#camada-1-limite-inferior-valido)).
+
 ## 3. Mudança de resolução
 
 Os coeficientes AR de um período sazonal grosso atuam sobre defasagens de períodos
@@ -166,7 +219,8 @@ alcança para trás, com as frações e o transbordamento da §2. No primeiro es
 grosso, o estado de defasagens é reconstruído a partir desses períodos grossos
 concluídos, do mais recente para o mais antigo: o mais recente torna-se a
 defasagem 1, o anterior a defasagem 2, e assim por diante. A partir daí, a
-acumulação ocorre na resolução grossa.
+acumulação ocorre na resolução grossa. Os cortes do estágio que reconstrói as
+defasagens as leem como em um estágio de resolução única (§2.1).
 
 ## 4. Grupos de ruído
 

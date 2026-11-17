@@ -34,26 +34,26 @@ The closure sets $r_m^2 = 1 - \sum_\ell \psi^*_{m,\ell}\rho_m(\ell)$, the standa
 
 **Supplied coefficients: the stationarity gate.** A case that supplies `inflow_ar_coefficients.parquet` is checked by the PAR stationarity gate, which rejects a season whose $r_m^2$ is at or below `1e-12` (its other checks are listed in the Inputs & Outputs tab):
 
-{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:376-380 at novomodelo v0.20.0 */}
+{/* quoted from source: crates/novomodelo-io/src/validation/semantic/scenarios.rs:639-643 at novomodelo v0.21.0 */}
 ```text
 Hydro {hydro_id} season {season}: PAR stationarity gate rejected inflow_ar_coefficients.parquet -- implied residual variance r² = {r_squared} is at or below the numerical floor
 ```
 
 **Every load path: the derivation guard.** After the model is assembled, the closure derivation of $r_m$ runs whatever the origin of the coefficients. It rejects the load when the closure system is singular, and when a derived $r_m$ is non-finite, which a negative implied variance $r_m^2$ produces:
 
-{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:141 at novomodelo v0.20.0 */}
+{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:141 at novomodelo v0.21.0 */}
 ```text
 residual_std_ratio closure is singular for hydro_id={hydro_id}
 ```
 
-{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:145-151 at novomodelo v0.20.0 */}
+{/* quoted from source: crates/novomodelo-io/src/scenarios/residual_derivation.rs:145-151 at novomodelo v0.21.0 */}
 ```text
 derived residual_std_ratio is non-finite for hydro_id={hydro_id} season={season}: the coefficients imply a non-stationary process (implied residual variance 1 - sum(psi*rho) is negative)
 ```
 
 In the gate and non-finite messages `season` counts from 0: on a single-resolution season map it is the season's position in calendar order; on a map that layers resolutions, or without a map, it is the rank of the season's id among the season ids of the case. It equals the season `id` when the ids run $0, 1, 2, \ldots$ in calendar order.
 
-A model fitted from the history is not gated and has no floor: only the derivation guard applies to it, so a fitted season whose $r_m^2$ is small but positive is accepted.
+A model fitted from the history is not gated and has no floor: only the derivation guard applies to it, so a fitted season whose $r_m^2$ is small but positive is accepted. A fitted season whose $r_m^2$ would be negative does not reach the guard: the fit lowers its order (`negative_residual_variance` below).
 
 Novomodelo surfaces `r_squared` only inside the gate message: there is no separate CLI field or Python attribute for it, and no standalone variance signal on an accepted fit.
 
@@ -76,10 +76,11 @@ sit alongside that rule but are not part of the derivation:
   observation stops estimation with an insufficient-data error ("… need at
   least 2 for std estimation"), whatever `min_observations_per_season` is set
   to. A season with no observation has no statistics and is fitted at order 0.
-- **Automatic order reduction is logged per season in `fitting_report.json`** (`contribution_reductions[].reason`), with three distinct reasons:
-  - `magnitude_bound` — a prepass check: if any fitted coefficient exceeds `max_coefficient_magnitude` in absolute value, the season is reset to white noise (order 0, $r_m = 1$), independently of the contribution check.
-  - `phi1_negative` — a prepass check, repeated after each re-fit: if the first fitted coefficient $\psi^*_{m,1}$ is negative, the season is likewise reset to white noise (order 0).
-  - `negative_contribution` — the iterative Maceira–Damázio contribution check (methodology §3.6): the season's order ceiling (initially `max_order`) drops by one, and PACF selection and the Yule-Walker fit re-run at the new ceiling, repeating until no season fails (a season whose ceiling reaches 0 takes order 0). The `reduced_order` recorded for the event is the largest order with no negative composed influence.
+- **Automatic order reduction is logged per season in `fitting_report.json`** (`contribution_reductions[].reason`), with four distinct reasons:
+  - `magnitude_bound` — a prepass check: if any fitted coefficient exceeds `max_coefficient_magnitude` in absolute value, the season is reset to white noise (order 0, $r_m = 1$), independently of the contribution check; under `"pacf_annual"` it takes order 0 and keeps its annual coefficient.
+  - `phi1_negative` — `"pacf"` only; a prepass check, repeated after each re-fit: if the first fitted coefficient $\psi^*_{m,1}$ is negative, the season is likewise reset to white noise (order 0).
+  - `negative_contribution` — the iterative Maceira–Damázio contribution check (methodology §3.6): the season's order ceiling (initially `max_order`) drops by one, and PACF selection and the Yule-Walker fit re-run at the new ceiling, repeating until no season fails (a season whose ceiling reaches 0 takes order 0). The `reduced_order` recorded for the event is the largest order with no negative composed influence. Under `"pacf_annual"` the check reads the coefficients with the annual term folded in (methodology §7.6), and a season of order 1 that fails it also loses its annual coefficient.
+  - `negative_residual_variance` — once no season fails the contribution check, a season whose fitted model implies a negative residual variance (methodology §3.6) is re-selected below its current order, or takes order 0 from order 1. Under `"pacf_annual"` a season that takes order 0 this way also loses its annual coefficient.
 
 ### History classification runs before any order selection
 

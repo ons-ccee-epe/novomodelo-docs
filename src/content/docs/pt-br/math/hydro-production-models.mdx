@@ -154,7 +154,7 @@ $$
 g_{h,k} \leq \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_q^m \cdot q_{h,k} + \gamma_s^m \cdot s_{h,k}
 $$
 
-O plano é ajustado uma única vez por usina (§2.1–§2.8); uma usina repartida entre barramentos o avalia **por célula (usina, barramento)** na integração ao PL, rateando seus termos independentes da vazão turbinada pela participação de cada célula na capacidade de turbinamento da usina — ver §2.9 para a forma exata por célula.
+O plano é ajustado uma única vez por usina (§2.1–§2.8); uma usina repartida entre barramentos o avalia **por célula (usina, barramento)** na integração ao PL, rateando seus termos independentes da vazão turbinada pela participação de cada célula na vazão turbinada máxima declarada da usina — ver §2.9 para a forma exata por célula.
 
 **Interpretação física dos coeficientes**:
 
@@ -175,14 +175,14 @@ O caminho da FPHA calculada produz hiperplanos a partir dos dados de topologia e
 
 O ajustador avalia a função de produção exata $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ em uma grade bidimensional uniforme sobre a janela de ajuste, **com vertimento $s = 0$ e vazão lateral $= 0$**. A grade tem:
 
-- **Eixo de volume**: um número configurável de valores uniformemente espaçados abrangendo a janela de ajuste $[v_{min}, v_{max}]$. A janela está contida na faixa de armazenamento da curva de montante da usina (a faixa completa, salvo se reduzida) e é distinta do volume de referência (§4.1), que fixa um ponto de operação, e não essa janela. As quantidades de pontos e a janela são definidas na aba Configurar.
+- **Eixo de volume**: um número configurável de valores uniformemente espaçados abrangendo a janela de ajuste $[v_{min}, v_{max}]$. Por padrão, a janela é a faixa de armazenamento da usina $[V^{min}_h, V^{max}_h]$ (a [faixa física de armazenamento](#43-produtibilidade-media-na-faixa-util)), e cada limite configurado é restrito a essa faixa. Ela é distinta do volume de referência (§4.1), que fixa um ponto de operação, e não essa janela. As quantidades de pontos e a janela são definidas na [aba Configurar](#implementacao-no-novo-modelo).
 - **Eixo de vazão**: um número configurável de valores uniformemente espaçados abrangendo $[0, q^{fit}_{max}]$, em que o extremo superior $q^{fit}_{max}$ da faixa de ajuste da vazão turbinada é a vazão turbinada máxima da usina $q_{max}$, a menos que outro extremo superior seja definido na aba Configurar. O eixo **começa em $q = 0$**, onde a geração é nula; essa coluna de vazão nula ancora o fechamento inferior da nuvem e elimina a necessidade de qualquer ponto de fechamento sintético.
 
 Cada ponto da nuvem é limitado à capacidade instalada da usina $\bar{G}_h$. O vertimento não é uma dimensão da nuvem — ele é fixado em zero em todos os pontos.
 
-**Usinas sem capacidade de turbinamento**: quando $q_{max} = 0$, o eixo de vazão se reduz a $q = 0$, onde a geração é nula, de modo que a nuvem não contém produção e nenhum plano sobrevive à envoltória. Essa usina é modelada com produtibilidade nula em todos os estágios, em vez de um conjunto de planos; as [notas de implementação](#implementacao-no-novo-modelo) informam o limiar de capacidade e como a usina é reportada.
+**Usinas sem capacidade de turbinamento**: uma usina tem capacidade de turbinamento quando sua vazão turbinada máxima $q_{max}$ e sua geração máxima $\bar{G}_h$ são ambas positivas, cada uma comparada com um pequeno limiar absoluto em vez de 0. Sem ela, a nuvem não contém produção e nenhum plano sobrevive à envoltória: com $q_{max} = 0$, o eixo de vazão se reduz a $q = 0$, onde a geração é nula, e com $\bar{G}_h = 0$ todo ponto é limitado a 0. Essa usina é modelada com produtibilidade nula em todos os estágios, em vez de um conjunto de planos; as [notas de implementação](#sem-capacidade-de-turbinamento) informam o limiar e como a usina é reportada.
 
-**Usinas a fio d'água**: quando a usina tem um único volume de ajuste ($v_{min} \approx v_{max}$, ou quando é solicitada uma única amostra de volume), duas amostras de volume próximas são sintetizadas para manter a envoltória 3-D não degenerada (Notas de implementação, "Suporte a usinas a fio d'água"). O $\gamma_v^m$ resultante é **ajustado para exatamente 0** quando sua magnitude é desprezível, impondo a semântica de fio d'água ($\gamma_v^m = 0$).
+**Usinas a fio d'água**: quando a usina tem um único volume de ajuste ($v_{min} \approx v_{max}$, ou quando é solicitada uma única amostra de volume), duas amostras de volume próximas são posicionadas em torno do único volume da janela para manter a envoltória 3-D não degenerada (Notas de implementação, "Suporte a usinas a fio d'água"). Ambas as amostras veem a queda desse único volume, de modo que $\gamma_v^m = 0$, que é a semântica de fio d'água; um resíduo de arredondamento desprezível é ajustado para exatamente 0.
 
 **Determinismo**: os pontos da nuvem e a saída da envoltória são ordenados de forma canônica, de modo que os hiperplanos ajustados são idênticos bit a bit, independentemente da ordem da entrada e do número de processos (ranks MPI).
 
@@ -246,6 +246,14 @@ $$
 
 em que MLT é a vazão média de longo termo da usina (m³/s), a média do seu histórico de vazões, e $q_{max}$ é a vazão turbinada máxima da usina, qualquer que seja a faixa de ajuste da vazão turbinada da §2.6.1. O extremo superior $\bar{S}^{fit}$ é definido na aba Configurar.
 
+**Limite.** Após a média, cada inclinação é limitada inferiormente para que o plano não fique abaixo de 0 com turbinamento nulo no vértice $(v_{min}, S_{max})$:
+
+$$
+\gamma_s^m \leftarrow \max\!\Big(\gamma_s^m,\ \min\!\big(0,\ -(\gamma_0^m + \gamma_v^m \, v_{min}) / S_{max}\big)\Big)
+$$
+
+com $v_{min}$ o volume inferior da janela de ajuste (§2.6.1). Sempre que $\gamma_0^m + \gamma_v^m v_{min} \ge 0$, o plano fica então em 0 ou acima com turbinamento nulo em $(v_{min}, S_{max})$. O limite é aplicado antes do ajuste de sinal abaixo, e também a uma usina a fio d'água. Com $S_{max} = 0$, ele não tem efeito, e $\gamma_s^m$ permanece 0.
+
 **Sinal**: $\gamma_s^m \le 0$ (mais vazão lateral eleva o nível de jusante e reduz a geração). Uma inclinação não negativa ou negativa desprezível é **ajustada para exatamente 0** (Notas de implementação, "Comportamento do ajuste da FPHA calculada") para proteger o escalonamento das colunas do PL contra coeficientes estruturais próximos de zero.
 
 **Eixo lateral**: o próprio vertimento da usina ($q_{lat} = s$); as defluências de montante e as afluências pós-incrementais não entram nele.
@@ -257,7 +265,9 @@ Uma etapa opcional pós-ajuste funde planos consecutivos **quase paralelos ou qu
 - **Ângulo**: funde pares consecutivos cujo ângulo entre os vetores normais $\theta = \arccos(\mathbf{n}_1 \cdot \mathbf{n}_2 / \|\mathbf{n}_1\|\|\mathbf{n}_2\|)$ satisfaz $\theta < \varepsilon$ (estrito), com $\theta$ e a tolerância $\varepsilon$ em graus. Totalmente determinístico a partir dos coeficientes.
 - **Distância**: funde pares consecutivos cuja diferença quadrática média de geração normalizada $\delta = \text{EQM}/\phi_{\max}^2 < \varepsilon/100$, em que $\phi_{\max}$ é o maior valor da produção exata $\phi$ (não limitada) sobre a grade de ajuste, com a tolerância $\varepsilon$ em percentual e o EQM estimado sobre pontos de operação amostrados. Usa um gerador pseudoaleatório com semente determinística (derivada da identidade estável usina/estágio/par de planos, nunca do relógio do sistema nem do processo MPI), de modo que os resultados são idênticos bit a bit independentemente da ordem da entrada e do número de processos.
 
-**Invariante do plano pela origem**: o plano que passa pela origem ($\gamma_0^m \approx 0 \wedge \gamma_v^m \approx 0$, com geração nula para turbinamento nulo) **nunca é fundido**. Isso garante o piso de geração nula.
+**Invariante do plano pela origem**: o plano que passa pela origem ($\gamma_0^m \approx 0 \wedge \gamma_v^m \approx 0$, com geração nula para turbinamento nulo) **nunca é fundido**.
+
+**Geração nula com turbinamento nulo**: todo plano calculado, fundido ou não, fica em 0 ou acima em $q = 0$ para $v \in [v_{min}, v_{max}]$ e $s \in [0, S_{max}]$ sempre que $\gamma_0^m + \gamma_v^m v_{min} \ge 0$. O limite da §2.7 coloca o vértice $(v_{min}, 0, S_{max})$, onde o plano é mais baixo, em 0 ou acima. Uma fusão toma a média coeficiente a coeficiente de dois planos, e o valor no vértice é linear nos coeficientes, de modo que o plano fundido mantém a propriedade. Fora dessa faixa, com um vertimento acima de $S_{max}$, um plano pode ficar abaixo de 0 com turbinamento nulo, e o PL então turbina água que nada produz ou paga folga do plano (§2.9). Os planos fornecidos pré-calculados não são limitados (veja as [notas de implementação](#implementacao-no-novo-modelo)).
 
 A redução é opcional e só se aplica quando selecionada (aba Configurar).
 
@@ -270,20 +280,30 @@ Uma usina hidrelétrica é particionada em uma ou mais **células (usina, barram
 Para cada célula $(h, b)$ de uma usina $h$ que usa FPHA, patamar $k$ e plano $m \in \mathcal{M}_h$:
 
 $$
-g_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot s_{h,k} \leq \lambda_{h,b} \, \gamma_0^m
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot s_{h,k} \leq \lambda_{h,b} \, \gamma_0^m
 $$
 
-Todas as variáveis ficam à esquerda, com o coeficiente do plano com sinal trocado, e o intercepto rateado é o limite superior da restrição; a restrição é o teto $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot s_{h,k} \big) + \gamma_q^m \cdot q_{h,b,k}$.
+Todas as variáveis ficam à esquerda, com o coeficiente do plano com sinal trocado, e o intercepto rateado é o limite superior da restrição; a restrição é o teto $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot s_{h,k} \big) + \gamma_q^m \cdot q_{h,b,k} + \sigma^{fpha}_{h,b,k}$.
 
-Os coeficientes já estão escalados por $k_{FPHA}$ — não há etapa separada de pré-escalonamento. São **restrições rígidas** — sem variáveis de folga.
+Os coeficientes já estão escalados por $k_{FPHA}$ — não há etapa separada de pré-escalonamento. As linhas dos planos têm uma folga $\sigma^{fpha}_{h,b,k} \geq 0$ por célula e patamar, com coeficiente $-1$ em toda linha de plano dessa célula e desse patamar e em nenhuma outra linha; o seu preço está em [Restrições de geração hidrelétrica](/math/lp-formulation#6-restricoes-de-geracao-hidreletrica).
 
-$\lambda_{h,b}$ rateia a parcela **independente da vazão turbinada** do plano — o intercepto $\gamma_0^m$, o termo de armazenamento e o termo de vertimento — pela participação da célula $(h,b)$ na capacidade de turbinamento declarada da usina:
+$\lambda_{h,b}$ rateia a parcela **independente da vazão turbinada** do plano — o intercepto $\gamma_0^m$, o termo de armazenamento e o termo de vertimento — pela participação da célula $(h,b)$ na vazão turbinada máxima declarada da usina:
 
 $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
 ($0$ quando o total declarado da usina é $0$), uma constante do estudo derivada da vazão turbinada máxima declarada de cada grupo de unidades geradoras — nunca recalculada por estágio ou patamar, e nunca rederivada de uma substituição por estágio já resolvida, o que contaria duas vezes uma redução de disponibilidade já imposta ao caminho da vazão pelos limites de coluna próprios de cada célula. Ela satisfaz $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$, e uma usina de célula única tem $\lambda_{h,b} = 1$ exatamente. O coeficiente de vazão $\gamma_q^m$ permanece sobre a própria $q_{h,b,k}$ da célula **sem escalonamento** — é o único termo homogêneo na partição em células, e é isso que faz com que $\sum_{b} g_{h,b,k}$, com $v^{avg}_h$, $s_{h,k}$ e $\sum_b q_{h,b,k}$ fixos, recupere o limite da usina que esta forma por célula substitui.
+
+#### Usinas e células sem capacidade de turbinamento
+
+A capacidade é decidida por grupo de unidades, célula e patamar sobre os limites resolvidos, com o predicado da §2.6.1. Uma célula tem capacidade quando os limites da própria usina e ao menos um de seus grupos de unidades passam no predicado, e uma usina tem capacidade quando ao menos uma de suas células tem.
+
+- Um termo de grupo de unidades ou de usina sem capacidade soma 0 aos tetos de vazão turbinada e de geração da célula, em todo modelo de produção.
+- Uma usina com FPHA sem capacidade em todos os patamares de um estágio não tem variável de geração, linhas de planos nem folga do plano nesse estágio, e sua vazão turbinada é fixada em 0, de modo que ela libera água vertendo.
+- Em uma usina com FPHA com capacidade em algum patamar, uma célula sem capacidade em um patamar mantém ali suas linhas de planos livres e sua folga do plano em 0, de modo que nada acrescenta à violação de planos reportada. Uma célula com capacidade mantém suas linhas na sua participação declarada $\lambda_{h,b}$, que não é rerrateada.
+- Onde a usina não pode produzir (sem capacidade no patamar, ou nas fases de pré-enchimento e de enchimento), seus mínimos de vazão turbinada e de geração são descartados; veja [Formulação do PL, Mínimo e máximo da usina](/math/lp-formulation#minimo-e-maximo-da-usina) para a regra do piso. A vazão defluente mínima não é descartada.
+- As hidrelétricas e os estágios envolvidos são reportados (veja as [notas de implementação](#sem-capacidade-de-turbinamento)).
 
 #### Cálculo do armazenamento médio
 
@@ -380,7 +400,7 @@ A **produtibilidade equivalente** $\rho_{eq,h,t}$ (MW por m³/s) é a produtibil
 | Produtibilidade constante | Valor numérico por (usina, estágio) informado pelo caso (ver abaixo). |
 | FPHA                    | $\rho_{eq,h,t} = \rho_{esp,h,t} \cdot h_{eq}(V^{ref}_{h,t},\, Q^{ref}_{h,t})$, em que $h_{eq}$ é a queda líquida calculada a partir da geometria cota-área-volume (seção 2.3) no ponto de referência e $\rho_{esp,h,t}$ é resolvida por estágio: uma substituição por estágio; na falta dela, uma substituição padrão por usina; na falta desta, o próprio valor da usina. Usinas com FPHA não informam um escalar $\rho_{eq}$ separado — ele é derivado, e aceita-se uma substituição desse valor no ponto de referência (ver abaixo). |
 
-**Volume de referência**: o volume operativo de referência $V^{ref}_{h,t}$ é declarado uma vez por entrada do modelo de produção (um intervalo de estágios ou um período sazonal), seja como volume absoluto, seja como fração do volume útil entre $V^{min}_h$ e $V^{max}_h$; na sua ausência, aplica-se uma fração padrão do volume útil (aba Configurar). Essa declaração única é a fonte oficial para a derivação de $\rho_{eq}$ acima e para o nível de referência do reservatório no qual são interpoladas as famílias quárticas por partes de canal de fuga da FPHA calculada (§2.3.1 — o volume de referência de uma usina define o nível de montante a jusante percebido pela usina imediatamente a montante). Ele **não** define a janela de ajuste de volume da FPHA calculada $[V_{min}, V_{max}]$: essa janela é configurada separadamente na aba Configurar e, por padrão, é a faixa completa de armazenamento da curva de montante da usina (§2.6.1).
+**Volume de referência**: o volume operativo de referência $V^{ref}_{h,t}$ é declarado uma vez por entrada do modelo de produção (um intervalo de estágios ou um período sazonal), seja como volume absoluto, seja como fração do volume útil entre $V^{min}_h$ e $V^{max}_h$; na sua ausência, aplica-se uma fração padrão do volume útil (aba Configurar). Essa declaração única é a fonte oficial para a derivação de $\rho_{eq}$ acima e para o nível de referência do reservatório no qual são interpoladas as famílias quárticas por partes de canal de fuga da FPHA calculada (§2.3.1 — o volume de referência de uma usina define o nível de montante a jusante percebido pela usina imediatamente a montante). Ele **não** define a janela de ajuste de volume da FPHA calculada $[V_{min}, V_{max}]$: essa janela é configurada separadamente na aba Configurar e, por padrão, é a faixa de armazenamento da usina (§2.6.1).
 
 A vazão de referência $Q^{ref}_{h,t}$, na qual ambos os avaliadores calculam a queda líquida, é a capacidade instalada de vazão turbinada da usina.
 

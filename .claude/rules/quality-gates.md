@@ -14,7 +14,7 @@ prerequisites and CI wiring behind it.
 
 - **d2 v0.7.1** on `PATH`: without it `npm run build` and `npm run dev` abort with
   "Could not find D2".
-- **novomodelo v0.20.0** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
+- **novomodelo v0.21.0** for `check:gc-examples`: `NOVOMODELO_BIN`, else `novomodelo` on `PATH`.
   The gate exits 2 when the binary is missing, lies under a cargo
   `target/release/` or `target/debug/` directory, or reports a version other
   than `DEFAULT_NOVOMODELO_REF` in `scripts/novomodelo-ref.mjs`.

@@ -1,12 +1,12 @@
 ---
 title: "Arquivos de estágios"
-description: O eixo temporal de um caso, campo a campo — stages.json, com seu grafo da política, estágios, patamares e períodos sazonais, e o calendário opcional pós-horizonte post_study_stages.json.
+description: O eixo temporal de um caso, campo a campo — stages.json, com seu grafo da política, estágios, patamares e períodos sazonais, e o arquivo opcional post_study_stages.json, com os calendários pós-horizonte.
 ---
 
 Um caso do Novo Modelo descreve seu eixo temporal em dois arquivos na raiz do caso. `stages.json` é obrigatório: contém o
 grafo da política (policy graph), os estágios do estudo com seus patamares de carga, o mapa opcional de períodos sazonais e os estágios pré-estudo opcionais.
-`post_study_stages.json` é opcional: contém o calendário e os limites de custo e de entrega por térmica para compromissos de despacho
-decididos dentro do estudo e entregues após o horizonte. O [Resumo dos arquivos](/reference/case-format/#resumo-dos-arquivos)
+`post_study_stages.json` é opcional: contém os calendários pós-horizonte das entregas das térmicas e da água em trânsito, e os
+limites de custo e de entrega por térmica para compromissos de despacho decididos dentro do estudo e entregues após o horizonte. O [Resumo dos arquivos](/reference/case-format/#resumo-dos-arquivos)
 associa cada arquivo do caso à sua página, e [Convenções](/reference/case-format/#convencoes) apresenta as regras comuns a todos eles.
 
 ---
@@ -206,8 +206,13 @@ em todos os estágios do estudo.
 
 Neste exemplo, os períodos sazonais 0–11 cobrem os modelos PAR mensais da fase de curto prazo e os períodos sazonais 12–15
 cobrem os modelos PAR trimestrais da fase de longo prazo. Cada estágio mensal recebe um `season_id` entre 0 e 11;
-cada estágio trimestral recebe um `season_id` entre 12 e 15. Estágios que compartilham um `season_id` devem ter
-durações que difiram em no máximo 7 dias entre si; por isso, estágios mensais e trimestrais usam valores distintos de `season_id`.
+cada estágio trimestral recebe um `season_id` entre 12 e 15. Quando estágios que compartilham um `season_id`
+diferem em duração por mais de 7 dias, cada um deve interceptar uma ocorrência do período sazonal e
+abranger a janela desse período, com tolerância de 7 dias, ou ser pelo menos 7 dias mais curto, como
+estágios semanais que informam o seu mês. Em um mapa que sobrepõe resoluções, como este, um estágio
+mais curto desses não pode ter, com tolerância de 7 dias, a duração de um período sazonal de um nível
+mais fino; por isso, estágios mensais e trimestrais usam valores distintos de `season_id`. Um estágio
+que viola a regra é um erro [`BusinessRuleViolation`](/reference/error-codes/#businessruleviolation).
 
 ---
 
@@ -215,25 +220,28 @@ durações que difiram em no máximo 7 dias entre si; por isso, estágios mensai
 
 **Metodologia:** [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary/)
 
-O calendário da fronteira pós-estudo: uma sequência de estágios posteriores ao horizonte, mais uma
-tabela de custo e de limites de entrega por `(thermal, post-study stage)`. Sua
-tabela `thermal_bounds[]` é o **único meio** de declarar o limite e o
+O arquivo da fronteira pós-estudo. Ele declara dois calendários pós-horizonte, um para cada tipo de
+compromisso, mais uma tabela de custo e de limites de entrega por `(thermal, post-study stage)`:
+`thermal_stages[]` data as entregas das térmicas, `water_bucket_stages[]` data as posições das
+parcelas de água em trânsito (in-transit buckets), e `thermal_bounds[]` é o **único meio** de declarar o limite e o
 custo de um compromisso de despacho que uma térmica com antecipação de despacho decide **dentro do estudo**, mas entrega
 após o horizonte (sua coluna de decisão é cobrada ao custo da célula,
 descontado até o estágio de decisão, e a fronteira carregada valora o compromisso
-que ela contém). É opcional
-e sem efeito quando ausente; é **obrigatório** sempre que a antecedência de alguma térmica com antecipação de despacho alcança
+que ela contém). O arquivo é opcional. Quando ele está ausente, não há estágios pós-estudo, e um
+caso em que alguma usina hidrelétrica declara um tempo de viagem é carregado com um aviso e data suas
+parcelas de água em trânsito como o [formato obsoleto](#formato-obsoleto) faz. O arquivo
+é **obrigatório** sempre que a antecedência de alguma térmica com antecipação de despacho alcança
 um estágio pós-estudo — a falta de uma célula para um estágio alcançado é rejeitada na carga,
 com indicação da usina e do índice do estágio pós-estudo. Veja
 [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) para a formulação da fronteira
 alimentada por este arquivo.
 
-**`stages[]`** — o calendário pós-horizonte:
+**`thermal_stages[]`** — o calendário pós-horizonte das térmicas:
 
-| Nome                      | Tipo   | Obrigatório | Padrão | Unidades | Descrição                                                                                                           |
-| ------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
-| `stages[].start_date`     | string | Sim      | —       | —     | Data de início do estágio (inclusive), ISO 8601 YYYY-MM-DD                                                            |
-| `stages[].duration_hours` | number | Sim      | —       | h     | Duração do estágio em horas; finita e `> 0.0`. `end_date` é derivada de `start_date + duration_hours`, nunca declarada |
+| Nome                              | Tipo   | Obrigatório | Padrão | Unidades | Descrição                                                                                                           |
+| --------------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `thermal_stages[].start_date`     | string | Sim      | —       | —     | Data de início do estágio (inclusive), ISO 8601 YYYY-MM-DD                                                            |
+| `thermal_stages[].duration_hours` | number | Sim      | —       | h     | Duração do estágio em horas; finita e `> 0.0`. `end_date` é derivada de `start_date + duration_hours`, nunca declarada |
 
 Os estágios são **contíguos em datas** (o `end_date` implícito de cada estágio é igual ao
 `start_date` do estágio seguinte) e o **primeiro `start_date` deve ser igual ao fim do horizonte
@@ -241,15 +249,35 @@ do estudo** — a data imediatamente posterior ao último estágio do estudo. Os
 pós-estudo **servem apenas como fronteira**: nunca são despachados, nunca são estágios do estudo
 e nunca contêm cortes de Benders — existem unicamente para dar a uma entrega posterior ao horizonte
 uma posição no calendário em relação à qual ela é valorada. Dois estágios não podem compartilhar o mesmo
-`start_date`. Os estágios pós-estudo não declaram taxa de desconto: o desconto acumulado
+`start_date`. `thermal_stages[]` e `thermal_bounds[]` são declarados juntos: um arquivo
+que tem um sem o outro é rejeitado na carga. Em um caso sem térmica com antecipação de despacho,
+`thermal_stages[]` não tem efeito, e a carga emite um aviso. Os estágios pós-estudo não declaram taxa de desconto: o desconto acumulado
 continua sobre eles à taxa `policy_graph.annual_discount_rate`.
+
+**`water_bucket_stages[]`** — o calendário pós-horizonte das parcelas de água em trânsito:
+
+| Nome                                   | Tipo   | Obrigatório | Padrão | Unidades | Descrição                                                                                                           |
+| -------------------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `water_bucket_stages[].start_date`     | string | Sim      | —       | —     | Data de início do estágio (inclusive), ISO 8601 YYYY-MM-DD                                                            |
+| `water_bucket_stages[].duration_hours` | number | Sim      | —       | h     | Duração do estágio em horas; finita e `> 0.0`. `end_date` é derivada de `start_date + duration_hours`, nunca declarada |
+
+O calendário é **obrigatório** quando alguma usina hidrelétrica declara um tempo de viagem (um
+`travel_time_hours` acima de zero no seu arco de jusante): um arquivo sem ele em um caso assim é rejeitado
+na carga, com indicação da usina. Ele segue as mesmas regras de contiguidade e de `start_date` não
+compartilhado de `thermal_stages[]`: o primeiro `start_date` é igual ao fim do horizonte do estudo, e
+cada estágio começa onde o anterior termina. Sua duração total deve cobrir o maior tempo de viagem entre
+as usinas hidrelétricas; um calendário mais curto é rejeitado na carga, com indicação da usina e das duas
+durações. O calendário é usado exatamente como declarado: nunca é estendido com estágios adicionais e
+nunca é incorporado ao calendário das térmicas, então declare todos os estágios que os tempos de viagem
+alcançam. Em um caso em que nenhuma usina hidrelétrica declara tempo de viagem, o calendário não tem
+efeito, e a carga emite um aviso.
 
 **`thermal_bounds[]`** — custo e capacidade de entrega por `(thermal, post-study stage)`:
 
 | Nome                                      | Tipo    | Obrigatório | Padrão | Unidades   | Descrição                                                                       |
 | ----------------------------------------- | ------- | -------- | ------- | ------- | --------------------------------------------------------------------------------- |
 | `thermal_bounds[].thermal_id`             | integer | Sim      | —       | —       | Identificador da usina termelétrica; deve referenciar uma térmica que declare `anticipated_config` |
-| `thermal_bounds[].post_study_stage_index` | integer | Sim      | —       | —       | Índice, com base zero, em `stages[]`; deve ser `< stages.len()`                    |
+| `thermal_bounds[].post_study_stage_index` | integer | Sim      | —       | —       | Índice, com base zero, em `thermal_stages[]`; deve ser `< thermal_stages.len()`    |
 | `thermal_bounds[].cost_per_mwh`           | number  | Sim      | —       | R\$/MWh | Custo de combustível (R\$/MWh) nesta célula; finito                               |
 | `thermal_bounds[].min_mw`                 | number  | Sim      | —       | MW      | Limite inferior da potência entregue (MW) nesta célula; finito                      |
 | `thermal_bounds[].max_mw`                 | number  | Sim      | —       | MW      | Limite superior da potência entregue (MW) nesta célula; finito, `>= min_mw`         |
@@ -263,7 +291,11 @@ descontado do estágio pós-estudo até o estágio de decisão.
 ```json
 {
   "$schema": "https://docs.modelossetoreletrico.org.br/schemas/post_study_stages.schema.json",
-  "stages": [
+  "thermal_stages": [
+    { "start_date": "2026-11-01", "duration_hours": 720.0 },
+    { "start_date": "2026-12-01", "duration_hours": 744.0 }
+  ],
+  "water_bucket_stages": [
     { "start_date": "2026-11-01", "duration_hours": 720.0 },
     { "start_date": "2026-12-01", "duration_hours": 744.0 }
   ],
@@ -285,3 +317,26 @@ descontado do estágio pós-estudo até o estágio de decisão.
   ]
 }
 ```
+
+### Formato obsoleto
+
+Um arquivo pode, em vez disso, declarar um único calendário `stages[]`, com os mesmos campos de estágio,
+junto com `thermal_bounds[]`; ele é carregado com um aviso. Neste formato, `stages[]` data os dois tipos
+de compromisso: `thermal_bounds[].post_study_stage_index` indexa `stages[]`, e as parcelas de água em
+trânsito são datadas sobre os estágios do estudo seguidos de `stages[]`, estendidos com cópias da
+duração do último estágio até que o calendário cubra cada tempo de viagem. Um caso sem o arquivo data
+suas parcelas de água em trânsito da mesma forma, apenas a partir dos estágios do estudo. Um arquivo não
+pode misturar `stages[]` com `thermal_stages[]` ou `water_bucket_stages[]`; um arquivo que o faz é
+rejeitado na carga.
+
+| Nome                      | Tipo   | Obrigatório | Padrão | Unidades | Descrição                                                                                                           |
+| ------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| `stages`                  | array  | Não      | —       | —     | Grafia obsoleta de `thermal_stages[]`; não pode ser combinada com `thermal_stages[]` ou `water_bucket_stages[]` |
+| `stages[].start_date`     | string | Sim      | —       | —     | Data de início do estágio (inclusive), ISO 8601 YYYY-MM-DD                                                            |
+| `stages[].duration_hours` | number | Sim      | —       | h     | Duração do estágio em horas; finita e `> 0.0`. `end_date` é derivada de `start_date + duration_hours`, nunca declarada |
+
+`python3 scripts/migrate/post_study_stages.py DECK_DIR [DECK_DIR ...]`, executado a partir do
+repositório do novomodelo, reescreve cada caso em `thermal_stages[]`, `thermal_bounds[]` e
+`water_bucket_stages[]`, com o mesmo calendário da água que este formato produz, de modo que os
+resultados do caso não mudam. Ele cria o arquivo para um caso que não o tem e declara um tempo de
+viagem, e não altera um arquivo sem `stages[]`.

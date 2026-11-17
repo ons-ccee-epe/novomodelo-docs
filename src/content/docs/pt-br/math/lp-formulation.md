@@ -15,25 +15,25 @@ Para a visão por entidade deste capítulo, veja [Usinas hidrelétricas](/entiti
 
 ## O PL do estágio em resumo
 
-Dado o seu estado de entrada, o PL do estágio minimiza a função objetivo abaixo sujeito às linhas de todas as famílias que contém, cada uma escrita na sua forma de estágio paralelo com os símbolos da seção responsável, em que $\cdots$ representa termos que essa seção escreve por extenso; as famílias das parcelas de água em trânsito (in-transit buckets) e do anel de despacho antecipado (commitment ring) são citadas em uma única linha.
+Dado o seu estado de entrada, o PL do estágio minimiza a função objetivo abaixo sujeito às linhas de todas as famílias que contém, cada uma escrita na sua forma de estágio paralelo com os símbolos da seção responsável, em que $\cdots$ representa termos que essa seção escreve por extenso; as famílias das parcelas de água em trânsito (in-transit buckets), do mínimo e máximo da usina e do anel de despacho antecipado (commitment ring) são citadas em linhas de texto. $\hat{z}_h$ é a afluência realizada da usina $h$ e $R_i$ o lado direito do corte $i$, números calculados antes da resolução (§5, §11).
 
 $$
 \begin{aligned}
 & \min\; C^{resource} + C^{recourse} + C^{violation} + C^{regularization} + d_{t \to t+1}\,\theta \\
-& z_h = b_{h,m(t)} + \sum_{\ell=1}^{P_h} \psi_{m(t),\ell} \, a_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t \quad (1) \\
-& v_h - v^{in}_h - \zeta \, z_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = -\zeta \, r_h \quad (2) \\
-& \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (4) \\
-& g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (5) \\
-& e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (6) \\
-& q_{h,k} + s_{h,k} + \sigma^{o-}_{h,k} \geq \underline{O}_h \quad (7) \\
-& q_{h,k} + s_{h,k} - \sigma^{o+}_{h,k} \leq \bar{O}_h \quad (8) \\
-& q_{h,b,k} + \sigma^{q-}_{h,b,k} \geq \underline{Q}_{h,b} \quad (9) \\
-& g_{h,b,k} + \sigma^{g-}_{h,b,k} \geq \underline{G}_{h,b} \quad (10) \\
+& v_h - v^{in}_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = \zeta \, \big( \hat{z}_h - T^{eff}_h \big) \quad (1) \\
+& \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (3) \\
+& g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (4) \\
+& e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (5) \\
+& q_{h,k} + s_{h,k} + \sigma^{o-}_{h,k} \geq \underline{O}_h \quad (6) \\
+& q_{h,k} + s_{h,k} - \sigma^{o+}_{h,k} \leq \bar{O}_h \quad (7) \\
+& q_{h,b,k} + \sigma^{q-}_{h,b,k} \geq \underline{Q}_{h,b} \quad (8) \\
+& g_{h,b,k} + \sigma^{g-}_{h,b,k} \geq \underline{G}_{h,b} \quad (9) \\
 & v_h + \sigma^{fill}_h \geq V^{\text{target}}_t \quad (11) \\
 & v_h + \sigma^{v-}_h \geq \underline{V}_h \quad (12) \\
-& \text{in-transit bucket definition; commitment fish, deposit and carry} \quad (3),\ (13),\ (14),\ (15) \\
+& \text{in-transit bucket definition; plant minimum and maximum} \quad (2),\ (10) \\
+& \text{commitment fish, deposit and carry} \quad (13),\ (14),\ (15) \\
 & \underline{b}_g \leq \sum_{e} \gamma_{g,e} \, x_e \leq \bar{b}_g \quad (16) \\
-& \theta \geq \beta_{0,i} + \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h + \cdots \quad (17)
+& \theta - \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h - \cdots \geq R_i \quad (17)
 \end{aligned}
 $$
 
@@ -41,26 +41,25 @@ A tabela lista as famílias na ordem das linhas do PL do estágio, com $N = \lve
 
 | Nº | Família de linhas | Linhas por estágio | Seção |
 | --- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1 | Definição da afluência realizada | $N$, uma por usina hidrelétrica | [§5](#5-linhas-de-definicao-da-afluencia-realizada) |
-| 2 | Balanço hídrico | $N$ em um estágio paralelo, $N \lvert\mathcal{K}\rvert$ em um estágio cronológico | [§4](#4-balanco-hidrico-das-usinas-hidreletricas) |
-| 3 | Definição das parcelas de água em trânsito | uma por usina receptora e defasagem de maturação alcançada no estágio | [Aumento do espaço de estados — Linhas de definição das parcelas de água em trânsito](/math/state-augmentation#linhas-de-definicao-das-parcelas-de-agua-em-transito) |
-| 4 | Atendimento à carga | $\lvert\mathcal{B}\rvert \, \lvert\mathcal{K}\rvert$, uma por barramento e patamar | [§3](#3-restricao-de-atendimento-a-carga) |
-| 5 | Planos da FPHA | uma por plano, célula (usina, barramento) e patamar de cada usina com FPHA; nenhuma enquanto a usina está em pré-enchimento (PreFilling) ou na sua janela de enchimento | [§6](#6-restricoes-de-geracao-hidreletrica) |
-| 6 | Evaporação | uma por usina com evaporação em um estágio paralelo, uma por usina com evaporação e patamar em um estágio cronológico; nenhuma enquanto a usina está em pré-enchimento | [§4 Linha de evaporação](#linha-de-evaporacao) |
-| 7 | Vazão defluente mínima | $N \lvert\mathcal{K}\rvert$, uma por usina hidrelétrica e patamar | [§7](#7-restricoes-de-vazao-defluente) |
-| 8 | Vazão defluente máxima | $N \lvert\mathcal{K}\rvert$, uma por usina hidrelétrica e patamar | [§7](#7-restricoes-de-vazao-defluente) |
-| 9 | Vazão turbinada mínima | uma por célula (usina, barramento) e patamar | [§8](#8-limites-das-variaveis-e-restricoes-de-minimo) |
-| 10 | Geração mínima | uma por célula (usina, barramento) e patamar | [§6](#6-restricoes-de-geracao-hidreletrica) |
-| 11 | Mínimo e máximo da usina | para uma usina com várias células, por patamar: uma linha de mínimo de vazão turbinada e uma de mínimo de geração quando o mínimo da usina é ativo sobre o total das suas células em algum patamar do estágio, e depois uma linha de máximo de vazão turbinada e uma de máximo de geração quando o máximo da usina o é | [§8 Mínimo e máximo da usina](#minimo-e-maximo-da-usina) |
-| 12 | Piso de enchimento | uma por usina com fase de enchimento em cada estágio da sua janela de enchimento | [§8](#8-limites-das-variaveis-e-restricoes-de-minimo) |
-| 13 | Piso flexível de volume morto | uma por usina com fase de enchimento em cada estágio a partir do seu estágio de entrada | [§8](#8-limites-das-variaveis-e-restricoes-de-minimo) |
-| 14 | Saída do anel de despacho antecipado | uma por termelétrica com antecipação cuja entrega no estágio foi decidida em um estágio anterior ou antes do estudo | [Aumento do espaço de estados — Linhas do ring](/math/state-augmentation#linhas-do-ring) |
-| 15 | Depósito no anel de despacho antecipado | uma por termelétrica com antecipação que decide no estágio um compromisso para uma entrega dentro do estudo ou do calendário pós-estudo declarado em que a usina está em operação | [Aumento do espaço de estados — Linhas do ring](/math/state-augmentation#linhas-do-ring) |
-| 16 | Transporte no anel de despacho antecipado | uma por posição do anel de despacho antecipado que contém uma entrega posterior, decidida em um estágio anterior ou antes do estudo, dentro do estudo ou do calendário pós-estudo declarado | [Aumento do espaço de estados — Linhas do ring](/math/state-augmentation#linhas-do-ring) |
-| 17 | Restrições genéricas | uma por limite ativo e patamar que ele abrange, ou uma linha no nível do estágio para um limite independente do patamar | [§10](#10-restricoes-genericas) |
-| 18 | Cortes de Benders | um por corte ativo; um por corte residente no método dinâmico | [§11](#11-cortes-de-benders) |
+| 1 | Balanço hídrico | $N$ em um estágio paralelo, $N \lvert\mathcal{K}\rvert$ em um estágio cronológico | [§4](#4-balanco-hidrico-das-usinas-hidreletricas) |
+| 2 | Definição das parcelas de água em trânsito | uma por usina receptora e defasagem de maturação alcançada no estágio | [Aumento do espaço de estados — Linhas de definição das parcelas de água em trânsito](/math/state-augmentation#linhas-de-definicao-das-parcelas-de-agua-em-transito) |
+| 3 | Atendimento à carga | $\lvert\mathcal{B}\rvert \, \lvert\mathcal{K}\rvert$, uma por barramento e patamar | [§3](#3-restricao-de-atendimento-a-carga) |
+| 4 | Planos da FPHA | uma por plano, célula (usina, barramento) e patamar de cada usina com FPHA; nenhuma enquanto a usina está em pré-enchimento (PreFilling) ou na sua janela de enchimento | [§6](#6-restricoes-de-geracao-hidreletrica) |
+| 5 | Evaporação | uma por usina com evaporação em um estágio paralelo, uma por usina com evaporação e patamar em um estágio cronológico; nenhuma enquanto a usina está em pré-enchimento | [§4 Linha de evaporação](#linha-de-evaporacao) |
+| 6 | Vazão defluente mínima | $N \lvert\mathcal{K}\rvert$, uma por usina hidrelétrica e patamar | [§7](#7-restricoes-de-vazao-defluente) |
+| 7 | Vazão defluente máxima | $N \lvert\mathcal{K}\rvert$, uma por usina hidrelétrica e patamar | [§7](#7-restricoes-de-vazao-defluente) |
+| 8 | Vazão turbinada mínima | uma por célula (usina, barramento) e patamar | [§8](#8-limites-das-variaveis-e-restricoes-de-minimo) |
+| 9 | Geração mínima | uma por célula (usina, barramento) e patamar | [§6](#6-restricoes-de-geracao-hidreletrica) |
+| 10 | Mínimo e máximo da usina | para uma usina com várias células, por patamar: uma linha de mínimo de vazão turbinada e uma de mínimo de geração quando o mínimo da usina é ativo sobre o total das suas células em algum patamar do estágio, e depois uma linha de máximo de vazão turbinada e uma de máximo de geração quando o máximo da usina o é | [§8 Mínimo e máximo da usina](#minimo-e-maximo-da-usina) |
+| 11 | Piso de enchimento | uma por usina com fase de enchimento em cada estágio da sua janela de enchimento | [§8](#8-limites-das-variaveis-e-restricoes-de-minimo) |
+| 12 | Piso flexível de volume morto | uma por usina com fase de enchimento em cada estágio a partir do seu estágio de entrada | [§8](#8-limites-das-variaveis-e-restricoes-de-minimo) |
+| 13 | Saída do anel de despacho antecipado | uma por termelétrica com antecipação cuja entrega no estágio foi decidida em um estágio anterior ou antes do estudo | [Aumento do espaço de estados — Linhas do ring](/math/state-augmentation#linhas-do-ring) |
+| 14 | Depósito no anel de despacho antecipado | uma por termelétrica com antecipação que decide no estágio um compromisso para uma entrega dentro do estudo ou do calendário pós-estudo declarado em que a usina está em operação | [Aumento do espaço de estados — Linhas do ring](/math/state-augmentation#linhas-do-ring) |
+| 15 | Transporte no anel de despacho antecipado | uma por posição do anel de despacho antecipado que contém uma entrega posterior, decidida em um estágio anterior ou antes do estudo, dentro do estudo ou do calendário pós-estudo declarado | [Aumento do espaço de estados — Linhas do ring](/math/state-augmentation#linhas-do-ring) |
+| 16 | Restrições genéricas | uma por limite ativo e patamar que ele abrange, ou uma linha no nível do estágio para um limite independente do patamar | [§10](#10-restricoes-genericas) |
+| 17 | Cortes de Benders | um por corte ativo; um por corte residente no método dinâmico | [§11](#11-cortes-de-benders) |
 
-A fixação do estado de entrada e as fixações do ciclo de vida são limites de coluna, e não linhas: cada coluna de estado de entrada é fixada no seu valor visitado por limites iguais ([Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna)), e cada coluna que uma fase do ciclo de vida congela é fixada por seus limites ([§8](#8-limites-das-variaveis-e-restricoes-de-minimo)).
+A fixação do estado de entrada e as fixações do ciclo de vida são limites de coluna, e não linhas: cada coluna de estado de entrada é fixada no seu valor visitado por limites iguais ([Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna)), e cada coluna que uma fase do ciclo de vida congela é fixada por seus limites ([§8](#8-limites-das-variaveis-e-restricoes-de-minimo)). O modelo de afluências PAR(p) não tem linha nem coluna: a afluência realizada e as defasagens de afluência chegam ao PL pelos lados direitos (§5, [Folding do PAR(p)](/math/par-folding)).
 
 ## 1. Taxonomia de custos e penalidades
 
@@ -116,7 +115,7 @@ $$
 $$
 
 $$
-  + \underbrace{\text{Constraint violation penalties}}_{\text{See }\S 9}
+  + \underbrace{\text{Constraint violation penalties}}_{\text{See }\S 9\text{, including the FPHA plane slack } c^{fpha}_h \sigma^{fpha}_{h,b,k}}
 \Bigg]
 $$
 
@@ -167,18 +166,18 @@ Para o significado físico de cada elemento do balanço, veja [Visão geral da m
 
 ## 4. Balanço hídrico das usinas hidrelétricas
 
-Toda usina hidrelétrica $h \in \mathcal{H}$ tem uma linha de balanço hídrico em um estágio paralelo e uma por patamar em um estágio cronológico ([Variantes de formulação dos patamares](/math/block-formulations)); toda variável do PL fica no lado esquerdo.
+Toda usina hidrelétrica $h \in \mathcal{H}$ tem uma linha de balanço hídrico em um estágio paralelo e uma por patamar em um estágio cronológico ([Variantes de formulação dos patamares](/math/block-formulations)); toda variável do PL fica no lado esquerdo, e a afluência realizada $\hat{z}_h$ (§5), uma constante da resolução, fica no lado direito com a meta de retirada.
 
 ### Linha do estágio paralelo
 
 $$
 \begin{aligned}
 & v_h - v^{in}_h - b^{\mathrm{in}}_{h,1}
-  - \zeta \big( z_h + \sigma^{inf}_h + \sigma^{w-}_h - \sigma^{w+}_h - e_h \big) \\
+  - \zeta \big( \sigma^{inf}_h + \sigma^{w-}_h - \sigma^{w+}_h - e_h \big) \\
 & \quad + \sum_{k \in \mathcal{K}} \zeta_k \Big( q_{h,k} + s_{h,k} + u_{h,k}
   - \sum_{h' \in \mathcal{U}_h} \nu_{h',t,0} \, (q_{h',k} + s_{h',k})
   - \sum_{h':\,\text{div}=h} u_{h',k} \\
-& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta \, r_h
+& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = \zeta \, \big( \hat{z}_h - T^{eff}_h \big)
 \end{aligned}
 $$
 
@@ -189,11 +188,11 @@ Para cada patamar $k \in \mathcal{K}$, com $v_{h,0} = v^{in}_h$ e $v_{h,\lvert\m
 $$
 \begin{aligned}
 & v_{h,k} - v_{h,k-1} - \phi_{h,k} \, b^{\mathrm{in}}_{h,1}
-  - \zeta_k \big( z_h + \sigma^{inf}_h + \sigma^{w-}_h - \sigma^{w+}_h - e_{h,k} \big)
+  - \zeta_k \big( \sigma^{inf}_h + \sigma^{w-}_h - \sigma^{w+}_h - e_{h,k} \big)
   + \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) \\
 & \quad - \sum_{h' \in \mathcal{U}_h} \sum_{k' \le k} \nu^{k' \to k}_{h',t} \, \zeta_{k'} \, (q_{h',k'} + s_{h',k'})
   - \zeta_k \sum_{h':\,\text{div}=h} u_{h',k}
-  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta_k \, r_h
+  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = \zeta_k \, \big( \hat{z}_h - T^{eff}_h \big)
 \end{aligned}
 $$
 
@@ -201,9 +200,11 @@ $$
 
 - $v_h$ e $v^{in}_h$ = armazenamento de saída e de entrada; $v^{in}_h$ é fixado no valor visitado por seus limites de coluna ([Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna)). Em um estágio cronológico, $v_{h,k}$ é o armazenamento ao fim do patamar $k$
 - $b^{\mathrm{in}}_{h,1}$ = volume em trânsito que chega à maturação neste estágio nos arcos com tempo de viagem que chegam a $h$, em hm³ e, portanto, fora da conversão ([Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua)); um estágio cronológico o distribui entre seus patamares pela densidade de chegada $\phi_{h,k}$, $\sum_k \phi_{h,k} = 1$. Ausente quando nenhum arco com tempo de viagem chega a $h$
-- $z_h = a_h$ = vazão incremental realizada (§5), de modo que o patamar $k$ de um estágio cronológico recebe a parcela $w_k\,\zeta\,\sigma_{m(t)}\,\varepsilon_t$ do ruído
-- $\sigma^{inf}_h$ = folga de não negatividade da afluência, presente em todos os métodos de afluência exceto `none`, que acrescenta água: ilimitada em `penalty`; limitada ao montante de truncamento $a^-_h$ — uma constante da resolução, calculada a partir da realização com as defasagens fixadas — em `truncation_with_penalty`; e fixada nesse montante em `truncation` (veja [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity))
-- $r_h$, $\sigma^{w-}_h$, $\sigma^{w+}_h$ = meta de retirada com sinal, no nível do estágio ($r_h < 0$ acrescenta água), e suas folgas de entrega a menor e a maior, no nível do estágio; a retirada realizada é $R_h = r_h - \sigma^{w-}_h + \sigma^{w+}_h$, com os tetos das folgas na §9
+- $\hat{z}_h$ = vazão incremental realizada, uma constante da resolução calculada fora do PL (§5); o patamar $k$ de um estágio cronológico recebe a parcela $w_k$ do seu volume $\zeta\,\hat{z}_h$, incluído o ruído $\sigma_{m(t)}\,\varepsilon_t$
+- $\sigma^{inf}_h$ = folga de não negatividade da afluência, presente em todos os métodos de afluência exceto `none`, que acrescenta água: ilimitada em `penalty`; limitada ao montante de truncamento $a^-_h = \max(0, -\hat{z}_h)$, uma constante da resolução, em `truncation_with_penalty`; e fixada nesse montante em `truncation` (veja [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity))
+- $r_h$ = meta de retirada declarada da própria usina, com sinal, no nível do estágio ($r_h < 0$ acrescenta água)
+- $T^{eff}_h$ = retirada efetiva, a grandeza do lado direito. Para uma usina que não está em pré-enchimento, $T^{eff}_h = r_h + \sum_{h' \in \mathcal{P}_h} r_{h'}$, em que $\mathcal{P}_h$ é o conjunto das usinas em pré-enchimento cuja primeira usina a jusante fora do pré-enchimento é $h$; para uma usina em pré-enchimento, $T^{eff}_h = 0$ ([Repasse em pré-enchimento](#repasse-em-pre-enchimento))
+- $\sigma^{w-}_h$, $\sigma^{w+}_h$ = folgas de entrega a menor e a maior da retirada efetiva, no nível do estágio; a retirada realizada é $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$, com os tetos das folgas na §9
 - $e_h$ / $e_{h,k}$ = evaporação líquida com sinal de uma usina com modelo de evaporação (um valor negativo é precipitação líquida sobre o lago e acrescenta água): uma coluna no nível do estágio em um estágio paralelo com qualquer número de patamares, uma por patamar em um estágio cronológico, cada uma delas uma coluna limitada, vinculada ao armazenamento pela sua linha de evaporação (veja [Linha de evaporação](#linha-de-evaporacao))
 - $q_{h,k} = \sum_{b \in \mathcal{B}_h} q_{h,b,k}$, $s_{h,k}$, $u_{h,k}$ = vazões turbinada, vertida e desviada da própria usina no patamar $k$; a coluna de turbinamento de cada célula (usina, barramento) tem o mesmo coeficiente, e o vertimento e o desvio são colunas únicas por usina
 - Defluência de montante: apenas as vazões turbinada e vertida de cada $h' \in \mathcal{U}_h$ chegam a $h$; a vazão desviada de uma usina chega apenas ao destino do seu desvio (a soma em $\text{div}$)
@@ -214,18 +215,18 @@ $$
 
 ### Repasse em pré-enchimento
 
-Uma usina em pré-enchimento (veja [Fases do ciclo de vida](#fases-do-ciclo-de-vida) para a fase) tem a linha de identidade congelada $v_h - v^{in}_h = 0$ e, em um estágio cronológico, $v_{h,k} - v_{h,k-1} = 0$ por patamar, com lado direito $0$. Sua afluência local $z_h$, com sua folga de não negatividade da afluência $\sigma^{inf}_h$, as defluências das suas usinas de montante e as vazões desviadas para ela entram na linha da primeira usina a jusante que não esteja em pré-enchimento com os coeficientes que teriam na linha da própria usina em pré-enchimento ($-\zeta$ sobre $z_h$ e $\sigma^{inf}_h$ em um estágio paralelo e $-\zeta_k$ em cada linha de patamar de um estágio cronológico, $-\zeta_k$ sobre toda vazão do patamar $k$) e sem parcela de tempo de viagem, e sua meta de retirada passa para o lado direito dessa usina. Seu volume em trânsito que chega à maturação, $b^{\mathrm{in}}_{h,1}$, entra na mesma linha, com coeficiente $-1$ em um estágio paralelo e $-\phi_{h,k}$ na linha do patamar $k$ de um estágio cronológico, sendo $\phi_{h,k}$ a densidade de chegada da própria usina em pré-enchimento. Se não houver tal usina a jusante, a água deixa o sistema.
+Uma usina em pré-enchimento (veja [Fases do ciclo de vida](#fases-do-ciclo-de-vida) para a fase) tem a linha de identidade congelada $v_h - v^{in}_h = 0$ e, em um estágio cronológico, $v_{h,k} - v_{h,k-1} = 0$ por patamar, com lado direito $0$. Sua folga de não negatividade da afluência $\sigma^{inf}_h$, as defluências das suas usinas de montante e as vazões desviadas para ela entram na linha da primeira usina a jusante que não esteja em pré-enchimento com os coeficientes que teriam na linha da própria usina em pré-enchimento ($-\zeta$ sobre $\sigma^{inf}_h$ em um estágio paralelo e $-\zeta_k$ em cada linha de patamar de um estágio cronológico, $-\zeta_k$ sobre toda vazão do patamar $k$) e sem parcela de tempo de viagem, sua afluência local $\hat{z}_h$ passa para o lado direito dessa usina, e sua meta de retirada entra na retirada efetiva $T^{eff}_h$ dessa usina, de modo que as folgas $\sigma^{w-}_h$ e $\sigma^{w+}_h$ da usina receptora a relaxam aos preços de folga de retirada dessa usina. Seu volume em trânsito que chega à maturação, $b^{\mathrm{in}}_{h,1}$, entra na mesma linha, com coeficiente $-1$ em um estágio paralelo e $-\phi_{h,k}$ na linha do patamar $k$ de um estágio cronológico, sendo $\phi_{h,k}$ a densidade de chegada da própria usina em pré-enchimento. Se não houver tal usina a jusante, a água deixa o sistema e a retirada não entra em nenhuma linha.
 
 ### Soma das linhas dos patamares
 
-Somar as linhas dos patamares de um estágio cronológico sobre $k \in \mathcal{K}$ faz os termos de armazenamento se reduzirem telescopicamente a $v_h - v^{in}_h$, recupera $b^{\mathrm{in}}_{h,1}$ ($\sum_k \phi_{h,k} = 1$) e recupera os coeficientes paralelos de $z_h$, $\sigma^{inf}_h$, $\sigma^{w-}_h$, $\sigma^{w+}_h$ e do lado direito ($\sum_k \zeta_k = \zeta$); as vazões por patamar mantêm seus $\zeta_k$. A soma tem a forma da linha paralela, com duas diferenças de modo: $\sum_k \zeta_k\,e_{h,k}$ no lugar de $\zeta\,e_h$, e cada defluência de montante do patamar $k'$ com sua própria parcela no mesmo estágio, $\sum_{k \ge k'} \nu^{k' \to k}_{h',t}$, no lugar de $\nu_{h',t,0}$, cuja média ponderada pela duração sobre $k'$ é $\nu_{h',t,0}$: $\sum_{k' \in \mathcal{K}} w_{k'} \sum_{k \ge k'} \nu^{k' \to k}_{h',t} = \nu_{h',t,0}$. Com um único patamar, ou sem tempo de viagem no arco, as parcelas coincidem.
+Somar as linhas dos patamares de um estágio cronológico sobre $k \in \mathcal{K}$ faz os termos de armazenamento se reduzirem telescopicamente a $v_h - v^{in}_h$, recupera $b^{\mathrm{in}}_{h,1}$ ($\sum_k \phi_{h,k} = 1$) e recupera os coeficientes paralelos de $\sigma^{inf}_h$, $\sigma^{w-}_h$, $\sigma^{w+}_h$ e do lado direito ($\sum_k \zeta_k = \zeta$); as vazões por patamar mantêm seus $\zeta_k$. A soma tem a forma da linha paralela, com duas diferenças de modo: $\sum_k \zeta_k\,e_{h,k}$ no lugar de $\zeta\,e_h$, e cada defluência de montante do patamar $k'$ com sua própria parcela no mesmo estágio, $\sum_{k \ge k'} \nu^{k' \to k}_{h',t}$, no lugar de $\nu_{h',t,0}$, cuja média ponderada pela duração sobre $k'$ é $\nu_{h',t,0}$: $\sum_{k' \in \mathcal{K}} w_{k'} \sum_{k \ge k'} \nu^{k' \to k}_{h',t} = \nu_{h',t,0}$. Com um único patamar, ou sem tempo de viagem no arco, as parcelas coincidem.
 
 :::note[Consistência Dimensional]
 (veja [Convenção de unidades das variáveis](/math/system-elements#convencao-de-unidades-das-variaveis)):
 
 - O armazenamento ($v_h$, $v^{in}_h$, $v_{h,k}$) e $b^{\mathrm{in}}_{h,1}$ estão em hm³
 - $\zeta$ e $\zeta_k$ estão em hm³/(m³/s)
-- Toda vazão, toda folga e $r_h$ estão em m³/s
+- Toda vazão, toda folga, $r_h$ e $T^{eff}_h$ estão em m³/s
 - A conversão em volume ocorre apenas por meio de $\zeta$ e $\zeta_k$
 :::
 
@@ -246,32 +247,36 @@ e_{h,k} - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v_{h,k-1} + v_{h,k} \big) - \sig
 $$
 
 - $\gamma^{ev}_{v,h}$ e $\gamma^{ev}_{0,h}$ = inclinação e intercepto, em um volume de referência, da tangente do fluxo de evaporação de $h$: o coeficiente de evaporação do mês civil do estágio multiplicado pela área da superfície do reservatório obtida da sua curva área–volume, convertido em uma taxa média mensal em m³/s. Ambos são recalculados em cada estágio; a meta da linha é a tangente avaliada na média dos dois armazenamentos que a linha lê. O fluxo, e portanto $e_h$ ou $e_{h,k}$, pode ser negativo (precipitação líquida sobre o lago)
-- $e_h$ / $e_{h,k}$ = evaporação líquida (Termos das Linhas, acima), limitada simetricamente em torno de zero por uma margem de segurança fixa vezes $\lvert \gamma^{ev}_{0,h} + \gamma^{ev}_{v,h} \bar{V}_h \rvert$, a magnitude da meta no armazenamento máximo $\bar{V}_h$, recalculada em cada estágio; não é uma coluna livre. Ela entra na linha de balanço hídrico paralela como $\zeta \, e_h$ e na linha do patamar $k$ de um estágio cronológico como $\zeta_k \, e_{h,k}$
+- $e_h$ / $e_{h,k}$ = evaporação líquida (Termos das Linhas, acima), uma coluna limitada, e não livre. A sua caixa segue o sinal do coeficiente de evaporação do mês do estágio, o sinal do próprio coeficiente e não o de $\gamma^{ev}_{0,h}$ ou de $\gamma^{ev}_{v,h}$. Sendo $q^{\max}_{ev,h}$ a magnitude da meta no armazenamento máximo $\bar{V}_h$ vezes uma margem de segurança fixa, recalculada em cada estágio:
+  - mês positivo: $e_h \in [\min(0, \underline{e}^{tgt}_h),\, q^{\max}_{ev,h}]$;
+  - mês negativo: $e_h \in [-q^{\max}_{ev,h},\, \max(0, \bar{e}^{tgt}_h)]$;
+  - mês nulo: $e_h \in [-q^{\max}_{ev,h},\, q^{\max}_{ev,h}]$.
+
+  A mesma caixa vale para o $e_{h,k}$ de cada patamar, com os extremos tomados sobre o armazenamento médio desse patamar. Ela entra na linha de balanço hídrico paralela como $\zeta \, e_h$ e na linha do patamar $k$ de um estágio cronológico como $\zeta_k \, e_{h,k}$
+- $\underline{e}^{tgt}_h$, $\bar{e}^{tgt}_h$ e $\bar{e}^{hard}_h$ = extremos da meta da linha sobre os armazenamentos médios que a linha pode ler. $\underline{e}^{tgt}_h$ e $\bar{e}^{tgt}_h$ são a menor e a maior meta, tomando como piso de armazenamento do estágio o armazenamento mínimo da usina mesmo onde esse piso é flexível; $\bar{e}^{hard}_h$ é a maior meta tomando como piso o piso rígido, que é $0$ para uma usina em fase de enchimento e para um estágio em pré-enchimento e o armazenamento mínimo do estágio nos demais casos ([§8](#8-limites-das-variaveis-e-restricoes-de-minimo)). O armazenamento de entrada percorre os pisos e o teto do estágio anterior ou, no primeiro estágio e após um estágio em pré-enchimento, o intervalo em que o armazenamento inicial é ajustado. A meta é avaliada nos dois extremos de cada intervalo, porque a inclinação da curva área–volume pode ter qualquer sinal
 - $\sigma^{e+}_h$ / $\sigma^{e+}_{h,k}$ e $\sigma^{e-}_h$ / $\sigma^{e-}_{h,k}$ = evaporação acima e abaixo da meta, valoradas a $c^{ev+}_h$ e $c^{ev-}_h$: a linha define a evaporação como a meta mais $\sigma^{e+}$ menos $\sigma^{e-}$. Em um estágio paralelo, o único par é valorado sobre as horas do estágio $H_t$; em um estágio cronológico, o par de cada patamar é valorado sobre a sua duração $\tau_k$ (§9)
+- $\sigma^{e+}_h$ é ilimitada em todos os meses. $\sigma^{e-}_h$ é ilimitada em um mês positivo e em um mês nulo; em um mês negativo, ela é limitada, $\sigma^{e-}_h \le \max(0, \bar{e}^{hard}_h)$, o que a restringe à quantidade que leva uma meta positiva a $0$. Em um mês positivo, o piso de $e_h$ impede que ela fique negativa o bastante para que $\sigma^{e-}_h$ crie água, e, em um mês negativo, o teto impede que a evaporação retire mais água do que a meta permite
 
 Com um único patamar, as formas paralela e cronológica coincidem, tanto nas linhas quanto na valoração. Uma usina em pré-enchimento não tem linha de evaporação.
 
-## 5. Linhas de definição da afluência realizada
+## 5. Afluência realizada
 
-Para cada usina hidrelétrica $h \in \mathcal{H}$, o PL inclui uma variável auxiliar $z_h$ que representa a afluência total realizada (m³/s) no estágio corrente. Essas variáveis são definidas por restrições de igualdade que combinam a base determinística, as contribuições das defasagens e o ruído estocástico:
+O PL do estágio não tem coluna nem linha para o modelo de afluências PAR(p). Antes de cada resolução, a afluência realizada (m³/s) de cada usina hidrelétrica $h \in \mathcal{H}$ é calculada pelo modelo a partir das defasagens de afluência de entrada e do ruído da abertura:
 
 $$
-z_h = b_{h,m(t)} + \sum_{\ell=1}^{P_h} \psi_{m(t),\ell} \cdot a_{h,\ell} + \sigma_{m(t)} \cdot \varepsilon_t
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{P^{\max}} \psi_{m(t),\ell} \, \hat{a}_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t
 $$
 
 em que:
 
-- $z_h$ = variável do PL que representa a afluência realizada da usina $h$ (coluna livre, custo nulo)
 - $b_{h,m(t)}$ = base determinística (pré-calculada a partir das médias sazonais e dos coeficientes AR — veja [Modelo de afluências PAR(p) §2.4](/math/par-inflow-model#24-base-deterministica))
-- $\psi_{m(t),\ell}$ = coeficientes AR nas unidades originais (elementos da matriz de restrições, definidos uma única vez na construção do PL); para uma usina com componente anual, a soma percorre todas as posições de defasagem ($\ell \le P^{\max}$) e cada um desses coeficientes incorpora também o termo anual ([Modelo de afluências PAR(p) §7.4](/math/par-inflow-model#74-conversao-de-unidades-em-execucao))
-- $a_{h,\ell}$ = variáveis do PL das afluências defasadas (variáveis de estado, fixadas conforme [Aumento do espaço de estados §4](/math/state-augmentation#4-defasagens-de-afluencia))
-- $\sigma_{m(t)} \cdot \varepsilon_t$ = ruído (inovação) (inserido no lado direito da restrição a cada cenário)
+- $\psi_{m(t),\ell}$ = coeficientes AR nas unidades originais, $0$ para uma defasagem que o modelo de $h$ não usa; para uma usina com componente anual, cada um desses coeficientes incorpora também o termo anual ([Modelo de afluências PAR(p) §7.4](/math/par-inflow-model#74-conversao-de-unidades-em-execucao))
+- $\hat{a}_{h,\ell}$ = defasagens de afluência de entrada, os valores visitados do estado de defasagens de afluência ([Aumento do espaço de estados §4](/math/state-augmentation#4-defasagens-de-afluencia))
+- $\sigma_{m(t)} \, \varepsilon_t$ = ruído (inovação) do cenário ou da abertura
 
-A variável de afluência z, $z_h$, entra então na restrição de balanço hídrico (§4) no lugar do termo de afluência bruta $a_h$, e seu valor primal após a resolução fornece a afluência realizada para os relatórios e a extração da simulação.
+$\hat{z}_h$ entra como constante no lado direito de toda linha que o lê: as linhas de balanço hídrico (§4), as linhas da primeira usina a jusante que não esteja em pré-enchimento, para uma usina em pré-enchimento ([Repasse em pré-enchimento](#repasse-em-pre-enchimento)), e as restrições genéricas com um termo de afluência hidrelétrica ([Afluência das usinas hidrelétricas](#afluencia-das-usinas-hidreletricas)). Nenhum método de não negatividade da afluência o altera: $\hat{z}_h$ mantém a realização bruta, que pode ser negativa, e os métodos acrescentam sua água ao balanço hídrico por meio de $\sigma^{inf}_h$ (§4; [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity)). O mesmo valor é a afluência realizada que a simulação informa, e a acumulação das defasagens forma a partir dele o estado de saída das defasagens de afluência ([Estudos com múltiplas resoluções §2](/math/multi-resolution-studies#2-acumulacao-das-defasagens)).
 
-As colunas de afluência z ficam entre as colunas de estado do início da configuração e as colunas de armazenamento de entrada, e suas linhas de restrição formam o **primeiro** bloco de igualdades ([Estrutura e escalonamento do PL §1](/math/lp-layout-and-scaling#1-estrutura-de-colunas-e-linhas)). O lado direito é atualizado a cada cenário com $b_{h,m(t)} + \sigma_{m(t)} \cdot \varepsilon_t$, em que $\varepsilon_t$ é o ruído do cenário, que nenhum método de não negatividade da afluência altera: a linha mantém a realização bruta, que pode ser negativa, e os métodos acrescentam sua água ao balanço hídrico por meio de $\sigma^{inf}_h$ (§4; [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity)). Elas não são colunas de estado fixadas e não têm coeficiente de corte próprio; a linha do corte multiplica o coeficiente da defasagem 1 por $z_h$.
-
-**Número de restrições**: $N$ restrições no total, em que $N = |\mathcal{H}|$ é o número de usinas hidrelétricas, qualquer que seja a fase do seu ciclo de vida.
+As defasagens de afluência não são colunas do PL, de modo que as linhas dos cortes avaliam seus termos de defasagem em $\hat{z}_h$ e $\hat{a}_{h,\ell}$ no lado direito (§11), e os coeficientes de defasagem de um novo corte vêm dos duais pela regra da cadeia. [Folding do PAR(p)](/math/par-folding) deduz essa formulação, sua equivalência com a formulação que escreve o modelo como linhas do PL e seus limites.
 
 ## 6. Restrições de geração hidrelétrica
 
@@ -290,18 +295,20 @@ As usinas de produtibilidade constante não têm coluna de geração separada: $
 **Modelo FPHA** (para cada plano $m \in \mathcal{M}_h$, célula $(h, b)$ da usina $h \in \mathcal{H}^{fpha}$, patamar $k$):
 
 $$
-g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
 $$
 
-em que $v^{avg}_h = (v^{in}_h + v_h)/2$ é o armazenamento médio durante o estágio, sendo $v^{in}_h$ a variável do PL de armazenamento de entrada ([Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna)) e $v_h$ o armazenamento ao fim do estágio em um estágio paralelo; em um estágio cronológico, a linha do patamar $k$ lê a média do próprio patamar, $(v_{h,k-1} + v_{h,k})/2$ ([Variantes de formulação dos patamares §2.4](/math/block-formulations#24-producao-e-evaporacao-por-patamar)) — uma única grandeza da usina compartilhada por todas as células, pois o armazenamento não é particionado. $\lambda_{h,b}$ é a **parcela de rateio** da célula $(h,b)$ na capacidade de turbinamento declarada da usina $h$,
+em que $\sigma^{fpha}_{h,b,k} \geq 0$ (MW) é a **folga do plano da FPHA**, uma por célula $(h, b)$ e patamar $k$, e $v^{avg}_h = (v^{in}_h + v_h)/2$ é o armazenamento médio durante o estágio, sendo $v^{in}_h$ a variável do PL de armazenamento de entrada ([Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna)) e $v_h$ o armazenamento ao fim do estágio em um estágio paralelo; em um estágio cronológico, a linha do patamar $k$ lê a média do próprio patamar, $(v_{h,k-1} + v_{h,k})/2$ ([Variantes de formulação dos patamares §2.4](/math/block-formulations#24-producao-e-evaporacao-por-patamar)) — uma única grandeza da usina compartilhada por todas as células, pois o armazenamento não é particionado. $\lambda_{h,b}$ é a **parcela de rateio** da célula $(h,b)$ na vazão turbinada máxima declarada da usina $h$,
 
 $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
-(a razão entre a vazão turbinada máxima declarada dos grupos de unidades geradoras da própria célula e o total da usina, $0$ quando o total da usina é $0$), de modo que $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ para toda usina com capacidade de turbinamento declarada positiva. Apenas a parte do plano independente da vazão — o intercepto $\gamma^m_0$, o termo de armazenamento e o termo de vertimento — é rateada por $\lambda_{h,b}$; o coeficiente de vazão $\gamma^m_q$ permanece sobre o $q_{h,b,k}$ da própria célula, sem escala, porque só ele é homogêneo na partição em células (somar as linhas por célula com $v^{avg}_h$, $s_{h,k}$ e $\sum_b q_{h,b,k}$ fixos recupera o limite da usina que isto substitui). Uma usina de célula única com capacidade de turbinamento declarada positiva tem $\lambda_{h,b} = 1$ exatamente, de modo que sua linha é a linha da usina.
+(a razão entre a vazão turbinada máxima declarada dos grupos de unidades geradoras da própria célula e o total da usina, $0$ quando o total da usina é $0$), de modo que $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ para toda usina com uma vazão turbinada máxima declarada positiva. Apenas a parte do plano independente da vazão — o intercepto $\gamma^m_0$, o termo de armazenamento e o termo de vertimento — é rateada por $\lambda_{h,b}$; o coeficiente de vazão $\gamma^m_q$ permanece sobre o $q_{h,b,k}$ da própria célula, sem escala, porque só ele é homogêneo na partição em células (somar as linhas por célula com $v^{avg}_h$, $s_{h,k}$ e $\sum_b q_{h,b,k}$ fixos recupera o limite da usina que isto substitui). Uma usina de célula única com uma vazão turbinada máxima declarada positiva tem $\lambda_{h,b} = 1$ exatamente, de modo que sua linha é a linha da usina.
 
-Para uma usina com capacidade de turbinamento declarada positiva, as parcelas somam $1$, de modo que as linhas por célula de cada plano somam a linha da usina desse plano (acima). Uma soma de mínimos é no máximo o mínimo das somas, de modo que, com os mesmos $v^{avg}_h$, $s_{h,k}$ e vazão turbinada total, o teto que as linhas por célula impõem à geração da usina $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, à esquerda, é no máximo a envoltória da usina, o mínimo sobre os planos das linhas da usina, à direita:
+A folga entra na linha de todo plano $m \in \mathcal{M}_h$ da sua célula e do seu patamar com coeficiente $-1$, de modo que a geração pode exceder cada plano da célula no valor da folga. Ela está apenas nessas linhas de plano: em nenhuma linha de balanço hídrico, de atendimento à carga ou de restrição genérica, de modo que o balanço hídrico e o acoplamento da afluência não têm termo para ela. É valorada a $c^{fpha}_h$ (R\$/MWh) vezes a duração do patamar $\tau_k$ (§9). As expressões dos planos a seguir valem para $\sigma^{fpha}_{h,b,k} = 0$.
+
+Para uma usina com uma vazão turbinada máxima declarada positiva, as parcelas somam $1$, de modo que as linhas por célula de cada plano somam a linha da usina desse plano (acima). Uma soma de mínimos é no máximo o mínimo das somas, de modo que, com os mesmos $v^{avg}_h$, $s_{h,k}$ e vazão turbinada total, o teto que as linhas por célula impõem à geração da usina $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, à esquerda, é no máximo a envoltória da usina, o mínimo sobre os planos das linhas da usina, à direita:
 
 $$
 \sum_{b \in \mathcal{B}_h} \min_{m} \Big( \lambda_{h,b}\big(\gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s s_{h,k}\big) + \gamma^m_q q_{h,b,k} \Big)
@@ -309,6 +316,8 @@ $$
 $$
 
 A igualdade vale quando o mesmo plano atinge o mínimo em todas as células, em particular quando as células turbinam em proporção às suas parcelas $\lambda_{h,b}$. Para $\lambda_{h,b} > 0$, o mínimo da célula $(h,b)$ é $\lambda_{h,b}$ vezes a envoltória da usina na vazão $q_{h,b,k}/\lambda_{h,b}$, de modo que, quando todas as parcelas são positivas, a expressão é a desigualdade de Jensen para a envoltória côncava com os pesos $\lambda_{h,b}$. Uma célula com $\lambda_{h,b} = 0$ mantém apenas o seu termo $\gamma^m_q \, q_{h,b,k}$, e a expressão continua valendo pelo argumento da soma de mínimos.
+
+Em um patamar em que a célula $(h,b)$ não tem capacidade de turbinamento ([Modelos de função de produção hidrelétrica §2.9](/math/hydro-production-models#usinas-e-celulas-sem-capacidade-de-turbinamento)), suas linhas de planos são livres e $\sigma^{fpha}_{h,b,k}$ é fixada em $0$, enquanto uma célula com capacidade mantém suas linhas na sua parcela $\lambda_{h,b}$, que não é rerrateada. Uma usina com FPHA sem capacidade de turbinamento em todos os patamares do estágio não tem coluna de geração, linhas de planos nem folga do plano nesse estágio.
 
 **Limites de Geração** (por célula $(h, b)$, patamar $k$ — o limite da própria coluna de geração da FPHA; uma célula de produtibilidade constante não tem essa coluna, de modo que seu teto de geração é incorporado, em vez disso, ao limite de vazão turbinada abaixo):
 
@@ -319,6 +328,8 @@ $$
 $$
 \underline{G}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{G}_u, \qquad \bar{G}_{h,b} = \min\!\Big( \sum_{u \,\in\, (h,b)} \bar{G}_u,\ \ \bar{G}_h \Big)
 $$
+
+As duas somas percorrem os grupos de unidades da célula com capacidade de turbinamento no patamar $k$, e $\bar{G}_{h,b} = 0$ quando os limites da própria usina não têm capacidade.
 
 Os limites de geração são definidos pelo usuário (declarados por grupo de unidades geradoras, e não derivados da vazão turbinada). O limite inferior é flexível, com uma folga $\sigma^{g-}_{h,b,k}$ **por célula** — valorada pela penalidade da própria usina, $c^{gv-}_h$, com magnitude integral em cada célula de uma usina dividida, nunca dividida pelo número de células; o piso de uma célula de produtibilidade constante acopla essa mesma folga a $\rho_h \cdot q_{h,b,k}$, e não a uma coluna de geração. A soma simples do limite superior sobre os grupos de unidades da própria célula é limitada pelo máximo resolvido da própria usina, $\bar{G}_h$ — uma substituição de limites nunca pode elevar uma célula acima dele. O mínimo da própria usina, $\underline{G}_h$, e, em uma usina com várias células, seu máximo $\bar{G}_h$ também se aplicam ao total das suas células ([§8 Mínimo e máximo da usina](#minimo-e-maximo-da-usina)). Veja [Visão geral da modelagem dos elementos do sistema §5](/math/system-elements). Corresponde ao $\sigma^{g-}_{h,b,k}$ por célula definido em [Convenções de notação §4.3](/overview/notation-conventions#43-variaveis-de-folga).
 
@@ -338,7 +349,7 @@ A vazão defluente $o$ representa a água liberada para o canal de jusante (que 
 - **Retirada** $r_h$: um parâmetro de uso consuntivo com sinal (positivo = retirada do sistema para irrigação/abastecimento; negativo = retorno/acréscimo entre bacias). É um parâmetro fixo (não uma variável de decisão) — veja a §4 para a semântica da meta com sinal e a §9 para os limites das folgas
 - **Desvio** $u_{h,k}$: água desviada para um canal separado (que não afeta o canal de fuga principal)
 
-O balanço hídrico (§4) contabiliza todas as vazões: afluência $-$ $(q + s + u)$ $-$ evaporação $-$ retirada = variação do armazenamento. A retirada $r_h$ entra como parâmetro fixo com sinal no lado direito; folgas de violação bidirecionais ($\sigma^{w-}_h$, $\sigma^{w+}_h$) permitem ao PL relaxar o compromisso de retirada quando necessário (veja a §9).
+O balanço hídrico (§4) contabiliza todas as vazões: afluência $-$ $(q + s + u)$ $-$ evaporação $-$ retirada = variação do armazenamento. A retirada efetiva $T^{eff}_h$, derivada da meta declarada $r_h$ (§4), entra como parâmetro fixo com sinal no lado direito; folgas de violação bidirecionais ($\sigma^{w-}_h$, $\sigma^{w+}_h$) permitem ao PL relaxar o compromisso de retirada quando necessário (veja a §9).
 :::
 
 **Limites da Vazão Defluente** (com folgas para imposição flexível):
@@ -373,25 +384,25 @@ $$
 \underline{Q}_{h,b} - \sigma^{q-}_{h,b,k} \leq q_{h,b,k} \leq \bar{Q}_{h,b}
 $$
 
-O limite inferior é flexível, com uma folga $\sigma^{q-}_{h,b,k}$ por célula, valorada pela penalidade da própria usina, $c^{tv-}_h$, com magnitude integral em cada célula — nunca dividida pelo número de células; é a soma simples das vazões turbinadas mínimas resolvidas dos grupos de unidades da própria célula, $\underline{Q}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{Q}_u$, exceto em uma usina de célula única cujo mínimo próprio é mais restritivo ([Mínimo e máximo da usina](#minimo-e-maximo-da-usina)). O limite superior é rígido e limitado pelo máximo resolvido da própria usina, nunca elevado acima dele:
+O limite inferior é flexível, com uma folga $\sigma^{q-}_{h,b,k}$ por célula, valorada pela penalidade da própria usina, $c^{tv-}_h$, com magnitude integral em cada célula — nunca dividida pelo número de células; é a soma simples das vazões turbinadas mínimas resolvidas dos grupos de unidades da própria célula com capacidade de turbinamento no patamar, $\underline{Q}_{h,b} = \sum_{u \,\in\, (h,b)} \underline{Q}_u$, exceto em uma usina de célula única cujo mínimo próprio é mais restritivo ([Mínimo e máximo da usina](#minimo-e-maximo-da-usina)). O limite superior é rígido e limitado pelo máximo resolvido da própria usina, nunca elevado acima dele:
 
 $$
 \bar{Q}_{h,b} = \min\!\left( \sum_{u \,\in\, (h,b)} \mathrm{fold}(u),\ \ \bar{Q}_h \right)
 $$
 
-em que $\mathrm{fold}(u) = \bar{Q}_u$ para uma usina com FPHA (ali, vazão turbinada e geração são colunas independentes) e $\mathrm{fold}(u) = \min(\bar{Q}_u,\ \bar{G}_u / \rho_h)$ para uma usina de produtibilidade constante — o teto de vazão de cada grupo e o teto de vazão implícito em MW devem ser combinados **antes** da soma sobre a célula, pois o $\min$ não se distribui sobre uma soma de grupos que são limitados por lados diferentes. Esse é o mecanismo que impõe o teto de geração de uma célula de produtibilidade constante (§6): não há coluna de geração separada a limitar diretamente. Corresponde ao $\sigma^{q-}_{h,b,k}$ por célula definido em [Convenções de notação §4.3](/overview/notation-conventions#43-variaveis-de-folga).
+em que $\mathrm{fold}(u) = \bar{Q}_u$ para uma usina com FPHA (ali, vazão turbinada e geração são colunas independentes) e $\mathrm{fold}(u) = \min(\bar{Q}_u,\ \bar{G}_u / \rho_h)$ para uma usina de produtibilidade constante, e $\mathrm{fold}(u) = 0$ para um grupo de unidades sem capacidade de turbinamento no patamar, em todo modelo; o termo de fechamento $\bar{Q}_h$ é $0$ quando a própria usina não tem capacidade, de modo que ali $\bar{Q}_{h,b} = 0$. O teto de vazão de cada grupo e o teto de vazão implícito em MW devem ser combinados **antes** da soma sobre a célula, pois o $\min$ não se distribui sobre uma soma de grupos que são limitados por lados diferentes. Esse é o mecanismo que impõe o teto de geração de uma célula de produtibilidade constante (§6): não há coluna de geração separada a limitar diretamente. Corresponde ao $\sigma^{q-}_{h,b,k}$ por célula definido em [Convenções de notação §4.3](/overview/notation-conventions#43-variaveis-de-folga).
 
 ### Mínimo e máximo da usina
 
-A vazão turbinada mínima resolvida da própria usina, $\underline{Q}_h$, e sua geração mínima, $\underline{G}_h$, aplicam-se ao total das suas células quando são mais restritivas que os pisos das células. Tome a tolerância relativa $\epsilon(x) = 10^{-9} \max(\lvert x \rvert, 1)$. Em um patamar em que $\underline{Q}_h \le \sum_{b \in \mathcal{B}_h} \underline{Q}_{h,b} + \epsilon(\underline{Q}_h)$, os pisos das células já impõem o mínimo da usina. Nos demais, uma usina de célula única adota $\underline{Q}_h$ como piso da sua célula, e uma usina com várias células recebe uma linha residual além das linhas das suas células:
+A vazão turbinada mínima resolvida da própria usina, $\underline{Q}_h$, e sua geração mínima, $\underline{G}_h$, aplicam-se ao total das suas células quando são mais restritivas que os pisos das células. Tome a tolerância relativa $\epsilon(x) = 10^{-9} \max(\lvert x \rvert, 1)$. O mínimo da usina é ativo em um patamar em que $\underline{Q}_h > \sum_{u \in h} \underline{Q}_u + \epsilon(\underline{Q}_h)$, com a soma percorrendo todos os grupos de unidades da usina, inclusive os sem capacidade de turbinamento; nos demais, os pisos das células já o impõem. Onde é ativo, a usina impõe $\underline{Q}'_h = \underline{Q}_h - \sum_{u \in h,\ \text{no capacity}} \underline{Q}_u$, e $\underline{G}'_h$ do mesmo modo. Uma usina de célula única adota $\underline{Q}'_h$ como piso da sua célula, e uma usina com várias células recebe uma linha residual além das linhas das suas células:
 
 $$
-\sum_{b \in \mathcal{B}_h} \big( q_{h,b,k} + \sigma^{q-}_{h,b,k} \big) + \sigma^{Q-}_{h,k} \;\geq\; \underline{Q}_h,
+\sum_{b \in \mathcal{B}_h} \big( q_{h,b,k} + \sigma^{q-}_{h,b,k} \big) + \sigma^{Q-}_{h,k} \;\geq\; \underline{Q}'_h,
 \qquad
-\sum_{b \in \mathcal{B}_h} \big( \pi_{h,b,k} + \sigma^{g-}_{h,b,k} \big) + \sigma^{G-}_{h,k} \;\geq\; \underline{G}_h
+\sum_{b \in \mathcal{B}_h} \big( \pi_{h,b,k} + \sigma^{g-}_{h,b,k} \big) + \sigma^{G-}_{h,k} \;\geq\; \underline{G}'_h
 $$
 
-$\pi_{h,b,k}$ é a geração da célula: $g_{h,b,k}$ para uma célula com FPHA, $\rho_h \, q_{h,b,k}$ para uma célula de produtibilidade constante, e nada para uma usina com FPHA sem coluna de geração, isto é, em pré-enchimento ou na sua janela de enchimento. As folgas residuais são valoradas pelas penalidades da própria usina, $c^{tv-}_h$ sobre $\sigma^{Q-}_{h,k}$ e $c^{gv-}_h$ sobre $\sigma^{G-}_{h,k}$, com magnitude integral. Como cada linha residual também contém as folgas das células, as folgas mais baratas cobram $c^{tv-}_h \max\big(\underline{Q}_h - \sum_{b} q_{h,b,k},\ \sum_{b} (\underline{Q}_{h,b} - q_{h,b,k})^+\big)$ pela vazão turbinada e a mesma forma pela geração, de modo que uma insuficiência é cobrada uma única vez. Uma usina com linha residual em algum patamar do estágio tem a linha em todos os patamares do estágio; em um patamar em que suas células cobrem o mínimo da usina, a linha é livre e a folga residual é fixada em $[0, 0]$. Os mínimos aplicam-se em todas as fases do ciclo de vida.
+$\pi_{h,b,k}$ é a geração da célula: $g_{h,b,k}$ para uma célula com FPHA, $\rho_h \, q_{h,b,k}$ para uma célula de produtibilidade constante, e nada para uma usina com FPHA sem coluna de geração, isto é, em pré-enchimento, na sua janela de enchimento ou sem capacidade de turbinamento em todos os patamares do estágio. As folgas residuais são valoradas pelas penalidades da própria usina, $c^{tv-}_h$ sobre $\sigma^{Q-}_{h,k}$ e $c^{gv-}_h$ sobre $\sigma^{G-}_{h,k}$, com magnitude integral. Como cada linha residual também contém as folgas das células, as folgas mais baratas cobram $c^{tv-}_h \max\big(\underline{Q}'_h - \sum_{b} q_{h,b,k},\ \sum_{b} (\underline{Q}_{h,b} - q_{h,b,k})^+\big)$ pela vazão turbinada e a mesma forma pela geração, de modo que uma insuficiência é cobrada uma única vez. Uma usina com linha residual em algum patamar do estágio tem a linha em todos os patamares do estágio; em um patamar em que suas células cobrem o mínimo da usina, a linha é livre e a folga residual é fixada em $[0, 0]$. Onde a usina não pode produzir em um patamar (está em pré-enchimento ou na sua janela de enchimento, ou não tem capacidade de turbinamento no patamar), todo mínimo de vazão turbinada e de geração que ela tem ali é descartado: cada piso de célula, inclusive o piso da usina de uma célula única, é $0$, com sua folga fixada em $0$, e a linha residual é livre. A vazão defluente mínima não é descartada ([Fases do ciclo de vida](#fases-do-ciclo-de-vida)).
 
 Um mínimo da usina abaixo dos pisos das suas células não os afrouxa: os pisos das células continuam ativos. Uma usina com várias células também recebe, por patamar, uma linha rígida para a sua vazão turbinada máxima e uma para a sua geração máxima, sem folga:
 
@@ -401,7 +412,7 @@ $$
 \sum_{b \in \mathcal{B}_h} \pi_{h,b,k} \;\leq\; \bar{G}_h
 $$
 
-Cada uma é ativa em um patamar em que o máximo da usina fica abaixo da soma dos tetos das suas células por mais de $\epsilon$ dele, sendo os tetos das células $\bar{Q}_{h,b}$ para a vazão turbinada e $\rho_h \bar{Q}_{h,b}$ (produtibilidade constante) ou $\bar{G}_{h,b}$ (FPHA) para a geração; em qualquer outro patamar do estágio, a linha é livre. Uma usina de célula única não tem essa linha, pois o limite da sua célula já é limitado por $\bar{Q}_h$ e $\bar{G}_h$, nem a tem uma usina em pré-enchimento ou na sua janela de enchimento, cuja vazão turbinada é fixada em $0$.
+Cada uma é ativa em um patamar em que o máximo da usina fica abaixo da soma dos tetos das suas células por mais de $\epsilon$ dele, sendo os tetos das células $\bar{Q}_{h,b}$ para a vazão turbinada e $\rho_h \bar{Q}_{h,b}$ (produtibilidade constante) ou $\bar{G}_{h,b}$ (FPHA) para a geração; em qualquer outro patamar do estágio, a linha é livre. Uma célula sem capacidade de turbinamento no patamar tem teto $0$, de modo que a linha é livre onde nenhuma célula pode turbinar. Uma usina de célula única não tem essa linha, pois o limite da sua célula já é limitado por $\bar{Q}_h$ e $\bar{G}_h$, nem a tem uma usina em pré-enchimento ou na sua janela de enchimento, cuja vazão turbinada é fixada em $0$.
 
 ### Limites da vazão desviada (por usina $h$, patamar $k$)
 
@@ -429,9 +440,9 @@ Em cada estágio, uma usina hidrelétrica está em exatamente uma fase do ciclo 
 
 | Fase | Aplica-se a | Linha de armazenamento e piso | Vazão turbinada e geração | Vertimento | Desvio | Afluência, defluências de montante e retirada | Pisos operativos |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pré-enchimento | Uma usina sem configuração de enchimento: todo estágio fora da sua janela de operação, antes do seu estágio de entrada ou a partir do seu estágio de saída. Uma usina com fase de enchimento: todo estágio antes do início do seu enchimento | Identidade congelada $v_h - v^{in}_h = 0$, por patamar em um estágio cronológico, com lado direito $0$ (§4); piso $0$ e um teto nunca abaixo do armazenamento máximo da própria usina (§8); sem linha de evaporação | $q_{h,b,k}$ fixado em $[0, 0]$ em todas as células; sem linhas da FPHA e sem coluna de geração | $s_{h,k}$ fixado em $[0, 0]$, quaisquer que sejam seus limites | $u_{h,k}$ fixado em $[0, 0]$ | A afluência local com sua folga de não negatividade da afluência, as defluências das usinas de montante, as vazões desviadas para a usina e o volume em trânsito que chega à usina entram na linha da primeira usina a jusante que não esteja em pré-enchimento, e a meta de retirada passa para o lado direito dessa usina; se não houver tal usina, a água deixa o sistema | As linhas de vazão defluente mínima, vazão turbinada mínima e geração mínima estão presentes; com vazão turbinada, vertimento e geração em $0$, um mínimo positivo recai integralmente sobre a sua folga, à sua penalidade (§9) |
-| Fase de enchimento (Filling) | Uma usina com fase de enchimento: todo estágio desde o início do seu enchimento até o seu estágio de entrada, exclusive | Balanço hídrico da §4, com a linha de evaporação de uma usina com evaporação; piso $0$ e o piso de enchimento por estágio $v_h + \sigma^{fill}_h \geq V^{\text{target}}_t$ de [§8 Limites de Armazenamento](#8-limites-das-variaveis-e-restricoes-de-minimo) | $q_{h,b,k}$ fixado em $[0, 0]$ em todas as células; sem linhas da FPHA e sem coluna de geração | Dentro dos seus limites | $u_{h,k}$ fixado em $[0, 0]$ | Na linha da própria usina (§4) | As mesmas linhas estão presentes; uma vazão turbinada mínima ou geração mínima positiva recai integralmente sobre a sua folga, e o vertimento pode atender uma vazão defluente mínima positiva |
-| Em operação (Operating) | Uma usina sem configuração de enchimento: todo estágio dentro da sua janela de operação, portanto todos os estágios quando ela não declara nenhuma. Uma usina com fase de enchimento: todo estágio a partir do seu estágio de entrada; ela não tem estágio de saída | Balanço hídrico da §4, com a linha de evaporação de uma usina com evaporação; o piso rígido de volume morto $\underline{V}_h$ para uma usina sem configuração de enchimento e, para uma usina com fase de enchimento, piso $0$ com o piso flexível de volume morto $v_h + \sigma^{v-}_h \geq \underline{V}_h$ | Vazão turbinada dentro dos Limites de Vazão Turbinada acima; geração pelo modelo de produção da §6 | Dentro dos seus limites | Dentro dos Limites da Vazão Desviada acima para uma usina sem configuração de enchimento; fixado em $[0, 0]$ para uma usina com fase de enchimento | Na linha da própria usina (§4) | As mesmas linhas estão presentes; a vazão turbinada mínima é atendida pela vazão turbinada da célula, a geração mínima pela sua geração e a vazão defluente mínima pela vazão turbinada mais o vertimento, com a folga cobrindo qualquer insuficiência à sua penalidade (§9) |
+| Pré-enchimento | Uma usina sem configuração de enchimento: todo estágio fora da sua janela de operação, antes do seu estágio de entrada ou a partir do seu estágio de saída. Uma usina com fase de enchimento: todo estágio antes do início do seu enchimento | Identidade congelada $v_h - v^{in}_h = 0$, por patamar em um estágio cronológico, com lado direito $0$ (§4); piso $0$ e um teto nunca abaixo do armazenamento máximo da própria usina (§8); sem linha de evaporação | $q_{h,b,k}$ fixado em $[0, 0]$ em todas as células; sem linhas da FPHA e sem coluna de geração | $s_{h,k}$ fixado em $[0, 0]$, quaisquer que sejam seus limites | $u_{h,k}$ fixado em $[0, 0]$ | A afluência local com sua folga de não negatividade da afluência, as defluências das usinas de montante, as vazões desviadas para a usina e o volume em trânsito que chega à usina entram na linha da primeira usina a jusante que não esteja em pré-enchimento, e a meta de retirada passa para o lado direito dessa usina; se não houver tal usina, a água deixa o sistema | A linha de vazão defluente mínima está presente e, com vazão turbinada, vertimento e geração em $0$, uma vazão defluente mínima positiva recai integralmente sobre a sua folga, à sua penalidade (§9). A vazão turbinada mínima e a geração mínima são descartadas ([Mínimo e máximo da usina](#minimo-e-maximo-da-usina)) |
+| Fase de enchimento (Filling) | Uma usina com fase de enchimento: todo estágio desde o início do seu enchimento até o seu estágio de entrada, exclusive | Balanço hídrico da §4, com a linha de evaporação de uma usina com evaporação; piso $0$ e o piso de enchimento por estágio $v_h + \sigma^{fill}_h \geq V^{\text{target}}_t$ de [§8 Limites de Armazenamento](#8-limites-das-variaveis-e-restricoes-de-minimo) | $q_{h,b,k}$ fixado em $[0, 0]$ em todas as células; sem linhas da FPHA e sem coluna de geração | Dentro dos seus limites | $u_{h,k}$ fixado em $[0, 0]$ | Na linha da própria usina (§4) | O vertimento pode atender uma vazão defluente mínima positiva, e a folga da vazão defluente cobre qualquer insuficiência. A vazão turbinada mínima e a geração mínima são descartadas ([Mínimo e máximo da usina](#minimo-e-maximo-da-usina)) |
+| Em operação (Operating) | Uma usina sem configuração de enchimento: todo estágio dentro da sua janela de operação, portanto todos os estágios quando ela não declara nenhuma. Uma usina com fase de enchimento: todo estágio a partir do seu estágio de entrada; ela não tem estágio de saída | Balanço hídrico da §4, com a linha de evaporação de uma usina com evaporação; o piso rígido de volume morto $\underline{V}_h$ para uma usina sem configuração de enchimento e, para uma usina com fase de enchimento, piso $0$ com o piso flexível de volume morto $v_h + \sigma^{v-}_h \geq \underline{V}_h$ | Vazão turbinada dentro dos Limites de Vazão Turbinada acima; geração pelo modelo de produção da §6 | Dentro dos seus limites | Dentro dos Limites da Vazão Desviada acima para uma usina sem configuração de enchimento; fixado em $[0, 0]$ para uma usina com fase de enchimento | Na linha da própria usina (§4) | As mesmas linhas estão presentes; a vazão turbinada mínima é atendida pela vazão turbinada da célula, a geração mínima pela sua geração e a vazão defluente mínima pela vazão turbinada mais o vertimento, com a folga cobrindo qualquer insuficiência à sua penalidade (§9); em um patamar em que a usina não tem capacidade de turbinamento, seus mínimos de vazão turbinada e de geração são descartados ([Mínimo e máximo da usina](#minimo-e-maximo-da-usina)) |
 
 Fora da sua janela de operação, a geração de uma termelétrica, o fluxo de uma linha em cada sentido, a geração de uma fonte não despachável, a vazão bombeada de uma usina elevatória e a potência de um contrato são fixados em $[0, 0]$ em todos os patamares; o compromisso de uma termelétrica com antecipação de despacho é, além disso, condicionado ao seu estágio de entrega, e só é liberado quando a usina está em operação nesse estágio de entrega, qualquer que seja sua situação no estágio de decisão ([Aumento do espaço de estados §5](/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao)).
 
@@ -442,8 +453,11 @@ As penalidades por violação de restrições por patamar na função objetivo (
 $$
 \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \Big[
   c^{tv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{q-}_{h,b,k} + \sigma^{Q-}_{h,k} \Big) + c^{ov-}_h \sigma^{o-}_{h,k} + c^{ov+}_h \sigma^{o+}_{h,k} + c^{gv-}_h \Big( \sum_{b \in \mathcal{B}_h} \sigma^{g-}_{h,b,k} + \sigma^{G-}_{h,k} \Big)
+  + c^{fpha}_h \sum_{b \in \mathcal{B}_h} \sigma^{fpha}_{h,b,k}
 \Big]
 $$
+
+A folga do plano da FPHA $\sigma^{fpha}_{h,b,k}$ é por célula, como a folga de geração mínima, e é valorada pelo $c^{fpha}_h$ da usina com magnitude integral em cada célula; ela existe onde existem as linhas de plano da FPHA da §6 e não existe para nenhuma outra UHE. O [Sistema de penalidades](/math/penalty-system) a lista com as folgas de recurso, porque ela mantém viável o PL do estágio quando um piso de geração ou uma restrição força a geração acima dos planos.
 
 As folgas de mínimo de turbinamento e de geração são **por célula** — cada célula de uma usina dividida tem sua própria coluna de folga e sua própria linha, valoradas pela penalidade da usina com magnitude integral, nunca divididas entre as células. As folgas residuais $\sigma^{Q-}_{h,k}$ e $\sigma^{G-}_{h,k}$ existem apenas para uma usina com linha residual ([§8 Mínimo e máximo da usina](#minimo-e-maximo-da-usina)) e são $0$ para todas as demais usinas. As folgas de vazão defluente permanecem por usina: a vazão defluente não tem coluna por célula à qual atribuir um piso. As folgas de evaporação também são por usina, no nível do estágio em um estágio paralelo e por patamar em um estágio cronológico ([Linha de evaporação](#linha-de-evaporacao)).
 
@@ -455,13 +469,13 @@ $$
 + \sum_{h \in \mathcal{H}} H_t \cdot \bigl(c^{ev+}_h \sigma^{e+}_h + c^{ev-}_h \sigma^{e-}_h\bigr) \;\; \text{(parallel stage)}, \qquad + \sum_{k \in \mathcal{K}} \tau_k \sum_{h \in \mathcal{H}} \bigl(c^{ev+}_h \sigma^{e+}_{h,k} + c^{ev-}_h \sigma^{e-}_{h,k}\bigr) \;\; \text{(chronological stage)}
 $$
 
-em que $H_t = \sum_k \tau_k$ é a duração total do estágio em horas, e as somas de evaporação percorrem as usinas que modelam evaporação. As folgas de violação da retirada ($\sigma^{w-}_h$, $\sigma^{w+}_h$) são no nível do estágio (não por patamar) e bidirecionais: $\sigma^{w-}_h$ penaliza a entrega a menor (a retirada realizada $R_h = r_h - \sigma^{w-}_h + \sigma^{w+}_h$ fica aquém da meta) e $\sigma^{w+}_h$ penaliza a entrega a maior. A **meta de retirada $r_h$ tem sinal** (§4), e os limites das folgas garantem que a retirada realizada não possa inverter o sinal em relação à meta:
+em que $H_t = \sum_k \tau_k$ é a duração total do estágio em horas, e as somas de evaporação percorrem as usinas que modelam evaporação. As folgas de violação da retirada ($\sigma^{w-}_h$, $\sigma^{w+}_h$) são no nível do estágio (não por patamar) e bidirecionais: $\sigma^{w-}_h$ penaliza a entrega a menor (a retirada realizada $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$ fica aquém da retirada efetiva) e $\sigma^{w+}_h$ penaliza a entrega a maior. A **retirada efetiva $T^{eff}_h$ tem sinal** (§4), e os limites das folgas garantem que a retirada realizada não possa inverter o sinal em relação a ela:
 
-- $r_h > 0$ (retirada programada): $\sigma^{w-}_h \leq r_h$ (folga de entrega a menor limitada à magnitude da meta; garante $R_h \geq 0$), $\sigma^{w+}_h$ ilimitada.
-- $r_h < 0$ (retorno/acréscimo programado entre bacias): $\sigma^{w+}_h \leq |r_h|$ (folga de entrega a maior limitada a $|r_h|$; garante $R_h \leq 0$), $\sigma^{w-}_h$ ilimitada.
-- $r_h = 0$: ambas as folgas são fixadas em zero.
+- $T^{eff}_h > 0$ (retirada programada): $\sigma^{w-}_h \leq T^{eff}_h$ (folga de entrega a menor limitada à retirada efetiva; garante $R_h \geq 0$), $\sigma^{w+}_h$ ilimitada.
+- $T^{eff}_h < 0$ (retorno/acréscimo programado entre bacias): $\sigma^{w+}_h \leq |T^{eff}_h|$ (folga de entrega a maior limitada a $|T^{eff}_h|$; garante $R_h \leq 0$), $\sigma^{w-}_h = 0$.
+- $T^{eff}_h = 0$: ambas as folgas são fixadas em zero.
 
-Esse teto evita um caso degenerado: uma folga de entrega a menor ilimitada permitiria que uma usina a fio d'água "desfizesse a retirada" além da sua meta e injetasse água fictícia no reservatório.
+Esse teto evita um caso degenerado: uma folga de entrega a menor ilimitada permitiria que uma usina a fio d'água "desfizesse a retirada" além da sua retirada efetiva e injetasse água fictícia no reservatório.
 
 ## 10. Restrições genéricas
 
@@ -485,6 +499,14 @@ $$
 
 de modo que não acrescenta variável alguma ao PL; um extremo ausente permanece ausente, e um $\gamma_{g,e}$ negativo reduz ambos os extremos.
 
+Um termo também pode se referir a um **volume do estágio** em hm³, uma vazão somada sobre os patamares do estágio com as conversões de patamar $\zeta_k$ da §4: o volume defluído da hidrelétrica $h$, seu volume desviado ou o volume bombeado da usina elevatória $y$,
+
+$$
+\sum_{k \in \mathcal{K}} \zeta_k \, (q_{h,k} + s_{h,k}), \qquad \sum_{k \in \mathcal{K}} \zeta_k \, u_{h,k}, \qquad \sum_{k \in \mathcal{K}} \zeta_k \, p_{y,k}.
+$$
+
+Uma restrição com um termo de volume do estágio o combina apenas com outros volumes do estágio e com o armazenamento ou o volume útil no início ou no fim do estágio, e nenhum coeficiente ou extremo dela varia por patamar; por isso, ela é uma única linha no nível do estágio (veja a materialização das linhas abaixo).
+
 Qualquer um dos extremos, $\underline{b}_g$ ou $\bar{b}_g$, pode estar ausente — nunca ambos —, sendo um lado ausente lido como o infinito correspondente. Esse único intervalo abrange todas as formas que uma restrição pode assumir: apenas $\underline{b}_g$ presente é um piso, apenas $\bar{b}_g$ presente é um teto, $\underline{b}_g = \bar{b}_g$ é uma igualdade, e ambos presentes delimitam uma faixa bilateral. A forma de uma restrição — piso, teto, igualdade ou faixa — decorre de quais extremos estão presentes e, quando ambos estão, de se coincidem.
 
 ### Coeficientes e extremos
@@ -503,16 +525,16 @@ Uma restrição pode, opcionalmente, ter uma folga, penalizada por unidade de vi
 
 A violação informada é o **valor líquido com sinal** $\sigma^{gc+}_g - \sigma^{gc-}_g$: positivo quando a linha fica abaixo do seu piso, negativo quando fica acima do seu teto, acompanhando o sinal do desvio subjacente em vez de ser lido como magnitude sem sinal. A função objetivo cobra ambas as colunas, $\sigma^{gc+}_g + \sigma^{gc-}_g$, o que coincide com a magnitude do valor líquido sempre que apenas um sentido está ativo — o caso em qualquer ótimo, pois pagar pelos dois sentidos na mesma linha ao mesmo tempo é estritamente dominado por não pagar o excesso.
 
-**Materialização das linhas**: um limite de restrição declarado para todos os patamares do estágio sobre uma expressão **independente do patamar** — aquela em que todos os termos se referem a uma variável de estoque (armazenamento de entrada $v^{in}_h$, armazenamento de saída $v_h$, evaporação (o $e_h$ no nível do estágio em um estágio paralelo, o $e_{h,k}$ de um patamar especificado em um estágio cronológico) ou um compromisso de termelétrica com antecipação de despacho) — é materializado como uma **única linha no nível do estágio**, pois as linhas por patamar seriam idênticas, **desde que seus coeficientes e extremos também sejam independentes do patamar**: um coeficiente ou extremo obtido do tipo de parâmetro por (estágio, patamar) acima, ou de uma fórmula que o leia, varia dentro do estágio, o que força o conjunto de linhas por patamar mesmo quando a expressão, por si só, se qualificaria para a consolidação. Um termo cujo coeficiente se reduz a zero é descartado antes desse teste, de modo que não impede nem provoca a consolidação. A folga de uma linha no nível do estágio é valorada sobre o estágio, $c_g H_t \sigma$ na base de taxa e $c_g \sigma$ na base de quantidade. Um limite declarado para todos os patamares sobre uma expressão por patamar, ou um limite declarado para um único patamar, continua produzindo uma linha por patamar pertinente. Trata-se de uma otimização do número de linhas do PL, neutra em custo e em paridade.
+**Materialização das linhas**: um limite de restrição declarado para todos os patamares do estágio sobre uma expressão **independente do patamar** — aquela em que todos os termos se referem a uma variável de estoque (armazenamento de entrada $v^{in}_h$, armazenamento de saída $v_h$, evaporação (o $e_h$ no nível do estágio em um estágio paralelo, o $e_{h,k}$ de um patamar especificado em um estágio cronológico) ou um compromisso de termelétrica com antecipação de despacho) ou um volume do estágio, que lê ele mesmo as colunas de todos os patamares — é materializado como uma **única linha no nível do estágio**, pois as linhas por patamar seriam idênticas, **desde que seus coeficientes e extremos também sejam independentes do patamar**: um coeficiente ou extremo obtido do tipo de parâmetro por (estágio, patamar) acima, ou de uma fórmula que o leia, varia dentro do estágio, o que força o conjunto de linhas por patamar mesmo quando a expressão, por si só, se qualificaria para a consolidação. Um termo cujo coeficiente se reduz a zero é descartado antes desse teste, de modo que não impede nem provoca a consolidação. A folga de uma linha no nível do estágio é valorada sobre o estágio, $c_g H_t \sigma$ na base de taxa e $c_g \sigma$ na base de quantidade. Um limite declarado para todos os patamares sobre uma expressão por patamar, ou um limite declarado para um único patamar, continua produzindo uma linha por patamar pertinente. Trata-se de uma otimização do número de linhas do PL, neutra em custo e em paridade.
 
 Veja [Restrições genéricas](/reference/generic-constraints) para a gramática de autoria, a grade de ativação e as tabelas de campos por arquivo que esta formulação implementa.
 
 ### Afluência das usinas hidrelétricas
 
-Um termo de afluência hidrelétrica lê a afluência $I_{h,k}$ da usina $h$ no patamar $k$, uma taxa em m³/s construída a partir de colunas do PL:
+Um termo de afluência hidrelétrica lê a afluência $I_{h,k}$ da usina $h$ no patamar $k$, uma taxa em m³/s construída a partir de colunas do PL e das afluências realizadas da resolução:
 
 $$
-I_{h,k} = z_h + \mathbb{1}^{tr} \sigma^{inf}_h + \sum_{h':\,\text{div}=h} u_{h',k} + \sum_{h' \in \mathcal{U}_h} o^{arr}_{h' \to h,k} + \frac{\phi_{h,k}}{\zeta_k} \, b^{\mathrm{in}}_{h,1} + \sum_{h' \in \mathcal{U}^{pre}_h(t)} \Big( z_{h'} + \mathbb{1}^{tr} \sigma^{inf}_{h'} + \sum_{h'':\,\text{div}=h'} u_{h'',k} + \sum_{h'' \in \mathcal{U}_{h'}} o_{h'',k} + \frac{\phi_{h',k}}{\zeta_k} \, b^{\mathrm{in}}_{h',1} \Big)
+I_{h,k} = \hat{z}_h + \mathbb{1}^{tr} \sigma^{inf}_h + \sum_{h':\,\text{div}=h} u_{h',k} + \sum_{h' \in \mathcal{U}_h} o^{arr}_{h' \to h,k} + \frac{\phi_{h,k}}{\zeta_k} \, b^{\mathrm{in}}_{h,1} + \sum_{h' \in \mathcal{U}^{pre}_h(t)} \Big( \hat{z}_{h'} + \mathbb{1}^{tr} \sigma^{inf}_{h'} + \sum_{h'':\,\text{div}=h'} u_{h'',k} + \sum_{h'' \in \mathcal{U}_{h'}} o_{h'',k} + \frac{\phi_{h',k}}{\zeta_k} \, b^{\mathrm{in}}_{h',1} \Big)
 $$
 
 Cada defluência de montante é creditada ao patamar $k$ conforme o tempo de viagem do seu arco:
@@ -521,6 +543,7 @@ $$
 o^{arr}_{h' \to h,k} = \begin{cases} o_{h',k} & \text{arc without a travel time} \\ \nu_{h',t,0} \, o_{h',k} & \text{travel-time arc, parallel stage} \\ \sum_{k' \le k} \nu^{k' \to k}_{h',t} \, \dfrac{\zeta_{k'}}{\zeta_k} \, o_{h',k'} & \text{travel-time arc, chronological stage} \end{cases}
 $$
 
+- $\hat{z}_h$, $\hat{z}_{h'}$ = afluências realizadas da resolução (§5), constantes: um termo com coeficiente $c$ sobre $I_{h,k}$ subtrai $c\,\hat{z}_h$ de cada limite finito da sua linha, e $c\,\hat{z}_{h'}$ para cada $h' \in \mathcal{U}^{pre}_h(t)$
 - $\sigma^{inf}_h$ = a folga de não negatividade da afluência de $h$ (§4), que carrega a correção de truncamento da afluência local nos métodos de truncamento ([Métodos de tratamento de afluências negativas §2](/math/inflow-nonnegativity#2-a-folga-de-nao-negatividade-da-afluencia)); $\mathbb{1}^{tr} = 1$ em `truncation` e `truncation_with_penalty` e $0$ em `penalty`, e em `none` a coluna não existe
 - $o_{h',k} = q_{h',k} + s_{h',k}$ = vazão defluente turbinada mais vertida de $h'$ (§7), creditada com a parcela no mesmo estágio $\nu_{h',t,0}$ ou com as parcelas dentro do estágio $\nu^{k' \to k}_{h',t}$ da §4
 - $\phi_{h,k}$ = densidade de chegada de [Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua) em um estágio cronológico e $\tau_k / H_t$ em um estágio paralelo: a parcela do volume em trânsito que chega à maturação, $b^{\mathrm{in}}_{h,1}$, que chega no patamar $k$, convertida em taxa pela divisão por $\zeta_k$; o termo de maturação está ausente quando nenhum arco com tempo de viagem chega a $h$
@@ -539,16 +562,25 @@ $I_{h,k}$ lê colunas por patamar, de modo que um limite sem patamar se expande 
 Para cada corte $i$ no PL do estágio, isto é, cada corte ativo ou, no método dinâmico, cada corte residente na resolução ([Gerenciamento de cortes §8](/math/cut-management#8-o-metodo-dinamico)):
 
 $$
-\theta \geq \beta_{0,i} + \sum_{h \in \mathcal{H}} \beta^v_{i,h} \cdot v_h + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{i,h,1} \cdot z_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \cdot a_{h,\ell-1} \Big)
+\theta - \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h - \cdots \ge R_i
+$$
+
+$$
+R_i = \beta_{0,i} + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{i,h,1} \, \hat{z}_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell-1} \Big)
 $$
 
 em que:
 
-- $\beta_{0,i}$ = termo independente (intercepto) do corte (lado direito)
+- $\beta_{0,i}$ = termo independente (intercepto) do corte
 - $\beta^v_{i,h}$ = coeficiente da variável de estado de armazenamento, presente quando o corte mantém as dimensões de armazenamento
-- $\beta^{lag}_{i,h,\ell}$ = coeficiente da defasagem de afluência $\ell$ do estado de entrada do estágio seguinte, multiplicado pela afluência realizada $z_h$ para $\ell = 1$ e pela defasagem de entrada $a_{h,\ell-1}$ para $\ell \ge 2$; presente quando o corte mantém as dimensões de defasagem de afluência
+- $\beta^{lag}_{i,h,\ell}$ = coeficiente da defasagem de afluência $\ell$ do estado de entrada do estágio seguinte, que é a afluência realizada $\hat{z}_h$ para $\ell = 1$ e a defasagem de entrada $\hat{a}_{h,\ell-1}$ para $\ell \ge 2$, ambas números da resolução, de modo que cada termo de defasagem passa para o lado direito $R_i$; presente quando o corte mantém as dimensões de defasagem de afluência
+- $\cdots$ = os termos sobre as colunas de saída das posições do anel de despacho antecipado e das parcelas de água em trânsito (abaixo)
 
-Quando há termelétricas com antecipação de despacho, o corte possui um coeficiente por posição do anel de despacho antecipado ([Aumento do espaço de estados §5](/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao)), lido pelo mesmo mecanismo de custo reduzido; quando há arcos com tempo de viagem, ele possui, da mesma forma, um coeficiente por dimensão de parcela de água em trânsito ([Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua)). Ao contrário dos coeficientes de armazenamento e de defasagem, os coeficientes das posições do anel de despacho antecipado e das parcelas de água em trânsito sempre fazem parte da projeção do corte ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)).
+A expressão acima é a forma em um estágio que completa um período de defasagem que começa nele. Onde um período de defasagem abrange vários estágios, os termos de defasagem avaliam as defasagens de saída de [Estudos com múltiplas resoluções §2.1](/math/multi-resolution-studies#21-as-defasagens-que-os-cortes-leem): em um estágio que deixa seu período aberto, os termos são $\sum_{\ell=1}^{P^{\max}} \beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell}$, sem reindexação, e, em um estágio que completa um período iniciado antes, a defasagem 1 é a média do período ponderada pela duração, no lugar de $\hat{z}_h$.
+
+A linha do corte não tem elemento sobre as defasagens de afluência, que não são colunas do PL (§5). $R_i$ se divide em uma parte fixada pelo estado visitado e uma parte fixada pela abertura, e os coeficientes de defasagem de um novo corte vêm dos duais da resolução pela regra da cadeia ([Folding do PAR(p) §3](/math/par-folding#3-o-lado-direito-dos-cortes), [§4](/math/par-folding#4-os-coeficientes-das-defasagens-pela-regra-da-cadeia)).
+
+Quando há termelétricas com antecipação de despacho, o corte possui um coeficiente por posição do anel de despacho antecipado ([Aumento do espaço de estados §5](/math/state-augmentation#5-compromissos-de-despacho-das-termeletricas-com-antecipacao)), lido, como os coeficientes de armazenamento, dos custos reduzidos das colunas de entrada fixadas; quando há arcos com tempo de viagem, ele possui, da mesma forma, um coeficiente por dimensão de parcela de água em trânsito ([Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua)). Ao contrário dos coeficientes de armazenamento e de defasagem, os coeficientes das posições do anel de despacho antecipado e das parcelas de água em trânsito sempre fazem parte da projeção do corte ([Aumento do espaço de estados §7](/math/state-augmentation#7-projecao-de-estado-do-corte)).
 
 A variável de custo futuro $\theta$ tem limite inferior $0$ em todos os estágios, o que pressupõe $V_{t+1} \ge 0$. As funções objetivo dos estágios podem ser negativas: contratos de exportação geram receita (§2), e o termo de corte de geração da §2 é uma recompensa: nunca é positivo, e é constante para uma fonte com geração compulsória (must-run). Onde $V_{t+1}$ é negativa, o limite fica acima dela, de modo que a aproximação por cortes não precisa ficar abaixo de $V_{t+1}$ e o limite inferior não é garantido. No último estágio do horizonte finito, sem fronteira terminal carregada, $\theta$ é $0$ ($V_{T+1} = 0$); com uma [fronteira terminal](/math/post-study-boundary#1-a-fronteira-direita) carregada, $\theta$ mantém o piso e os cortes importados o limitam inferiormente, de modo que a função terminal é o maior entre $0$ e os cortes importados.
 
@@ -565,6 +597,7 @@ Para a dedução dos coeficientes dos cortes, a agregação e as estratégias de
 - [Aumento do espaço de estados](/math/state-augmentation) — o vetor de estado, sua fixação por limites de coluna, o estado de saída e a linha do corte, e as famílias de estado de defasagens de afluência, do anel de despacho antecipado e de água em trânsito
 - [Estrutura e escalonamento do PL](/math/lp-layout-and-scaling) — o leiaute de colunas e linhas deste PL, seu escalonamento de custos e pré-escalonamento, e o desescalonamento dos seus duais e custos reduzidos
 - [Modelo de afluências PAR(p)](/math/par-inflow-model) — especificação completa do modelo AR de afluências
+- [Folding do PAR(p)](/math/par-folding) — a afluência realizada fora do PL, o lado direito dos cortes e a regra da cadeia dos coeficientes de defasagem
 - [Modelos de função de produção hidrelétrica](/math/hydro-production-models) — detalhes dos modelos de produtibilidade constante e FPHA
 - [Gerenciamento de cortes](/math/cut-management) — extração dos duais, coeficientes dos cortes, agregação e seleção
 - [Formulações específicas por equipamento](/math/equipment-formulations) — deduções das restrições por equipamento, detalhes do bombeamento

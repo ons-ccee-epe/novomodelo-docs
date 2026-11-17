@@ -28,7 +28,7 @@ função de produção.
 | ------------------- | ------ | ----------- |
 | `model`             | string | Variante da função de produção. Veja a tabela de modelos abaixo. |
 | `min_turbined_m3s`  | number | Vazão turbinada mínima [m³/s]. Valores não nulos modelam uma operação mínima estável da turbina. |
-| `max_turbined_m3s`  | number | Vazão turbinada máxima (capacidade instalada de turbinamento) [m³/s]. |
+| `max_turbined_m3s`  | number | Vazão turbinada máxima declarada [m³/s]; com `max_generation_mw`, decide se a usina tem [capacidade de turbinamento](/math/hydro-production-models#sem-capacidade-de-turbinamento). |
 | `min_generation_mw` | number | Geração elétrica mínima [MW]. |
 | `max_generation_mw` | number | Geração elétrica máxima (capacidade instalada) [MW]. |
 
@@ -192,11 +192,11 @@ Todos os campos, exceto `source`, são opcionais:
 | `turbine_discretization_points`  | 5       | Número de pontos da grade de vazão turbinada. Deve ser `>= 2`. |
 | `spillage_discretization_points` | 5       | Validado (deve ser `>= 2`), mas **não** acrescenta um eixo de vertimento à grade de ajuste — a nuvem e a regressão $k_{FPHA}$ fixam o vertimento em `0`, e a secante de vazão lateral percorre sua própria faixa de amostras de forma independente (§2.7). O campo é mantido para a ida e volta das entradas. |
 | `max_planes_per_hydro`           | 10      | Aceito e validado (`>= 1`), mas não reduz o conjunto de planos — o ajustador da envoltória emite exatamente as facetas da envoltória superior. |
-| `fitting_window`                 | null    | Faixa de volume opcional para o ajuste; se ausente, usa toda a faixa de nível de montante da curva cota–volume da usina em `system/hydro_geometry.parquet`. |
+| `fitting_window`                 | null    | Faixa de volume opcional para o ajuste; se ausente, usa a faixa de armazenamento da usina, de `min_storage_hm3` a `max_storage_hm3`, e cada limite definido é restrito a ela. |
 | `turbined_fit_max_m3s`           | null    | Extremo superior (m³/s) do eixo de vazão turbinada da grade de ajuste, $q^{fit}_{max}$ em §2.6.1; o eixo começa em `0`. Finito e `> 0`; caso contrário, rejeitado na carga. Se ausente, usa o `max_turbined_m3s` da usina. Pode ficar abaixo ou acima de `max_turbined_m3s`; os limites de vazão turbinada do PL continuam sendo os da própria usina. |
 | `spillage_fit_max_m3s`           | null    | Extremo superior (m³/s) da amostra de vazão lateral da secante, $\bar{S}^{fit}$ em §2.7. Finito e `> 0`; caso contrário, rejeitado na carga. Se ausente, usa o dobro da média dos valores da usina em `scenarios/inflow_history.parquet`, ou o dobro de seu `max_turbined_m3s` quando essa média não é positiva. |
 
-`fitting_window` restringe a porção da faixa de operação que constrói a
+`fitting_window` restringe a parte da faixa de armazenamento da usina que constrói a
 grade — útil quando a usina raramente opera perto de um dos extremos:
 
 ```json
@@ -320,7 +320,9 @@ estágio de manutenção programada, assim como
 | Regra                                  | Classe de erro         | Descrição |
 | -------------------------------------- | ---------------------- | ----------- |
 | Cobertura de geometria da FPHA         | Erro dimensional       | Quando `system/hydro_geometry.parquet` contém alguma linha, toda usina `fpha` deve ter pelo menos 1 linha própria (uma única linha é válida para usinas a fio d'água); sem nenhuma linha no arquivo, esta regra não é aplicada. |
-| Cobertura de hiperplanos da FPHA       | Erro dimensional       | Quando `system/fpha_hyperplanes.parquet` contém alguma linha, toda usina `fpha` com capacidade de turbinamento deve ter linhas próprias, qualquer que seja seu `source`; sem nenhuma linha no arquivo, esta regra não é aplicada. |
+| Faixa de armazenamento da geometria da FPHA | Erro semântico   | Em uma usina com uma entrada `source: "computed"`, os volumes de `system/hydro_geometry.parquet` devem cobrir de `min_storage_hm3` a `max_storage_hm3`, a faixa sobre a qual seus planos são ajustados; veja [Geometria da FPHA calculada que não cobre a faixa de armazenamento](/reference/error-codes/#geometria-da-fpha-calculada-que-nao-cobre-a-faixa-de-armazenamento). |
+| Cobertura de hiperplanos da FPHA       | Erro dimensional       | Quando `system/fpha_hyperplanes.parquet` contém alguma linha, toda usina `fpha` com [capacidade de turbinamento](/math/hydro-production-models#sem-capacidade-de-turbinamento) deve ter linhas próprias, qualquer que seja seu `source`; sem nenhuma linha no arquivo, esta regra não é aplicada. |
+| Plano da FPHA abaixo de zero com turbinamento nulo | Aviso | Em uma usina com FPHA pré-calculada e [capacidade de turbinamento](/math/hydro-production-models#sem-capacidade-de-turbinamento), um plano usado por um estágio que fica abaixo de 0 MW com vazão turbinada nula, no armazenamento mínimo da janela de ajuste e no extremo superior da faixa de ajuste do vertimento, é aceito com um aviso; veja [`ModelQuality`](/reference/error-codes/#modelquality). |
 | Faixas de ajuste da FPHA               | Erro de esquema        | `turbined_fit_max_m3s` e `spillage_fit_max_m3s`, quando definidos, devem ser finitos e `> 0`. |
 | Cobertura de estágios da FPHA (calculada) | Erro de preparação  | Em uma usina com alguma entrada `source: "computed"`, todo estágio cuja entrada seleciona `"fpha"` deve resolver para uma entrada com `fpha_config`; um estágio não coberto ou um `default_model` igual a `"fpha"` é rejeitado na preparação do estudo. |
 | Sinais dos coeficientes da FPHA        | Erro semântico         | `gamma_v` deve ser não negativo (`>= 0`; usinas a fio d'água têm `gamma_v = 0`); `gamma_s` deve ser não positivo. |

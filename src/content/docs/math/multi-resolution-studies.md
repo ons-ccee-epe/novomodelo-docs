@@ -38,7 +38,11 @@ season follows from its start date, and a stage shorter than its season period
 may name the season it subdivides.
 
 Fine stages that subdivide one season — for example weekly stages that name
-their month's season — share that season's parameters. The season map thus
+their month's season — share that season's parameters. Stages of different lengths may
+share a season as long as each spans a whole period of the season or a slice
+of one of its occurrences; on a map that layers two resolutions, a slice of a
+coarse season may not have the length of a finer season, so a monthly stage
+names a monthly season. The season map thus
 fixes the parameters of every stage; §2 and §3 describe how the lags those
 parameters act on are formed when stages differ in length.
 
@@ -71,7 +75,7 @@ back by one, so the lag $\ell$ that a stage reads is the value of the $\ell$-th
 most recent period completed before it. At every earlier stage of the period
 the lag state is unchanged, so the stages inside one period see the same lags.
 The partial accumulation, the two running sums of the mean, travels with each
-trajectory and is not a coordinate of the cut state.
+trajectory and is not a coordinate of the cut state (§2.1).
 
 In a uniform single-resolution study, where every stage spans exactly one
 season period, every stage is one period with share 1 and the lag is the
@@ -147,6 +151,53 @@ coarse: "Monthly to quarterly" {
 weekly -> coarse: "same share and\nspillover rule"
 ```
 
+### 2.1 The Lags the Cuts Read
+
+A cut of stage $t$ bounds the cost-to-go of stage $t+1$, so its inflow-lag
+terms evaluate the outgoing lags of stage $t$, the lags stage $t+1$ reads
+([State Augmentation §3](/en/math/state-augmentation#3-outgoing-state-and-the-cut-row)).
+Let $S_{h,t}$ and $W_{h,t}$ be the duration-weighted inflow sum and the weight
+that the lag period $\mathcal{W}$ of stage $t$ holds for hydro $h$ on entering
+stage $t$, summed over the stages before $t$ that overlap $\mathcal{W}$, the
+part of $\mathcal{W}$ that precedes the study included:
+
+$$
+S_{h,t} = \sum_{t' < t} w_{t',\mathcal{W}}\, a_{h,t'}, \qquad W_{h,t} = \sum_{t' < t} w_{t',\mathcal{W}}
+$$
+
+With $\hat{z}_h$ the realized inflow of stage $t$ and $\hat{a}_{h,\ell}$ its
+incoming lags, the outgoing lags depend on where stage $t$ falls in its lag
+period:
+
+| Stage $t$                             | Outgoing lag 1 | Outgoing lag $\ell \ge 2$ |
+| ------------------------------------- | -------------- | ------------------------- |
+| completes a period that begins at it  | $\hat{z}_h$    | $\hat{a}_{h,\ell-1}$      |
+| leaves its period open                | $\hat{a}_{h,1}$ | $\hat{a}_{h,\ell}$       |
+| completes a period that began earlier | $\dfrac{S_{h,t} + w_{t,\mathcal{W}}\, \hat{z}_h}{W_{h,t} + w_{t,\mathcal{W}}}$ | $\hat{a}_{h,\ell-1}$ |
+
+The first row is the third with $S_{h,t} = W_{h,t} = 0$, and it covers every
+stage of a uniform single-resolution study apart from the 52nd and 53rd weeks of
+a 53-week year (§2). Each outgoing lag is affine in $\hat{z}_h$ and the incoming
+lags, so the cut right-hand side and the chain rule of
+[PAR(p) Folding](/en/math/par-folding) take each form as it is: on a stage that
+leaves its period open the cuts have no term in $\hat{z}_h$, and on a stage that
+completes a period begun earlier their lag-1 term reads $\hat{z}_h$ with the
+weight $w_{t,\mathcal{W}} / (W_{h,t} + w_{t,\mathcal{W}})$.
+
+At the stage that rebuilds the lag state at a resolution change (§3), the
+outgoing lags are the rebuilt coarse lags, but the cuts read the lags of the
+first row, as at a single-resolution stage: there the cuts are evaluated at
+those lags in place of the rebuilt ones.
+
+**Limit.** The partial sum $S_{h,t}$ is not a coordinate of the state: the
+state carries completed periods only. A cut generated along one trajectory, at
+that trajectory's partial sum, is read along others at theirs, so the cuts are
+exact only where the partial sum of every open period is the same on every path,
+as when the only period split over stages begins before the study and completes
+at its first stage. Elsewhere the cuts are approximate, and the lower bound is
+not guaranteed to stay below the upper bound
+([Cut Management — Tier 1](/en/math/cut-management#tier-1-valid-lower-bound)).
+
 ## 3. Resolution Change
 
 A coarse season's AR coefficients act on lags of coarse periods, so the lag
@@ -157,7 +208,8 @@ also accumulate into the coarse periods, as many of them as the coarse model's
 order reaches back, with the shares and spillover of §2. At the first coarse
 stage the lag state is rebuilt from those completed coarse periods, newest
 first: the most recent becomes lag 1, the one before it lag 2, and so on. From
-there the accumulation runs at the coarse resolution.
+there the accumulation runs at the coarse resolution. The cuts of the stage
+that rebuilds the lags read them as at a single-resolution stage (§2.1).
 
 ## 4. Noise Groups
 

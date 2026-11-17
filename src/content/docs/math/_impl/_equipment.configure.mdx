@@ -90,14 +90,13 @@ hard generation bounds from methodology §1.1 in every stage LP.
 | `min_mw` | number | Minimum electrical generation, in MW. A non-zero value is a must-run commitment: the solver must dispatch at least this much whenever the unit is in service (subject to the continuous-relaxation caveat in methodology §1.1). |
 | `max_mw` | number | Maximum electrical generation (installed capacity), in MW. |
 
-Stage-varying bounds are supplied via `constraints/thermal_bounds.parquet`,
-which accepts sparse `(thermal_id, stage_id)` rows carrying `min_generation_mw`
-and/or `max_generation_mw`, optionally narrowed to one block via an optional
-`block_id` column; absent rows fall back to the base entity values.
-`cost_per_mwh` has no per-block variant — a row combining a non-null
-`cost_per_mwh` with a non-null `block_id` is rejected at validation, and a
-`block_id` row on a thermal declaring `anticipated_config` is rejected
-outright, since the delivered commitment is bounded at a single stage.
+Stage-varying bounds and cost are supplied via `constraints/thermal_bounds.parquet`,
+which accepts sparse `(thermal_id, stage_id)` rows carrying any combination of
+`min_generation_mw`, `max_generation_mw`, and `cost_per_mwh`, optionally narrowed
+to one block via an optional `block_id` column. A value a block row leaves null
+falls back to the stage row, and a value no row sets falls back to the base
+entity value. A `block_id` row on a thermal declaring `anticipated_config` is
+rejected outright, since the delivered commitment is bounded at a single stage.
 
 #### Anticipated Dispatch Configuration (`anticipated_config`)
 
@@ -265,7 +264,7 @@ in `system/non_controllable_sources.json`:
 | `operational_start_date` | string (ISO-8601 date) | Yes | Calendar date (`YYYY-MM-DD`) the source enters the registry's operational history — see [Shared Operational Start Date](#shared-operational-start-date) above. |
 | `max_generation_mw`  | number  | Yes     | Installed capacity, in MW. It scales the stochastic availability described in methodology §6 and does not cap the available generation. |
 | `allow_curtailment`  | boolean | No      | Defaults to `true` (curtailable). Set `false` for must-run sources that pin generation to the realized availability every scenario — see [System Element Modeling Overview §6](/en/math/system-elements#curtailable-vs-must-run) for when this is required (e.g. already-netted aggregate NCS totals). |
-| `curtailment_cost`   | number or null | No | Entity-level override of `non_controllable_source.curtailment_cost` in `penalties.json`. |
+| `curtailment_cost`   | number or null | No | Entity-level override of `non_controllable_source.curtailment_cost` in `penalties.json`; finite and `>= 0`. |
 
 The availability ratio comes from `scenarios/non_controllable_stats.parquet`
 (or `scenarios/external_ncs_scenarios.parquet` under the `external` scheme) and
@@ -353,7 +352,5 @@ Stage-varying bounds and price are supplied via
 `(contract_id, stage_id)` rows carrying any combination of `min_mw`,
 `max_mw`, and `price_per_mwh`, optionally narrowed to one block via an
 optional `block_id` column; absent rows fall back to the base entity values.
-Unlike thermal `cost_per_mwh`, contract `price_per_mwh` is block-eligible —
-a study's simulation cost path honors a per-block price override — because
-commitment is a stage-level decision for a thermal but a contract's price
-can legitimately vary within a stage.
+Like thermal `cost_per_mwh`, contract `price_per_mwh` is block-eligible:
+a study's simulation cost path honors a per-block price override.

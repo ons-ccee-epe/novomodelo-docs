@@ -54,9 +54,10 @@ Todas as chaves de `config.json` até o segundo nível, com seu tipo e valor pad
 | `estimation`                                 | object          | Não      | `{}`         | —     | Controla o processo de estimação do modelo PAR(p). Veja [`estimation`](#estimation).                                                               |
 | `estimation.max_order`                       | integer         | Não      | `6`          | —     | Ordem máxima de defasagem considerada no ajuste do modelo. Veja [`estimation`](#estimation).                                                       |
 | `estimation.order_selection`                 | string          | Não      | `"pacf"`     | —     | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem. Veja [`estimation`](#estimation).                                                   |
-| `estimation.min_observations_per_season`     | integer         | Não      | `30`         | —     | Mínimo recomendado de ocorrências de estágio totalmente cobertas por período sazonal e usina. Veja [`estimation`](#estimation).                            |
+| `estimation.min_observations_per_season`     | integer         | Não      | `30`         | —     | Mínimo recomendado de ocorrências do período sazonal totalmente cobertas por período sazonal e usina. Veja [`estimation`](#estimation).                            |
 | `estimation.max_coefficient_magnitude`       | number \| null  | Não      | `null`       | —     | Reduz um ajuste à ordem 0 quando algum coeficiente excede essa magnitude. Veja [`estimation`](#estimation).                                        |
 | `estimation.correlation_target`              | string          | Não      | `"inflows"`  | —     | Um entre `"inflows"`, `"residuals"`. Série a partir da qual uma correlação de afluências estimada é calculada. Veja [`estimation`](#estimation).                       |
+| `estimation.history_years`                   | object \| null  | Não      | `null`       | —     | Intervalo inclusivo `{"from", "to"}` dos anos de `inflow_history.parquet` que a estimação lê; `null` lê todos os anos. Veja [`estimation`](#estimation). |
 | `policy`                                     | object          | Não      | `{}`         | —     | Controla a persistência da política. Veja [`policy`](#policy).                                                                                     |
 | `policy.path`                                | string          | Não      | `"./policy"` | —     | Diretório da política, resolvido em relação ao diretório de saída da execução. Veja [`policy`](#policy).                                           |
 | `policy.mode`                                | string          | Não      | `"fresh"`    | —     | Um de `"fresh"`, `"warm_start"`, `"resume"`. Modo de inicialização. Veja [`policy`](#policy).                                                      |
@@ -880,9 +881,10 @@ em vez de exigir um `inflow_ar_coefficients.parquet` pré-calculado.
 | ----------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------- |
 | `max_order`                   | integer | `6`      | Ordem máxima de defasagem considerada no ajuste do modelo autorregressivo.                        |
 | `order_selection`             | string  | `"pacf"` | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem: baseado na FACP (PACF) ou na FACP com componente anual. |
-| `min_observations_per_season` | integer | `30`     | Número mínimo recomendado de ocorrências de estágio totalmente cobertas de cada período sazonal, por usina. Uma ocorrência é um estágio em `stages.json` (do estudo ou pré-estudo) que tem o período sazonal; ela só conta quando as linhas de `inflow_history.parquet` que começam dentro de sua janela a cobrem integralmente, de modo que o histórico fora de toda janela de estágio não é contado. Quando a estimação é executada, um grupo (usina, período sazonal) com pelo menos uma ocorrência desse tipo, mas menos do que esse valor, gera um aviso [`ModelQuality`](/reference/error-codes/#modelquality) que indica a usina e o período sazonal, e a estimação prossegue. |
+| `min_observations_per_season` | integer | `30`     | Número mínimo recomendado de ocorrências totalmente cobertas de cada período sazonal, por usina: as amostras a partir das quais a estimação faz o ajuste. Uma ocorrência é um intervalo do período sazonal em `season_definitions`, dentro ou fora do horizonte do estudo; ela só conta quando as linhas de `inflow_history.parquet` a cobrem integralmente e, com `history_years` definido, apenas quando ela começa em um desses anos. Quando a estimação é executada, um grupo (usina, período sazonal) com pelo menos uma ocorrência desse tipo, mas menos do que esse valor, gera um aviso [`ModelQuality`](/reference/error-codes/#modelquality) que indica a usina e o período sazonal, e a estimação prossegue. |
 | `max_coefficient_magnitude`   | number \| null | `null`   | Rede de segurança: reduz à ordem 0 se algum coeficiente exceder essa magnitude.                   |
 | `correlation_target`          | string  | `"inflows"` | Um entre `"inflows"`, `"residuals"`. Série a partir da qual a correlação espacial das afluências é estimada quando o modelo de afluências é ajustado, total ou parcialmente, a partir de `inflow_history.parquet` e o caso não fornece `scenarios/correlation.json`: as afluências padronizadas (`"inflows"`) ou os resíduos da autorregressão ajustada (`"residuals"`); veja [Modelo de afluências PAR(p) §6.1](/math/par-inflow-model/#61-estimacao-da-correlacao). O `training/model_provenance.json` a registra como `inflow.correlation_target`. |
+| `history_years`               | object \| null | `null` | Intervalo inclusivo `{"from": 1931, "to": 2024}` dos anos de `inflow_history.parquet` que a estimação lê: uma amostra é lida quando a ocorrência do período sazonal a que ela pertence começa em um ano do intervalo. O intervalo limita as estatísticas sazonais, os coeficientes autorregressivos, a componente anual e a correlação estimada; ele não restringe nenhum outro leitor do arquivo: a tendência hidrológica derivada, as janelas do esquema `historical` (que `historical_years` restringe) e as aberturas `historical_residuals`. `null` lê todos os anos. `from` posterior a `to` é recusado quando `config.json` é carregado, e, quando a execução estima a partir de `inflow_history.parquet`, o mesmo ocorre com um intervalo que comece antes do primeiro ou termine depois do último ano do arquivo ([Anos do histórico de estimação fora do histórico](/reference/error-codes/#anos-do-historico-de-estimacao-fora-do-historico)). |
 
 Exemplo:
 
@@ -980,16 +982,17 @@ só é reconciliada quando a execução treina, de modo que um caso com o treina
   "boundary_date": "2027-12-01",
   "report": {
     "reconciled": true,
-    "storage": { "copy": 44, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
-    "inflow_lag": { "copy": 44, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
-    "transit_bucket": { "copy": 6, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
-    "anticipated": { "copy": 3, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 1 },
+    "storage": { "copy": 44, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
+    "inflow_lag": { "copy": 44, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
+    "transit_bucket": { "copy": 6, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
+    "anticipated": { "copy": 3, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 1 },
     "anticipated_coverage": { "source_interval_count": 4 },
-    "other_identity": { "copy": 0, "fan_out": 0, "straddling": 0, "default_zero": 0, "dropped_source": 0 },
+    "other_identity": { "copy": 0, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
     "dropped_source_slots": [
       { "family": "anticipated", "entity_id": 17, "subindex": 0, "interval": ["2028-01-01", "2028-02-01"], "reference_date": null }
     ],
-    "straddling_slots": []
+    "straddling_slots": [],
+    "filled_from_storage_slots": []
   }
 }
 ```
@@ -1057,14 +1060,26 @@ despacho semanal dentro de um estágio mensal por meio de patamares cronológico
   período sazonal de menor id que cubra sua data; um período sazonal que nunca tem o menor id
   recebe, portanto, observações apenas de dentro dos estágios de `stages.json` desse
   período sazonal.
-- Em um estágio que não fecha seu período de defasagem, como um estágio semanal dentro de um
-  mês, as defasagens de afluência de saída são as de entrada, e no estágio que
-  executa a reconstrução mensal-para-trimestral elas são as defasagens trimestrais promediadas,
-  enquanto um corte nos componentes de defasagem de afluência associa a defasagem 1 à afluência do próprio
-  estágio e cada defasagem posterior ℓ à defasagem de entrada ℓ − 1. Com esses estágios e uma ordem PAR
-  de 1 ou mais, não há garantia de que o limite inferior permaneça abaixo do limite superior,
+- Um corte nos componentes de defasagem de afluência lê as defasagens de afluência de saída do
+  estágio ([Estudos com múltiplas resoluções §2.1](/math/multi-resolution-studies/#21-as-defasagens-que-os-cortes-leem)).
+  Em um estágio que não fecha seu período de defasagem, como um estágio semanal dentro de um
+  mês, essas são as defasagens de entrada. Em um estágio que fecha um período iniciado em um
+  estágio anterior ou antes do estudo, a defasagem 1 é a média do período ponderada pela duração,
+  incluída a afluência do próprio estágio, e cada defasagem posterior ℓ é a defasagem de entrada
+  ℓ − 1. No estágio que executa a reconstrução mensal-para-trimestral, as defasagens de saída são
+  as defasagens trimestrais promediadas, mas o corte associa a defasagem 1 à afluência do próprio
+  estágio e cada defasagem posterior ℓ à defasagem de entrada ℓ − 1, como em um estágio de
+  resolução única, e a preparação do estudo registra um aviso:
+  `stage <stage_id>: the inflow lags step from months to quarters here; cuts at this stage evaluate inflow lags as at a single-resolution stage`.
+- Com esses estágios e uma ordem PAR de 1 ou mais, os cortes são exatos apenas onde a afluência
+  parcial de todo período de defasagem aberto é a mesma em todos os caminhos, como quando o único
+  período dividido entre estágios começa antes do estudo e se fecha no seu primeiro estágio. Nos
+  demais casos, não há garantia de que o limite inferior permaneça abaixo do limite superior,
   mesmo com as defasagens de afluência na projeção do corte
-  ([`stages[].state_variables`](/math/cut-management/#stagesstate_variables--projecao-dos-cortes)).
+  ([`stages[].state_variables`](/math/cut-management/#stagesstate_variables--projecao-dos-cortes)),
+  e nenhum aviso sinaliza esse estudo.
+- Cada trajetória da simulação forward amostrada acumula seus próprios períodos de defasagem, de
+  modo que os resultados do treinamento não dependem de `--threads` nem do número de processos MPI.
 
 ---
 
@@ -1102,7 +1117,7 @@ Cada receita é um trecho de `config.json` que se mescla a um caso: uma chave do
 
 Treine com simulação forward enumerada e pare quando o gap exato se fechar. `relative_tolerance` é um percentual: `0.01` para com gap de 0,01%. A entrada `iteration_limit` encerra a execução se o gap não se fechar antes; uma simulação amostrada após o treinamento registra um aviso informativo na preparação ([`simulation.selection`](#simulationselection)). O critério [`gap`](#gap) só é admitido com seleção `enumerated` e a mesma medida de risco em todos os estágios (o padrão `expectation` atende), e todo estágio declara uma única abertura (`num_openings: 1` em `stages.json`), porque a seleção enumerada o exige ([`training.selection`](#trainingselection)).
 
-{/* capture: novomodelo validate case (exit 0); novomodelo run case --output <dir> (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
+{/* capture: novomodelo validate case (exit 0); novomodelo run case --output <dir> (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
 
 ```json
 {
@@ -1120,7 +1135,7 @@ Treine com simulação forward enumerada e pare quando o gap exato se fechar. `r
 
 Limite uma execução pelo tempo de relógio. Com o [`stopping_mode`](#trainingstopping_mode) padrão (`"any"`), o treinamento para no primeiro critério satisfeito; portanto, combine [`time_limit`](#time_limit) com um `iteration_limit` acima do que o tempo permite: o treinamento nunca ultrapassa o maior `iteration_limit` do conjunto.
 
-{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
 
 ```json
 {
@@ -1137,7 +1152,7 @@ Limite uma execução pelo tempo de relógio. Com o [`stopping_mode`](#trainings
 
 Treine com ruído dentro da amostra e simule com afluência fora da amostra. A `simulation.scenario_source.seed` (77) conduz os sorteios fora da amostra da simulação ([Resolução das sementes](#resolucao-das-sementes)). Os campos de `simulation.scenario_source` estão listados em [`simulation.scenario_source`](#simulationscenario_source).
 
-{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
 
 ```json
 {

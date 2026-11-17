@@ -32,7 +32,7 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.20.0 (2026-11-03).**
+**Synced to: novomodelo v0.21.0 (2026-11-16).**
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -144,7 +144,7 @@ The translation guide and glossary is
 ## Quality Gates
 
 ```bash
-# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.20.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
+# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.21.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:ptbr-case && npm run check:python-api \

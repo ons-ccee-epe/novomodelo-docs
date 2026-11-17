@@ -126,8 +126,8 @@ Storage is tracked in **hm³** (cubic hectometres; 1 hm³ = 10⁶ m³).
 This is the plant's physical, stage-invariant range: stored-energy outputs and the
 useful-range mean productivity ([Hydro Production Function Models §4.3](/en/math/hydro-production-models#43-useful-range-mean-productivity))
 read it, while `constraints/hydro_bounds.parquet` storage overrides (for example a
-flood-control ceiling) tighten only the per-stage operative bounds of the LP storage
-variable.
+flood-control ceiling), which must lie within this range, tighten only the per-stage
+operative bounds of the LP storage variable.
 
 #### Outflow Constraints
 
@@ -371,6 +371,7 @@ values.
   "outflow_violation_below_cost": 500.0,
   "outflow_violation_above_cost": 500.0,
   "generation_violation_below_cost": 1000.0,
+  "fpha_violation_cost": 85000.0,
   "evaporation_violation_cost": 5000.0,
   "water_withdrawal_violation_cost": 1000.0,
   "inflow_nonnegativity_cost": 1000.0
@@ -378,8 +379,7 @@ values.
 ```
 
 When present, every field is optional and independently falls back to the
-global default from `penalties.json`; the block accepts exactly these twelve
-keys and rejects any unknown field. The directional evaporation and withdrawal
+global default from `penalties.json`; the block accepts exactly the keys above and rejects any unknown field. The directional evaporation and withdrawal
 costs have no key in this block; a plant takes each
 from the block's matching symmetric cost when the block sets it, else from `penalties.json`
 ([Penalty System — Directional evaporation and
@@ -430,6 +430,8 @@ file also carries.
 | Unit group envelope               | Physical feasibility   | The sum of every group's `max_turbined_m3s` (and, separately, `max_generation_mw`) must not exceed the plant's own declared maximum; the sum of every group's minima must be able to reach the plant's own declared minimum. |
 | Cascade acyclicity                | Topology error         | The directed graph of `downstream_id` links must be acyclic. |
 | Storage bounds ordering           | Physical feasibility   | `min_storage_hm3` must be less than or equal to `max_storage_hm3` (equal is allowed — a fixed-storage plant). |
+| Stage storage bounds within the reservoir | Semantic error | A `constraints/hydro_bounds.parquet` row's `min_storage_hm3` must not lie below the reservoir's `min_storage_hm3`, and its `max_storage_hm3` must not exceed the reservoir's `max_storage_hm3`. |
+| Stage storage bounds ordering | Semantic error | On every study stage, the storage minimum in force (the stage's `constraints/hydro_bounds.parquet` row, else the reservoir's own) must be less than or equal to the maximum in force. |
 | Outflow bounds ordering           | Physical feasibility   | When `max_outflow_m3s` is present, it must be `>= min_outflow_m3s`. |
 | Turbine bounds ordering           | Physical feasibility   | `min_turbined_m3s` must be `<= max_turbined_m3s`. |
 | Generation bounds consistency     | Physical feasibility   | `min_generation_mw` must be `<= max_generation_mw`. |

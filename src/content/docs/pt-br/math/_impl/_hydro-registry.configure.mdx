@@ -128,8 +128,8 @@ Esta é a faixa física da usina, invariante entre estágios: as saídas de
 energia armazenada e a produtibilidade média na faixa útil
 ([Modelos de função de produção hidrelétrica §4.3](/math/hydro-production-models#43-produtibilidade-media-na-faixa-util))
 a utilizam, enquanto as sobrescritas de armazenamento de
-`constraints/hydro_bounds.parquet` (por exemplo, um teto de volume de espera)
-restringem apenas os limites operativos por estágio da variável de
+`constraints/hydro_bounds.parquet` (por exemplo, um teto de volume de espera),
+que devem ficar dentro dessa faixa, restringem apenas os limites operativos por estágio da variável de
 armazenamento do PL.
 
 #### Restrições de vazão defluente
@@ -380,6 +380,7 @@ globais de `penalties.json`; quando ausente, a usina usa os valores globais.
   "outflow_violation_below_cost": 500.0,
   "outflow_violation_above_cost": 500.0,
   "generation_violation_below_cost": 1000.0,
+  "fpha_violation_cost": 85000.0,
   "evaporation_violation_cost": 5000.0,
   "water_withdrawal_violation_cost": 1000.0,
   "inflow_nonnegativity_cost": 1000.0
@@ -387,8 +388,7 @@ globais de `penalties.json`; quando ausente, a usina usa os valores globais.
 ```
 
 Quando o bloco está presente, todos os campos são opcionais e, cada um
-independentemente, recorrem ao padrão global de `penalties.json`; o bloco
-aceita exatamente essas doze chaves e rejeita qualquer campo desconhecido. Os
+independentemente, recorrem ao padrão global de `penalties.json`; o bloco aceita exatamente as chaves acima e rejeita qualquer campo desconhecido. Os
 custos direcionais de evaporação e de retirada não têm chave neste bloco; a
 usina obtém cada um do custo simétrico correspondente do bloco, quando o bloco
 o define, ou, caso contrário, de `penalties.json`
@@ -441,6 +441,8 @@ enchimento e retirada que esse arquivo também contém.
 | Envoltória dos grupos de unidades | Viabilidade física | A soma dos `max_turbined_m3s` de todos os grupos (e, separadamente, dos `max_generation_mw`) não pode exceder o máximo declarado pela própria usina; a soma dos mínimos de todos os grupos deve ser capaz de alcançar o mínimo declarado pela própria usina. |
 | Aciclicidade da cascata | Erro de topologia | O grafo orientado das ligações `downstream_id` deve ser acíclico. |
 | Ordenação dos limites de armazenamento | Viabilidade física | `min_storage_hm3` deve ser menor ou igual a `max_storage_hm3` (a igualdade é permitida — usina com armazenamento fixo). |
+| Limites de armazenamento por estágio dentro do reservatório | Erro semântico | O `min_storage_hm3` de uma linha de `constraints/hydro_bounds.parquet` não pode ficar abaixo do `min_storage_hm3` do reservatório, e seu `max_storage_hm3` não pode exceder o `max_storage_hm3` do reservatório. |
+| Ordenação dos limites de armazenamento por estágio | Erro semântico | Em cada estágio do estudo, o armazenamento mínimo em vigor (o da linha do estágio em `constraints/hydro_bounds.parquet`, senão o do próprio reservatório) deve ser menor ou igual ao máximo em vigor. |
 | Ordenação dos limites de vazão defluente | Viabilidade física | Quando `max_outflow_m3s` está presente, deve ser `>= min_outflow_m3s`. |
 | Ordenação dos limites de turbinamento | Viabilidade física | `min_turbined_m3s` deve ser `<= max_turbined_m3s`. |
 | Consistência dos limites de geração | Viabilidade física | `min_generation_mw` deve ser `<= max_generation_mw`. |
