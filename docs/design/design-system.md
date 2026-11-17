@@ -275,7 +275,7 @@ below needs a decision before the docs port; record it here when made.
 | D1 | Dark theme | The docs open in dark and offer a theme switch; the hotsite has no `prefers-color-scheme` or `data-theme` | **Decided 2026-11-16:** the light theme follows the hotsite strictly. The dark theme stays, with the theme switch, as the dark variant of §11 (approved 2026-11-16) |
 | D2 | Code font | Code blocks, inline code and CLI samples; the hotsite only uses the system monospace stack on one element | **Decided 2026-11-16:** keep the hotsite's system monospace stack as `--font-mono`. No web font is shipped for code, so JetBrains Mono and its Fontsource package leave the docs |
 | D3 | Element palette for diagrams and charts | Hydro, thermal, non-controllable source, deficit and generic elements need distinct hues that sit with the single sea-green accent and keep contrast on the light grounds and on the dark variant (D1) | **Decided 2026-11-16:** the element palette of §10 |
-| D4 | Header treatment and logo | The docs header is light today; the hotsite's wordmark and logos are white-on-graphite | **Decided 2026-11-17 (revises the graphite header of 2026-11-16):** the header keeps Starlight's own layout and title ("Documentação do Novo Modelo"), with no wordmark or institutional logos, and follows the theme through the design-system tokens: light ground (`--color-bg-faq`) with the `--color-accent` title in light, graphite (`--color-dark-surface`) with the `#86B7B3` title in dark. Only the favicon comes from the hotsite |
+| D4 | Header treatment and logo | The docs header is light today; the hotsite's wordmark and logos are white-on-graphite | **Decided 2026-11-17:** the header follows the hotsite's style: a fixed graphite band (`--color-bg-dark`) in both themes, with Starlight's own layout and title ("Documentação do Novo Modelo") in `--color-text-on-dark` and Inter Display, `--color-primary` for accents and focus (6.62:1). No wordmark or institutional logos; only the favicon comes from the hotsite (`src/styles/header.css`) |
 | D5 | Semantic colours | Starlight asides (note, tip, caution, danger) need info / success / warning / danger hues; the hotsite only has the warning values of `.notice--alert` | **Decided 2026-11-16 (version 2, after the review asked for "tom do hotsite"):** every aside takes the hotsite `.notice` shape (neutral ground, 1 px border, 3 px start bar, 12 px radius) and only the hotsite grounds. Note and tip = `.notice--plan` (`--color-bg-light`, `--color-primary` bar, `--color-accent` title, 5.54:1); caution = `.notice--alert` (`--color-warning-*`, 5.02:1); danger = the `.notice--plan` ground with the `--color-el-deficit` bar and `--color-el-deficit-strong` title (8.66:1). Dark: surface ground, same bars, titles `#86B7B3` (6.62), `#E3C27A` on `#2E2618` (8.72), `#F09A92` (6.84) |
 | D6 | Link style in running text | The hotsite links are `--color-accent` with a 1 px underline offset 3 px; confirm for the docs body | **Decided 2026-11-16:** follow the hotsite. Links in running text are `--color-accent` (`#2F6C67`, 6.07:1 on white), underlined with `text-decoration-thickness: 1px` and `text-underline-offset: 3px`, thickening to 2 px on hover. Links on graphite use `--color-text-on-dark` and turn `--color-primary` on hover |
 | D7 | Token file | One `tokens.css` shared by `hotsite/` and `src/styles/`, or two copies kept in sync by a check | **Deferred 2026-11-16, decision later.** In place meanwhile: two copies kept in sync by a check. `hotsite/style.css` stays the designer's file, replaced whole on each new version; `src/styles/tokens.css` uses the same token names, and `npm run check:hex` fails when a token both declare holds different values (number and spacing formatting aside) |
@@ -330,7 +330,7 @@ graphite it has contrast to spare. Tokens are `--color-dark-*` in
 | Role | Light | Dark | Token (dark) | Dark contrast |
 | --- | --- | --- | --- | --- |
 | Page background | `#FFFFFF` | `#1A1F21` | `--color-dark-bg` | — |
-| Surface: nav, sidebar, cards, header | `#F3F5F5` (header `#F6F7F7`) | `#23292C` | `--color-dark-surface` | — |
+| Surface: nav, sidebar, cards | `#F3F5F5` | `#23292C` | `--color-dark-surface` | — |
 | Code, chips, raised panels | `#F6F7F7` | `#2C3337` | `--color-dark-surface-2` | — |
 | Headings | `#1E2528` | `#F2F5F5` | `--color-dark-heading` | 15.18 on the page |
 | Body text | `#1E2528` | `#D5DCDD` | `--color-dark-text` | 11.97 page, 10.60 surface |
@@ -356,6 +356,6 @@ Charts use the light shades as marks in the dark theme (thermal 8.64:1,
 hydro 8.35:1 on the page) so thin lines keep their weight; d2 strokes keep the
 four shared hexes. Asides keep the hotsite `.notice` shape: note, tip and danger on
 `--color-dark-surface` (titles 6.62, 6.62 and 6.84:1), caution on the
-thermal tint with `#E3C27A` (8.72:1). The header follows the theme: graphite in dark. The
+thermal tint with `#E3C27A` (8.72:1). The header is graphite in both themes. The
 EnergyPath bands keep the light-theme hues, whose white labels hold 4.82:1
 or more.

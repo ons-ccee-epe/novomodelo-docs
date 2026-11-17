@@ -498,9 +498,7 @@ export default defineConfig({
       // --sl-color-* tokens onto the design-system tokens (tokens.css,
       // docs/design/design-system.md): neutrals.css owns the greyscale
       // (--sl-color-{black,gray-1..7,white}); brand.css owns the sea-green accent
-      // triple (--sl-color-accent*), the prose-link rule and the asides. The
-      // header follows the theme through these tokens (light in light, graphite
-      // in dark).
+      // triple (--sl-color-accent*), the prose-link rule and the asides.
       // Both are a SEPARATE concern from palette.css (--dgm-* diagram vars); they
       // touch disjoint property sets, so neutrals-before-brand is for readability,
       // not cascade. fonts.css self-hosts the hotsite's Inter and Inter Display
@@ -523,6 +521,8 @@ export default defineConfig({
         // column floors and the right-sidebar TOC width, so its order among them
         // is arbitrary.
         "./src/styles/layout.css",
+        // header.css: the hotsite's fixed graphite header in both themes (D4).
+        "./src/styles/header.css",
         "./src/components/entity/entity.css",
       ],
       // pt-BR is the root locale, served at the docs base, and English is
