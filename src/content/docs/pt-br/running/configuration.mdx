@@ -1060,14 +1060,26 @@ despacho semanal dentro de um estágio mensal por meio de patamares cronológico
   período sazonal de menor id que cubra sua data; um período sazonal que nunca tem o menor id
   recebe, portanto, observações apenas de dentro dos estágios de `stages.json` desse
   período sazonal.
-- Em um estágio que não fecha seu período de defasagem, como um estágio semanal dentro de um
-  mês, as defasagens de afluência de saída são as de entrada, e no estágio que
-  executa a reconstrução mensal-para-trimestral elas são as defasagens trimestrais promediadas,
-  enquanto um corte nos componentes de defasagem de afluência associa a defasagem 1 à afluência do próprio
-  estágio e cada defasagem posterior ℓ à defasagem de entrada ℓ − 1. Com esses estágios e uma ordem PAR
-  de 1 ou mais, não há garantia de que o limite inferior permaneça abaixo do limite superior,
+- Um corte nos componentes de defasagem de afluência lê as defasagens de afluência de saída do
+  estágio ([Estudos com múltiplas resoluções §2.1](/math/multi-resolution-studies/#21-as-defasagens-que-os-cortes-leem)).
+  Em um estágio que não fecha seu período de defasagem, como um estágio semanal dentro de um
+  mês, essas são as defasagens de entrada. Em um estágio que fecha um período iniciado em um
+  estágio anterior ou antes do estudo, a defasagem 1 é a média do período ponderada pela duração,
+  incluída a afluência do próprio estágio, e cada defasagem posterior ℓ é a defasagem de entrada
+  ℓ − 1. No estágio que executa a reconstrução mensal-para-trimestral, as defasagens de saída são
+  as defasagens trimestrais promediadas, mas o corte associa a defasagem 1 à afluência do próprio
+  estágio e cada defasagem posterior ℓ à defasagem de entrada ℓ − 1, como em um estágio de
+  resolução única, e a preparação do estudo registra um aviso:
+  `stage <stage_id>: the inflow lags step from months to quarters here; cuts at this stage evaluate inflow lags as at a single-resolution stage`.
+- Com esses estágios e uma ordem PAR de 1 ou mais, os cortes são exatos apenas onde a afluência
+  parcial de todo período de defasagem aberto é a mesma em todos os caminhos, como quando o único
+  período dividido entre estágios começa antes do estudo e se fecha no seu primeiro estágio. Nos
+  demais casos, não há garantia de que o limite inferior permaneça abaixo do limite superior,
   mesmo com as defasagens de afluência na projeção do corte
-  ([`stages[].state_variables`](/math/cut-management/#stagesstate_variables--projecao-dos-cortes)).
+  ([`stages[].state_variables`](/math/cut-management/#stagesstate_variables--projecao-dos-cortes)),
+  e nenhum aviso sinaliza esse estudo.
+- Cada trajetória da simulação forward amostrada acumula seus próprios períodos de defasagem, de
+  modo que os resultados do treinamento não dependem de `--threads` nem do número de processos MPI.
 
 ---
 

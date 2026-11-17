@@ -114,14 +114,14 @@ do que "a resposta não depende da base". O _valor_ ótimo de um PL é
 inicial pode alterá-lo. Já sua _base_ ótima não precisa ser única. Quando o ótimo é
 degenerado, várias bases distintas atingem esse mesmo valor, e o simplex
 para naquela que seu caminho de pivoteamento alcançar. Como os coeficientes de um corte são
-lidos dos custos reduzidos das colunas fixadas do estado de entrada, eles são
+lidos dos custos reduzidos e dos duais das linhas da resolução, eles são
 propriedades da base final, e não do valor ótimo: em um ótimo
 degenerado, a função de valor do subproblema pode ter uma quebra no estado
 visitado, seus subgradientes nesse ponto formam um conjunto convexo (um intervalo
 quando o estado tem uma única componente), e uma resolução retorna o subgradiente
 dado por sua base final.
 
-Toda escolha desse tipo produz um corte igualmente válido. Cada vetor de custos reduzidos
+Toda escolha desse tipo produz um corte igualmente válido. Cada vetor de coeficientes do corte
 obtido em uma base ótima é um subgradiente da função de valor do subproblema
 no estado visitado, de modo que o corte que ele induz suporta essa função por
 baixo em todo o domínio e a toca exatamente no estado visitado. A agregação herda
@@ -231,6 +231,24 @@ ordem canônica dos cenários e reduzidos ali. Nenhuma dessas reduções, portan
 depende de como o trabalho é particionado. Veja
 [Aceleradores de desempenho — Modelo de execução paralela](/running/performance/#modelo-de-execucao-paralela)
 para a partição entre processos e as operações coletivas.
+
+**Lados direitos dos cortes em ordem fixa.** O lado direito de cada linha de corte é
+a soma de uma parte fixada pelo estado visitado e de uma parte fixada pela abertura,
+e cada parte é somada em ordem fixa. Uma parte armazenada é o valor que a mesma
+aritmética dá no local, de modo que reutilizá-la entre as aberturas de um estado
+visitado, ou entre os estados visitados de um nó, não altera nenhum bit
+([Folding do PAR(p) §3](/math/par-folding#3-o-lado-direito-dos-cortes)).
+
+**Cada trajetória carrega sua própria acumulação de defasagens.** Onde um período de
+defasagem abrange vários estágios, as defasagens que um estágio repassa dependem da
+soma parcial do período aberto ([Estudos com múltiplas resoluções §2](/math/multi-resolution-studies#2-acumulacao-das-defasagens)).
+Cada trajetória da simulação forward mantém suas próprias somas parciais, restauradas
+antes de cada uma de suas resoluções e gravadas depois dela, e cada resolução backward
+em um estado visitado lê a soma parcial da visita forward que produziu esse estado
+visitado. As defasagens de uma trajetória, portanto, não dependem de qual thread ou
+processo resolveu seus estágios anteriores, nem da ordem em que as trajetórias são
+executadas. As somas parciais ficam no processo que detém a trajetória, e nenhuma
+mensagem MPI as transporta.
 
 **Derivação determinística das sementes entre processos MPI.** Cada sorteio é produzido por um
 gerador de números pseudoaleatórios cuja semente é um valor derivado deterministicamente

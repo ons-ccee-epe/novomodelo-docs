@@ -984,6 +984,10 @@ block in every study stage's `blocks` array.
 **See also:** a positive `min_diversion_m3s` or `max_diversion_m3s` on a hydro
 with no declared diversion channel is reported under this kind — see
 [Diversion bound without a declared channel](#diversion-bound-without-a-declared-channel).
+A `constraints/hydro_bounds.parquet` storage bound outside the reservoir's range,
+or a study stage whose minimum storage exceeds its maximum, is reported under
+this kind too — see
+[Stage storage bounds refused at load](#stage-storage-bounds-refused-at-load).
 An initial storage outside the hydro's storage range, or listed in the wrong
 `initial_conditions.json` array, is reported under this kind too — see
 [Initial storage refused at load](#initial-storage-refused-at-load).
@@ -1042,6 +1046,70 @@ field.
 `system/hydros.json` (see [System Element Modeling Overview](/en/math/system-elements)), or remove
 the positive `min_diversion_m3s` or `max_diversion_m3s` override for that
 `(hydro, stage)` in `constraints/hydro_bounds.parquet`.
+
+#### Stage storage bounds refused at load
+
+**When it occurs:** `constraints/hydro_bounds.parquet` sets a storage bound
+outside the reservoir's range, or leaves a study stage whose minimum storage
+exceeds its maximum:
+
+- A row's `max_storage_hm3` lies above the reservoir's `max_storage_hm3` in
+  `system/hydros.json`, or its `min_storage_hm3` lies below the reservoir's
+  `min_storage_hm3` (the dead volume), beyond a relative tolerance of `1e-9`
+  (an absolute one below 1 hm³). Each column out of range is one finding, so a
+  row out of range on both sides gives two. A row on a `hydro_id` the case does
+  not declare is reported as [`InvalidReference`](#invalidreference) instead.
+- On a study stage, the storage minimum in force exceeds the maximum in force.
+  Each bound in force is the value on the stage's row, else the reservoir's
+  own, so two rows can set the minimum and the maximum separately, and one
+  override can cross the reservoir's opposite bound. Equal bounds are accepted.
+  One finding lists every (hydro, stage) pair. A reservoir whose own
+  `min_storage_hm3` exceeds its `max_storage_hm3` is refused first, as a
+  [`SchemaViolation`](#schemaviolation) of `system/hydros.json`.
+
+The geometry, production and evaporation models of a hydro cover only its
+reservoir's range, so a stage's storage bounds must lie within it.
+
+**Fields:**
+
+{/* quoted from source: check_bound_widens_reservoir_range in crates/novomodelo-io/src/validation/semantic/block_bounds.rs and check_stage_storage_bounds_inverted in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.21.0 */}
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=<id>, stage_id=<stage>): Hydro <id>: hydro_bounds row at stage_id=<stage>[, block_id=<block>] sets <column>=<value>, above the reservoir's <column> (<declared>) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range` line, with `below` in place of `above` for `min_storage_hm3`, or a `[InvalidValue] constraints/hydro_bounds.parquet: min_storage_hm3 exceeds max_storage_hm3 at <n> (hydro, stage) pair(s), so no storage satisfies those stages: <pairs>` line |
+
+Each pair is written `Hydro <id> at stage <stage> (<min> > <max>)`, with the
+pairs sorted by hydro id, then stage id, and joined with `, `.
+
+**Examples:**
+
+{/* capture: novomodelo validate above | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy above; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and one row: hydro_id 0, stage_id 1, max_storage_hm3 1200.0, with the 1dtoy reservoir range [0, 1000]; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=0, stage_id=1): Hydro 0: hydro_bounds row at stage_id=1 sets max_storage_hm3=1200, above the reservoir's max_storage_hm3 (1000) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range
+```
+
+{/* capture: novomodelo validate below | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy below; system/hydros.json: hydro 0 reservoir min_storage_hm3 100.0; initial_conditions.json: hydro 0 storage 150.0; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and one row: hydro_id 0, stage_id 1, min_storage_hm3 50.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=0, stage_id=1): Hydro 0: hydro_bounds row at stage_id=1 sets min_storage_hm3=50, below the reservoir's min_storage_hm3 (100) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range
+```
+
+In the next case, stage 1 takes its minimum and its maximum from two rows, and
+stage 2's maximum falls below the reservoir's minimum of 100 hm³, which is that
+stage's minimum in force:
+
+{/* capture: novomodelo validate inv | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy inv; system/hydros.json: hydro 0 reservoir min_storage_hm3 100.0; initial_conditions.json: hydro 0 storage 150.0; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and three rows for hydro_id 0: stage_id 1 with min_storage_hm3 600.0, stage_id 1 with max_storage_hm3 400.0, and stage_id 2 with max_storage_hm3 50.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet: min_storage_hm3 exceeds max_storage_hm3 at 2 (hydro, stage) pair(s), so no storage satisfies those stages: Hydro 0 at stage 1 (600 > 400), Hydro 0 at stage 2 (100 > 50)
+```
+
+**Resolution:** Keep each stage's `min_storage_hm3` and `max_storage_hm3` within
+the reservoir's `min_storage_hm3` to `max_storage_hm3` in `system/hydros.json`,
+or correct the reservoir's range when it is the value in error. On each listed
+stage, lower the minimum or raise the maximum in force. See
+[`constraints/hydro_bounds.parquet`](/en/reference/case-format/constraints/#constraintshydro_boundsparquet).
 
 #### Initial storage refused at load
 
@@ -1162,8 +1230,8 @@ be expressed as a simple range constraint. Examples: a negative `turbined_cost`
 on a hydro whose generation model is `fpha`, a filling schedule that cannot
 reach the dead volume before the hydro enters operation, the anticipated-thermal
 and post-study-boundary rules, a bound-override row that names an undeclared
-`stage_id`, a pumping station in service at a stage where its source or destination hydro is not Operating, a computed-FPHA hydro whose `system/hydro_geometry.parquet` volumes do not cover its storage range, or a per-block generic-constraint reference that the stage's blocks
-cannot satisfy. One check reports a `BusinessRuleViolation` as a warning: when the inflow model is estimated from `scenarios/inflow_history.parquet` and a hydro has more than one observation in one season of a year, `novomodelo validate` prints a `warning:` line (exit `0`) saying the observations are aggregated to season resolution.
+`stage_id`, a pumping station in service at a stage where its source or destination hydro is not Operating, a computed-FPHA hydro whose `system/hydro_geometry.parquet` volumes do not cover its storage range, a per-block generic-constraint reference that the stage's blocks
+cannot satisfy, or a stage that shares a `season_id` with stages of another duration and is neither the season's whole period nor a slice of it ([`stages.json`](/en/reference/case-format/stages/)). One check reports a `BusinessRuleViolation` as a warning: when the inflow model is estimated from `scenarios/inflow_history.parquet` and a hydro has more than one observation in one season of a year, `novomodelo validate` prints a `warning:` line (exit `0`) saying the observations are aggregated to season resolution.
 
 **Example:**
 
@@ -1194,6 +1262,8 @@ The estimation-window rule is under
 [Estimation history years outside the history](#estimation-history-years-outside-the-history).
 The horizon rule of [Invalid anticipated-thermal lead](#invalid-anticipated-thermal-lead) also prints a
 `[BusinessRuleViolation]` line; that entry sits under `SchemaViolation`, where two of its four lines print.
+The stage-volume rules of generic constraints are under
+[Stage-volume generic constraints](#stage-volume-generic-constraints).
 
 #### Deterministic external inflow column under an autoregressive model
 
@@ -1515,6 +1585,50 @@ reference. To address per-block quantities, set `block_mode` to `"chronological"
 on the stage in [`stages.json`](/en/reference/case-format/stages/#stagesjson); a
 chronological stage requires a named block for evaporation, as in
 `hydro_evaporation(<hydro>, 0)`.
+
+#### Stage-volume generic constraints
+
+**When it occurs:** A generic constraint with a `hydro_outflow_volume`,
+`hydro_diversion_volume` or `pumping_volume` term is one stage-level row, so the
+check refuses three things in it:
+
+- a term that is not a stage volume, `hydro_storage`, or a
+  `hydro_storage_initial`, `hydro_storage_final`, `hydro_useful_volume_initial`
+  or `hydro_useful_volume_final` term without a block argument, whether the
+  expression writes it or a named expression brings it in;
+- a `per_stage_block` parameter that a coefficient or a bound reads, directly or
+  through `expression` parameters;
+- a row of the constraint in `constraints/generic_constraint_bounds.parquet`
+  with a `block_id`.
+
+The rules are stated under
+[Stage volumes](/en/reference/generic-constraints/#stage-volumes).
+
+**Kind, file, entity:** `BusinessRuleViolation`. A term or parameter refusal
+reports `constraints/generic_constraints.json` and the entity `constraint[id=N]`,
+where `N` is the constraint's `id`, whether or not the constraint has bounds
+rows. A bounds-row refusal reports
+`constraints/generic_constraint_bounds.parquet` and the entity
+`constraint_id=N, stage_id=S` of the row.
+
+**Messages:** `novomodelo validate` prints one `error:` line per refused term,
+parameter and bounds row. A term that a named expression brings in is quoted
+with `(from @name)` after it, naming each named expression whose own body
+writes the term. The three lines below show one refusal of each kind, in the order above.
+
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy with the check:gc-examples overlay scripts/fixtures/gc-overlay copied over it; constraints/generic_parameters.json replaced with one per_stage_block parameter, id 1, name cap, value 5000.0 at block 0 of stages 0-3; constraints/generic_constraints.json replaced with three constraints, slack disabled: id 1 release_vs_flow hydro_outflow_volume(0) - hydro_turbined(1) <= 0, id 2 release_cap hydro_outflow_volume(0) <= @cap, id 3 diverted_cap hydro_diversion_volume(1) <= 100; constraints/generic_constraint_bounds.parquet replaced with compression zstd, constraints 1 and 2 at stages 0-3 with block_id null and constraint 3 at stage 0 with block_id 0, bound_lower 0.0, bound_upper null; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
+
+```text
+error: [BusinessRuleViolation] constraints/generic_constraints.json (constraint[id=1]): Constraint "release_vs_flow": `hydro_turbined(1)` cannot appear beside a stage-volume term; such a constraint takes only stage volumes, hydro_storage, and hydro_storage_* or hydro_useful_volume_* without a block argument
+error: [BusinessRuleViolation] constraints/generic_constraints.json (constraint[id=2]): Constraint "release_cap": parameter `@cap` is per_stage_block; a constraint with a stage-volume term takes no coefficient or bound that varies by block
+error: [BusinessRuleViolation] constraints/generic_constraint_bounds.parquet (constraint_id=3, stage_id=0): Constraint "diverted_cap": the bounds row at stage_id=0 has block_id=0; a constraint with a stage-volume term takes one row per stage with a null block_id
+```
+
+**Resolution:** Keep a stage-volume constraint to stage volumes and stage-level
+storage: write a flow, generation or other per-block quantity as a constraint of
+its own, or as its stage volume where one exists; replace a `per_stage_block`
+parameter with a `per_stage` one; and set the `block_id` of each bounds row to
+null.
 
 #### Pumping station outside its endpoints' Operating windows
 

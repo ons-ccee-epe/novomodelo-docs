@@ -987,6 +987,10 @@ patamar no array `blocks` de cada estágio do estudo.
 **Veja também:** um `min_diversion_m3s` ou `max_diversion_m3s` positivo em uma hidrelétrica
 sem canal de desvio declarado é reportado sob este tipo — veja
 [Limite de desvio sem canal declarado](#limite-de-desvio-sem-canal-declarado).
+Um limite de armazenamento de `constraints/hydro_bounds.parquet` fora da faixa do
+reservatório, ou um estágio do estudo cujo armazenamento mínimo excede o máximo, também é
+reportado sob este tipo — veja
+[Limites de armazenamento por estágio recusados na carga](#limites-de-armazenamento-por-estagio-recusados-na-carga).
 Um armazenamento inicial fora da faixa de armazenamento da hidrelétrica, ou listado no array
 errado de `initial_conditions.json`, também é reportado sob este tipo — veja
 [Armazenamento inicial recusado na carga](#armazenamento-inicial-recusado-na-carga).
@@ -1045,6 +1049,72 @@ campo.
 `system/hydros.json` (veja [Visão geral da modelagem dos elementos do sistema](/math/system-elements)) ou remova
 a sobrescrita positiva de `min_diversion_m3s` ou `max_diversion_m3s` para aquele
 `(hydro, stage)` em `constraints/hydro_bounds.parquet`.
+
+#### Limites de armazenamento por estágio recusados na carga
+
+**Quando ocorre:** `constraints/hydro_bounds.parquet` define um limite de
+armazenamento fora da faixa do reservatório, ou deixa um estágio do estudo cujo
+armazenamento mínimo excede o máximo:
+
+- O `max_storage_hm3` de uma linha fica acima do `max_storage_hm3` do reservatório em
+  `system/hydros.json`, ou seu `min_storage_hm3` fica abaixo do `min_storage_hm3` do
+  reservatório (o volume morto), além de uma tolerância relativa de `1e-9`
+  (absoluta abaixo de 1 hm³). Cada coluna fora da faixa gera um apontamento, de modo
+  que uma linha fora da faixa nos dois lados gera dois. Uma linha com um `hydro_id`
+  que o caso não declara é reportada, em vez disso, como [`InvalidReference`](#invalidreference).
+- Em um estágio do estudo, o armazenamento mínimo em vigor excede o máximo em vigor.
+  Cada limite em vigor é o valor da linha do estágio, senão o do próprio
+  reservatório, de modo que duas linhas podem definir o mínimo e o máximo
+  separadamente, e uma substituição pode cruzar o limite oposto do reservatório.
+  Limites iguais são aceitos. Um único apontamento lista todos os pares (hidrelétrica,
+  estágio). Um reservatório cujo próprio `min_storage_hm3` excede seu
+  `max_storage_hm3` é recusado antes, como [`SchemaViolation`](#schemaviolation) de
+  `system/hydros.json`.
+
+Os modelos de geometria, de produção e de evaporação de uma hidrelétrica cobrem
+apenas a faixa do seu reservatório, de modo que os limites de armazenamento de um
+estágio devem ficar dentro dela.
+
+**Campos:**
+
+{/* quoted from source: check_bound_widens_reservoir_range in crates/novomodelo-io/src/validation/semantic/block_bounds.rs and check_stage_storage_bounds_inverted in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.21.0 */}
+
+| Campo         | Descrição |
+| ------------- | ----------- |
+| `description` | Contém uma linha `[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=<id>, stage_id=<stage>): Hydro <id>: hydro_bounds row at stage_id=<stage>[, block_id=<block>] sets <column>=<value>, above the reservoir's <column> (<declared>) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range`, com `below` no lugar de `above` para `min_storage_hm3`, ou uma linha `[InvalidValue] constraints/hydro_bounds.parquet: min_storage_hm3 exceeds max_storage_hm3 at <n> (hydro, stage) pair(s), so no storage satisfies those stages: <pairs>` |
+
+Cada par é escrito `Hydro <id> at stage <stage> (<min> > <max>)`, com os pares
+ordenados pelo id da hidrelétrica e depois pelo id do estágio, e unidos por `, `.
+
+**Exemplos:**
+
+{/* capture: novomodelo validate above | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy above; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and one row: hydro_id 0, stage_id 1, max_storage_hm3 1200.0, with the 1dtoy reservoir range [0, 1000]; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=0, stage_id=1): Hydro 0: hydro_bounds row at stage_id=1 sets max_storage_hm3=1200, above the reservoir's max_storage_hm3 (1000) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range
+```
+
+{/* capture: novomodelo validate below | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy below; system/hydros.json: hydro 0 reservoir min_storage_hm3 100.0; initial_conditions.json: hydro 0 storage 150.0; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and one row: hydro_id 0, stage_id 1, min_storage_hm3 50.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=0, stage_id=1): Hydro 0: hydro_bounds row at stage_id=1 sets min_storage_hm3=50, below the reservoir's min_storage_hm3 (100) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range
+```
+
+No caso seguinte, o estágio 1 recebe o mínimo e o máximo de duas linhas, e o
+máximo do estágio 2 fica abaixo do mínimo do reservatório, de 100 hm³, que é o
+mínimo em vigor nesse estágio:
+
+{/* capture: novomodelo validate inv | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy inv; system/hydros.json: hydro 0 reservoir min_storage_hm3 100.0; initial_conditions.json: hydro 0 storage 150.0; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and three rows for hydro_id 0: stage_id 1 with min_storage_hm3 600.0, stage_id 1 with max_storage_hm3 400.0, and stage_id 2 with max_storage_hm3 50.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet: min_storage_hm3 exceeds max_storage_hm3 at 2 (hydro, stage) pair(s), so no storage satisfies those stages: Hydro 0 at stage 1 (600 > 400), Hydro 0 at stage 2 (100 > 50)
+```
+
+**Solução:** Mantenha o `min_storage_hm3` e o `max_storage_hm3` de cada estágio dentro
+da faixa de `min_storage_hm3` a `max_storage_hm3` do reservatório em `system/hydros.json`,
+ou corrija a faixa do reservatório quando for ela o valor errado. Em cada estágio
+listado, reduza o mínimo ou aumente o máximo em vigor. Veja
+[`constraints/hydro_bounds.parquet`](/reference/case-format/constraints/#constraintshydro_boundsparquet).
 
 #### Armazenamento inicial recusado na carga
 
@@ -1164,8 +1234,8 @@ ser expressa como uma simples restrição de intervalo. Exemplos: um `turbined_c
 em uma hidrelétrica cujo modelo de geração é `fpha`, um cronograma de enchimento de volume morto que não consegue
 atingir o volume morto antes da entrada em operação da hidrelétrica, as regras de térmica antecipada
 e de fronteira pós-estudo, uma linha de sobrescrita de limites que nomeia um
-`stage_id` não declarado, uma usina elevatória em serviço em um estágio em que sua hidrelétrica de origem ou de destino não está em operação (Operating), uma hidrelétrica com FPHA calculada cujos volumes em `system/hydro_geometry.parquet` não cobrem sua faixa de armazenamento, ou uma referência por patamar de restrição genérica que os patamares do estágio
-não conseguem satisfazer. Uma verificação reporta um `BusinessRuleViolation` como aviso: quando o modelo de afluências é estimado a partir de `scenarios/inflow_history.parquet` e uma hidrelétrica tem mais de uma observação em um mesmo período sazonal de um ano, `novomodelo validate` imprime uma linha `warning:` (código de saída `0`) informando que as observações são agregadas na resolução do período sazonal.
+`stage_id` não declarado, uma usina elevatória em serviço em um estágio em que sua hidrelétrica de origem ou de destino não está em operação (Operating), uma hidrelétrica com FPHA calculada cujos volumes em `system/hydro_geometry.parquet` não cobrem sua faixa de armazenamento, uma referência por patamar de restrição genérica que os patamares do estágio
+não conseguem satisfazer, ou um estágio que compartilha um `season_id` com estágios de outra duração e não é nem a janela inteira do período sazonal nem uma parte dela ([`stages.json`](/reference/case-format/stages/)). Uma verificação reporta um `BusinessRuleViolation` como aviso: quando o modelo de afluências é estimado a partir de `scenarios/inflow_history.parquet` e uma hidrelétrica tem mais de uma observação em um mesmo período sazonal de um ano, `novomodelo validate` imprime uma linha `warning:` (código de saída `0`) informando que as observações são agregadas na resolução do período sazonal.
 
 **Exemplo:**
 
@@ -1196,6 +1266,8 @@ A regra da janela de estimação está em
 [Anos do histórico de estimação fora do histórico](#anos-do-historico-de-estimacao-fora-do-historico).
 A regra do horizonte de [Antecedência inválida de térmica antecipada](#antecedencia-invalida-de-termica-antecipada) também imprime uma
 linha `[BusinessRuleViolation]`; essa entrada fica sob `SchemaViolation`, onde são impressas duas de suas quatro linhas.
+As regras de volume do estágio das restrições genéricas estão em
+[Restrições genéricas com volume do estágio](#restricoes-genericas-com-volume-do-estagio).
 
 #### Coluna determinística de afluência externa sob modelo autorregressivo
 
@@ -1517,6 +1589,51 @@ final. Para referenciar grandezas por patamar, defina `block_mode` como `"chrono
 no estágio em [`stages.json`](/reference/case-format/stages/#stagesjson); um
 estágio cronológico exige um patamar nomeado para a evaporação, como em
 `hydro_evaporation(<hydro>, 0)`.
+
+#### Restrições genéricas com volume do estágio
+
+**Quando ocorre:** Uma restrição genérica com um termo `hydro_outflow_volume`,
+`hydro_diversion_volume` ou `pumping_volume` é uma única linha no nível do
+estágio; por isso, a verificação recusa três coisas nela:
+
+- um termo que não é um volume do estágio, `hydro_storage`, nem um termo
+  `hydro_storage_initial`, `hydro_storage_final`, `hydro_useful_volume_initial`
+  ou `hydro_useful_volume_final` sem argumento de patamar, esteja ele escrito na
+  expressão ou trazido por uma expressão nomeada;
+- um parâmetro `per_stage_block` lido por um coeficiente ou limite, diretamente
+  ou por meio de parâmetros `expression`;
+- uma linha da restrição em `constraints/generic_constraint_bounds.parquet` com
+  `block_id`.
+
+As regras estão enunciadas em
+[Volumes do estágio](/reference/generic-constraints/#volumes-do-estagio).
+
+**Tipo, arquivo, entidade:** `BusinessRuleViolation`. A recusa de um termo ou de
+um parâmetro informa `constraints/generic_constraints.json` e a entidade
+`constraint[id=N]`, em que `N` é o `id` da restrição, tenha a restrição linhas de
+limites ou não. A recusa de uma linha de limites informa
+`constraints/generic_constraint_bounds.parquet` e a entidade
+`constraint_id=N, stage_id=S` da linha.
+
+**Mensagens:** `novomodelo validate` imprime uma linha `error:` por termo,
+parâmetro e linha de limites recusados. Um termo trazido por uma expressão
+nomeada é citado com `(from @name)` depois dele, nomeando cada expressão nomeada
+cujo próprio corpo escreve o termo. As três linhas abaixo mostram uma recusa de cada tipo, na ordem
+acima.
+
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy with the check:gc-examples overlay scripts/fixtures/gc-overlay copied over it; constraints/generic_parameters.json replaced with one per_stage_block parameter, id 1, name cap, value 5000.0 at block 0 of stages 0-3; constraints/generic_constraints.json replaced with three constraints, slack disabled: id 1 release_vs_flow hydro_outflow_volume(0) - hydro_turbined(1) <= 0, id 2 release_cap hydro_outflow_volume(0) <= @cap, id 3 diverted_cap hydro_diversion_volume(1) <= 100; constraints/generic_constraint_bounds.parquet replaced with compression zstd, constraints 1 and 2 at stages 0-3 with block_id null and constraint 3 at stage 0 with block_id 0, bound_lower 0.0, bound_upper null; run with NO_COLOR=1, exit code 1; the Validation summary line is not quoted) */}
+
+```text
+error: [BusinessRuleViolation] constraints/generic_constraints.json (constraint[id=1]): Constraint "release_vs_flow": `hydro_turbined(1)` cannot appear beside a stage-volume term; such a constraint takes only stage volumes, hydro_storage, and hydro_storage_* or hydro_useful_volume_* without a block argument
+error: [BusinessRuleViolation] constraints/generic_constraints.json (constraint[id=2]): Constraint "release_cap": parameter `@cap` is per_stage_block; a constraint with a stage-volume term takes no coefficient or bound that varies by block
+error: [BusinessRuleViolation] constraints/generic_constraint_bounds.parquet (constraint_id=3, stage_id=0): Constraint "diverted_cap": the bounds row at stage_id=0 has block_id=0; a constraint with a stage-volume term takes one row per stage with a null block_id
+```
+
+**Solução:** Restrinja uma restrição com volume do estágio a volumes do estágio e
+ao armazenamento no nível do estágio: escreva uma vazão, uma geração ou outra
+grandeza por patamar como uma restrição própria, ou como o seu volume do estágio,
+quando houver um; substitua um parâmetro `per_stage_block` por um `per_stage`; e
+defina como nulo o `block_id` de cada linha de limites.
 
 #### Usina elevatória fora das janelas de operação de suas extremidades
 

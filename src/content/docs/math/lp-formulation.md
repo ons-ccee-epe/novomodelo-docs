@@ -15,25 +15,25 @@ For the entity view of this chapter, see [Hydro plants](/en/entities/generation/
 
 ## Stage LP at a Glance
 
-Given its incoming state, the stage LP minimizes the objective below subject to the rows of every family it carries, each written in its parallel-stage form with the symbols of its owning section, $\cdots$ standing for terms that section writes in full; the in-transit bucket and commitment-ring families are named in one line.
+Given its incoming state, the stage LP minimizes the objective below subject to the rows of every family it carries, each written in its parallel-stage form with the symbols of its owning section, $\cdots$ standing for terms that section writes in full; the in-transit bucket, plant minimum and maximum, and commitment-ring families are named in text lines. $\hat{z}_h$ is the realized inflow of hydro $h$ and $R_i$ the right-hand side of cut $i$, numbers computed before the solve (§5, §11).
 
 $$
 \begin{aligned}
 & \min\; C^{resource} + C^{recourse} + C^{violation} + C^{regularization} + d_{t \to t+1}\,\theta \\
-& z_h = b_{h,m(t)} + \sum_{\ell=1}^{P_h} \psi_{m(t),\ell} \, a_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t \quad (1) \\
-& v_h - v^{in}_h - \zeta \, z_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = -\zeta \, T^{eff}_h \quad (2) \\
-& \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (4) \\
-& g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (5) \\
-& e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (6) \\
-& q_{h,k} + s_{h,k} + \sigma^{o-}_{h,k} \geq \underline{O}_h \quad (7) \\
-& q_{h,k} + s_{h,k} - \sigma^{o+}_{h,k} \leq \bar{O}_h \quad (8) \\
-& q_{h,b,k} + \sigma^{q-}_{h,b,k} \geq \underline{Q}_{h,b} \quad (9) \\
-& g_{h,b,k} + \sigma^{g-}_{h,b,k} \geq \underline{G}_{h,b} \quad (10) \\
+& v_h - v^{in}_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = \zeta \, \big( \hat{z}_h - T^{eff}_h \big) \quad (1) \\
+& \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (3) \\
+& g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (4) \\
+& e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (5) \\
+& q_{h,k} + s_{h,k} + \sigma^{o-}_{h,k} \geq \underline{O}_h \quad (6) \\
+& q_{h,k} + s_{h,k} - \sigma^{o+}_{h,k} \leq \bar{O}_h \quad (7) \\
+& q_{h,b,k} + \sigma^{q-}_{h,b,k} \geq \underline{Q}_{h,b} \quad (8) \\
+& g_{h,b,k} + \sigma^{g-}_{h,b,k} \geq \underline{G}_{h,b} \quad (9) \\
 & v_h + \sigma^{fill}_h \geq V^{\text{target}}_t \quad (11) \\
 & v_h + \sigma^{v-}_h \geq \underline{V}_h \quad (12) \\
-& \text{in-transit bucket definition; commitment fish, deposit and carry} \quad (3),\ (13),\ (14),\ (15) \\
+& \text{in-transit bucket definition; plant minimum and maximum} \quad (2),\ (10) \\
+& \text{commitment fish, deposit and carry} \quad (13),\ (14),\ (15) \\
 & \underline{b}_g \leq \sum_{e} \gamma_{g,e} \, x_e \leq \bar{b}_g \quad (16) \\
-& \theta \geq \beta_{0,i} + \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h + \cdots \quad (17)
+& \theta - \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h - \cdots \geq R_i \quad (17)
 \end{aligned}
 $$
 
@@ -41,26 +41,25 @@ The table lists the families in the order of the stage LP's rows, with $N = \lve
 
 | No. | Row family | Rows per stage | Section |
 | --- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1 | Realized-inflow definition | $N$, one per hydro | [§5](#5-realized-inflow-definition-rows) |
-| 2 | Water balance | $N$ on a parallel stage, $N \lvert\mathcal{K}\rvert$ on a chronological stage | [§4](#4-hydro-water-balance) |
-| 3 | In-transit bucket definition | one per receiving plant and maturity lag reached at the stage | [State Augmentation — Bucket definition rows](/en/math/state-augmentation#bucket-definition-rows) |
-| 4 | Load balance | $\lvert\mathcal{B}\rvert \, \lvert\mathcal{K}\rvert$, one per bus and block | [§3](#3-load-balance-constraint) |
-| 5 | FPHA planes | one per plane, (hydro, bus) cell and block of each FPHA hydro; none while the hydro is PreFilling or in its filling window | [§6](#6-hydro-generation-constraints) |
-| 6 | Evaporation | one per evaporating hydro on a parallel stage, one per evaporating hydro and block on a chronological stage; none while the hydro is PreFilling | [§4 Evaporation Row](#evaporation-row) |
-| 7 | Minimum outflow | $N \lvert\mathcal{K}\rvert$, one per hydro and block | [§7](#7-outflow-constraints) |
-| 8 | Maximum outflow | $N \lvert\mathcal{K}\rvert$, one per hydro and block | [§7](#7-outflow-constraints) |
-| 9 | Minimum turbined flow | one per (hydro, bus) cell and block | [§8](#8-variable-bounds-and-minimum-constraints) |
-| 10 | Minimum generation | one per (hydro, bus) cell and block | [§6](#6-hydro-generation-constraints) |
-| 11 | Plant minimum and maximum | for a hydro with several cells, per block: a turbined-flow and a generation minimum row when the plant minimum binds on its cells' total at some block of the stage, then a turbined-flow and a generation maximum row when the plant maximum does | [§8 Plant Minimum and Maximum](#plant-minimum-and-maximum) |
-| 12 | Filling floor | one per filling hydro at each stage of its filling window | [§8](#8-variable-bounds-and-minimum-constraints) |
-| 13 | Soft dead-volume floor | one per filling hydro at each stage from its entry stage on | [§8](#8-variable-bounds-and-minimum-constraints) |
-| 14 | Commitment fish | one per anticipated thermal whose delivery at the stage was decided at an earlier stage or before the study | [State Augmentation — Ring Rows](/en/math/state-augmentation#ring-rows) |
-| 15 | Commitment deposit | one per anticipated thermal that decides at the stage a commitment for a delivery inside the study or the declared post-study calendar at which the plant is commissioned | [State Augmentation — Ring Rows](/en/math/state-augmentation#ring-rows) |
-| 16 | Commitment carry | one per ring slot holding a later delivery, decided at an earlier stage or before the study, inside the study or the declared post-study calendar | [State Augmentation — Ring Rows](/en/math/state-augmentation#ring-rows) |
-| 17 | Generic constraints | one per active bound and block it covers, or one stage-level row for a block-independent bound | [§10](#10-generic-constraints) |
-| 18 | Benders cuts | one per active cut; one per resident cut under the dynamic method | [§11](#11-benders-cuts) |
+| 1 | Water balance | $N$ on a parallel stage, $N \lvert\mathcal{K}\rvert$ on a chronological stage | [§4](#4-hydro-water-balance) |
+| 2 | In-transit bucket definition | one per receiving plant and maturity lag reached at the stage | [State Augmentation — Bucket definition rows](/en/math/state-augmentation#bucket-definition-rows) |
+| 3 | Load balance | $\lvert\mathcal{B}\rvert \, \lvert\mathcal{K}\rvert$, one per bus and block | [§3](#3-load-balance-constraint) |
+| 4 | FPHA planes | one per plane, (hydro, bus) cell and block of each FPHA hydro; none while the hydro is PreFilling or in its filling window | [§6](#6-hydro-generation-constraints) |
+| 5 | Evaporation | one per evaporating hydro on a parallel stage, one per evaporating hydro and block on a chronological stage; none while the hydro is PreFilling | [§4 Evaporation Row](#evaporation-row) |
+| 6 | Minimum outflow | $N \lvert\mathcal{K}\rvert$, one per hydro and block | [§7](#7-outflow-constraints) |
+| 7 | Maximum outflow | $N \lvert\mathcal{K}\rvert$, one per hydro and block | [§7](#7-outflow-constraints) |
+| 8 | Minimum turbined flow | one per (hydro, bus) cell and block | [§8](#8-variable-bounds-and-minimum-constraints) |
+| 9 | Minimum generation | one per (hydro, bus) cell and block | [§6](#6-hydro-generation-constraints) |
+| 10 | Plant minimum and maximum | for a hydro with several cells, per block: a turbined-flow and a generation minimum row when the plant minimum binds on its cells' total at some block of the stage, then a turbined-flow and a generation maximum row when the plant maximum does | [§8 Plant Minimum and Maximum](#plant-minimum-and-maximum) |
+| 11 | Filling floor | one per filling hydro at each stage of its filling window | [§8](#8-variable-bounds-and-minimum-constraints) |
+| 12 | Soft dead-volume floor | one per filling hydro at each stage from its entry stage on | [§8](#8-variable-bounds-and-minimum-constraints) |
+| 13 | Commitment fish | one per anticipated thermal whose delivery at the stage was decided at an earlier stage or before the study | [State Augmentation — Ring Rows](/en/math/state-augmentation#ring-rows) |
+| 14 | Commitment deposit | one per anticipated thermal that decides at the stage a commitment for a delivery inside the study or the declared post-study calendar at which the plant is commissioned | [State Augmentation — Ring Rows](/en/math/state-augmentation#ring-rows) |
+| 15 | Commitment carry | one per ring slot holding a later delivery, decided at an earlier stage or before the study, inside the study or the declared post-study calendar | [State Augmentation — Ring Rows](/en/math/state-augmentation#ring-rows) |
+| 16 | Generic constraints | one per active bound and block it covers, or one stage-level row for a block-independent bound | [§10](#10-generic-constraints) |
+| 17 | Benders cuts | one per active cut; one per resident cut under the dynamic method | [§11](#11-benders-cuts) |
 
-Incoming-state pinning and the lifecycle pins are column bounds, not rows: each incoming-state column is fixed at its trial value by equal bounds ([State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)), and each column a lifecycle phase freezes is fixed by its bounds ([§8](#8-variable-bounds-and-minimum-constraints)).
+Incoming-state pinning and the lifecycle pins are column bounds, not rows: each incoming-state column is fixed at its trial value by equal bounds ([State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)), and each column a lifecycle phase freezes is fixed by its bounds ([§8](#8-variable-bounds-and-minimum-constraints)). The PAR(p) inflow model has no row and no column: the realized inflow and the inflow lags reach the LP through right-hand sides (§5, [PAR(p) Folding](/en/math/par-folding)).
 
 ## 1. Cost and Penalty Taxonomy
 
@@ -167,18 +166,18 @@ For the physical meaning of each element in the balance, see [System Element Mod
 
 ## 4. Hydro Water Balance
 
-Every hydro $h \in \mathcal{H}$ has one water-balance row on a parallel stage and one per block on a chronological stage ([Block Formulation Variants](/en/math/block-formulations)); every LP variable is on the left-hand side.
+Every hydro $h \in \mathcal{H}$ has one water-balance row on a parallel stage and one per block on a chronological stage ([Block Formulation Variants](/en/math/block-formulations)); every LP variable is on the left-hand side, and the realized inflow $\hat{z}_h$ (§5), a constant of the solve, is on the right-hand side with the withdrawal target.
 
 ### Parallel-Stage Row
 
 $$
 \begin{aligned}
 & v_h - v^{in}_h - b^{\mathrm{in}}_{h,1}
-  - \zeta \big( z_h + \sigma^{inf}_h + \sigma^{w-}_h - \sigma^{w+}_h - e_h \big) \\
+  - \zeta \big( \sigma^{inf}_h + \sigma^{w-}_h - \sigma^{w+}_h - e_h \big) \\
 & \quad + \sum_{k \in \mathcal{K}} \zeta_k \Big( q_{h,k} + s_{h,k} + u_{h,k}
   - \sum_{h' \in \mathcal{U}_h} \nu_{h',t,0} \, (q_{h',k} + s_{h',k})
   - \sum_{h':\,\text{div}=h} u_{h',k} \\
-& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta \, T^{eff}_h
+& \qquad + \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = \zeta \, \big( \hat{z}_h - T^{eff}_h \big)
 \end{aligned}
 $$
 
@@ -189,11 +188,11 @@ For each block $k \in \mathcal{K}$, with $v_{h,0} = v^{in}_h$ and $v_{h,\lvert\m
 $$
 \begin{aligned}
 & v_{h,k} - v_{h,k-1} - \phi_{h,k} \, b^{\mathrm{in}}_{h,1}
-  - \zeta_k \big( z_h + \sigma^{inf}_h + \sigma^{w-}_h - \sigma^{w+}_h - e_{h,k} \big)
+  - \zeta_k \big( \sigma^{inf}_h + \sigma^{w-}_h - \sigma^{w+}_h - e_{h,k} \big)
   + \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) \\
 & \quad - \sum_{h' \in \mathcal{U}_h} \sum_{k' \le k} \nu^{k' \to k}_{h',t} \, \zeta_{k'} \, (q_{h',k'} + s_{h',k'})
   - \zeta_k \sum_{h':\,\text{div}=h} u_{h',k}
-  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = -\zeta_k \, T^{eff}_h
+  + \zeta_k \Big( \sum_{y:\,\text{src}=h} p_{y,k} - \sum_{y:\,\text{dest}=h} p_{y,k} \Big) = \zeta_k \, \big( \hat{z}_h - T^{eff}_h \big)
 \end{aligned}
 $$
 
@@ -201,8 +200,8 @@ $$
 
 - $v_h$ and $v^{in}_h$ = outgoing and incoming storage; $v^{in}_h$ is pinned to the trial value by its column bounds ([State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)). On a chronological stage $v_{h,k}$ is the storage at the end of block $k$
 - $b^{\mathrm{in}}_{h,1}$ = in-transit volume maturing at this stage on the travel-time arcs into $h$, in hm³ and therefore outside the conversion ([State Augmentation §6](/en/math/state-augmentation#6-water-travel-time)); a chronological stage spreads it over its blocks by the arrival density $\phi_{h,k}$, $\sum_k \phi_{h,k} = 1$. Absent when no travel-time arc enters $h$
-- $z_h = a_h$ = realized incremental inflow (§5), so block $k$ of a chronological stage receives the share $w_k\,\zeta\,\sigma_{m(t)}\,\varepsilon_t$ of the innovation
-- $\sigma^{inf}_h$ = inflow non-negativity slack, present under every inflow method except `none`, which adds water: unbounded under `penalty`, capped at the truncation amount $a^-_h$, a constant of the solve computed from the realization at its pinned lags, under `truncation_with_penalty`, and fixed at it under `truncation` (see [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity))
+- $\hat{z}_h$ = realized incremental inflow, a constant of the solve computed outside the LP (§5); block $k$ of a chronological stage receives the share $w_k$ of its volume $\zeta\,\hat{z}_h$, the innovation $\sigma_{m(t)}\,\varepsilon_t$ included
+- $\sigma^{inf}_h$ = inflow non-negativity slack, present under every inflow method except `none`, which adds water: unbounded under `penalty`, capped at the truncation amount $a^-_h = \max(0, -\hat{z}_h)$, a constant of the solve, under `truncation_with_penalty`, and fixed at it under `truncation` (see [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity))
 - $r_h$ = the plant's own declared withdrawal target, signed and stage-level ($r_h < 0$ adds water)
 - $T^{eff}_h$ = effective withdrawal, the quantity on the right-hand side. For a non-PreFilling plant, $T^{eff}_h = r_h + \sum_{h' \in \mathcal{P}_h} r_{h'}$, where $\mathcal{P}_h$ is the set of PreFilling plants whose first non-PreFilling downstream plant is $h$; for a PreFilling plant, $T^{eff}_h = 0$ ([PreFilling Pass-Through](#prefilling-pass-through))
 - $\sigma^{w-}_h$, $\sigma^{w+}_h$ = stage-level under- and over-delivery slacks of the effective withdrawal; the realized withdrawal is $R_h = T^{eff}_h - \sigma^{w-}_h + \sigma^{w+}_h$, with the slack caps in §9
@@ -216,11 +215,11 @@ $$
 
 ### PreFilling Pass-Through
 
-A PreFilling hydro (see [Lifecycle Phases](#lifecycle-phases) for the phase) has the frozen identity row $v_h - v^{in}_h = 0$, and on a chronological stage $v_{h,k} - v_{h,k-1} = 0$ per block, with right-hand side $0$. Its local inflow $z_h$ with its inflow non-negativity slack $\sigma^{inf}_h$, the releases of its upstream plants and the flows diverted into it enter the row of the first non-PreFilling plant downstream with the coefficients they would carry on the PreFilling plant's own row ($-\zeta$ on $z_h$ and $\sigma^{inf}_h$ on a parallel stage and $-\zeta_k$ on each block row of a chronological stage, $-\zeta_k$ on every block-$k$ flow) and no travel-time share, and its withdrawal target joins that plant's effective withdrawal $T^{eff}_h$, so the receiving plant's slacks $\sigma^{w-}_h$ and $\sigma^{w+}_h$ relax it at that plant's withdrawal-slack prices. Its maturing in-transit volume $b^{\mathrm{in}}_{h,1}$ enters the same row, with coefficient $-1$ on a parallel stage and $-\phi_{h,k}$ on block $k$'s row of a chronological stage, $\phi_{h,k}$ being the PreFilling plant's own arrival density. With no such plant downstream the water leaves the system and the withdrawal enters no row.
+A PreFilling hydro (see [Lifecycle Phases](#lifecycle-phases) for the phase) has the frozen identity row $v_h - v^{in}_h = 0$, and on a chronological stage $v_{h,k} - v_{h,k-1} = 0$ per block, with right-hand side $0$. Its inflow non-negativity slack $\sigma^{inf}_h$, the releases of its upstream plants and the flows diverted into it enter the row of the first non-PreFilling plant downstream with the coefficients they would carry on the PreFilling plant's own row ($-\zeta$ on $\sigma^{inf}_h$ on a parallel stage and $-\zeta_k$ on each block row of a chronological stage, $-\zeta_k$ on every block-$k$ flow) and no travel-time share, its local inflow $\hat{z}_h$ moves to that plant's right-hand side, and its withdrawal target joins that plant's effective withdrawal $T^{eff}_h$, so the receiving plant's slacks $\sigma^{w-}_h$ and $\sigma^{w+}_h$ relax it at that plant's withdrawal-slack prices. Its maturing in-transit volume $b^{\mathrm{in}}_{h,1}$ enters the same row, with coefficient $-1$ on a parallel stage and $-\phi_{h,k}$ on block $k$'s row of a chronological stage, $\phi_{h,k}$ being the PreFilling plant's own arrival density. With no such plant downstream the water leaves the system and the withdrawal enters no row.
 
 ### Summing the Block Rows
 
-Summing a chronological stage's block rows over $k \in \mathcal{K}$ telescopes the storage terms to $v_h - v^{in}_h$, returns $b^{\mathrm{in}}_{h,1}$ ($\sum_k \phi_{h,k} = 1$), and returns the parallel coefficients of $z_h$, $\sigma^{inf}_h$, $\sigma^{w-}_h$, $\sigma^{w+}_h$ and the right-hand side ($\sum_k \zeta_k = \zeta$); the per-block flows keep their $\zeta_k$. The sum has the parallel row's form with two mode differences: $\sum_k \zeta_k\,e_{h,k}$ in place of $\zeta\,e_h$, and each upstream block-$k'$ release carrying its own same-stage share $\sum_{k \ge k'} \nu^{k' \to k}_{h',t}$ in place of $\nu_{h',t,0}$, whose duration-weighted average over $k'$ is $\nu_{h',t,0}$: $\sum_{k' \in \mathcal{K}} w_{k'} \sum_{k \ge k'} \nu^{k' \to k}_{h',t} = \nu_{h',t,0}$. With one block, or no travel time on the arc, the shares coincide.
+Summing a chronological stage's block rows over $k \in \mathcal{K}$ telescopes the storage terms to $v_h - v^{in}_h$, returns $b^{\mathrm{in}}_{h,1}$ ($\sum_k \phi_{h,k} = 1$), and returns the parallel coefficients of $\sigma^{inf}_h$, $\sigma^{w-}_h$, $\sigma^{w+}_h$ and the right-hand side ($\sum_k \zeta_k = \zeta$); the per-block flows keep their $\zeta_k$. The sum has the parallel row's form with two mode differences: $\sum_k \zeta_k\,e_{h,k}$ in place of $\zeta\,e_h$, and each upstream block-$k'$ release carrying its own same-stage share $\sum_{k \ge k'} \nu^{k' \to k}_{h',t}$ in place of $\nu_{h',t,0}$, whose duration-weighted average over $k'$ is $\nu_{h',t,0}$: $\sum_{k' \in \mathcal{K}} w_{k'} \sum_{k \ge k'} \nu^{k' \to k}_{h',t} = \nu_{h',t,0}$. With one block, or no travel time on the arc, the shares coincide.
 
 :::note[Dimensional Consistency]
 (see [Variable Units Convention](/en/math/system-elements#variable-units-convention)):
@@ -260,27 +259,24 @@ $$
 
 With one block the parallel and chronological forms coincide, rows and pricing alike. A PreFilling hydro has no evaporation row.
 
-## 5. Realized-Inflow Definition Rows
+## 5. Realized Inflow
 
-For each hydro $h \in \mathcal{H}$, the LP includes an auxiliary variable $z_h$ representing the total realized inflow (m³/s) at the current stage. These variables are defined by equality constraints that combine the deterministic base, lag contributions, and stochastic noise:
+The stage LP has no column and no row for the PAR(p) inflow model. Before each solve, the realized inflow (m³/s) of each hydro $h \in \mathcal{H}$ is computed from the model at the incoming inflow lags and the noise of the opening:
 
 $$
-z_h = b_{h,m(t)} + \sum_{\ell=1}^{P_h} \psi_{m(t),\ell} \cdot a_{h,\ell} + \sigma_{m(t)} \cdot \varepsilon_t
+\hat{z}_h = b_{h,m(t)} + \sum_{\ell=1}^{P^{\max}} \psi_{m(t),\ell} \, \hat{a}_{h,\ell} + \sigma_{m(t)} \, \varepsilon_t
 $$
 
 where:
 
-- $z_h$ = LP variable representing the realized inflow for hydro $h$ (free column, zero cost)
 - $b_{h,m(t)}$ = deterministic base (precomputed from seasonal means and AR coefficients — see [PAR(p) Inflow Model §2.4](/en/math/par-inflow-model#24-deterministic-base))
-- $\psi_{m(t),\ell}$ = original-unit AR coefficients (constraint matrix entries, set once at LP construction); for a hydro with the annual component the sum runs over every lag slot ($\ell \le P^{\max}$) and each of these coefficients also carries the annual term ([PAR(p) Inflow Model §7.4](/en/math/par-inflow-model#74-runtime-unit-conversion))
-- $a_{h,\ell}$ = LP variables for lagged inflows (state variables, fixed by [State Augmentation §4](/en/math/state-augmentation#4-inflow-lags))
-- $\sigma_{m(t)} \cdot \varepsilon_t$ = noise innovation (patched into the constraint RHS per scenario)
+- $\psi_{m(t),\ell}$ = original-unit AR coefficients, $0$ for a lag the model of $h$ does not use; for a hydro with the annual component each of these coefficients also carries the annual term ([PAR(p) Inflow Model §7.4](/en/math/par-inflow-model#74-runtime-unit-conversion))
+- $\hat{a}_{h,\ell}$ = incoming inflow lags, the trial values of the inflow-lag state ([State Augmentation §4](/en/math/state-augmentation#4-inflow-lags))
+- $\sigma_{m(t)} \, \varepsilon_t$ = noise innovation of the scenario or opening
 
-The z-inflow variable $z_h$ then enters the water balance constraint (§4) in place of the raw inflow term $a_h$, and its primal value after solving gives the realized inflow for reporting and simulation extraction.
+$\hat{z}_h$ enters every row that reads it as a constant on the right-hand side: the water-balance rows (§4), the rows of a PreFilling plant's first non-PreFilling downstream plant ([PreFilling Pass-Through](#prefilling-pass-through)) and the generic constraints with a hydro-inflow term ([Hydro Inflow](#hydro-inflow)). No inflow non-negativity method alters it: $\hat{z}_h$ keeps the raw realization, which may be negative, and the methods add their water to the water balance through $\sigma^{inf}_h$ instead (§4; [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity)). The same value is the realized inflow the simulation reports, and the lag accumulation forms the outgoing inflow-lag state from it ([Multi-Resolution Studies §2](/en/math/multi-resolution-studies#2-lag-accumulation)).
 
-The z-inflow columns sit between the leading state columns and the incoming storage columns, and their constraint rows form the **first** equality block ([LP Layout and Scaling §1](/en/math/lp-layout-and-scaling#1-column-and-row-layout)). The RHS is patched per scenario with $b_{h,m(t)} + \sigma_{m(t)} \cdot \varepsilon_t$, where $\varepsilon_t$ is the scenario's noise, which no inflow non-negativity method alters: the row keeps the raw realization, which may be negative, and the methods add their water to the water balance through $\sigma^{inf}_h$ instead (§4; [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity)). They are not pinned state columns and carry no cut coefficient of their own; the cut row multiplies the lag-1 coefficient by $z_h$.
-
-**Constraint count**: $N$ total constraints, where $N = |\mathcal{H}|$ is the number of hydros, whatever their lifecycle phase.
+The inflow lags are not LP columns, so the cut rows evaluate their lag terms at $\hat{z}_h$ and $\hat{a}_{h,\ell}$ on the right-hand side (§11), and the lag coefficients of a new cut come from the duals by the chain rule. [PAR(p) Folding](/en/math/par-folding) derives this formulation, its equivalence with the formulation that writes the model as rows of the LP, and its limits.
 
 ## 6. Hydro Generation Constraints
 
@@ -503,6 +499,14 @@ $$
 
 so it adds no LP variable; an absent endpoint stays absent, and a negative $\gamma_{g,e}$ lowers both endpoints.
 
+A term may also address a **stage volume** in hm³, a flow summed over the blocks of the stage with the block conversions $\zeta_k$ of §4: the released volume of hydro $h$, its diverted volume, or the pumped volume of pumping station $y$,
+
+$$
+\sum_{k \in \mathcal{K}} \zeta_k \, (q_{h,k} + s_{h,k}), \qquad \sum_{k \in \mathcal{K}} \zeta_k \, u_{h,k}, \qquad \sum_{k \in \mathcal{K}} \zeta_k \, p_{y,k}.
+$$
+
+A constraint with a stage-volume term combines it only with other stage volumes and with the storage or the useful volume at the start or end of the stage, and no coefficient or endpoint of it varies by block, so it is a single stage-level row (row materialization below).
+
 Either endpoint, $\underline{b}_g$ or $\bar{b}_g$, may be absent — never both — with an absent side read as the corresponding infinity. This single interval subsumes every shape a constraint can take: a present $\underline{b}_g$ alone is a floor, a present $\bar{b}_g$ alone is a cap, $\underline{b}_g = \bar{b}_g$ is an equality, and both present together bound a two-sided band. A constraint's shape — floor, cap, equality or band — follows from which endpoints are present and, when both are, whether they coincide.
 
 ### Coefficients and Endpoints
@@ -521,16 +525,16 @@ A constraint may optionally carry a slack, penalized per unit of violation, so t
 
 The reported violation is the **signed net** $\sigma^{gc+}_g - \sigma^{gc-}_g$: positive when the row sits below its floor, negative when it sits above its cap, matching the sign of the underlying deviation rather than reading as an unsigned magnitude. The objective charges both columns, $\sigma^{gc+}_g + \sigma^{gc-}_g$, which coincides with the net's magnitude whenever only one direction is active — the case at any optimum, since paying for both directions on the same row at once is strictly dominated by paying for neither of the excess.
 
-**Row materialization**: a constraint bound declared for every block of the stage over a **block-independent** expression — one whose every term references a stock variable (incoming storage $v^{in}_h$, outgoing storage $v_h$, evaporation (the stage-level $e_h$ on a parallel stage, a named block's $e_{h,k}$ on a chronological stage), or an anticipated-thermal commitment) — is materialized as a **single stage-level row**, since per-block rows would be identical, **provided its coefficients and endpoints are block-independent too**: a coefficient or an endpoint drawn from the per-(stage, block) parameter kind above, or from a formula that reads one, varies within the stage, which forces the per-block row set even when the expression alone would otherwise qualify for the collapse. A term whose coefficient folds to zero is dropped before this test, so it neither prevents nor causes the collapse. The slack of a stage-level row is priced over the stage, $c_g H_t \sigma$ on the rate basis and $c_g \sigma$ on the amount basis. A bound declared for every block on a block-level expression, or a bound declared for one block, still produces one row per relevant block. This is an LP row-count optimization that is cost- and parity-neutral.
+**Row materialization**: a constraint bound declared for every block of the stage over a **block-independent** expression — one whose every term references a stock variable (incoming storage $v^{in}_h$, outgoing storage $v_h$, evaporation (the stage-level $e_h$ on a parallel stage, a named block's $e_{h,k}$ on a chronological stage), or an anticipated-thermal commitment) or a stage volume, which reads the columns of every block itself — is materialized as a **single stage-level row**, since per-block rows would be identical, **provided its coefficients and endpoints are block-independent too**: a coefficient or an endpoint drawn from the per-(stage, block) parameter kind above, or from a formula that reads one, varies within the stage, which forces the per-block row set even when the expression alone would otherwise qualify for the collapse. A term whose coefficient folds to zero is dropped before this test, so it neither prevents nor causes the collapse. The slack of a stage-level row is priced over the stage, $c_g H_t \sigma$ on the rate basis and $c_g \sigma$ on the amount basis. A bound declared for every block on a block-level expression, or a bound declared for one block, still produces one row per relevant block. This is an LP row-count optimization that is cost- and parity-neutral.
 
 See [Generic Constraints](/en/reference/generic-constraints) for the authoring grammar, the activation grid, and the per-file field tables this formulation implements.
 
 ### Hydro Inflow
 
-A hydro-inflow term reads the inflow $I_{h,k}$ of hydro $h$ in block $k$, a rate in m³/s built from LP columns:
+A hydro-inflow term reads the inflow $I_{h,k}$ of hydro $h$ in block $k$, a rate in m³/s built from LP columns and the realized inflows of the solve:
 
 $$
-I_{h,k} = z_h + \mathbb{1}^{tr} \sigma^{inf}_h + \sum_{h':\,\text{div}=h} u_{h',k} + \sum_{h' \in \mathcal{U}_h} o^{arr}_{h' \to h,k} + \frac{\phi_{h,k}}{\zeta_k} \, b^{\mathrm{in}}_{h,1} + \sum_{h' \in \mathcal{U}^{pre}_h(t)} \Big( z_{h'} + \mathbb{1}^{tr} \sigma^{inf}_{h'} + \sum_{h'':\,\text{div}=h'} u_{h'',k} + \sum_{h'' \in \mathcal{U}_{h'}} o_{h'',k} + \frac{\phi_{h',k}}{\zeta_k} \, b^{\mathrm{in}}_{h',1} \Big)
+I_{h,k} = \hat{z}_h + \mathbb{1}^{tr} \sigma^{inf}_h + \sum_{h':\,\text{div}=h} u_{h',k} + \sum_{h' \in \mathcal{U}_h} o^{arr}_{h' \to h,k} + \frac{\phi_{h,k}}{\zeta_k} \, b^{\mathrm{in}}_{h,1} + \sum_{h' \in \mathcal{U}^{pre}_h(t)} \Big( \hat{z}_{h'} + \mathbb{1}^{tr} \sigma^{inf}_{h'} + \sum_{h'':\,\text{div}=h'} u_{h'',k} + \sum_{h'' \in \mathcal{U}_{h'}} o_{h'',k} + \frac{\phi_{h',k}}{\zeta_k} \, b^{\mathrm{in}}_{h',1} \Big)
 $$
 
 Each upstream release is credited to block $k$ by the travel time of its arc:
@@ -539,6 +543,7 @@ $$
 o^{arr}_{h' \to h,k} = \begin{cases} o_{h',k} & \text{arc without a travel time} \\ \nu_{h',t,0} \, o_{h',k} & \text{travel-time arc, parallel stage} \\ \sum_{k' \le k} \nu^{k' \to k}_{h',t} \, \dfrac{\zeta_{k'}}{\zeta_k} \, o_{h',k'} & \text{travel-time arc, chronological stage} \end{cases}
 $$
 
+- $\hat{z}_h$, $\hat{z}_{h'}$ = realized inflows of the solve (§5), constants: a term with coefficient $c$ on $I_{h,k}$ subtracts $c\,\hat{z}_h$ from each finite bound of its row, and $c\,\hat{z}_{h'}$ for each $h' \in \mathcal{U}^{pre}_h(t)$
 - $\sigma^{inf}_h$ = the inflow non-negativity slack of $h$ (§4), which carries the truncation correction of the local inflow under the truncation methods ([Inflow Non-Negativity Solution Methods §2](/en/math/inflow-nonnegativity#2-the-inflow-non-negativity-slack)); $\mathbb{1}^{tr} = 1$ under `truncation` and `truncation_with_penalty` and $0$ under `penalty`, and under `none` the column does not exist
 - $o_{h',k} = q_{h',k} + s_{h',k}$ = turbined plus spilled outflow of $h'$ (§7), credited with the same-stage share $\nu_{h',t,0}$ or the within-stage shares $\nu^{k' \to k}_{h',t}$ of §4
 - $\phi_{h,k}$ = arrival density of [State Augmentation §6](/en/math/state-augmentation#6-water-travel-time) on a chronological stage and $\tau_k / H_t$ on a parallel stage: the share of the maturing in-transit volume $b^{\mathrm{in}}_{h,1}$ that arrives in block $k$, which the division by $\zeta_k$ turns into a rate; the maturing term is absent when no travel-time arc enters $h$
@@ -557,16 +562,25 @@ $I_{h,k}$ reads per-block columns, so a bound without a block expands to one row
 For each cut $i$ in the stage LP, that is each active cut or, under the dynamic method, each cut resident in the solve ([Cut Management §8](/en/math/cut-management#8-the-dynamic-method)):
 
 $$
-\theta \geq \beta_{0,i} + \sum_{h \in \mathcal{H}} \beta^v_{i,h} \cdot v_h + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{i,h,1} \cdot z_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \cdot a_{h,\ell-1} \Big)
+\theta - \sum_{h \in \mathcal{H}} \beta^v_{i,h} \, v_h - \cdots \ge R_i
+$$
+
+$$
+R_i = \beta_{0,i} + \sum_{h \in \mathcal{H}} \Big( \beta^{lag}_{i,h,1} \, \hat{z}_h + \sum_{\ell=2}^{P^{\max}} \beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell-1} \Big)
 $$
 
 where:
 
-- $\beta_{0,i}$ = cut intercept (RHS)
+- $\beta_{0,i}$ = cut intercept
 - $\beta^v_{i,h}$ = coefficient for storage state variable, present when the cut keeps the storage dimensions
-- $\beta^{lag}_{i,h,\ell}$ = coefficient for the inflow lag $\ell$ of the next stage's incoming state, multiplied by the realized inflow $z_h$ for $\ell = 1$ and by the incoming lag $a_{h,\ell-1}$ for $\ell \ge 2$; present when the cut keeps the inflow-lag dimensions
+- $\beta^{lag}_{i,h,\ell}$ = coefficient for the inflow lag $\ell$ of the next stage's incoming state, which is the realized inflow $\hat{z}_h$ for $\ell = 1$ and the incoming lag $\hat{a}_{h,\ell-1}$ for $\ell \ge 2$, both numbers of the solve, so each lag term joins the right-hand side $R_i$; present when the cut keeps the inflow-lag dimensions
+- $\cdots$ = the terms on the outgoing commitment-ring slot and in-transit bucket columns (below)
 
-When anticipated thermals are present, the cut carries one coefficient per commitment-ring slot ([State Augmentation §5](/en/math/state-augmentation#5-anticipated-thermal-commitments)), read from the same reduced-cost mechanism; when travel-time arcs are present, it likewise carries one coefficient per in-transit bucket dimension ([State Augmentation §6](/en/math/state-augmentation#6-water-travel-time)). Unlike the storage and lag coefficients, the ring-slot and bucket coefficients are always part of the cut projection ([State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)).
+The display is the form at a stage that completes a lag period that begins at it. Where a lag period spans several stages, the lag terms evaluate the outgoing lags of [Multi-Resolution Studies §2.1](/en/math/multi-resolution-studies#21-the-lags-the-cuts-read): at a stage that leaves its period open they are $\sum_{\ell=1}^{P^{\max}} \beta^{lag}_{i,h,\ell} \, \hat{a}_{h,\ell}$, with no re-indexing, and at a stage that completes a period begun earlier lag 1 is the period's duration-weighted mean in place of $\hat{z}_h$.
+
+The cut row has no entry on the inflow lags, which are not LP columns (§5). $R_i$ splits into a part fixed by the trial point and a part fixed by the opening, and the lag coefficients of a new cut come from the duals of the solve by the chain rule ([PAR(p) Folding §3](/en/math/par-folding#3-the-cut-right-hand-side), [§4](/en/math/par-folding#4-the-inflow-lag-coefficients-by-the-chain-rule)).
+
+When anticipated thermals are present, the cut carries one coefficient per commitment-ring slot ([State Augmentation §5](/en/math/state-augmentation#5-anticipated-thermal-commitments)), read, like the storage coefficients, from the reduced costs of the pinned incoming columns; when travel-time arcs are present, it likewise carries one coefficient per in-transit bucket dimension ([State Augmentation §6](/en/math/state-augmentation#6-water-travel-time)). Unlike the storage and lag coefficients, the ring-slot and bucket coefficients are always part of the cut projection ([State Augmentation §7](/en/math/state-augmentation#7-cut-state-projection)).
 
 The future-cost variable $\theta$ has lower bound $0$ at every stage, which presumes $V_{t+1} \ge 0$. Stage objectives can be negative: export contracts earn revenue (§2), and the curtailment term of §2 is a reward: it is never positive, and it is constant for a must-run source. Where $V_{t+1}$ is negative the bound lies above it, so the cut approximation need not lie below $V_{t+1}$ and the lower bound is not guaranteed. At the last stage of the finite horizon, with no terminal boundary loaded, $\theta$ is $0$ ($V_{T+1} = 0$); with a [terminal boundary](/en/math/post-study-boundary#1-the-right-boundary) loaded, $\theta$ keeps the floor and the imported cuts bound it from below, so the terminal function is the larger of $0$ and the imported cuts.
 
@@ -583,6 +597,7 @@ For cut coefficient derivation, aggregation, and selection strategies, see [Cut 
 - [State Augmentation](/en/math/state-augmentation) — the state vector, its pinning by column bounds, the outgoing state and the cut row, and the inflow-lag, commitment-ring and in-transit state families
 - [LP Layout and Scaling](/en/math/lp-layout-and-scaling) — the column and row layout of this LP, its cost scaling and prescaling, and the unscaling of its duals and reduced costs
 - [PAR(p) Inflow Model](/en/math/par-inflow-model) — complete AR inflow model specification
+- [PAR(p) Folding](/en/math/par-folding) — the realized inflow outside the LP, the cut right-hand side and the chain rule for the inflow-lag coefficients
 - [Hydro Production Function Models](/en/math/hydro-production-models) — constant and FPHA model details
 - [Cut Management](/en/math/cut-management) — dual extraction, cut coefficients, aggregation, and selection
 - [Equipment-Specific Formulations](/en/math/equipment-formulations) — per-equipment constraint derivations, pumping details
