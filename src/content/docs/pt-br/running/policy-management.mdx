@@ -819,7 +819,9 @@ Com `strict: false` (o padrão), o descarte é registrado no relatório de recon
 e a carga prossegue; com `strict: true`, a mesma condição rejeita a
 carga: `boundary policy at {path} is a superset: {summary}; see the reconciliation report or set policy.boundary.strict = false`, em que `{summary}` indica cada
 família com descarte e sua contagem. `strict` rege **apenas** este caso de superconjunto — não
-flexibiliza as rejeições de subconjunto nem as rejeições na seleção por data.
+flexibiliza as rejeições de subconjunto nem as rejeições na seleção por data. Uma posição de
+armazenamento da origem usada para preencher uma parcela de água em trânsito não é descartada, de
+modo que não provoca a rejeição.
 
 **Onde aparece o relatório de reconciliação.** Quando a carga prossegue (uma rejeição `strict` mostra apenas o resumo da mensagem de superconjunto), a
 reconciliação por família é exibida por três
@@ -827,13 +829,13 @@ caminhos:
 
 - **`novomodelo run`** exibe um bloco **Boundary policy** na saída padrão enquanto carrega o caso, antes do treinamento —
   `Cuts loaded: N (priced at {date})`, `Source: {path}` e uma linha `Reconciliation:`
-  `N copied, N fanned out, N defaulted to 0.0, N dropped`.
+  `N copied, N fanned out, N filled from storage, N defaulted to 0.0, N dropped`.
 - **`novomodelo validate --json`** emite um objeto de fronteira com os campos `configured`,
   `boundary_date` e `report`, que contém o relatório completo por família
   (exemplo resolvido em [Configuração — boundary](/running/configuration/#policyboundary)).
 - **`novomodelo validate`** (modo legível) exibe `boundary policy priced at {date}`
   seguido do resumo de uma linha
-  `boundary reconciliation: N copied, N fanned out, N defaulted to 0.0, N source slots dropped`.
+  `boundary reconciliation: N copied, N fanned out, N filled from storage, N defaulted to 0.0, N source slots dropped`.
 
 `novomodelo validate` reconcilia `policy.boundary` apenas quando a execução treina, assim como
 `novomodelo run` só o aplica nesse caso; com `training.enabled` definido como `false`, o
