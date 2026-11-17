@@ -121,6 +121,13 @@ my_case/
   da simulação forward e da simulação final associa pela posição (a partir de 0) entre os estágios do estudo, e as chaves de estágio de um par `values` de `per_stage` ou de uma tripla `block_values` de `per_stage_block` em [`constraints/generic_parameters.json`](/reference/case-format/constraints/#constraintsgeneric_parametersjson), que são posições (a partir de 0) entre os estágios do estudo. Os ids dos estágios do estudo são não negativos e podem ter lacunas ou começar acima de `0`;
   os ids de `pre_study_stages[]` são negativos.
 - **Ids de patamar.** `block_id` é o índice (a partir de 0) de um patamar dentro de seu estágio; os valores de `blocks[].id` de um estágio vão de `0..n-1`.
+- **Colunas Parquet.** Um arquivo Parquet de entrada traz apenas as colunas listadas na respectiva tabela, obrigatórias
+  ou opcionais. O Novo Modelo verifica os nomes das colunas de cada arquivo ao abri-lo, antes de ler qualquer linha ou
+  verificar qualquer tipo, e recusa a primeira coluna que a tabela não lista, na ordem das colunas do arquivo, com um
+  [`SchemaViolation`](/reference/error-codes/#coluna-parquet-desconhecida) que a nomeia e, conforme a coluna, nomeia a
+  coluna mais próxima que o arquivo pode trazer, lista todas elas ou dá uma instrução própria. O
+  `DataFrame.to_parquet` do pandas grava um índice que não seja o índice de intervalo padrão (o índice que um DataFrame
+  filtrado ou reordenado mantém) como uma coluna adicional `__index_level_0__`; portanto, passe `index=False`.
 - **Tipos das colunas Parquet.** Cada coluna Parquet deve ter exatamente o tipo indicado na respectiva tabela. Uma coluna de outro tipo
   é rejeitada na carga com `column "<name>" has type <actual> but <expected> is required`, e uma coluna obrigatória ausente
   com `missing required column "<name>"`. O pandas grava inteiros como `int64`; portanto, converta-os (por exemplo

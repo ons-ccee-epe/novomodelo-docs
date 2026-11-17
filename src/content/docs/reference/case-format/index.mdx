@@ -121,6 +121,13 @@ my_case/
   forward and simulation sampling match by 0-based position among the study stages, and the stage keys of a `per_stage` `values` pair or a `per_stage_block` `block_values` triple in [`constraints/generic_parameters.json`](/en/reference/case-format/constraints/#constraintsgeneric_parametersjson), which are 0-based positions among the study stages. Study stage ids are non-negative and may be gapped or start above `0`;
   `pre_study_stages[]` ids are negative.
 - **Block ids.** `block_id` is the 0-based index of a block within its stage; a stage's `blocks[].id` values run `0..n-1`.
+- **Parquet columns.** An input Parquet file carries only the columns its table lists, required or optional.
+  Novomodelo checks the column names of each file when it opens it, before it reads any row or checks any type, and
+  refuses the first column the table does not list, in the file's column order, with a
+  [`SchemaViolation`](/en/reference/error-codes/#unknown-parquet-column) that names it and, depending on the column,
+  names the nearest column the file may carry, lists them all, or gives an instruction of its own. pandas
+  `DataFrame.to_parquet` writes an index other than the default range index (the index a filtered or reordered DataFrame
+  keeps) as an extra `__index_level_0__` column, so pass `index=False`.
 - **Parquet column types.** Each Parquet column must have exactly the type its table lists. A column of another type
   is rejected at load with `column "<name>" has type <actual> but <expected> is required`, and an absent required
   column with `missing required column "<name>"`. pandas writes integers as `int64`, so cast them (for example

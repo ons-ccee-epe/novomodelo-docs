@@ -243,7 +243,7 @@ only the five accepted keys. See [Generic Constraints](/en/reference/generic-con
 **Severity:** Error
 
 **When it occurs:** A file parses successfully but a field fails a schema
-constraint: a required field is missing from `config.json` or `system/hydros.json`, or a required Parquet column is missing (a missing field in any other JSON file is a [`ParseError`](#parseerror)), a value is outside its valid range
+constraint: a required field is missing from `config.json` or `system/hydros.json`, or a required Parquet column is missing (a missing field in any other JSON file is a [`ParseError`](#parseerror)), a Parquet file carries a column its table does not list, a value is outside its valid range
 (e.g., negative capacity, non-positive penalty cost, a reservoir whose
 `min_storage_hm3` exceeds `max_storage_hm3`, or a stage whose `num_openings` is
 0), a field contains an unexpected type, or an entity `id` appears twice in a
@@ -583,10 +583,82 @@ by [`GenericConstraintValidationError`](#genericconstraintvalidationerror).
 
 **Resolution:** Give the variable one block argument. See [Generic Constraints — Expression grammar](/en/reference/generic-constraints/#expression-grammar) for the full grammar.
 
+#### Unknown Parquet column
+
+**When it occurs:** A Parquet input carries a column that its table on
+[Case Format](/en/reference/case-format/) does not list. The column names are
+checked when the file is opened, before any row is read or any column type is
+checked, and the first unlisted column, in the file's column order, is refused.
+
+**Fields:**
+
+| Field     | Description                     |
+| --------- | ------------------------------- |
+| `path`    | The Parquet file                |
+| `field`   | The unlisted column name        |
+| `message` | One of the three forms below    |
+
+The message takes the first form that applies:
+
+- `column "<name>" is no longer read; <instruction>` for a column with an
+  instruction of its own: `residual_std_ratio` in
+  [`scenarios/inflow_ar_coefficients.parquet`](/en/reference/case-format/scenarios/#scenariosinflow_ar_coefficientsparquet),
+  `reference_volume_hm3` in
+  [`system/hydro_energy_productivity.parquet`](/en/reference/case-format/production-models/#systemhydro_energy_productivityparquet)
+  and `date` in [`scenarios/inflow_history.parquet`](/en/reference/case-format/scenarios/#scenariosinflow_historyparquet);
+- `unknown column "<name>"; did you mean "<column>"?` when a column the file
+  may carry is within an edit distance of a third of the longer name (at least
+  1), ignoring case; the nearest one is named;
+- `unknown column "<name>"; the columns this file may carry are <columns>`
+  otherwise, listing every column the file may carry.
+
+**Examples:**
+
+A misspelled column, `mean_m3` for `mean_m3s`, in `scenarios/inflow_seasonal_stats.parquet`:
+
+{/* capture: novomodelo validate typo | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy typo; scenarios/inflow_seasonal_stats.parquet re-written with pyarrow (compression zstd) with the column mean_m3s renamed to mean_m3; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[SchemaViolation] scenarios/inflow_seasonal_stats.parquet: field mean_m3: unknown column "mean_m3"; did you mean "mean_m3s"?
+```
+
+The same file with its `hydro_id` column named `hydro`, which is near no column the file may carry:
+
+{/* capture: novomodelo validate unk | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy unk; scenarios/inflow_seasonal_stats.parquet re-written with pyarrow (compression zstd) with the column hydro_id renamed to hydro; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[SchemaViolation] scenarios/inflow_seasonal_stats.parquet: field hydro: unknown column "hydro"; the columns this file may carry are hydro_id, stage_id, mean_m3s, std_m3s
+```
+
+A `residual_std_ratio` column in `scenarios/inflow_ar_coefficients.parquet`:
+
+{/* capture: novomodelo validate ret | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy ret; scenarios/inflow_ar_coefficients.parquet added, written with pyarrow (compression zstd) with one row and the columns hydro_id, stage_id, lag, coefficient and residual_std_ratio; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[SchemaViolation] scenarios/inflow_ar_coefficients.parquet: field residual_std_ratio: column "residual_std_ratio" is no longer read; it is derived from the AR coefficients at load; remove the column
+```
+
+A DataFrame that pandas `DataFrame.to_parquet` wrote after its rows were reordered, which keeps the index as a column:
+
+{/* capture: novomodelo validate pdidx | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy pdidx; scenarios/inflow_seasonal_stats.parquet re-written with pandas DataFrame.to_parquet (compression zstd, index argument left at its default) from the template DataFrame with its rows reordered by iloc[[1, 0, 3, 2]]; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[SchemaViolation] scenarios/inflow_seasonal_stats.parquet: field __index_level_0__: unknown column "__index_level_0__"; the columns this file may carry are hydro_id, stage_id, mean_m3s, std_m3s
+```
+
+**Resolution:** Rename the column as the hint says, or remove it; for a column
+with an instruction of its own, follow the instruction. pandas
+`DataFrame.to_parquet` writes an index other than the default range index (the
+index a filtered or reordered DataFrame keeps) as a column named
+`__index_level_0__`: pass `index=False`, or build the table with
+`pa.Table.from_pandas(df, schema=schema)`.
+
 #### Missing required Parquet column
 
-**When it occurs:** A Parquet input that lacks a required column, under
-whatever other name the file carries it, is a schema failure naming the required column.
+**When it occurs:** A Parquet input without a required column is a schema
+failure naming the required column. A file that carries the column under
+another name is refused first, for that name
+([Unknown Parquet column](#unknown-parquet-column)).
 
 **Fields:**
 
@@ -596,16 +668,16 @@ whatever other name the file carries it, is a schema failure naming the required
 | `field`   | The required column name                                 |
 | `message` | `missing required column "<name>"`                       |
 
-**Example:** A `scenarios/inflow_seasonal_stats.parquet` whose `hydro_id` column is named `hydro`:
+**Example:** A `scenarios/inflow_seasonal_stats.parquet` without its `hydro_id` column:
 
-{/* capture: novomodelo validate pqcol | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 ae88209f | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy pqcol; scenarios/inflow_seasonal_stats.parquet re-written with pyarrow (compression zstd) with the column hydro_id renamed to hydro; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* capture: novomodelo validate miss | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy miss; scenarios/inflow_seasonal_stats.parquet re-written with pyarrow (compression zstd) without the column hydro_id; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
 
 ```text
 [SchemaViolation] scenarios/inflow_seasonal_stats.parquet: field hydro_id: missing required column "hydro_id"
 ```
 
-**Resolution:** Rename the column to the name the file requires, keeping
-its data unchanged. The column tables of
+**Resolution:** Add the column under the name the file requires. The
+column tables of
 [Case Format](/en/reference/case-format/) list the required
 columns of every file.
 
