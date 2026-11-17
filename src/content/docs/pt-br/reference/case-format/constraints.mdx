@@ -26,12 +26,14 @@ Substituições, variáveis por estágio, da geração e do custo das usinas ter
 | `stage_id`          | Int32            | Sim      | —       | —       | ID do estágio |
 | `min_generation_mw` | Float64          | Não      | —       | MW      | Substituição da geração mínima (MW) |
 | `max_generation_mw` | Float64          | Não      | —       | MW      | Substituição da geração máxima (MW) |
-| `cost_per_mwh`      | Float64          | Não      | —       | R\$/MWh | Substituição do custo de despacho (R\$/MWh) |
-| `block_id`          | Int32 (nullable) | Não      | —       | —       | Índice do patamar no estágio, com base zero, que seleciona a substituição de `min_generation_mw`/`max_generation_mw` de um patamar. `null` aplica-se ao nível do estágio. Um `cost_per_mwh` não nulo na mesma linha, ou qualquer `block_id` em uma usina termelétrica que declara `anticipated_config`, é rejeitado na validação. |
+| `cost_per_mwh`      | Float64          | Não      | —       | R\$/MWh | Substituição do custo de despacho (R\$/MWh): do estágio, em uma linha com `block_id` nulo, ou daquele patamar, em uma linha com `block_id` |
+| `block_id`          | Int32 (nullable) | Não      | —       | —       | Índice do patamar no estágio, com base zero, que seleciona a substituição de `min_generation_mw`/`max_generation_mw`/`cost_per_mwh` de um patamar. `null` aplica-se ao nível do estágio. Qualquer `block_id` em uma usina termelétrica que declara `anticipated_config` é rejeitado na validação. |
 
-`cost_per_mwh` deliberadamente **não** admite valor por patamar, ao contrário de
-[`contract_bounds.price_per_mwh`](#constraintscontract_boundsparquet) — o compromisso de despacho é uma decisão no nível do estágio,
-de modo que um custo de despacho por patamar não teria a que se associar.
+`cost_per_mwh` admite valor por patamar, como
+[`contract_bounds.price_per_mwh`](#constraintscontract_boundsparquet). Cada coluna é resolvida por conta própria em
+cada patamar: o valor na linha do patamar; na falta dele, o valor na linha do estágio; na falta deste, o valor da usina em
+[`system/thermals.json`](/reference/case-format/system/#systemthermalsjson) (`thermals[].cost_per_mwh`, para o
+custo). Um valor nulo passa ao nível seguinte; um `0.0` explícito é mantido.
 
 **Validação:**
 
@@ -181,9 +183,9 @@ Substituições, variáveis por estágio, da potência e do preço dos contratos
 | `price_per_mwh` | Float64          | Não      | —       | R\$/MWh | Substituição do preço (R\$/MWh) |
 | `block_id`      | Int32 (nullable) | Não      | —       | —       | Índice do patamar no estágio, com base zero, que seleciona a substituição de `min_mw`/`max_mw`/`price_per_mwh` de um patamar. `null` aplica-se ao nível do estágio. |
 
-`price_per_mwh` admite valor por patamar — o cálculo de custos da simulação de um estudo respeita um
-preço de contrato por patamar —, em assimetria deliberada com
-[`thermal_bounds.cost_per_mwh`](#constraintsthermal_boundsparquet), que não admite.
+`price_per_mwh` admite valor por patamar, como
+[`thermal_bounds.cost_per_mwh`](#constraintsthermal_boundsparquet): o cálculo de custos da simulação de um estudo respeita um
+preço de contrato por patamar.
 
 ---
 

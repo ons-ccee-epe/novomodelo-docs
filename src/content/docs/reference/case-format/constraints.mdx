@@ -20,18 +20,20 @@ entity-level value unchanged.
 
 Stage-varying generation and cost overrides for thermal plants.
 
-| Name                | Type             | Required | Default | Units   | Description                                                                                                                                                                                                                                                                              |
-| ------------------- | ---------------- | -------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `thermal_id`        | Int32            | Yes      | —       | —       | Thermal plant ID                                                                                                                                                                                                                                                                         |
-| `stage_id`          | Int32            | Yes      | —       | —       | Stage ID                                                                                                                                                                                                                                                                                 |
-| `min_generation_mw` | Float64          | No       | —       | MW      | Minimum generation override (MW)                                                                                                                                                                                                                                                         |
-| `max_generation_mw` | Float64          | No       | —       | MW      | Maximum generation override (MW)                                                                                                                                                                                                                                                         |
-| `cost_per_mwh`      | Float64          | No       | —       | USD/MWh | Dispatch cost override (USD/MWh)                                                                                                                                                                                                                                                         |
-| `block_id`          | Int32 (nullable) | No       | —       | —       | Zero-based block index within the stage, selecting one block's `min_generation_mw`/`max_generation_mw` override. `null` applies at the stage level. A non-null `cost_per_mwh` on the same row, or any `block_id` on a thermal declaring `anticipated_config`, is rejected at validation. |
+| Name                | Type             | Required | Default | Units   | Description                                                                                                                                                                                                                                              |
+| ------------------- | ---------------- | -------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thermal_id`        | Int32            | Yes      | —       | —       | Thermal plant ID                                                                                                                                                                                                                                         |
+| `stage_id`          | Int32            | Yes      | —       | —       | Stage ID                                                                                                                                                                                                                                                 |
+| `min_generation_mw` | Float64          | No       | —       | MW      | Minimum generation override (MW)                                                                                                                                                                                                                         |
+| `max_generation_mw` | Float64          | No       | —       | MW      | Maximum generation override (MW)                                                                                                                                                                                                                         |
+| `cost_per_mwh`      | Float64          | No       | —       | USD/MWh | Dispatch cost override (USD/MWh): for the stage on a row with a null `block_id`, for that block on a row with one                                                                                                                                        |
+| `block_id`          | Int32 (nullable) | No       | —       | —       | Zero-based block index within the stage, selecting one block's `min_generation_mw`/`max_generation_mw`/`cost_per_mwh` override. `null` applies at the stage level. Any `block_id` on a thermal declaring `anticipated_config` is rejected at validation. |
 
-`cost_per_mwh` is deliberately **not** block-eligible, unlike
-[`contract_bounds.price_per_mwh`](#constraintscontract_boundsparquet) — commitment is a stage-level decision,
-so a per-block dispatch cost has nothing to attach to.
+`cost_per_mwh` is block-eligible, like
+[`contract_bounds.price_per_mwh`](#constraintscontract_boundsparquet). Each column resolves on its own for
+each block: the value on the block's row, else the value on the stage row, else the plant's value in
+[`system/thermals.json`](/en/reference/case-format/system/#systemthermalsjson) (`thermals[].cost_per_mwh` for the
+cost). A null value falls through to the next level; an explicit `0.0` is kept.
 
 **Validation:**
 
@@ -181,9 +183,9 @@ Stage-varying power and price overrides for energy contracts.
 | `price_per_mwh` | Float64          | No       | —       | USD/MWh | Price override (USD/MWh)                                                                                                                      |
 | `block_id`      | Int32 (nullable) | No       | —       | —       | Zero-based block index within the stage, selecting one block's `min_mw`/`max_mw`/`price_per_mwh` override. `null` applies at the stage level. |
 
-`price_per_mwh` is block-eligible — a study's simulation cost path honors a
-per-block contract price — deliberately asymmetric with
-[`thermal_bounds.cost_per_mwh`](#constraintsthermal_boundsparquet), which is not.
+`price_per_mwh` is block-eligible, like
+[`thermal_bounds.cost_per_mwh`](#constraintsthermal_boundsparquet): a study's simulation cost path honors a
+per-block contract price.
 
 ---
 

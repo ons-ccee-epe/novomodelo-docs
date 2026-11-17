@@ -90,13 +90,12 @@ limites rígidos de geração da §1.1 da metodologia em todo PL de estágio.
 | `min_mw` | number | Geração elétrica mínima, em MW. Um valor não nulo constitui geração mínima (inflexibilidade): o solver deve despachar pelo menos esse montante sempre que a unidade estiver em operação (sujeito à ressalva sobre a relaxação contínua da §1.1 da metodologia). |
 | `max_mw` | number | Geração elétrica máxima (capacidade instalada), em MW. |
 
-Limites variáveis por estágio são fornecidos via `constraints/thermal_bounds.parquet`,
-que aceita linhas esparsas `(thermal_id, stage_id)` contendo `min_generation_mw`
-e/ou `max_generation_mw`, opcionalmente restritas a um patamar por meio de uma coluna opcional
-`block_id`; na ausência de linhas, valem os valores-base da entidade.
-`cost_per_mwh` não tem variante por patamar — uma linha que combine `cost_per_mwh`
-não nulo com `block_id` não nulo é rejeitada na validação, e uma
-linha com `block_id` em uma termelétrica que declare `anticipated_config` é rejeitada
+Limites e custo variáveis por estágio são fornecidos via `constraints/thermal_bounds.parquet`,
+que aceita linhas esparsas `(thermal_id, stage_id)` contendo qualquer combinação de
+`min_generation_mw`, `max_generation_mw` e `cost_per_mwh`, opcionalmente restritas a um patamar
+por meio de uma coluna opcional `block_id`. Um valor que a linha de um patamar deixa nulo
+vem da linha do estágio, e um valor que nenhuma linha define vem do valor-base da
+entidade. Uma linha com `block_id` em uma termelétrica que declare `anticipated_config` é rejeitada
 de imediato, já que o compromisso entregue é limitado em um único estágio.
 
 #### Configuração de antecipação de despacho (`anticipated_config`)
@@ -353,7 +352,5 @@ Limites e preço variáveis por estágio são fornecidos via
 `(contract_id, stage_id)` contendo qualquer combinação de `min_mw`,
 `max_mw` e `price_per_mwh`, opcionalmente restritas a um patamar por meio de uma
 coluna opcional `block_id`; na ausência de linhas, valem os valores-base da entidade.
-Diferentemente do `cost_per_mwh` das termelétricas, o `price_per_mwh` dos contratos admite variação por patamar —
-o caminho de custos da simulação de um estudo respeita uma sobrescrita de preço por patamar — porque
-o compromisso de despacho é uma decisão de nível de estágio para uma termelétrica, enquanto o preço de um contrato
-pode legitimamente variar dentro de um estágio.
+Como o `cost_per_mwh` das termelétricas, o `price_per_mwh` dos contratos admite variação por patamar:
+o caminho de custos da simulação de um estudo respeita uma sobrescrita de preço por patamar.
