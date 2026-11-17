@@ -51,7 +51,7 @@ For accurate modeling of hydroelectric generation, FPHA (Approximate Hydroelectr
 This section uses the notation of the [LP Formulation](/en/math/lp-formulation); for equivalent terms in other planning tools, see the [Glossary](/en/reference/glossary#equivalent-terms-in-other-planning-tools).
 
 :::note[Note on lateral flow]
-The tailrace level depends on the tailrace flow $f_h \, q + q_{lat}$, where $f_h$ is the plant's own outflow factor (1 by default) and $q_{lat}$ is the lateral flow defined in §2.2. The lateral flow is the plant's own spillage scaled by $f_h$, plus the flows of any declared outflow influences and incremental-inflow influences. With no declaration, $f_h = 1$ and $q_{lat} = s$. The lateral-flow secant (§2.7) captures the effect of $q_{lat}$ on generation.
+The tailrace level depends on the tailrace flow $f_h \, q + q_{lat}$, where $f_h$ is the plant's own outflow factor (1 by default) and $q_{lat}$ is the lateral flow defined in §2.2. The lateral-flow secant (§2.7) captures the effect of $q_{lat}$ on generation.
 :::
 
 ### 2.2 Exact Production Function
@@ -118,7 +118,7 @@ $$
 
 **Piecewise-quartic families (exact tailrace)**: an optional per-plant tailrace table provides piecewise degree-4 polynomial segments (evaluated via Horner's method), grouped into backwater families keyed by the downstream reservoir's reference forebay level — see §2.3.1.
 
-**Tailrace flow in LP**: the argument $q_{out}$ of $h_{tail}$ is the tailrace flow $f_h \, q + q_{lat}$ (§2.2). For FPHA fitting, the generation cloud is built at zero lateral flow, $q_{lat} = 0$; the lateral-flow secant (§2.7) captures the correction per plane.
+**Tailrace flow in fitting**: the generation cloud is built at zero lateral flow, $q_{lat} = 0$; the lateral-flow secant (§2.7) captures the correction per plane.
 
 #### 2.3.1 Piecewise-Quartic Tailrace Families (Backwater Coupling)
 
@@ -265,8 +265,6 @@ $$
 with $v_{min}$ the fitting window's lower volume (§2.6.1). Whenever $\gamma_0^m + \gamma_v^m v_{min} \ge 0$, the plane is then at or above 0 at zero turbining at $(v_{min}, S_{max})$. The limit applies before the sign snap below, and to a run-of-river plant too. With $S_{max} = 0$ it does nothing, and $\gamma_s^m$ stays 0.
 
 **Sign**: $\gamma_s^m \le 0$ (more lateral flow raises the tailrace, reduces generation). A slope that is non-negative or negligibly negative is **snapped to exactly 0** (Implementation notes, "Computed-FPHA fitting behavior") to protect LP column scaling from near-zero structural coefficients.
-
-**Lateral axis**: $q_{lat}$ is the full lateral flow of §2.2, the plant's own spillage scaled by $f_h$ plus the declared outflow and incremental-inflow influences; with no declaration it is the plant's own spillage.
 
 ### 2.8 Similar-Hyperplane Reduction
 
