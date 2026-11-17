@@ -34,7 +34,7 @@ resposta nele, o que facilita o uso do Novo Modelo.
 | --------------------------- | ----------------------------------------------------------------------------------------------- |
 | Python                      | 3.12 ou mais recente                                                                            |
 | [uv](https://docs.astral.sh/uv/) | instala o servidor como ferramenta isolada                                                 |
-| `novomodelo` (a CLI)        | instalado à parte (veja [Instalação](/getting-started/installation/)), ou pelo agente com a ferramenta `instalar_novomodelo` |
+| `novomodelo` (a CLI)        | instalado à parte (veja [Instalação](/getting-started/installation/)), ou pelo agente com a ferramenta `install_novomodelo` |
 | `novomodelo-bridge`, `novomodelo-python` | instalados com o servidor                                                          |
 
 O servidor roda em Windows, macOS e Linux, inclusive em contêineres.
@@ -190,8 +190,8 @@ cliente e à política da organização.
 | Tipo                     | Ferramentas                                                                                                                                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Somente leitura          | `server_info`, `solver_version`, `schema_list`, `schema_get`, `docs_list`, `docs_read`, `docs_search`, `deck_list`, `deck_read_json`, `deck_read_parquet`, `deck_describe_parquet`, `deck_sql`, `case_validate`, `case_summary`, `bridge_check_*`, `results_status`, `results_convergence`, `results_list_entities`, `results_query`, `results_stochastic`, `results_policy`, `run_plan`, `run_status`, `run_logs` |
-| Grava arquivos novos     | `case_init`, `schema_export`, `bridge_convert_*`, `bridge_compare_*`, `bridge_dashboard`, `incluir_pastas`                                                                                                                                                                                                     |
-| Altera ou interrompe     | `deck_edit_json`, `deck_edit_parquet`, `run_apply`, `run_start`, `run_cancel`, `instalar_novomodelo`                                                                                                                                                                                                          |
+| Grava arquivos novos     | `case_init`, `schema_export`, `bridge_convert_*`, `bridge_compare_*`, `bridge_dashboard`, `include_folders`                                                                                                                                                                                                     |
+| Altera ou interrompe     | `deck_edit_json`, `deck_edit_parquet`, `run_apply`, `run_start`, `run_cancel`, `install_novomodelo`                                                                                                                                                                                                           |
 
 `novomodelo-mcp configurar --cliente claude-code --workspace <folder> --mostrar`
 imprime a lista de ferramentas somente leitura que o `configurar` grava, lida do
@@ -223,7 +223,7 @@ Por etapa de um estudo:
   hora um identificador de tarefa; recusa um caso cujo plano seja `nao_cabe`, a menos
   que seja chamado com `override=True`. Recusa também uma pasta de saída que contenha
   uma execução concluída, porque executar ali de novo apaga essa execução: a recusa
-  (código de saída 17) indica uma pasta livre em `output_sugerido`, e
+  (código de saída 17) indica uma pasta livre em `suggested_output`, e
   `overwrite=True` substitui a execução anterior. `run_status`, `run_logs` e
   `run_cancel` acompanham e interrompem a tarefa. Uma tarefa sobrevive a uma
   reinicialização do servidor.
@@ -236,16 +236,16 @@ Por etapa de um estudo:
   resultados de um caso convertido com os resultados publicados pela ferramenta de
   origem, e `bridge_dashboard` grava um painel HTML de um caso.
 - **Referência.** `schema_list` e `schema_get` devolvem os JSON Schemas dos arquivos de
-  entrada (disponíveis também como o recurso `novomodelo://schema/{tipo}`);
+  entrada (disponíveis também como o recurso `novomodelo://schema/{type}`);
   `schema_export` os grava em uma pasta. `docs_list`, `docs_search` e `docs_read` leem
   a documentação embutida (veja
   [Documentação e changelogs](#documentacao-e-changelogs)).
 - **Diagnóstico.** `server_info` e `solver_version` descrevem a instalação;
-  `instalar_novomodelo` instala o executável `novomodelo`; `incluir_pastas` acrescenta
+  `install_novomodelo` instala o executável `novomodelo`; `include_folders` acrescenta
   pastas à área de trabalho.
 
 As respostas que trazem linhas ou listas têm tamanho limitado; uma resposta cortada
-informa isso em `cortado_por_tamanho`.
+informa isso em `size_truncation`.
 
 ---
 
@@ -261,11 +261,11 @@ recusa qualquer caminho fora dessas raízes, depois de resolver links simbólico
 Sem ela, o servidor roda sem restrição, e o `server_info` informa `irrestrito`.
 
 Um caminho recusado devolve o código de saída 13, a pasta do caminho em
-`pasta_sugerida` e uma instrução ao agente: não ler o caminho por outras ferramentas e
+`suggested_folder` e uma instrução ao agente: não ler o caminho por outras ferramentas e
 perguntar à pessoa se a pasta pode ser acrescentada. Com o consentimento da pessoa, o
-agente chama `incluir_pastas` com todas as pastas de uma vez. As pastas valem na hora,
+agente chama `include_folders` com todas as pastas de uma vez. As pastas valem na hora,
 sem reiniciar o cliente, e ficam em `pastas.json`, na pasta de estado do servidor,
-somadas às raízes de `NOVOMODELO_MCP_WORKSPACE`. `incluir_pastas` nunca está na lista
+somadas às raízes de `NOVOMODELO_MCP_WORKSPACE`. `include_folders` nunca está na lista
 de somente leitura, então o cliente pede aprovação a cada chamada. Ela recusa um
 caminho que não seja uma pasta, a pasta pessoal ou qualquer pasta acima dela, a raiz
 de um disco, as pastas de configuração de programas (nomes que começam com `.`,
@@ -292,7 +292,7 @@ Três formas de chamada contornam uma verificação de segurança, e cada uma ex
 O servidor usa a rede apenas para verificar se há versões mais novas do Novo Modelo,
 do novomodelo-bridge e do próprio servidor (`server_info`, no máximo uma vez a cada
 seis horas em um servidor em execução, com tempo limite de poucos segundos) e para
-instalar o executável (`instalar_novomodelo`), e apenas para estes destinos:
+instalar o executável (`install_novomodelo`), e apenas para estes destinos:
 `github.com/ons-ccee-epe/*`, `api.github.com/repos/ons-ccee-epe/*`,
 `pypi.org/pypi/novomodelo-bridge/*`, `pypi.org/pypi/novomodelo-mcp/*` e, como destino
 de download, `release-assets.githubusercontent.com`. O HTTPS usa o repositório de
@@ -305,17 +305,17 @@ A verificação de versões e o instalador leem a API do GitHub sem token, e o G
 permite um número limitado dessas requisições por hora a partir de um mesmo endereço
 IP. Em uma rede onde muitas pessoas compartilham um endereço, uma chamada pode ser
 recusada por algum tempo: as ferramentas continuam respondendo, o
-`instalar_novomodelo` informa `não foi possível consultar o release
+`install_novomodelo` informa `não foi possível consultar o release
 oficial` com o comando manual, e uma chamada posterior volta a funcionar.
 
-O `instalar_novomodelo` instala o executável oficial da versão esperada com o
-instalador do release, depois de conferir o SHA-256. Sem `confirmar=True`, ele só
+O `install_novomodelo` instala o executável oficial da versão esperada com o
+instalador do release, depois de conferir o SHA-256. Sem `confirm=True`, ele só
 mostra o plano: a URL, o hash, a pasta de destino e o comando manual. No Windows, o
 instalador oficial `.ps1` não confere o hash do arquivo que baixa.
 
 O instalador oficial também acrescenta a pasta do executável ao `PATH`: no Linux e no
 macOS, edita o perfil do shell (como `.bashrc` ou `.profile`), e no Windows, o `PATH`
-do usuário. O plano informa isso em `altera_path`. Para não alterar o perfil, defina
+do usuário. O plano informa isso em `modifies_path`. Para não alterar o perfil, defina
 `NOVOMODELO_CLI_NO_MODIFY_PATH=1` no `env` da entrada do cliente; o servidor continua
 encontrando o executável em `~/.cargo/bin`, a pasta padrão do instalador.
 
@@ -325,13 +325,13 @@ encontrando o executável em `~/.cargo/bin`, a pasta padrão do instalador.
 
 Quando o executável `novomodelo`, o `novomodelo-python` ou o novomodelo-bridge não
 está instalado, ou quando um deles ou a documentação embutida está em versão diferente
-da do servidor, toda resposta de ferramenta traz `avisos_de_versao`: uma linha por
+da do servidor, toda resposta de ferramenta traz `version_warnings`: uma linha por
 componente, com os comandos que o alinham. A chamada é executada mesmo assim; as
 instruções do servidor pedem ao agente que avise a pessoa e se ofereça para executar
 os comandos, com o consentimento dela.
 
 - Um componente **mais antigo** que o servidor é atualizado para a versão do servidor:
-  para o executável, o agente pode chamar `instalar_novomodelo`, ou a pessoa executa o
+  para o executável, o agente pode chamar `install_novomodelo`, ou a pessoa executa o
   instalador do release dessa versão; para o `novomodelo-python`, a documentação
   embutida e o novomodelo-bridge do próprio pacote,
   `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`, que os traz
@@ -346,14 +346,15 @@ os comandos, com o consentimento dela.
   uma chamada de `server_info` no mesmo servidor em execução as buscou nas últimas
   seis horas, ou então um link para as notas.
 
-O `server_info` também informa em `versao_nova` se existe um release mais novo do
+O `server_info` também informa em `new_version` se existe um release mais novo do
 novomodelo, do novomodelo-bridge ou do servidor. Para o novomodelo e o
-novomodelo-bridge, ele traz as seções "Changed" e "Fixed" das notas de release
-(mudanças incompatíveis primeiro, com tamanho limitado), um link para as notas e
-nenhum comando próprio: instalar um componente sozinho o deixaria fora de sintonia com
-os outros, então a nota diz para instalar o servidor dessa versão quando for
-publicado, o que traz todos os componentes junto. Para um servidor mais novo, ele traz
-o comando de instalação,
+novomodelo-bridge, ele traz os itens das seções "Changed", "Removed" e "Fixed" das
+notas de release, inclusive os dos subtítulos de tema, com todo item que começa com
+`BREAKING:` primeiro, seja qual for a seção; a lista tem tamanho limitado. Traz
+também um link para as notas e nenhum comando próprio: instalar um componente sozinho
+o deixaria fora de sintonia com os outros, então a nota diz para instalar o servidor
+dessa versão quando for publicado, o que traz todos os componentes junto. Para um
+servidor mais novo, ele traz o comando de instalação,
 `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`, e o link para as
 notas de release.
 
@@ -371,11 +372,15 @@ As instruções do servidor orientam o agente a responder perguntas sobre a meto
 o uso do Novo Modelo a partir dessas páginas, não da web nem da memória, já que as
 definições do Novo Modelo podem diferir das da literatura:
 
-1. `docs_search(consulta, k)` busca nas páginas por palavra e devolve a página, a seção
+1. `docs_search(query, k)` busca nas páginas por palavra e devolve a página, a seção
    e um trecho. As buscas funcionam melhor em inglês; os termos em português do
    [Glossário](/reference/glossary/) são traduzidos.
-2. `docs_read(page, secao)` lê uma seção de uma página (ou a página inteira, sem
-   `secao`); `docs_list(section)` lista as páginas com os títulos.
+2. `docs_read(page, section)` lê uma seção de uma página (ou a página inteira, sem
+   `section`). O `page` aceita também a página como este site aponta para ela, como
+   o link `/en/running/configuration/#training` (a âncora vira a seção), o endereço
+   da página no site ou a página em pt-BR: o servidor lê a página em inglês e diz em
+   `note` qual página leu e como citá-la. `docs_list(prefix)` lista as páginas com
+   os títulos.
 3. A resposta cita a página e a seção de onde veio, como `page#section`. Quando as
    páginas não tratam do assunto, o agente diz isso.
 
@@ -408,7 +413,7 @@ ficam no `env` da entrada do cliente.
 | `NOVOMODELO_MCP_SOLVER_BIN`        | `novomodelo` no `PATH`, depois em `~/.cargo/bin` | caminho do executável `novomodelo`                                                             |
 | `NOVOMODELO_MCP_BRIDGE_BIN`        | o do pacote, depois o do `PATH`  | outro executável `novomodelo-bridge`; tem precedência sobre o do pacote                                       |
 | `NOVOMODELO_MCP_SCHEMAS_DIR`       | não definida                     | pasta de arquivos `*.schema.json`, primeira entre as fontes de schemas                                        |
-| `NOVOMODELO_MCP_DOCS_DIR`          | não definida                     | só para desenvolvimento da documentação: uma pasta com as páginas deste site, lida no lugar da documentação embutida; toda resposta passa então a trazer uma linha em `avisos_de_versao` |
+| `NOVOMODELO_MCP_DOCS_DIR`          | não definida                     | só para desenvolvimento da documentação: uma pasta com as páginas deste site, lida no lugar da documentação embutida; toda resposta passa então a trazer uma linha em `version_warnings` |
 | `NOVOMODELO_MCP_TIMEOUT`           | `900`                            | tempo limite, em segundos, de cada chamada à CLI                                                             |
 | `NOVOMODELO_MCP_MAX_JOBS`          | `1`                              | execuções que o `run_start` permite ao mesmo tempo                                                           |
 | `NOVOMODELO_MCP_STATE_DIR`         | conforme o sistema operacional (abaixo) | estado persistente: execuções em segundo plano e calibração dos tempos de resolução                     |
