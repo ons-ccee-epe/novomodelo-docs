@@ -505,6 +505,22 @@ to absorb a surplus.
 A park declared on both generation cards, or with more than one operating
 state, stops the conversion.
 
+`convert decomp` also converts the deck's `VL`, `VU` and `VA` registers into
+[`tailrace_flow`](/en/reference/case-format/hydros) on FPHA plants, so the
+tailrace level rises with the lateral flows the deck adds ([Hydro Production
+Function Models §2.2](/en/math/hydro-production-models#22-exact-production-function)).
+A `VA` gauge maps to the plant whose `AC NUMPOS` gauge it is in the first
+stage. Duplicate `VU` or `VA` pairs are summed, and a `VU` naming the plant
+itself is added to the plant's own outflow factor. A `VA` whose gauge is the
+plant's own converts to a self entry in `incremental_inflow_influences`,
+with no diagnostic. A duplicate `VL`, an unmapped or ambiguous gauge, a plant
+whose spill does not reach the tailrace (`AC VERTJU`) and a plant converted at
+constant productivity each drop the term with a warning. A `VU` whose
+influencing plant is not in the case is dropped without a warning. A `VL`
+polynomial replaces the constant tailrace only where no `polinjus` curve
+applies. The warnings carry `tailrace-*` codes in the `--json` output of
+`check decomp` and `convert decomp`.
+
 For the full list of conversion rules, see the novomodelo-bridge
 [NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.21.0/docs/newave.md).
 
