@@ -424,7 +424,7 @@ $\bar{U}_h$ é a capacidade do canal, ou uma vazão desviada máxima definida pa
 
 ### Limites de vertimento (por usina $h$, patamar $k$)
 
-O vertimento $s_{h,k}$ é limitado inferiormente por $0$ e superiormente por $+\infty$, a menos que um vertimento mínimo ou máximo seja definido para o estágio ou para o patamar, que substitui o limite. Ambos os limites são rígidos. Enquanto a usina está em pré-enchimento, o vertimento é fixado em $[0, 0]$ ([Fases do ciclo de vida](#fases-do-ciclo-de-vida)).
+O vertimento $s_{h,k}$ é limitado inferiormente pelo vertimento mínimo da usina e superiormente pelo seu vertimento máximo, que valem $0$ e $+\infty$ quando não definidos; um vertimento mínimo ou máximo definido para o estágio ou para o patamar substitui o valor da usina. Ambos os limites são rígidos. Enquanto a usina está em pré-enchimento, o vertimento é fixado em $[0, 0]$ ([Fases do ciclo de vida](#fases-do-ciclo-de-vida)).
 
 ### Limites da vazão bombeada (por usina elevatória $y$, patamar $k$)
 

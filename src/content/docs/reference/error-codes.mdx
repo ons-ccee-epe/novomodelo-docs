@@ -863,6 +863,29 @@ channel without a capacity limit leaves `max_flow_m3s` out or sets it to
 leave it out for a channel without a capacity limit. A per-stage or per-block
 `max_diversion_m3s` in `constraints/hydro_bounds.parquet` still caps the flow.
 
+#### Negative entity spillage bound
+
+**When it occurs:** A hydro's `spillage.min_spillage_m3s` or
+`spillage.max_spillage_m3s` in `system/hydros.json` is negative. Spillage is a
+flow, so the loader rejects a negative floor or ceiling.
+
+**Fields:**
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[SchemaViolation] system/hydros.json: field hydros[<i>].spillage.<key>: <key> must be >= 0, got <value>` line, where `<i>` is the hydro's zero-based position in the file and `<key>` is `min_spillage_m3s` or `max_spillage_m3s` |
+
+**Example:**
+
+{/* capture: novomodelo validate negsp | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 2fbee557 (debug build of the release's source tree plus the entity spillage fields) | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy negsp; system/hydros.json: hydro 0 given a spillage object with max_spillage_m3s set to -5.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].spillage.max_spillage_m3s: max_spillage_m3s must be >= 0, got -5
+```
+
+**Resolution:** Set the value to `0` or more, or leave the key out, or set it
+to `null`, for no bound on that side.
+
 ---
 
 ### `InvalidReference`
@@ -991,6 +1014,8 @@ this kind too — see
 An initial storage outside the hydro's storage range, or listed in the wrong
 `initial_conditions.json` array, is reported under this kind too — see
 [Initial storage refused at load](#initial-storage-refused-at-load).
+A hydro whose `spillage.min_spillage_m3s` exceeds its `spillage.max_spillage_m3s` is reported under this kind too — see
+[Inverted entity spillage bounds](#inverted-entity-spillage-bounds).
 
 #### Generic-constraint bounds row with neither endpoint and no affine remainder
 
@@ -1110,6 +1135,33 @@ the reservoir's `min_storage_hm3` to `max_storage_hm3` in `system/hydros.json`,
 or correct the reservoir's range when it is the value in error. On each listed
 stage, lower the minimum or raise the maximum in force. See
 [`constraints/hydro_bounds.parquet`](/en/reference/case-format/constraints/#constraintshydro_boundsparquet).
+
+#### Inverted entity spillage bounds
+
+**When it occurs:** A hydro's `spillage.min_spillage_m3s` in
+`system/hydros.json` is greater than its `spillage.max_spillage_m3s`. The
+business-rule check rejects the pair before it reaches the LP, because the
+interval `[min, max]` is empty. The check applies only when the hydro sets both
+bounds.
+
+**Fields:**
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[InvalidValue] system/hydros.json (Hydro <id>): Hydro <id>: min_spillage_m3s (<min>) > max_spillage_m3s (<max>); spillage bounds are inconsistent` line |
+
+**Example:**
+
+{/* capture: novomodelo validate invsp | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 2fbee557 (debug build of the release's source tree plus the entity spillage fields) | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy invsp; system/hydros.json: hydro 0 given a spillage object with min_spillage_m3s 20.0 and max_spillage_m3s 10.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] system/hydros.json (Hydro 0): Hydro 0: min_spillage_m3s (20) > max_spillage_m3s (10); spillage bounds are inconsistent
+```
+
+**Resolution:** Make `min_spillage_m3s` less than or equal to
+`max_spillage_m3s` in the hydro's `spillage` object. A `min_spillage_m3s` or
+`max_spillage_m3s` value in `constraints/hydro_bounds.parquet` replaces the
+entity value for that stage or block.
 
 #### Initial storage refused at load
 
