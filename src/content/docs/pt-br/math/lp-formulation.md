@@ -22,7 +22,7 @@ $$
 & \min\; C^{resource} + C^{recourse} + C^{violation} + C^{regularization} + d_{t \to t+1}\,\theta \\
 & v_h - v^{in}_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = \zeta \, \big( \hat{z}_h - T^{eff}_h \big) \quad (1) \\
 & \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (3) \\
-& g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (4) \\
+& g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, q_{lat,h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (4) \\
 & e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (5) \\
 & q_{h,k} + s_{h,k} + \sigma^{o-}_{h,k} \geq \underline{O}_h \quad (6) \\
 & q_{h,k} + s_{h,k} - \sigma^{o+}_{h,k} \leq \bar{O}_h \quad (7) \\
@@ -295,7 +295,7 @@ As usinas de produtibilidade constante não têm coluna de geração separada: $
 **Modelo FPHA** (para cada plano $m \in \mathcal{M}_h$, célula $(h, b)$ da usina $h \in \mathcal{H}^{fpha}$, patamar $k$):
 
 $$
-g_{h,b,k} - \sigma^{fpha}_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot q_{lat,h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
 $$
 
 em que $\sigma^{fpha}_{h,b,k} \geq 0$ (MW) é a **folga do plano da FPHA**, uma por célula $(h, b)$ e patamar $k$, e $v^{avg}_h = (v^{in}_h + v_h)/2$ é o armazenamento médio durante o estágio, sendo $v^{in}_h$ a variável do PL de armazenamento de entrada ([Aumento do espaço de estados §2](/math/state-augmentation#2-fixacao-por-limites-de-coluna)) e $v_h$ o armazenamento ao fim do estágio em um estágio paralelo; em um estágio cronológico, a linha do patamar $k$ lê a média do próprio patamar, $(v_{h,k-1} + v_{h,k})/2$ ([Variantes de formulação dos patamares §2.4](/math/block-formulations#24-producao-e-evaporacao-por-patamar)) — uma única grandeza da usina compartilhada por todas as células, pois o armazenamento não é particionado. $\lambda_{h,b}$ é a **parcela de rateio** da célula $(h,b)$ na vazão turbinada máxima declarada da usina $h$,
@@ -304,15 +304,23 @@ $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
-(a razão entre a vazão turbinada máxima declarada dos grupos de unidades geradoras da própria célula e o total da usina, $0$ quando o total da usina é $0$), de modo que $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ para toda usina com uma vazão turbinada máxima declarada positiva. Apenas a parte do plano independente da vazão — o intercepto $\gamma^m_0$, o termo de armazenamento e o termo de vertimento — é rateada por $\lambda_{h,b}$; o coeficiente de vazão $\gamma^m_q$ permanece sobre o $q_{h,b,k}$ da própria célula, sem escala, porque só ele é homogêneo na partição em células (somar as linhas por célula com $v^{avg}_h$, $s_{h,k}$ e $\sum_b q_{h,b,k}$ fixos recupera o limite da usina que isto substitui). Uma usina de célula única com uma vazão turbinada máxima declarada positiva tem $\lambda_{h,b} = 1$ exatamente, de modo que sua linha é a linha da usina.
+(a razão entre a vazão turbinada máxima declarada dos grupos de unidades geradoras da própria célula e o total da usina, $0$ quando o total da usina é $0$), de modo que $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ para toda usina com uma vazão turbinada máxima declarada positiva. Apenas a parte do plano independente da vazão — o intercepto $\gamma^m_0$, o termo de armazenamento e o termo de vazão lateral — é rateada por $\lambda_{h,b}$; o coeficiente de vazão $\gamma^m_q$ permanece sobre o $q_{h,b,k}$ da própria célula, sem escala, porque só ele é homogêneo na partição em células (somar as linhas por célula com $v^{avg}_h$, $q_{lat,h,k}$ e $\sum_b q_{h,b,k}$ fixos recupera o limite da usina que isto substitui). Uma usina de célula única com uma vazão turbinada máxima declarada positiva tem $\lambda_{h,b} = 1$ exatamente, de modo que sua linha é a linha da usina.
+
+$q_{lat,h,k}$ é a vazão lateral da usina ([Modelos de função de produção hidrelétrica §2.9](/math/hydro-production-models#29-integracao-ao-pl)) e $\gamma^m_s \le 0$ é o coeficiente de vazão lateral do plano, em MW por m³/s. Escrita na forma $\leq$ com todos os termos à esquerda, a linha traz $-\lambda_{h,b} \, \gamma^m_s$ vezes um fator em cada um destes termos:
+
+- o vertimento da própria usina $s_{h,k}$, uma coluna, multiplicado por $f_h$;
+- para cada influência de defluência $j \in \mathcal{J}^{out}_h$, sua vazão turbinada $\sum_{b' \in \mathcal{B}_j} q_{j,b',k}$ e seu vertimento $s_{j,k}$, colunas, multiplicados por $f_{hj}$;
+- para cada influência de vazão incremental $j \in \mathcal{J}^{inc}_h$, sua vazão incremental realizada $\hat{z}_j$, multiplicada por $f^{z}_{hj}$. $\hat{z}_j$ é um número da resolução, não uma coluna: entra pelo ponto de acoplamento da afluência, à taxa em m³/s, e desloca o limite da linha ([Folding do PAR(p) §2](/math/par-folding#2-a-afluencia-realizada-fora-do-pl)). Sob um método de não negatividade da afluência com truncamento, a folga de afluência $\sigma^{inf}_j$, uma coluna, traz o mesmo coeficiente.
+
+Sem declaração de `tailrace_flow`, $f_h = 1$, os dois conjuntos de influências são vazios e $q_{lat,h,k} = s_{h,k}$.
 
 A folga entra na linha de todo plano $m \in \mathcal{M}_h$ da sua célula e do seu patamar com coeficiente $-1$, de modo que a geração pode exceder cada plano da célula no valor da folga. Ela está apenas nessas linhas de plano: em nenhuma linha de balanço hídrico, de atendimento à carga ou de restrição genérica, de modo que o balanço hídrico e o acoplamento da afluência não têm termo para ela. É valorada a $c^{fpha}_h$ (R\$/MWh) vezes a duração do patamar $\tau_k$ (§9). As expressões dos planos a seguir valem para $\sigma^{fpha}_{h,b,k} = 0$.
 
-Para uma usina com uma vazão turbinada máxima declarada positiva, as parcelas somam $1$, de modo que as linhas por célula de cada plano somam a linha da usina desse plano (acima). Uma soma de mínimos é no máximo o mínimo das somas, de modo que, com os mesmos $v^{avg}_h$, $s_{h,k}$ e vazão turbinada total, o teto que as linhas por célula impõem à geração da usina $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, à esquerda, é no máximo a envoltória da usina, o mínimo sobre os planos das linhas da usina, à direita:
+Para uma usina com uma vazão turbinada máxima declarada positiva, as parcelas somam $1$, de modo que as linhas por célula de cada plano somam a linha da usina desse plano (acima). Uma soma de mínimos é no máximo o mínimo das somas, de modo que, com os mesmos $v^{avg}_h$, $q_{lat,h,k}$ e vazão turbinada total, o teto que as linhas por célula impõem à geração da usina $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, à esquerda, é no máximo a envoltória da usina, o mínimo sobre os planos das linhas da usina, à direita:
 
 $$
-\sum_{b \in \mathcal{B}_h} \min_{m} \Big( \lambda_{h,b}\big(\gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s s_{h,k}\big) + \gamma^m_q q_{h,b,k} \Big)
-\;\le\; \min_{m} \Big( \gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s s_{h,k} + \gamma^m_q \sum_{b} q_{h,b,k} \Big)
+\sum_{b \in \mathcal{B}_h} \min_{m} \Big( \lambda_{h,b}\big(\gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s q_{lat,h,k}\big) + \gamma^m_q q_{h,b,k} \Big)
+\;\le\; \min_{m} \Big( \gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s q_{lat,h,k} + \gamma^m_q \sum_{b} q_{h,b,k} \Big)
 $$
 
 A igualdade vale quando o mesmo plano atinge o mínimo em todas as células, em particular quando as células turbinam em proporção às suas parcelas $\lambda_{h,b}$. Para $\lambda_{h,b} > 0$, o mínimo da célula $(h,b)$ é $\lambda_{h,b}$ vezes a envoltória da usina na vazão $q_{h,b,k}/\lambda_{h,b}$, de modo que, quando todas as parcelas são positivas, a expressão é a desigualdade de Jensen para a envoltória côncava com os pesos $\lambda_{h,b}$. Uma célula com $\lambda_{h,b} = 0$ mantém apenas o seu termo $\gamma^m_q \, q_{h,b,k}$, e a expressão continua valendo pelo argumento da soma de mínimos.
