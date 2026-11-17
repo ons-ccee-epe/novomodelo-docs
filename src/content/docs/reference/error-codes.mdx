@@ -984,6 +984,10 @@ block in every study stage's `blocks` array.
 **See also:** a positive `min_diversion_m3s` or `max_diversion_m3s` on a hydro
 with no declared diversion channel is reported under this kind — see
 [Diversion bound without a declared channel](#diversion-bound-without-a-declared-channel).
+A `constraints/hydro_bounds.parquet` storage bound outside the reservoir's range,
+or a study stage whose minimum storage exceeds its maximum, is reported under
+this kind too — see
+[Stage storage bounds refused at load](#stage-storage-bounds-refused-at-load).
 An initial storage outside the hydro's storage range, or listed in the wrong
 `initial_conditions.json` array, is reported under this kind too — see
 [Initial storage refused at load](#initial-storage-refused-at-load).
@@ -1042,6 +1046,70 @@ field.
 `system/hydros.json` (see [System Element Modeling Overview](/en/math/system-elements)), or remove
 the positive `min_diversion_m3s` or `max_diversion_m3s` override for that
 `(hydro, stage)` in `constraints/hydro_bounds.parquet`.
+
+#### Stage storage bounds refused at load
+
+**When it occurs:** `constraints/hydro_bounds.parquet` sets a storage bound
+outside the reservoir's range, or leaves a study stage whose minimum storage
+exceeds its maximum:
+
+- A row's `max_storage_hm3` lies above the reservoir's `max_storage_hm3` in
+  `system/hydros.json`, or its `min_storage_hm3` lies below the reservoir's
+  `min_storage_hm3` (the dead volume), beyond a relative tolerance of `1e-9`
+  (an absolute one below 1 hm³). Each column out of range is one finding, so a
+  row out of range on both sides gives two. A row on a `hydro_id` the case does
+  not declare is reported as [`InvalidReference`](#invalidreference) instead.
+- On a study stage, the storage minimum in force exceeds the maximum in force.
+  Each bound in force is the value on the stage's row, else the reservoir's
+  own, so two rows can set the minimum and the maximum separately, and one
+  override can cross the reservoir's opposite bound. Equal bounds are accepted.
+  One finding lists every (hydro, stage) pair. A reservoir whose own
+  `min_storage_hm3` exceeds its `max_storage_hm3` is refused first, as a
+  [`SchemaViolation`](#schemaviolation) of `system/hydros.json`.
+
+The geometry, production and evaporation models of a hydro cover only its
+reservoir's range, so a stage's storage bounds must lie within it.
+
+**Fields:**
+
+{/* quoted from source: check_bound_widens_reservoir_range in crates/novomodelo-io/src/validation/semantic/block_bounds.rs and check_stage_storage_bounds_inverted in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.21.0 */}
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=<id>, stage_id=<stage>): Hydro <id>: hydro_bounds row at stage_id=<stage>[, block_id=<block>] sets <column>=<value>, above the reservoir's <column> (<declared>) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range` line, with `below` in place of `above` for `min_storage_hm3`, or a `[InvalidValue] constraints/hydro_bounds.parquet: min_storage_hm3 exceeds max_storage_hm3 at <n> (hydro, stage) pair(s), so no storage satisfies those stages: <pairs>` line |
+
+Each pair is written `Hydro <id> at stage <stage> (<min> > <max>)`, with the
+pairs sorted by hydro id, then stage id, and joined with `, `.
+
+**Examples:**
+
+{/* capture: novomodelo validate above | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy above; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and one row: hydro_id 0, stage_id 1, max_storage_hm3 1200.0, with the 1dtoy reservoir range [0, 1000]; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=0, stage_id=1): Hydro 0: hydro_bounds row at stage_id=1 sets max_storage_hm3=1200, above the reservoir's max_storage_hm3 (1000) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range
+```
+
+{/* capture: novomodelo validate below | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy below; system/hydros.json: hydro 0 reservoir min_storage_hm3 100.0; initial_conditions.json: hydro 0 storage 150.0; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and one row: hydro_id 0, stage_id 1, min_storage_hm3 50.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet (hydro_id=0, stage_id=1): Hydro 0: hydro_bounds row at stage_id=1 sets min_storage_hm3=50, below the reservoir's min_storage_hm3 (100) in system/hydros.json; a stage's storage bounds must lie within the reservoir's range
+```
+
+In the next case, stage 1 takes its minimum and its maximum from two rows, and
+stage 2's maximum falls below the reservoir's minimum of 100 hm³, which is that
+stage's minimum in force:
+
+{/* capture: novomodelo validate inv | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy inv; system/hydros.json: hydro 0 reservoir min_storage_hm3 100.0; initial_conditions.json: hydro 0 storage 150.0; constraints/hydro_bounds.parquet added with pyarrow (compression zstd) and three rows for hydro_id 0: stage_id 1 with min_storage_hm3 600.0, stage_id 1 with max_storage_hm3 400.0, and stage_id 2 with max_storage_hm3 50.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] constraints/hydro_bounds.parquet: min_storage_hm3 exceeds max_storage_hm3 at 2 (hydro, stage) pair(s), so no storage satisfies those stages: Hydro 0 at stage 1 (600 > 400), Hydro 0 at stage 2 (100 > 50)
+```
+
+**Resolution:** Keep each stage's `min_storage_hm3` and `max_storage_hm3` within
+the reservoir's `min_storage_hm3` to `max_storage_hm3` in `system/hydros.json`,
+or correct the reservoir's range when it is the value in error. On each listed
+stage, lower the minimum or raise the maximum in force. See
+[`constraints/hydro_bounds.parquet`](/en/reference/case-format/constraints/#constraintshydro_boundsparquet).
 
 #### Initial storage refused at load
 
