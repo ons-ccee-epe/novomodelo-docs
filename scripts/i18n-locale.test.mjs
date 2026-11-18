@@ -57,8 +57,8 @@ test("dist/index.html lists both locale labels", () => {
     "expected the English locale label in dist/index.html",
   );
   assert.ok(
-    rootHtml.includes("Português do Brasil"),
-    "expected the Português do Brasil locale label in dist/index.html",
+    rootHtml.includes(">Português</option>"),
+    "expected the Português locale label in dist/index.html",
   );
 });
 

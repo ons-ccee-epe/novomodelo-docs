@@ -1,12 +1,22 @@
 // Mirrors src/components/plot-i18n.test.ts (node:test + node:assert/strict).
 import test from "node:test";
 import assert from "node:assert/strict";
-import { englishHome, normBase, versionOptions } from "./version-options.ts";
+import {
+  englishHome,
+  entryLabel,
+  normBase,
+  versionOptions,
+} from "./version-options.ts";
 
 // The shape of versions.json once a bilingual minor is frozen: latest and v0.20
 // serve pt-BR at their base and English under en/; v0.19 is English only.
 const cfg = {
-  latest: { label: "latest", base: "/docs/", locales: ["pt-br", "en"] },
+  latest: {
+    label: "latest",
+    base: "/docs/",
+    novomodelo: "v0.21.0",
+    locales: ["pt-br", "en"],
+  },
   versions: [
     {
       slug: "v0.20",
@@ -47,13 +57,28 @@ test("an English page lists latest, then every frozen version in file order, at 
   ]);
   assert.deepEqual(
     options.map((o) => o.label),
-    ["latest", "v0.20.0", "v0.19.1"],
+    ["v0.21.0 (latest)", "v0.20.0", "v0.19.1"],
   );
 });
 
 test("a pt-BR page lists only the versions that serve pt-BR, at their bases", () => {
   const { options } = versionOptions(cfg, "/docs/", true);
   assert.deepEqual(values(options), ["/docs/", "/docs/v0.20/"]);
+  assert.deepEqual(
+    options.map((o) => o.label),
+    ["v0.21.0 (mais recente)", "v0.20.0"],
+  );
+});
+
+test("latest reads as its novomodelo release and a latest tag; a frozen entry reads as its label", () => {
+  assert.equal(entryLabel(cfg, cfg.latest, false), "v0.21.0 (latest)");
+  assert.equal(entryLabel(cfg, cfg.latest, true), "v0.21.0 (mais recente)");
+  assert.equal(entryLabel(cfg, cfg.versions[1], true), "v0.19.1");
+});
+
+test("a latest entry without a novomodelo release falls back to its label", () => {
+  const bare = { latest: { label: "latest", base: "/docs/" }, versions: [] };
+  assert.equal(entryLabel(bare, bare.latest, false), "latest");
 });
 
 test("exactly the entry of the build's base is current and selected", () => {
