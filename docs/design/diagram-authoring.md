@@ -262,7 +262,7 @@ res: "Reservoir v" {shape: cylinder; class: hydro}
 ```
 
 Only the **border** takes the semantic colour (a fixed hex that reads on both
-themes, the same hue the tip and danger asides use); the fill stays neutral and
+themes; the deficit hue is also the danger aside's bar); the fill stays neutral and
 theme-flips via the keystone, keeping label contrast safe. d2 drops the
 `stroke-B1` palette class on a custom-styled node, so the semantic border
 survives the keystone's `!important`. **Do not** name a node the same as a class
