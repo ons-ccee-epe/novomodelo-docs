@@ -85,7 +85,7 @@ Full text: https://www.eclipse.org/legal/epl-2.0/`,
     name: "Inter",
     version: "4.0",
     spdx: "OFL-1.1",
-    role: "web font of the hotsite at / (Latin woff2 subsets in hotsite/assets/fonts/)",
+    role: "web font of the hotsite at / and the docs at /docs/ (Latin woff2 subsets in hotsite/assets/fonts/ and src/fonts/)",
     // The same file ships beside the fonts, as OFL-1.1 condition 2 requires.
     licenseText: readFileSync(
       join(siteRoot, "hotsite", "assets", "fonts", "LICENSE-Inter.txt"),

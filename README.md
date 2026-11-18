@@ -98,6 +98,7 @@ npm run check:spdx    # 100% FOSS dependency audit
 npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.21.0 (NOVOMODELO_BIN or novomodelo on PATH)
 npm run refresh:recordings -- --check # quickstart.gif matches scripts/recordings-provenance.json (check only)
 npm run check:type-spelling # reference Type cells use the reference-conventions §4 vocabulary
+npm run check:hex           # colours come only from src/styles/tokens.css (design-system.md)
 npm run check:e10     # third-party-notices / content-licensing completeness
 ```
 

@@ -149,6 +149,13 @@ test("contains IBM Plex Sans foundry copyright (IBM Corp 2019)", () => {
   );
 });
 
+test("contains Inter foundry copyright (The Inter Project Authors)", () => {
+  assert.ok(
+    noticesText.includes("The Inter Project Authors"),
+    "Expected 'The Inter Project Authors' in THIRD-PARTY-NOTICES.txt — Inter OFL copyright must be present.",
+  );
+});
+
 test("contains JetBrains Mono foundry copyright", () => {
   assert.ok(
     noticesText.includes("JetBrains Mono Project Authors"),

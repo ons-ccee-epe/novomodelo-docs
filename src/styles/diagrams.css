@@ -1,38 +1,8 @@
-/* === astro-d2 brand keystone ====================================================
-   astro-d2 renders ```d2 fences to inline SVG at build time, tagging every shape
-   with d2's shared palette classes (fill-N1…, stroke-B1…). d2 emits its own
-   light/dark hexes under @media (prefers-color-scheme), so a diagram would
-   follow the OS preference, not Starlight's manual theme toggle — a half-themed
-   page when the two disagree.
+/* d2 keystone: re-keys d2's palette classes to the theme tokens, so diagrams follow
+   Starlight's theme toggle instead of the OS. `!important` beats d2's emitted hexes. */
 
-   This keystone re-keys those palette classes to the BRAND tokens
-   (neutrals.css `--sl-color-*` warm greyscale + palette.css `--dgm-*` copper/
-   patina), which are themselves scoped to `[data-theme]`. Because the tokens
-   flip per theme, a SINGLE unscoped rule per class themes both light and dark —
-   no duplicated [data-theme] blocks. `!important` overrides d2's emitted hexes.
-
-   Design: schematics read as
-   COPPER LINEWORK on WARM-NEUTRAL card fills — copper is the structural line
-   colour (matching the copper Observable-Plot curves, so the two figure systems
-   cohere), fills stay neutral so copper lands "with restraint on neutral
-   backgrounds". Patina is the non-hydro secondary accent; Flow Blue is reserved
-   for explicit hydro/water marks (a diagram that needs it styles `--dgm-hydro`
-   inline). The slot→brand map lives once in the `.d2-svg` block below; tune
-   there. */
-
-/* Readability across screen sizes. astro-d2 SVGs otherwise scale to fill the
-   content column, so a diagram wider than the column shrinks and its text
-   becomes illegible (e.g. a 1800px schematic in an 810px column → ~7px text).
-   The rehypeWrapD2 plugin (astro.config.mjs) wraps each SVG in `.d2-fig`; here
-   we let a NARROW diagram fill the column (min-width:100% enlarges it) but a
-   WIDE one render at its native width and scroll horizontally (max-content),
-   keeping text at its authored size on every screen. */
-/* astro-d2 nests a RESPONSIVE outer <svg> (viewBox, no width → fills the column
-   and stretches everything up) around the real diagram. To keep text at its
-   authored ~16px, a small script (Footer.astro `sizeD2Figures`) reads each
-   figure's viewBox and pins the outer svg to its NATIVE px width; this CSS then
-   lets a narrow diagram sit centred at native size and a wide one scroll inside
-   the `.d2-fig` box (rather than shrinking to illegible text). */
+/* Footer.astro `sizeD2Figures` pins each svg to its native width; a wide one scrolls
+   in `.d2-fig` instead of shrinking its text. */
 .d2-fig {
   overflow-x: auto;
   margin: 1rem 0;
@@ -56,16 +26,13 @@
   --d2-N6: var(--sl-color-gray-6);
   --d2-N7: var(--sl-color-black); /* page background */
 
-  /* Primary family → COPPER linework (borders, connectors, emphasis).
-     Softened: the line copper is desaturated toward a warm grey so it reads as
-     an accent rather than a dominating full-saturation stroke. */
+  /* Lines: the accent, softened toward the muted grey */
   --d2-line: color-mix(in srgb, var(--dgm-storage) 70%, var(--sl-color-gray-3));
   --d2-B1: var(--d2-line);
   --d2-B2: var(--d2-line);
   --d2-B3: color-mix(in srgb, var(--dgm-storage) 55%, var(--sl-color-gray-4));
 
-  /* Primary fills → WARM-NEUTRAL cards (restraint: copper lines, neutral grounds).
-     Depth ramp: background < container < node. */
+  /* Fills: neutral cards, background < container < node */
   --d2-B4: color-mix(
     in srgb,
     var(--sl-color-gray-6) 45%,
@@ -74,12 +41,8 @@
   --d2-B5: var(--sl-color-gray-6); /* node surface (raised card) */
   --d2-B6: var(--sl-color-gray-6);
 
-  /* Accent-fill families → NEUTRAL card. d2 assigns these accent slots to some
-     shapes by default (e.g. the cylinder body), which is not semantically
-     meaningful — so they render as ordinary neutral cards. INTENTIONAL semantic
-     colour (hydro/thermal/deficit) is applied per-node in the d2 source via
-     `classes` (see the network schematics), NOT through these slots. --d2-AA2
-     stays patina for any diagram that asks for it explicitly. */
+  /* d2 puts accent fills on some shapes (cylinders) with no meaning: render them as cards.
+     Semantic colour comes from the d2 `classes`, not these slots. */
   --d2-AA2: var(--dgm-accent);
   --d2-AA4: var(--sl-color-gray-6);
   --d2-AA5: var(--sl-color-gray-6);

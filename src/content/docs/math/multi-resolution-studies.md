@@ -100,7 +100,7 @@ newest first.
 direction: down
 
 classes: {
-  hydro: {style: {stroke: "#4a90b8"}}
+  hydro: {style: {stroke: "#3378a3"}}
 }
 
 weekly: "Weekly stages in a month" {

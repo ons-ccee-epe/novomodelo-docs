@@ -138,17 +138,18 @@ Every math-plot figure has two files:
 
 ### 3.3 Theme-adaptive colours
 
-Read palette vars from the document root — never hard-code hex:
+Read palette vars from the document root — never hard-code hex (`npm run check:hex`
+fails on one); without the var, fall back to `currentColor`:
 
 ```typescript
 const curve =
   getComputedStyle(document.documentElement)
     .getPropertyValue("--dgm-curve")
-    .trim() || "#b87333";
+    .trim() || "currentColor";
 const accent =
   getComputedStyle(document.documentElement)
     .getPropertyValue("--dgm-accent")
-    .trim() || "#4a8b6f";
+    .trim() || "currentColor";
 ```
 
 Set `style: { background: "transparent" }` on the plot so it blends with
@@ -209,51 +210,59 @@ D2 SVGs rendered by `astro-d2` carry d2's built-in palette **class names**
 (`fill-N1`, `stroke-B1`, …). d2 emits its own light/dark hexes under
 `@media (prefers-color-scheme)`, which would follow the OS preference rather than
 Starlight's manual toggle. The `.d2-svg` keystone in `src/styles/diagrams.css`
-overrides that: it re-keys every palette class to a **brand token** — the warm
-neutrals from `neutrals.css` (`--sl-color-*`) and the copper/patina/flow-blue
-diagram palette from `palette.css` (`--dgm-*`). Those tokens are already
+overrides that: it re-keys every palette class to a **design-system token**
+(`docs/design/design-system.md`) — the neutrals from `neutrals.css`
+(`--sl-color-*`) and the diagram palette from `palette.css` (`--dgm-*`), both
+read from `src/styles/tokens.css` in the light theme. Those tokens are already
 `[data-theme]`-scoped, so a **single** rule per class themes both light and dark
 (no duplicated blocks); `!important` beats d2's emitted hex.
 
-The look is **copper linework on warm-neutral cards** — matching the copper
-Observable-Plot curves, so the two figure systems cohere. The slot→brand map
+The look is **sea-green linework on cool-neutral cards** in both themes
+(graphite cards in the dark variant, design-system.md §11), matching the
+accent-coloured Observable-Plot curves, so the two figure systems cohere. The slot→brand map
 lives once at the top of `diagrams.css` (tune there):
 
-- **Neutrals** N1…N7 → the warm ink→background ramp (`--sl-color-white` … `--sl-color-black`).
-- **Primary** B1/B2 → a **softened copper** line colour (copper desaturated
-  toward a warm grey, so it reads as an accent, not a dominating stroke); B4/B5
+- **Neutrals** N1…N7 → the ink→background ramp (`--sl-color-white` … `--sl-color-black`).
+- **Primary** B1/B2 → a **softened accent** line colour (`--dgm-storage`, the
+  accent, mixed toward the muted grey so it reads as an accent, not a
+  dominating stroke); B4/B5
   → neutral card fills (background < container < node depth ramp).
 - **Accent fills** AA/AB → neutral (d2 assigns these to some shapes, e.g. the
   cylinder body, with no semantic meaning — so they render as ordinary cards).
 - **Decision diamonds** (`fill-N4`) → a subtle neutral, not a heavy mid-grey.
 
-#### Semantic node colours (per-node, brand palette)
+#### Semantic node colours (per-node, element palette)
 
 Intentional colour by element type is applied **in the d2 source** via a
 `classes` block, NOT through the palette slots. This is the diagram design
 system's semantic vocabulary — reuse the same class names and hexes across every
 schematic so a reader learns the code once:
 
-| Element                        | Class     | Colour (hex)          | Brand role       |
-| ------------------------------ | --------- | --------------------- | ---------------- |
-| Hydro / reservoir / inflow     | `hydro`   | `#4a90b8` Flow Blue   | water / hydro    |
-| Thermal                        | `thermal` | `#f5a623` Spark Amber | energy           |
-| Renewables (NCS: wind / solar) | `ncs`     | `#4a8b6f` Patina      | secondary        |
-| Deficit / load-shed            | `deficit` | `#dc4c4c` Signal Red  | error / critical |
-| Generic (bus, demand, process) | _(none)_  | softened copper       | keystone default |
+| Element                        | Class     | Colour (hex) | Token                |
+| ------------------------------ | --------- | ------------ | -------------------- |
+| Hydro / reservoir / inflow     | `hydro`   | `#3378a3`    | `--color-el-hydro`   |
+| Thermal                        | `thermal` | `#9b6719`    | `--color-el-thermal` |
+| Renewables (NCS: wind / solar) | `ncs`     | `#5d7c2f`    | `--color-el-ncs`     |
+| Deficit / load-shed            | `deficit` | `#c7463d`    | `--color-el-deficit` |
+| Generic (bus, demand, process) | _(none)_  | the accent   | keystone default     |
+
+The four hexes come from design-system.md §10: each is solved to the same
+luminance, so it keeps 3:1 or more as a stroke on the light grounds and on
+graphite. d2 takes no CSS variable in `classes`, so the hex is repeated in the
+fence; `npm run check:hex` accepts only these four there.
 
 ```d2
 classes: {
-  hydro: {style: {stroke: "#4a90b8"}}
-  thermal: {style: {stroke: "#f5a623"}}
-  ncs: {style: {stroke: "#4a8b6f"}}
-  deficit: {style: {stroke: "#dc4c4c"}}
+  hydro: {style: {stroke: "#3378a3"}}
+  thermal: {style: {stroke: "#9b6719"}}
+  ncs: {style: {stroke: "#5d7c2f"}}
+  deficit: {style: {stroke: "#c7463d"}}
 }
 res: "Reservoir v" {shape: cylinder; class: hydro}
 ```
 
-Only the **border** takes the semantic colour (a fixed brand hex — the same value
-the asides use, so it reads on both themes); the fill stays neutral and
+Only the **border** takes the semantic colour (a fixed hex that reads on both
+themes; the deficit hue is also the danger aside's bar); the fill stays neutral and
 theme-flips via the keystone, keeping label contrast safe. d2 drops the
 `stroke-B1` palette class on a custom-styled node, so the semantic border
 survives the keystone's `!important`. **Do not** name a node the same as a class
@@ -336,7 +345,7 @@ Rules:
   `classes: { n: {shape: circle; width: 46; height: 46} }` then `x: 1 {class: n}`.
   Push longer descriptions onto the **edge** label (`a -> b: "branch 1"`), not
   into the circle. For anything with a real label, prefer a rectangle.
-- **Semantic colour is orthogonal to shape** — a hydro node is Flow Blue (§4.2)
+- **Semantic colour is orthogonal to shape** — a hydro node takes the hydro hue (§4.2)
   whether it's a rectangle, cylinder, or oval.
 
 ### 4.7 Layout gotchas (ELK)

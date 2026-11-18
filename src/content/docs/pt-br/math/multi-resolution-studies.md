@@ -107,7 +107,7 @@ períodos trimestrais concluídos, do mais recente para o mais antigo.
 direction: down
 
 classes: {
-  hydro: {style: {stroke: "#4a90b8"}}
+  hydro: {style: {stroke: "#3378a3"}}
 }
 
 weekly: "Estágios semanais em um mês" {

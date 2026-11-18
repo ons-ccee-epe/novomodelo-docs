@@ -494,18 +494,22 @@ export default defineConfig({
       // currentColor/var() inline SVG. The astro-d2 KEYSTONE in diagrams.css uses
       // HARDCODED d2-palette hex (NOT --dgm vars), so the two files are independent
       // and the order between them is arbitrary (corrected per E2 review,
-      // 2026-06-24). neutrals.css + brand.css (ticket-011b) override Starlight's
-      // own --sl-color-* tokens onto the BRAND palette: neutrals.css owns the warm
-      // greyscale (--sl-color-{black,gray-1..7,white}); brand.css owns the COPPER
-      // accent triple (--sl-color-accent*), the FLOW-BLUE prose-link rule, and the
-      // semantic aside hue families (note=blue/tip=patina/caution=amber/danger=red).
+      // 2026-06-24). neutrals.css + brand.css override Starlight's own
+      // --sl-color-* tokens onto the design-system tokens (tokens.css,
+      // docs/design/design-system.md): neutrals.css owns the greyscale
+      // (--sl-color-{black,gray-1..7,white}); brand.css owns the sea-green accent
+      // triple (--sl-color-accent*), the prose-link rule and the asides.
       // Both are a SEPARATE concern from palette.css (--dgm-* diagram vars); they
       // touch disjoint property sets, so neutrals-before-brand is for readability,
-      // not cascade. fonts.css (E2 / ticket-009) self-hosts the brand faces via
-      // Fontsource (IBM Plex Sans body / JetBrains Mono code, OFL 1.1) and sets
-      // ONLY --sl-font / --sl-font-mono — again a SEPARATE concern. Order is
+      // not cascade. fonts.css self-hosts the hotsite's Inter and Inter Display
+      // (OFL 1.1, WOFF2 in src/fonts/), uses the system monospace stack for code,
+      // and sets --sl-font / --sl-font-mono — again a SEPARATE concern. Order is
       // independent of the palette-before-diagrams keystone rule above.
       customCss: [
+        // tokens.css holds the design-system values (docs/design/design-system.md)
+        // every file below reads; it comes first so its custom properties are
+        // declared before any consumer.
+        "./src/styles/tokens.css",
         "./src/styles/katex.css",
         "./src/styles/palette.css",
         "./src/styles/diagrams.css",
@@ -517,6 +521,11 @@ export default defineConfig({
         // column floors and the right-sidebar TOC width, so its order among them
         // is arbitrary.
         "./src/styles/layout.css",
+        // components.css: Starlight's type scale, buttons and active state in
+        // the hotsite's terms (design-system.md §3, §5, §8).
+        "./src/styles/components.css",
+        // header.css: the hotsite's fixed graphite header in both themes (D4).
+        "./src/styles/header.css",
         "./src/components/entity/entity.css",
       ],
       // pt-BR is the root locale, served at the docs base, and English is
