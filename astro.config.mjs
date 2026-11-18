@@ -535,7 +535,7 @@ export default defineConfig({
       // and every other <p> to en/<p>.
       defaultLocale: "root",
       locales: {
-        root: { label: "Português do Brasil", lang: "pt-BR" },
+        root: { label: "Português", lang: "pt-BR" },
         en: { label: "English", lang: "en" },
       },
       pagefind: false,

@@ -132,8 +132,9 @@ served at its `base` (`/docs/vX.Y/`). Each entry's `locales` names the locales
 its build serves, root locale first: `["pt-br", "en"]` serves pt-BR at `base`
 and English at `base` + `en/`, and an entry without `locales` (v0.19 and older)
 serves English only, at `base`. The version picker lists `latest`, then
-`versions` in file order, newest first, each frozen entry under the release it
-documents (`vX.Y.z`). On an English page it lists every version and opens each
+`versions` in file order, newest first: `latest` reads as the release it
+documents plus a latest tag (`v0.21.0 (latest)`, `v0.21.0 (mais recente)` on
+pt-BR pages) and each frozen entry as the release it documents (`vX.Y.z`). On an English page it lists every version and opens each
 at its English home; on a pt-BR page it lists the versions whose `locales`
 include `pt-br`. A novomodelo patch release updates `latest` in place. A frozen
 snapshot is never edited: a fix branches from its `ref`, and `ref` moves to the
@@ -180,10 +181,10 @@ novomodelo v1.0.0; from then on, only the last two or three minors.
 6. Serve `dist/` (`python3 -m http.server -d dist 8080`) and check the picker on
    `/docs/`, `/docs/en/`, `/docs/vX.Y/` and `/docs/vX.Y/en/`. On the English
    pages it lists every version, each opening at its English home, and
-   `/docs/vX.Y/en/` shows "documents novomodelo vX.Y.z". On the pt-BR pages it
-   lists the versions that serve pt-BR, and `/docs/vX.Y/` shows "documenta o
-   Novo Modelo vX.Y.z". Selecting `latest` returns to `/docs/` from a pt-BR page
-   and to `/docs/en/` from an English one.
+   `/docs/vX.Y/en/` has "vX.Y.z" selected. On the pt-BR pages it lists the
+   versions that serve pt-BR, and `/docs/vX.Y/` has "vX.Y.z" selected. Selecting
+   the latest entry returns to `/docs/` from a pt-BR page and to `/docs/en/` from
+   an English one.
 7. Before merging, run `git fetch origin main`; then `git log <SHA>..origin/main`
    lists no commit outside the sync, and `git ls-remote origin refs/heads/main`
    names the same commit as `origin/main`. If another commit landed on `main`,

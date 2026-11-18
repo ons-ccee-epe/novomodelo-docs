@@ -2,52 +2,37 @@
 // Architecture B version picker — overrides Starlight's `SocialIcons` slot.
 // Each build knows its own base via import.meta.env.BASE_URL ("/docs/" or
 // "/docs/vX.Y/"), so the picker marks the current version and links across the
-// sibling builds; version-options.ts decides which versions a page lists and
-// where each option leads.
-// The select renders only when it has more than one option; the version text always shows.
+// sibling builds; version-options.ts decides which versions a page lists, where
+// each option leads and how each one reads.
+// A single option renders as plain text instead of a select.
 import versions from "../../versions.json";
-import { versionOptions } from "./version-options";
+import { entryLabel, versionOptions } from "./version-options";
 
 const pt = (Astro.currentLocale ?? "en").toLowerCase().startsWith("pt");
-const { current: currentEntry, options } = versionOptions(versions, import.meta.env.BASE_URL, pt);
-const hasChoice = options.length > 1;
-const Wrapper = hasChoice ? "label" : "div";
+const { current, options } = versionOptions(versions, import.meta.env.BASE_URL, pt);
+const hint = pt
+  ? "Versão do Novo Modelo que esta documentação descreve"
+  : "novomodelo release this documentation describes";
 ---
 
-<Wrapper class="version-picker" title={pt ? "Versão da documentação" : "Documentation version"}>
-  <span class="version-picker__label">{pt ? "Versão" : "Version"}: {currentEntry.label}</span>
-  {
-    currentEntry.novomodelo && (
-      <span
-        class="version-picker__novomodelo"
-        title={pt ? "versão do Novo Modelo descrita nestas páginas" : "novomodelo release these pages describe"}
-      >
-        {pt ? "documenta o Novo Modelo" : "documents novomodelo"} {currentEntry.novomodelo}
-      </span>
-    )
-  }
-  {
-    hasChoice && (
-      <select
-        class="version-picker__select"
-        aria-label={pt ? "Selecionar versão da documentação" : "Select documentation version"}
-      >
-        {
-          options.map((o) => (
-            <option value={o.value} selected={o.selected}>
-              {o.label}
-            </option>
-          ))
-        }
-      </select>
-    )
-  }
-</Wrapper>
+{
+  options.length > 1 ? (
+    <select class="version-picker" title={hint} aria-label={hint}>
+      {options.map((o) => (
+        <option value={o.value} selected={o.selected}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <span class="version-picker" title={hint}>
+      {entryLabel(versions, current, pt)}
+    </span>
+  )
+}
 
 <script>
-  const sel = document.querySelector<HTMLSelectElement>(
-    ".version-picker__select",
-  );
+  const sel = document.querySelector<HTMLSelectElement>("select.version-picker");
   sel?.addEventListener("change", (event) => {
     const target = event.currentTarget;
     if (target instanceof HTMLSelectElement) {
@@ -58,20 +43,13 @@ const Wrapper = hasChoice ? "label" : "div";
 
 <style>
   .version-picker {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
     font-size: var(--sl-text-xs);
-  }
-  .version-picker__label {
-    color: var(--sl-color-gray-3);
     white-space: nowrap;
   }
-  .version-picker__novomodelo {
+  span.version-picker {
     color: var(--sl-color-gray-3);
-    white-space: nowrap;
   }
-  .version-picker__select {
+  select.version-picker {
     background: var(--sl-color-black);
     color: var(--sl-color-white);
     border: 1px solid var(--sl-color-gray-5);

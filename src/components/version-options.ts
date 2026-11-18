@@ -31,6 +31,17 @@ const servesPtBr = (v: VersionEntry): boolean =>
 export const englishHome = (v: VersionEntry): string =>
   v.locales?.[0] === "pt-br" ? `${normBase(v.base)}en/` : normBase(v.base);
 
+// How the picker names an entry: latest reads as the novomodelo release it
+// documents plus a latest tag, and a frozen entry reads as its label.
+export function entryLabel(
+  cfg: VersionsConfig,
+  v: VersionEntry,
+  pt: boolean,
+): string {
+  if (v !== cfg.latest || !v.novomodelo) return v.label;
+  return `${v.novomodelo} (${pt ? "mais recente" : "latest"})`;
+}
+
 // The entry of the build at `baseUrl` is current (latest when none matches).
 // An English page lists every version at its English home; a pt-BR page lists
 // the versions that serve pt-BR, at their base, and always its own.
@@ -46,7 +57,7 @@ export function versionOptions(
   const shown = pt ? all.filter((v) => isHere(v) || servesPtBr(v)) : all;
   const options = shown.map((v) => ({
     value: pt ? normBase(v.base) : englishHome(v),
-    label: v.label,
+    label: entryLabel(cfg, v, pt),
     selected: isHere(v),
   }));
   return { current, options };
