@@ -33,7 +33,7 @@ makes Novomodelo easier to use.
 | --------------------------- | ----------------------------------------------------------------------------------------------- |
 | Python                      | 3.12 or newer                                                                                   |
 | [uv](https://docs.astral.sh/uv/) | installs the server as an isolated tool                                                    |
-| `novomodelo` (the CLI)      | installed separately (see [Installation](/en/getting-started/installation/)), or by the agent with the `instalar_novomodelo` tool |
+| `novomodelo` (the CLI)      | installed separately (see [Installation](/en/getting-started/installation/)), or by the agent with the `install_novomodelo` tool |
 | `novomodelo-bridge`, `novomodelo-python` | installed with the server                                                          |
 
 The server runs on Windows, macOS and Linux, including containers.
@@ -188,8 +188,8 @@ make the final decision.
 | Kind                     | Tools                                                                                                                                                                                                                                                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Read only                | `server_info`, `solver_version`, `schema_list`, `schema_get`, `docs_list`, `docs_read`, `docs_search`, `deck_list`, `deck_read_json`, `deck_read_parquet`, `deck_describe_parquet`, `deck_sql`, `case_validate`, `case_summary`, `bridge_check_*`, `results_status`, `results_convergence`, `results_list_entities`, `results_query`, `results_stochastic`, `results_policy`, `run_plan`, `run_status`, `run_logs` |
-| Writes new files         | `case_init`, `schema_export`, `bridge_convert_*`, `bridge_compare_*`, `bridge_dashboard`, `incluir_pastas`                                                                                                                                                                                                     |
-| Changes or stops         | `deck_edit_json`, `deck_edit_parquet`, `run_apply`, `run_start`, `run_cancel`, `instalar_novomodelo`                                                                                                                                                                                                          |
+| Writes new files         | `case_init`, `schema_export`, `bridge_convert_*`, `bridge_compare_*`, `bridge_dashboard`, `include_folders`                                                                                                                                                                                                     |
+| Changes or stops         | `deck_edit_json`, `deck_edit_parquet`, `run_apply`, `run_start`, `run_cancel`, `install_novomodelo`                                                                                                                                                                                                           |
 
 `novomodelo-mcp configurar --cliente claude-code --workspace <folder> --mostrar`
 prints the list of read-only tools that `configurar` writes, read from the server
@@ -219,7 +219,7 @@ By stage of a study:
   `novomodelo run` in the background and returns a job id at once; it refuses a case
   whose plan is `nao_cabe`, unless called with `override=True`. It also refuses an
   output folder that holds a finished run, because running there again deletes that
-  run: the refusal (exit code 17) gives a free folder in `output_sugerido`, and
+  run: the refusal (exit code 17) gives a free folder in `suggested_output`, and
   `overwrite=True` replaces the earlier run. `run_status`,
   `run_logs` and `run_cancel` follow and stop the job. A job survives a restart of
   the server.
@@ -231,16 +231,16 @@ By stage of a study:
   `bridge_compare_*` compares a converted case's results with the source tool's
   published results, and `bridge_dashboard` writes an HTML dashboard of a case.
 - **Reference.** `schema_list` and `schema_get` return the JSON Schemas of the input
-  files (also available as the resource `novomodelo://schema/{tipo}`);
+  files (also available as the resource `novomodelo://schema/{type}`);
   `schema_export` writes them to a folder. `docs_list`, `docs_search` and
   `docs_read` read the bundled documentation (see
   [Documentation and changelogs](#documentation-and-changelogs)).
 - **Diagnostics.** `server_info` and `solver_version` describe the installation;
-  `instalar_novomodelo` installs the `novomodelo` executable; `incluir_pastas` adds
+  `install_novomodelo` installs the `novomodelo` executable; `include_folders` adds
   folders to the workspace.
 
 Responses that carry rows or lists are capped in size; a capped response says so in
-`cortado_por_tamanho`.
+`size_truncation`.
 
 ---
 
@@ -256,12 +256,12 @@ refuses any path outside those roots, after resolving symbolic links and `..`.
 Without it, the server runs unrestricted, and `server_info` reports
 `irrestrito`.
 
-A refused path returns exit code 13, the folder of the path in `pasta_sugerida`, and
+A refused path returns exit code 13, the folder of the path in `suggested_folder`, and
 an instruction to the agent: do not read the path through other tools, and ask the
 person whether the folder may be added. With the person's consent, the agent calls
-`incluir_pastas` with every folder at once. The folders take effect at once, with no
+`include_folders` with every folder at once. The folders take effect at once, with no
 client restart, and are stored in `pastas.json` in the server's state folder,
-added to the roots of `NOVOMODELO_MCP_WORKSPACE`. `incluir_pastas` is never on
+added to the roots of `NOVOMODELO_MCP_WORKSPACE`. `include_folders` is never on
 the read-only list, so the client asks for approval on every call. It refuses a path
 that is not a folder, the home folder or any folder above it, the root of a disk,
 the configuration folders of programs (names starting with `.`, `AppData`,
@@ -288,7 +288,7 @@ Three forms of call override a safety check, and each needs
 The server uses the network only to check for newer releases of Novomodelo,
 novomodelo-bridge and the server itself (`server_info`, at most once every six hours
 in a running server, with a timeout of a few seconds) and to install the executable
-(`instalar_novomodelo`), and only to these destinations:
+(`install_novomodelo`), and only to these destinations:
 `github.com/ons-ccee-epe/*`, `api.github.com/repos/ons-ccee-epe/*`,
 `pypi.org/pypi/novomodelo-bridge/*`, `pypi.org/pypi/novomodelo-mcp/*` and, as a
 download destination,
@@ -301,18 +301,18 @@ network.
 The release check and the installer read the GitHub API without a token, and GitHub
 allows a limited number of such requests per hour from one IP address. On a network
 where many people share one address, a call can be refused for a while: the tools
-still answer, `instalar_novomodelo` reports `não foi possível consultar o release
+still answer, `install_novomodelo` reports `não foi possível consultar o release
 oficial` with the manual command, and a later call works again.
 
-`instalar_novomodelo` installs the official executable of the expected version with
-the release installer, after checking its SHA-256. Without `confirmar=True` it only
+`install_novomodelo` installs the official executable of the expected version with
+the release installer, after checking its SHA-256. Without `confirm=True` it only
 shows the plan: the URL, the hash, the destination folder and the manual command. On
 Windows, the official `.ps1` installer does not check the hash of the archive it
 downloads.
 
 The official installer also adds the executable's folder to the `PATH`: on Linux and
 macOS it edits the shell profile (such as `.bashrc` or `.profile`), and on Windows the
-user's `PATH`. The plan reports this in `altera_path`. To leave the profile untouched,
+user's `PATH`. The plan reports this in `modifies_path`. To leave the profile untouched,
 set `NOVOMODELO_CLI_NO_MODIFY_PATH=1` in the `env` of the client entry; the server
 still finds the executable in `~/.cargo/bin`, the installer's default folder.
 
@@ -322,12 +322,12 @@ still finds the executable in `~/.cargo/bin`, the installer's default folder.
 
 When the `novomodelo` executable, `novomodelo-python` or novomodelo-bridge is
 missing, or one of them or the bundled documentation is at a version other than the
-server's, every tool response carries `avisos_de_versao`: one line per component,
+server's, every tool response carries `version_warnings`: one line per component,
 with the commands that align it. The call still runs; the server's instructions ask the agent to tell
 the person and to offer to run the commands, with the person's consent.
 
 - A component **older** than the server is upgraded to the server's version: for
-  the executable, the agent can call `instalar_novomodelo`, or the person runs the
+  the executable, the agent can call `install_novomodelo`, or the person runs the
   release installer of that version; for `novomodelo-python`, the bundled
   documentation and the package's own novomodelo-bridge,
   `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`, which brings
@@ -342,15 +342,16 @@ the person and to offer to run the commands, with the person's consent.
   when a `server_info` call in the same running server fetched them in the last six
   hours, or else a link to the notes.
 
-`server_info` also reports in `versao_nova` whether a newer release of novomodelo,
+`server_info` also reports in `new_version` whether a newer release of novomodelo,
 novomodelo-bridge or the server exists. For novomodelo and novomodelo-bridge it gives
-the "Changed" and "Fixed" sections of the release notes (breaking changes first,
-capped in length), a link to the notes, and no command of their own: installing one
-component alone would put it out of step with the others, so the note says to
-install the server of that version once it is released, which brings every component
-along. For a newer server it gives the install command,
-`uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`, and the link to
-the release notes.
+the items of the "Changed", "Removed" and "Fixed" sections of the release notes,
+topic subheadings included, with every item that starts with `BREAKING:` first,
+whatever its section; the list is capped in length. It also gives a link to the
+notes and no command of their own: installing one component alone would put it out
+of step with the others, so the note says to install the server of that version once
+it is released, which brings every component along. For a newer server it gives the
+install command, `uv tool install --force --compile-bytecode novomodelo-mcp==X.Y.Z`,
+and the link to the release notes.
 
 ---
 
@@ -366,11 +367,15 @@ The server's instructions tell the agent to answer questions about the methodolo
 and the use of Novomodelo from these pages, not from the web or from memory, since
 Novomodelo's definitions may differ from the literature:
 
-1. `docs_search(consulta, k)` searches the pages by word and returns the page, the
+1. `docs_search(query, k)` searches the pages by word and returns the page, the
    section and an excerpt. Searches work best in English; the Portuguese terms of
    the [Glossary](/en/reference/glossary/) are translated.
-2. `docs_read(page, secao)` reads one section of a page (or the whole page without
-   `secao`); `docs_list(section)` lists the pages with their titles.
+2. `docs_read(page, section)` reads one section of a page (or the whole page without
+   `section`). `page` also takes a page as this site links to it, such as
+   `/en/running/configuration/#training` (the anchor becomes the section), the
+   page's address on the site, or the pt-BR page: the server reads the English page
+   and says in `note` which page it read and how to cite it. `docs_list(prefix)`
+   lists the pages with their titles.
 3. The answer cites the page and section it came from, as `page#section`. When the
    pages do not cover the subject, the agent says so.
 
@@ -403,7 +408,7 @@ go in the `env` of the client entry.
 | `NOVOMODELO_MCP_SOLVER_BIN`        | `novomodelo` on `PATH`, then in `~/.cargo/bin` | path of the `novomodelo` executable                                                            |
 | `NOVOMODELO_MCP_BRIDGE_BIN`        | the package's, then `PATH`       | another `novomodelo-bridge` executable; takes precedence over the package's                                   |
 | `NOVOMODELO_MCP_SCHEMAS_DIR`       | unset                            | folder of `*.schema.json` files, first in the schema sources                                                 |
-| `NOVOMODELO_MCP_DOCS_DIR`          | unset                            | for documentation development only: a folder of this site's pages, read instead of the bundled documentation; every response then carries a line in `avisos_de_versao` |
+| `NOVOMODELO_MCP_DOCS_DIR`          | unset                            | for documentation development only: a folder of this site's pages, read instead of the bundled documentation; every response then carries a line in `version_warnings` |
 | `NOVOMODELO_MCP_TIMEOUT`           | `900`                            | timeout, in seconds, of each CLI call                                                                        |
 | `NOVOMODELO_MCP_MAX_JOBS`          | `1`                              | runs that `run_start` allows at the same time                                                                |
 | `NOVOMODELO_MCP_STATE_DIR`         | per operating system (below)     | persistent state: background runs and solve-time calibration                                                 |
