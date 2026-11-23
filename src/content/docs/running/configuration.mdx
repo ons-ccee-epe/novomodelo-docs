@@ -99,6 +99,7 @@ load-time error (`deny_unknown_fields`).
 | ---------------- | ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `method`         | string  | Yes            | One of `"sampled"`, `"enumerated"`.                                                                                                                                    |
 | `forward_passes` | integer | `sampled` only | Number of scenario trajectories per iteration (`>= 1`). Larger values reduce variance in each iteration's cut but increase cost per iteration. Rejected under `"enumerated"`. |
+| `first_iteration_trial_storage` | string | `sampled` only, optional | One of `"forward"` (default), `"storage_grid"`. Storage at which the first iteration's backward pass builds its cuts; see [First-iteration trial storage](#first-iteration-trial-storage). Rejected under `"enumerated"`. |
 
 There is **no default** forward-pass count: an absent `training.selection` is
 a hard load error ([`SchemaViolation`](/en/reference/error-codes/#schemaviolation)).
@@ -137,6 +138,29 @@ policy graph and does not enumerate a node's openings. A node that pins a
 other node carries the openings its stage generates, so that stage declares
 `num_openings: 1` in `stages.json`. A case with a node carrying more is
 refused at study setup, by `novomodelo validate` and by `novomodelo run` before training, with exit code `1`.
+
+#### First-iteration trial storage
+
+`first_iteration_trial_storage` sets the storage at which the first training
+iteration's backward pass builds its cuts:
+
+- `"forward"` (default): the storage each forward pass reached.
+- `"storage_grid"`: an even grid of storage levels. Trial `k` of `N`, with `N`
+  the `forward_passes` count, holds every reservoir at `k/N` of the way from
+  its minimum to its maximum storage at each stage, so the lowest trial sits
+  `1/N` above the minimum and the highest at the maximum. Every reservoir moves
+  by the same fraction: the grid never pairs a full reservoir with an empty one.
+
+The forward passes are unchanged: their inflows, inflow history and the first
+iteration's upper bound are those they produce. A reservoir that is filling, or
+out of service at a stage or the next one, keeps the storage its forward pass
+reached. From the second iteration on, every backward pass uses the forward
+storage. A `resume` run that continues past its first iteration is not
+affected; a `warm_start` run applies the grid in its own first iteration.
+
+```json
+{ "method": "sampled", "forward_passes": 50, "first_iteration_trial_storage": "storage_grid" }
+```
 
 ### Optional Fields
 

@@ -99,6 +99,7 @@ erro de carga (`deny_unknown_fields`).
 | ---------------- | ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `method`         | string  | Sim            | Um de `"sampled"`, `"enumerated"`.                                                                                                                                     |
 | `forward_passes` | integer | apenas `sampled` | Número de trajetórias de cenários por iteração (`>= 1`). Valores maiores reduzem a variância do corte de cada iteração, mas aumentam o custo por iteração. Rejeitado com `"enumerated"`. |
+| `first_iteration_trial_storage` | string | apenas `sampled`, opcional | Um de `"forward"` (padrão), `"storage_grid"`. Armazenamento em que a simulação backward da primeira iteração constrói seus cortes; veja [Armazenamento dos pontos de teste da primeira iteração](#armazenamento-dos-pontos-de-teste-da-primeira-iteracao). Rejeitado com `"enumerated"`. |
 
 **Não há padrão** para o número de simulações forward: a ausência de `training.selection` é
 um erro de carga fatal ([`SchemaViolation`](/reference/error-codes/#schemaviolation)).
@@ -137,6 +138,31 @@ grafo da política e não enumera as aberturas de um nó. Um nó que fixa um
 outro nó tem as aberturas que seu estágio gera, de modo que esse estágio declara
 `num_openings: 1` em `stages.json`. Um caso com um nó que tenha mais é
 recusado na preparação do estudo, por `novomodelo validate` e por `novomodelo run` antes do treinamento, com código de saída `1`.
+
+#### Armazenamento dos pontos de teste da primeira iteração
+
+`first_iteration_trial_storage` define o armazenamento em que a simulação
+backward da primeira iteração do treinamento constrói seus cortes:
+
+- `"forward"` (padrão): o armazenamento que cada simulação forward atingiu.
+- `"storage_grid"`: uma grade uniforme de níveis de armazenamento. O ponto `k`
+  de `N`, com `N` o número `forward_passes`, coloca cada reservatório a `k/N`
+  do caminho entre seu armazenamento mínimo e seu armazenamento máximo em cada
+  estágio; o ponto mais baixo fica `1/N` acima do mínimo e o mais alto no
+  máximo. Todos os reservatórios se movem pela mesma fração: a grade nunca
+  combina um reservatório cheio com um vazio.
+
+As simulações forward não mudam: suas afluências, seu histórico de afluências e
+o limite superior da primeira iteração são os que elas produzem. Um reservatório
+em enchimento, ou fora de operação em um estágio ou no seguinte, mantém o
+armazenamento que sua simulação forward atingiu. A partir da segunda iteração,
+toda simulação backward usa o armazenamento forward. Uma execução `resume` que
+continua após a primeira iteração não é afetada; uma execução `warm_start`
+aplica a grade na sua própria primeira iteração.
+
+```json
+{ "method": "sampled", "forward_passes": 50, "first_iteration_trial_storage": "storage_grid" }
+```
 
 ### Campos opcionais
 
