@@ -630,21 +630,15 @@ lag buffer for the next):
 ### 4.4 Deterministic (σ = 0) External Columns
 
 A class's external column may be **constant** — every realization identical,
-standard deviation zero. Because the class statistics are derived from the
-samples themselves (§4.1), Novomodelo reads that as a genuinely deterministic series
-rather than a malformed one, and **accepts** it for load, for non-controllable
-sources, and for an inflow with an **order-0** model (no autoregressive lag and
-no annual component): the deterministic base is exactly that constant value.
-
-A constant column is **rejected** only for an inflow whose model has an
-autoregressive lag or an annual component. A single deterministic value cannot
-stand in for such a model: it would have to equal the model's own stage-by-stage
-deterministic PAR output — which depends on the evolving lag state and is not
-reconstructed from a flat column — so the load fails, naming the class, stage,
-and entity. This is distinct from the §4.3 inversion anchor check: it is a
-load-time admissibility rule on the column, not a per-stage residual test. (The
-concrete rejection message is a software-layer concern — see
-[Error Codes](/en/reference/error-codes).)
+standard deviation zero. Novomodelo reads that as a deterministic series rather
+than a malformed one and **accepts** it for every class. For load, for
+non-controllable sources and for an inflow with an **order-0** model (no
+autoregressive lag and no annual component), the class statistics are derived
+from the samples themselves (§4.1), so the deterministic base is exactly that
+constant value. An inflow whose model has an autoregressive lag or an annual
+component keeps its model's statistics, and the inversion of §4.3 turns the
+constant into one noise value per stage, which the forward pass replays as the
+recorded value (except at a season whose $\sigma_m$ is zero, step 2 of §4.3).
 
 ### 4.5 x₀ Consistency Under Historical Replay
 
