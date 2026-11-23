@@ -1819,9 +1819,10 @@ desabilitado em todos os estágios do estudo apesar de terem sido fornecidos coe
 valor negativo em `scenarios/inflow_history.parquet`, um período sazonal sem
 nenhuma das amostras desse arquivo a partir das quais a estimação faz o ajuste, um par hidrelétrica-período sazonal com pelo menos uma, mas menos de
 `estimation.min_observations_per_season`, ocorrências do período sazonal totalmente cobertas nesse
-arquivo, um alerta sobre o `travel_time_hours` declarado de uma hidrelétrica, um piso rígido de armazenamento que sobe acima do piso deixado pelo estágio anterior, um plano da FPHA pré-calculado que fica abaixo de 0 MW com vazão turbinada nula, ou um armazenamento
+arquivo, um alerta sobre o `travel_time_hours` declarado de uma hidrelétrica, um piso rígido de armazenamento que sobe acima do piso deixado pelo estágio anterior, um plano da FPHA pré-calculado que fica abaixo de 0 MW com vazão turbinada nula, um armazenamento
 inicial fora dos limites de armazenamento ao final do primeiro estágio de operação
-da hidrelétrica. Cada um é reportado como aviso.
+da hidrelétrica ou, com um resíduo de afluência `lognormal_3p`, uma afluência média
+sazonal menor ou igual a zero ou o método de afluência `none`. Cada um é reportado como aviso.
 
 **Exemplo:**
 
@@ -1899,12 +1900,29 @@ FPHA plane below zero at zero turbining: {entity} -- {n_pairs} (stage, plane) pa
 
 A verificação ignora uma hidrelétrica sem entrada de FPHA, uma hidrelétrica cuja FPHA é calculada (`source: "computed"`) e uma hidrelétrica sem capacidade de turbinamento. Ela cobre cada estágio do estudo cuja entrada resolve para `fpha`, e um estágio usa as linhas com o seu próprio `stage_id` ou, na falta delas, as linhas válidas para todos os estágios (`stage_id` nulo). Ela avalia cada linha com vazão turbinada nula, no armazenamento mínimo da janela de ajuste e no extremo superior da faixa de ajuste do vertimento (`spillage_fit_max_m3s`, ou o seu padrão), com `kappa` multiplicando apenas `gamma_0`. `{s_star}` é o vertimento no qual o plano atinge 0 MW, (`kappa`·`gamma_0` + `gamma_v`·v_min)/|`gamma_s`| quando essa soma é positiva e 0 caso contrário. O primeiro cruzamento é o menor `{s_star}`, com empates desfeitos pelo id do estágio e, depois, pelo id do plano. `{stages}` lista os ids dos estágios sinalizados como sequências crescentes escritas `a-b` (ou um id isolado) e unidas por `, `. É reportado um aviso por hidrelétrica.
 
+As duas mensagens do `lognormal_3p`, que `novomodelo validate` reporta e
+`novomodelo run` não, a primeira em `scenarios/` e a segunda em
+`config.json`:
+
+{/* quoted from source: inflow_residual_warnings in crates/novomodelo-sddp/src/validate_phases.rs at novomodelo v0.22.0 */}
+
+```text
+modeling.inflow_residual.distribution = "lognormal_3p": the seasonal mean inflow is <= 0 at {list}; there the inflow takes the normal residual whenever its conditional mean is not positive
+modeling.inflow_residual.distribution = "lognormal_3p" with modeling.inflow_non_negativity.method = "none": an inflow that takes the normal residual can be negative
+```
+
+`{list}` nomeia cada hidrelétrica com seus períodos sazonais, ou com os ids dos
+seus estágios nos estágios sem período sazonal, como sequências crescentes
+escritas `a-b` (ou um número isolado) e unidas por `, `, por exemplo
+`hydro 0 (stages 0, 2), hydro 3 (seasons 0-11)`. Ela nomeia no máximo dez
+hidrelétricas e conta as demais como `and {n} more`.
+
 **Solução:** Revise a entrada sinalizada. Para um aviso de ordenação de penalidades, veja
 [Verificações de penalidades na carga](/math/penalty-system#implementacao-no-novo-modelo); para o
 aviso de tendência hidrológica, veja
 [`stages[].state_variables` — Projeção de Cortes](/math/cut-management/#stagesstate_variables--projecao-dos-cortes);
 para o aviso de armazenamento inicial, verifique se o primeiro estágio de operação consegue atingir
-seus limites de armazenamento ou mova o armazenamento inicial para dentro deles; para o aviso de piso crescente, reduza o piso que sobe, eleve o piso do estágio anterior ou use o método de afluência `penalty` (veja [a precondição de recurso completo](/math/penalty-system#precondicao-de-recurso-completo)); para o aviso do plano pré-calculado, eleve o `gamma_s` do plano sinalizado para pelo menos −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, com o armazenamento v_min e o vertimento S_ref que a mensagem imprime, ou ajuste os planos a partir da geometria com `source: "computed"`, cujos planos recebem esse limite ([Secante de vazão lateral](/math/hydro-production-models#27-secante-de-vazao-lateral)); um plano cujo cruzamento está em 0 m³/s precisa de um `gamma_0` ou `gamma_v` maior.
+seus limites de armazenamento ou mova o armazenamento inicial para dentro deles; para o aviso de piso crescente, reduza o piso que sobe, eleve o piso do estágio anterior ou use o método de afluência `penalty` (veja [a precondição de recurso completo](/math/penalty-system#precondicao-de-recurso-completo)); para o aviso do plano pré-calculado, eleve o `gamma_s` do plano sinalizado para pelo menos −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, com o armazenamento v_min e o vertimento S_ref que a mensagem imprime, ou ajuste os planos a partir da geometria com `source: "computed"`, cujos planos recebem esse limite ([Secante de vazão lateral](/math/hydro-production-models#27-secante-de-vazao-lateral)); um plano cujo cruzamento está em 0 m³/s precisa de um `gamma_0` ou `gamma_v` maior; para um aviso do `lognormal_3p`, verifique as médias sazonais sinalizadas ou defina um método de [`inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity) diferente de `none`.
 Avisos deste tipo não impedem a execução do solver.
 
 ---
@@ -2346,8 +2364,8 @@ descreve a chave `openings`.
 **Severidade:** Erro
 
 **Quando ocorre:** A montagem do estudo falha em um caso sem `policy.boundary`: uma biblioteca de cenários (inclusive a
-do esquema forward `historical`), uma verificação de biblioteca externa, uma verificação de perfil do solver ou o filtro
-de admissão da regra `gap` e do método de seleção `dynamic` e de `max_active_per_stage`. Rótulo de arquivo: `scenarios/` para um erro do modelo estocástico,
+do esquema forward `historical`), uma verificação de biblioteca externa, uma verificação de perfil do solver, o filtro
+de admissão da regra `gap` e do método de seleção `dynamic` e de `max_active_per_stage` ou o filtro do `lognormal_3p` de `modeling.inflow_residual.distribution`. Rótulo de arquivo: `scenarios/` para um erro do modelo estocástico,
 `config.json` nos demais casos. Em um caso com `policy.boundary`, as mesmas falhas reportam
 [`BoundaryReconciliationError`](#boundaryreconciliationerror). `novomodelo validate` encerra com código `1`.
 
@@ -2358,6 +2376,28 @@ de admissão da regra `gap` e do método de seleção `dynamic` e de `max_active
 ```text
 scenarios/: stochastic error: insufficient data: no valid historical windows found: ensure that inflow history covers the required seasons for at least one starting year
 ```
+
+Um resíduo `"lognormal_3p"` em um caso que também usa uma entrada que ele não
+suporta ([`modeling.inflow_residual`](/running/configuration/#modelinginflow_residual))
+é recusado com uma única mensagem que nomeia todos os conflitos, unidos por `; `:
+
+{/* quoted from source: reject_unsupported_combinations_under_lognormal in crates/novomodelo-sddp/src/setup/mod.rs at novomodelo v0.22.0 */}
+
+```text
+config.json: configuration validation error: modeling.inflow_residual.distribution = "lognormal_3p" does not support {conflicts}
+```
+
+Cada conflito é um de:
+
+- `training.scenario_source.inflow.scheme = "{scheme}"` ou
+  `simulation.scenario_source.inflow.scheme = "{scheme}"`, com `{scheme}`
+  `external` ou `historical`;
+- `training.selection.method = "enumerated"` ou
+  `simulation.selection.method = "enumerated"`;
+- `stages[].sampling_method = "historical_residuals" (stage {stage})`;
+- `policy_graph.nodes[].scenario_id (node {node}, stage {stage})`.
+
+Defina `distribution` como `"normal"` ou altere as entradas em conflito.
 
 ---
 

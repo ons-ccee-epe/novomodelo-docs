@@ -50,6 +50,7 @@ Every `config.json` key down to the second level, with its type and default; eac
 | `simulation.cut_set`                         | string          | No       | `"all"`      | —     | One of `"all"`, `"active"`. Which policy rows the simulation's stage LPs hold. See [`simulation`](#simulation).                                   |
 | `modeling`                                   | object          | No       | `{}`         | —     | Controls physical modeling options. See [`modeling`](#modeling).                                                                                   |
 | `modeling.inflow_non_negativity`             | object          | No       | `{}`         | —     | Treatment of negative PAR model inflow draws. See [`modeling.inflow_non_negativity`](#modelinginflow_non_negativity).                              |
+| `modeling.inflow_residual`                   | object          | No       | `{}`         | —     | Distribution of the PAR(p) inflow residual, `"normal"` or `"lognormal_3p"`. See [`modeling.inflow_residual`](#modelinginflow_residual).            |
 | `modeling.cost_scale_factor`                 | number \| null  | No       | `1000000.0`  | —     | Divisor on every non-θ objective coefficient; `null` or absent uses the default. See [`modeling.cost_scale_factor`](#modelingcost_scale_factor).   |
 | `estimation`                                 | object          | No       | `{}`         | —     | Controls the PAR(p) model estimation pipeline. See [`estimation`](#estimation).                                                                    |
 | `estimation.max_order`                       | integer         | No       | `6`          | —     | Maximum lag order considered during model fitting. See [`estimation`](#estimation).                                                                |
@@ -788,6 +789,7 @@ Controls physical modeling options.
 | Field                   | Type   | Default        | Description                                                                                                                       |
 | ----------------------- | ------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `inflow_non_negativity` | object | `{}`           | Strategy for handling negative PAR model inflow draws.                                                                            |
+| `inflow_residual`       | object | `{}`           | Distribution of the PAR(p) inflow residual. See below.                                                                            |
 | `cost_scale_factor`     | number \| null | `1000000.0`    | Divisor on every non-θ objective coefficient (objective conditioning; does not alter the model, unlike this section's other fields). See below. |
 
 ### `modeling.inflow_non_negativity`
@@ -829,6 +831,62 @@ Example — the uncapped `"penalty"` slack in place of the default:
   "modeling": {
     "inflow_non_negativity": {
       "method": "penalty"
+    }
+  }
+}
+```
+
+### `modeling.inflow_residual`
+
+| Field          | Type   | Default    | Description                          |
+| -------------- | ------ | ---------- | ------------------------------------ |
+| `distribution` | string | `"normal"` | One of `"normal"`, `"lognormal_3p"`. |
+
+At every solve the PAR(p) model gives each hydro's incremental inflow a
+conditional mean, computed from that solve's inflow lags, and a residual
+standard deviation. `distribution` sets the distribution of the residual added
+to the mean:
+
+- `"normal"` (default) -- a Gaussian residual. The inflow can be negative, and
+  [`inflow_non_negativity`](#modelinginflow_non_negativity) treats it.
+- `"lognormal_3p"` -- experimental: a three-parameter lognormal residual with
+  the same mean and standard deviation, bounded below at zero inflow, so the
+  inflow is not negative. Where the conditional mean is not positive, the hydro
+  takes the Gaussian residual at that solve, and `inflow_non_negativity`
+  treats a negative inflow as under `"normal"`.
+
+Both values draw the same noise; only the residual built from it differs.
+[PAR(p) Inflow Model §2.7](/en/math/par-inflow-model/#27-lognormal-residual)
+gives the transform. As under the two truncation methods, the residual depends
+on each solve's inflow lags, so the lower bound can exceed the upper bound.
+
+On a case with a PAR(p) model, `"lognormal_3p"` is refused, by `novomodelo
+validate` and by `novomodelo run` before training, with exit code `1`, when the
+case also uses any of:
+
+- `"external"` or `"historical"` as the inflow `scheme` of
+  `training.scenario_source` or `simulation.scenario_source`;
+- `"enumerated"` as `training.selection.method` or `simulation.selection.method`;
+- a stage whose `sampling_method` is `"historical_residuals"`;
+- a `policy_graph` node with a `scenario_id`.
+
+One error names every conflict
+([`StudySetupError`](/en/reference/error-codes/#studysetuperror)).
+`novomodelo validate`, but not `novomodelo run`, warns about the solves that
+take the Gaussian residual: at a hydro and season whose seasonal mean inflow is
+zero or negative, and under `inflow_non_negativity.method = "none"`, where such
+an inflow can be negative
+([`ModelQuality`](/en/reference/error-codes/#modelquality)).
+
+A policy trained under either value loads and simulates under the other.
+
+Example:
+
+```json
+{
+  "modeling": {
+    "inflow_residual": {
+      "distribution": "lognormal_3p"
     }
   }
 }

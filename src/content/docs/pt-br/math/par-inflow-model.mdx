@@ -116,7 +116,7 @@ Outras implementações do PAR(p) podem seguir convenções diferentes:
 
 - é comum escreverem os coeficientes autorregressivos como $\phi$, que este capítulo escreve como $\psi$ (unidades originais) e $\psi^*$ (padronizado);
 - algumas armazenam o desvio-padrão do ruído, enquanto este modelo armazena o desvio-padrão amostral sazonal $s_m$ e deriva o desvio-padrão do ruído $\sigma_m = s_m\, r_m$ na carga (§4);
-- algumas sorteiam os resíduos de uma distribuição lognormal, enquanto os ruídos deste modelo são gaussianos e as realizações negativas são tratadas como em [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity).
+- algumas sorteiam os resíduos de uma distribuição lognormal; os resíduos deste modelo são gaussianos, a menos que `modeling.inflow_residual.distribution` selecione o resíduo lognormal da §2.7, e as realizações negativas são tratadas como em [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity).
 
 Para termos equivalentes em outras ferramentas de planejamento, veja o [Glossário](/reference/glossary).
 :::
@@ -215,6 +215,26 @@ A inclusão das afluências defasadas nos cortes de um estágio é uma escolha p
 | Coeficientes das defasagens | $\psi_{m(t),\ell}$ | Um por (usina hidrelétrica, defasagem) | Afluência realizada (termos de defasagem); regra da cadeia dos coeficientes dos cortes nas defasagens | Derivados de $\psi^*$ e $s_m$ armazenados, na inicialização (§2.2) |
 | Base determinística | $b_{h,m(t)}$      | Uma por usina hidrelétrica | Afluência realizada (termo fixo) | Pré-calculada a partir de $\mu$ e $\psi$                  |
 | Escala do ruído    | $\sigma_{m(t)}$    | Uma por usina hidrelétrica | Afluência realizada (fator do ruído) | Derivada do $r_m$ obtido pelo fechamento (§4.1) e de $s_m$, na inicialização (§2.2) |
+
+### 2.7 Resíduo lognormal
+
+Com `modeling.inflow_residual.distribution = "lognormal_3p"` ([Configuração](/running/configuration/#modelinginflow_residual)), o termo de ruído $\sigma_{m(t)} \cdot \varepsilon_t$ da §2.5 é substituído por um resíduo lognormal formado a partir da média condicional da resolução,
+
+$$
+p_h = b_{h,m(t)} + \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \hat{a}_{h,\ell}
+$$
+
+de modo que
+
+$$
+\hat{z}_h = p_h \exp\!\left(\tilde{\sigma}_h \varepsilon_t - \tfrac{1}{2} \tilde{\sigma}_h^2\right), \qquad \tilde{\sigma}_h^2 = \ln\!\left(1 + \left(\sigma_{m(t)} / p_h\right)^2\right)
+$$
+
+Para um $\varepsilon_t$ normal padrão, $\hat{z}_h$ tem média $p_h$ e desvio-padrão $\sigma_{m(t)}$, os momentos do resíduo gaussiano, e nunca é negativo: o resíduo é uma lognormal de três parâmetros com o limite inferior em afluência zero, aplicada à vazão incremental da usina hidrelétrica. Os sorteios $\varepsilon_t$, sua correlação e a árvore de aberturas são os do resíduo gaussiano.
+
+Onde $p_h \le 0$, ou $p_h$ é tão próximo de zero que $(\sigma_{m(t)} / p_h)^2$ transborda, a usina hidrelétrica recebe o resíduo gaussiano $\sigma_{m(t)} \cdot \varepsilon_t$ naquela resolução, e o [tratamento de afluências negativas](/math/inflow-nonnegativity) trata um $\hat{z}_h$ negativo como no resíduo gaussiano. Com $\sigma_{m(t)} = 0$, $\hat{z}_h = p_h$.
+
+O resíduo depende das defasagens de entrada por meio de $p_h$. Os coeficientes dos cortes nas defasagens mantêm o resíduo no seu valor no estado visitado (a regra da cadeia do [Folding do PAR(p)](/math/par-folding) não deriva a transformação); assim, como no montante de truncamento de [Métodos de tratamento de afluências negativas §7](/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior), cada corte é justo no seu estado visitado, mas não há garantia de que o limite inferior permaneça abaixo do valor ótimo, e ele pode exceder o limite superior.
 
 ## 3. Estimação
 

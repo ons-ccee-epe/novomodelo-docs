@@ -1814,9 +1814,10 @@ disabled on every study stage despite supplied autoregressive coefficients, a
 negative value in `scenarios/inflow_history.parquet`, a season with none of
 the samples the estimation fits from that file, a hydro-season with at least one, but fewer than
 `estimation.min_observations_per_season`, fully covered season occurrences in that
-file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW at zero turbined flow, or an initial
+file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW at zero turbined flow, an initial
 storage outside the storage bounds at the end of the hydro's first operating
-stage. Each is reported as a warning.
+stage, or, under a `lognormal_3p` inflow residual, a seasonal mean inflow at or
+below zero or the `none` inflow method. Each is reported as a warning.
 
 **Example:**
 
@@ -1894,12 +1895,28 @@ FPHA plane below zero at zero turbining: {entity} -- {n_pairs} (stage, plane) pa
 
 The check skips a hydro with no FPHA entry, a hydro whose FPHA is computed (`source: "computed"`) and a hydro without turbine capacity. It covers each study stage whose entry resolves to `fpha`, and a stage uses its own `stage_id` rows, else the all-stage (`stage_id` null) rows. It evaluates each row at zero turbined flow, at the fitting window's minimum storage and at the upper end of the spillage fit range (`spillage_fit_max_m3s`, or its default), with `kappa` multiplying `gamma_0` only. `{s_star}` is the spillage at which the plane reaches 0 MW, (`kappa`·`gamma_0` + `gamma_v`·v_min)/|`gamma_s`| when that sum is positive and 0 otherwise. The earliest crossing is the smallest `{s_star}`, with ties broken by stage id and then plane id. `{stages}` lists the flagged stage ids as ascending runs written `a-b` (or a single id) and joined by `, `. One warning is reported per hydro.
 
+The two `lognormal_3p` messages, which `novomodelo validate` reports and
+`novomodelo run` does not, the first on `scenarios/` and the second on
+`config.json`:
+
+{/* quoted from source: inflow_residual_warnings in crates/novomodelo-sddp/src/validate_phases.rs at novomodelo v0.22.0 */}
+
+```text
+modeling.inflow_residual.distribution = "lognormal_3p": the seasonal mean inflow is <= 0 at {list}; there the inflow takes the normal residual whenever its conditional mean is not positive
+modeling.inflow_residual.distribution = "lognormal_3p" with modeling.inflow_non_negativity.method = "none": an inflow that takes the normal residual can be negative
+```
+
+`{list}` names each hydro with its seasons, or with its stage ids at stages
+without a season, as ascending runs written `a-b` (or a single number) and
+joined by `, `, for example `hydro 0 (stages 0, 2), hydro 3 (seasons 0-11)`. It
+names at most ten hydros and counts the rest as `and {n} more`.
+
 **Resolution:** Review the flagged input. For a penalty-ordering warning, see
 [Load-time penalty checks](/en/math/penalty-system#implementation-in-novomodelo); for the
 inflow-lag warning, see
 [`stages[].state_variables` — Cut Projection](/en/math/cut-management/#stagesstate_variables--cut-projection);
 for the initial-storage warning, check that the first operating stage can reach
-its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_s` to at least −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, with the storage v_min and the spillage S_ref the message prints, or fit the planes from geometry with `source: "computed"`, whose planes get this limit ([Lateral-Flow Secant](/en/math/hydro-production-models#27-lateral-flow-secant)); a plane whose crossing is at 0 m³/s needs a larger `gamma_0` or `gamma_v`.
+its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_s` to at least −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, with the storage v_min and the spillage S_ref the message prints, or fit the planes from geometry with `source: "computed"`, whose planes get this limit ([Lateral-Flow Secant](/en/math/hydro-production-models#27-lateral-flow-secant)); a plane whose crossing is at 0 m³/s needs a larger `gamma_0` or `gamma_v`; for a `lognormal_3p` warning, check the flagged seasonal means, or set an [`inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity) method other than `none`.
 Warnings of this type do not prevent the solver from running.
 
 ---
@@ -2341,8 +2358,8 @@ describes the `openings` key.
 **Severity:** Error
 
 **When it occurs:** Study construction fails on a case without `policy.boundary`: a scenario library (the
-forward `historical` scheme's included), an external-library check, a solver-profile check, or the admission
-gate of the `gap` rule and of the `dynamic` selection method and `max_active_per_stage`. File label: `scenarios/` for a stochastic-model error,
+forward `historical` scheme's included), an external-library check, a solver-profile check, the admission
+gate of the `gap` rule and of the `dynamic` selection method and `max_active_per_stage`, or the `lognormal_3p` gate of `modeling.inflow_residual.distribution`. File label: `scenarios/` for a stochastic-model error,
 `config.json` otherwise. On a case with `policy.boundary`, the same failures report
 [`BoundaryReconciliationError`](#boundaryreconciliationerror). `novomodelo validate` exits `1`.
 
@@ -2353,6 +2370,28 @@ gate of the `gap` rule and of the `dynamic` selection method and `max_active_per
 ```text
 scenarios/: stochastic error: insufficient data: no valid historical windows found: ensure that inflow history covers the required seasons for at least one starting year
 ```
+
+A `"lognormal_3p"` residual on a case that also uses an input it does not
+support ([`modeling.inflow_residual`](/en/running/configuration/#modelinginflow_residual))
+is refused with one message that names every conflict, joined by `; `:
+
+{/* quoted from source: reject_unsupported_combinations_under_lognormal in crates/novomodelo-sddp/src/setup/mod.rs at novomodelo v0.22.0 */}
+
+```text
+config.json: configuration validation error: modeling.inflow_residual.distribution = "lognormal_3p" does not support {conflicts}
+```
+
+Each conflict is one of:
+
+- `training.scenario_source.inflow.scheme = "{scheme}"` or
+  `simulation.scenario_source.inflow.scheme = "{scheme}"`, with `{scheme}`
+  `external` or `historical`;
+- `training.selection.method = "enumerated"` or
+  `simulation.selection.method = "enumerated"`;
+- `stages[].sampling_method = "historical_residuals" (stage {stage})`;
+- `policy_graph.nodes[].scenario_id (node {node}, stage {stage})`.
+
+Set `distribution` to `"normal"`, or change the conflicting inputs.
 
 ---
 
