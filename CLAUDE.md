@@ -132,7 +132,7 @@ read; open them directly when working on the topic without reading a page first.
 | `hydro.md` | FPHA, cascade, inflow non-negativity, generic constraints pages | FPHA fit, water travel time, inflow-slack methods, `hydro_inflow` term |
 | `thermals-and-discounting.md` | state augmentation, equipment, discount, post-study pages | Anticipated thermals, discount factors |
 | `commissioning.md` | penalty, system-elements, entity pages | Filling, commissioning windows, initial storage, canonical entity order |
-| `stochastic.md` | scenario generation, PAR, multi-resolution pages | Historical sampling, correlation target, moment matching, noise groups, MPI fingerprint |
+| `stochastic.md` | scenario generation, PAR, multi-resolution pages | Historical sampling, correlation estimation, moment matching, noise groups, MPI fingerprint |
 | `diagrams.md` | `src/figures/**`, `src/components/**`, `src/styles/**`, `.mdx` pages | d2, Observable Plot and entity illustrations, semantic colours, site accent |
 | `quality-gates.md` | `scripts/**`, `package.json`, CI workflows | Gate prerequisites (d2, novomodelo binary, KaTeX strict) and CI wiring |
 
