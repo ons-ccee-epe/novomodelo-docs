@@ -2841,24 +2841,6 @@ error: LP infeasible at stage 0, iteration 1, scenario 0
   -> run `novomodelo validate <CASE_DIR>` for a full diagnostic report
 ```
 
-### Solves that miss a row bound
-
-When any LP solve of the run returned an optimal primal solution that misses a
-row bound, `novomodelo run` prints one line on stderr when the run ends (rank 0
-only; `--quiet` does not suppress it). The run still succeeds and the exit code
-does not change:
-
-```text
-warning: LP solves returned a primal solution that misses a row bound by more than the primal feasibility tolerance plus 1e-11 of the row's magnitude: {n} of {m} (forward {f}, backward {b}, lower bound {l}, simulation {s}); per-stage counts are in the lp_row_violations column of solver/iterations.parquet
-```
-
-A row counts when its violation exceeds the solver's primal feasibility
-tolerance plus `1e-11` times the row's magnitude: the sum of the absolute values
-of its terms at the returned solution, taken as at least 1. The Python
-`novomodelo.run` prints the same text prefixed by `novomodelo-python: `. A count
-above zero means outputs recomputed from that solve (balances, duals, cuts) may
-not close; report it with the case.
-
 ### Simulation failures
 
 A stage-LP failure in simulation exits `3`, and every other simulation failure exits `4`.

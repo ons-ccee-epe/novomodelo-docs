@@ -2846,24 +2846,6 @@ error: LP infeasible at stage 0, iteration 1, scenario 0
   -> run `novomodelo validate <CASE_DIR>` for a full diagnostic report
 ```
 
-### Resoluções que violam um limite de linha
-
-Quando alguma resolução de PL da execução devolveu uma solução primal ótima que viola um
-limite de linha, `novomodelo run` imprime uma linha no stderr ao final da execução
-(apenas no rank 0; `--quiet` não a suprime). A execução continua bem-sucedida e o código
-de saída não muda:
-
-```text
-warning: LP solves returned a primal solution that misses a row bound by more than the primal feasibility tolerance plus 1e-11 of the row's magnitude: {n} of {m} (forward {f}, backward {b}, lower bound {l}, simulation {s}); per-stage counts are in the lp_row_violations column of solver/iterations.parquet
-```
-
-Uma linha é contada quando sua violação excede a tolerância de viabilidade primal do
-solver mais `1e-11` vezes a magnitude da linha: a soma dos valores absolutos de seus
-termos na solução devolvida, tomada como no mínimo 1. O `novomodelo.run` do Python
-imprime o mesmo texto com o prefixo `novomodelo-python: `. Uma contagem acima de zero
-significa que as saídas recalculadas a partir dessa resolução (balanços, duais, cortes)
-podem não fechar; reporte-a com o caso.
-
 ### Falhas da simulação
 
 Uma falha de PL de estágio na simulação encerra com código `3`, e todas as demais falhas da simulação encerram com código `4`.
