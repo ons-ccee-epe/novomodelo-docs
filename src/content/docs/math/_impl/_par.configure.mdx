@@ -16,8 +16,7 @@ The `estimation` block is a top-level key of `config.json` (a sibling of
     "max_order": 6,
     "order_selection": "pacf",
     "min_observations_per_season": 30,
-    "max_coefficient_magnitude": null,
-    "correlation_target": "inflows"
+    "max_coefficient_magnitude": null
   }
 }
 ```
@@ -25,12 +24,6 @@ The `estimation` block is a top-level key of `config.json` (a sibling of
 The [`estimation`](/en/running/configuration/#estimation) section of the
 configuration reference lists every field and its default, and states the
 `min_observations_per_season` behaviour.
-
-`correlation_target` selects the series of methodology §6.1 that an estimated
-correlation is computed from: `"inflows"`, the default, for the standardized
-inflows, or `"residuals"` for the residuals of the fitted autoregression. It has
-no effect on a path that estimates no correlation (rows 1–3 and 7 of the table
-below) or when `scenarios/correlation.json` is supplied.
 
 `history_years` limits the years of `scenarios/inflow_history.parquet` the
 estimation reads, as an inclusive range such as `{"from": 1931, "to": 2024}`;
@@ -74,7 +67,7 @@ always overwrite it with fitted values.
 | 2 | 0 | 1 | 0 | `UserStatsWhiteNoise` | user file | order-0 (white noise) | identity, unless `correlation.json` provided |
 | 3 | 0 | 1 | 1 | `UserProvidedNoHistory` | user file | user file | identity, unless `correlation.json` provided |
 | 4 | 1 | 0 | 0 | `FullEstimation` | fitted from H | fitted from H (PACF + Yule-Walker + Maceira & Damázio) | estimated from H, unless `correlation.json` provided |
-| 5 | 1 | 0 | 1 | `UserArHistoryStats` | fitted from H | user file | estimated from H (on `"residuals"`, the residuals of the user coefficients), unless `correlation.json` provided |
+| 5 | 1 | 0 | 1 | `UserArHistoryStats` | fitted from H | user file | estimated from H, unless `correlation.json` provided |
 | 6 | 1 | 1 | 0 | `PartialEstimation` | user file (the fit uses statistics estimated from H) | fitted from H | estimated from H, unless `correlation.json` provided |
 | 7 | 1 | 1 | 1 | `UserProvidedAll` | user file | user file | identity, unless `correlation.json` provided (history is not re-consumed) |
 
@@ -82,7 +75,8 @@ Cases with `R = 1` but `H = 0` and `S = 0` collapse to row 1 — AR coefficients
 alone cannot drive estimation.
 
 An estimated correlation (rows 4–6, when no `correlation.json` is provided)
-holds a pooled `"default"` profile. In a cycle of more than one season it also
+is computed from the standardized inflows of methodology §6.1 and holds a
+pooled `"default"` profile. In a cycle of more than one season it also
 holds one `season_<id>` profile for each season whose every hydro pair has
 at least 30 periods with a value of both hydros — the season `id` zero-padded to the width of the
 largest id, as in `season_03` for a twelve-season cycle — and a schedule that

@@ -56,7 +56,6 @@ Todas as chaves de `config.json` até o segundo nível, com seu tipo e valor pad
 | `estimation.order_selection`                 | string          | Não      | `"pacf"`     | —     | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem. Veja [`estimation`](#estimation).                                                   |
 | `estimation.min_observations_per_season`     | integer         | Não      | `30`         | —     | Mínimo recomendado de ocorrências do período sazonal totalmente cobertas por período sazonal e usina. Veja [`estimation`](#estimation).                            |
 | `estimation.max_coefficient_magnitude`       | number \| null  | Não      | `null`       | —     | Reduz um ajuste à ordem 0 quando algum coeficiente excede essa magnitude. Veja [`estimation`](#estimation).                                        |
-| `estimation.correlation_target`              | string          | Não      | `"inflows"`  | —     | Um entre `"inflows"`, `"residuals"`. Série a partir da qual uma correlação de afluências estimada é calculada. Veja [`estimation`](#estimation).                       |
 | `estimation.history_years`                   | object \| null  | Não      | `null`       | —     | Intervalo inclusivo `{"from", "to"}` dos anos de `inflow_history.parquet` que a estimação lê; `null` lê todos os anos. Veja [`estimation`](#estimation). |
 | `policy`                                     | object          | Não      | `{}`         | —     | Controla a persistência da política. Veja [`policy`](#policy).                                                                                     |
 | `policy.path`                                | string          | Não      | `"./policy"` | —     | Diretório da política, resolvido em relação ao diretório de saída da execução. Veja [`policy`](#policy).                                           |
@@ -167,7 +166,7 @@ o treinamento. Quando ausente, todas as classes usam por padrão `in_sample` (re
 | `load`             | object            | `in_sample`   | Esquema de amostragem da carga dos barramentos. Objeto com a chave `"scheme"`.                          |
 | `ncs`              | object            | `in_sample`   | Esquema de amostragem da disponibilidade das NCS. Objeto com a chave `"scheme"`.                        |
 | `historical_years` | array \| object   | descoberta automática | Restringe o conjunto de janelas históricas. Quando ausente, todo ano do histórico é candidato. Lista (`[1940, 1953]`) ou intervalo (`{"from": 1940, "to": 2010}`). Cada ano listado designa a janela cujo primeiro estágio do estudo cai na ocorrência, naquele ano, de seu período sazonal; a elegibilidade segue o [Conjunto de janelas históricas](/math/scenario-generation/#conjunto-de-janelas-historicas), e um ano que não a atenda é descartado sem mensagem. Um resultado vazio gera o erro "no valid historical windows found" ([Códigos de erro](/reference/error-codes/#stochasticpreparationerror)). O mesmo conjunto fornece as aberturas `historical_residuals`. |
-| `openings`         | object            | `{"source": "generated"}` | Origem da árvore de aberturas da simulação backward. `{"source": "generated"}` constrói a árvore internamente, com o `moment_matching` opcional de [`training.scenario_source.openings`](#trainingscenario_sourceopenings); `{"source": "file"}` lê uma árvore fornecida pelo usuário em `scenarios/noise_openings.parquet` (apenas com seleção amostrada, e não com `policy_graph.nodes[]` declarado em `stages.json`; qualquer dessas combinações é rejeitada na validação do caso). Apenas no treinamento. Um arquivo declarado e ausente interrompe a execução em sua fase estocástica ([Arquivo da árvore de aberturas ausente](/reference/error-codes/#arquivo-da-arvore-de-aberturas-ausente)). |
+| `openings`         | object            | `{"source": "generated"}` | Origem da árvore de aberturas da simulação backward. `{"source": "generated"}` constrói a árvore internamente e aplica a correspondência de momentos (moment matching) às suas aberturas de afluência ([`training.scenario_source.openings`](#trainingscenario_sourceopenings)); `{"source": "file"}` lê uma árvore fornecida pelo usuário em `scenarios/noise_openings.parquet` (apenas com seleção amostrada, e não com `policy_graph.nodes[]` declarado em `stages.json`; qualquer dessas combinações é rejeitada na validação do caso). Apenas no treinamento. Um arquivo declarado e ausente interrompe a execução em sua fase estocástica ([Arquivo da árvore de aberturas ausente](/reference/error-codes/#arquivo-da-arvore-de-aberturas-ausente)). |
 
 Valores válidos para `"scheme"`: `"in_sample"`, `"out_of_sample"`, `"external"` para todas as classes;
 `"historical"` apenas para `inflow`.
@@ -227,32 +226,27 @@ para a descrição completa de cada esquema e das janelas históricas.
 
 ### `training.scenario_source.openings`
 
-De onde vem a árvore de aberturas da simulação backward e como uma árvore gerada é corrigida
+De onde vem a árvore de aberturas da simulação backward
 ([Geração de cenários §2.3](/math/scenario-generation/#23-arvore-de-aberturas)). Quando
-`openings` está ausente, a árvore é gerada com `moment_matching` no seu valor padrão.
+`openings` está ausente, a árvore é gerada.
 
 | Campo             | Tipo   | Padrão             | Descrição |
 | ----------------- | ------ | ------------------ | ----------- |
-| `source`          | string | `"generated"`      | Um entre `"generated"`, `"file"`. `"generated"` constrói a árvore a partir do `sampling_method` dos estágios; `"file"` a lê de `scenarios/noise_openings.parquet`. |
-| `moment_matching` | string | `"per_coordinate"` | Um entre `"per_coordinate"`, `"none"`; aceito apenas com `"source": "generated"`. `"per_coordinate"` desloca e escala as aberturas de afluência de cada estágio gerado de modo que, para cada usina hidrelétrica, sua média seja 0 e sua variância seja a que a correlação do estágio atribui ao ruído dessa usina (passo 4 de [§2.3](/math/scenario-generation/#23-arvore-de-aberturas)); `"none"` mantém as aberturas como sorteadas. Um estágio `historical_residuals`, um estágio com uma única abertura e os ruídos de carga e de NCS nunca passam pela correspondência de momentos (moment matching). |
+| `source`          | string | `"generated"`      | Um entre `"generated"`, `"file"`. `"generated"` constrói a árvore a partir do `sampling_method` dos estágios e aplica a ela a correspondência de momentos (moment matching): em cada estágio gerado, as aberturas de afluência de cada usina hidrelétrica são deslocadas e escaladas para média 0 e para a variância que a correlação do estágio atribui ao ruído dessa usina, igual a 1, a menos que a fatoração da correlação trunque um autovalor negativo (passo 4 de [§2.3](/math/scenario-generation/#23-arvore-de-aberturas)). Um estágio `historical_residuals`, um estágio com uma única abertura e os ruídos de carga e de NCS nunca passam pela correspondência de momentos. `"file"` lê a árvore de `scenarios/noise_openings.parquet` e a usa como fornecida. |
 
 ```json
 {
   "training": {
     "scenario_source": {
-      "openings": { "source": "generated", "moment_matching": "none" }
+      "openings": { "source": "file" }
     }
   }
 }
 ```
 
-`moment_matching` com `"source": "file"`, ou um valor fora dos dois, é recusado
-quando o `config.json` é carregado. A simulação forward dentro da amostra (in-sample) e o
+A simulação forward dentro da amostra (in-sample) e o
 `stochastic/noise_openings.parquet` exportado usam a árvore com correspondência de momentos; os sorteios da
-simulação forward fora da amostra (out-of-sample) não passam pela correspondência de momentos. O
-`training/model_provenance.json` registra o modo de uma árvore gerada como
-`inflow.opening_tree_moment_matching`
-([Arquivos de metadados](/reference/output/metadata/#trainingmodel_provenancejson)).
+simulação forward fora da amostra (out-of-sample) não passam pela correspondência de momentos.
 
 ### `training.stopping_rules`
 
@@ -883,7 +877,6 @@ em vez de exigir um `inflow_ar_coefficients.parquet` pré-calculado.
 | `order_selection`             | string  | `"pacf"` | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem: baseado na FACP (PACF) ou na FACP com componente anual. |
 | `min_observations_per_season` | integer | `30`     | Número mínimo recomendado de ocorrências totalmente cobertas de cada período sazonal, por usina: as amostras a partir das quais a estimação faz o ajuste. Uma ocorrência é um intervalo do período sazonal em `season_definitions`, dentro ou fora do horizonte do estudo; ela só conta quando as linhas de `inflow_history.parquet` a cobrem integralmente e, com `history_years` definido, apenas quando ela começa em um desses anos. Quando a estimação é executada, um grupo (usina, período sazonal) com pelo menos uma ocorrência desse tipo, mas menos do que esse valor, gera um aviso [`ModelQuality`](/reference/error-codes/#modelquality) que indica a usina e o período sazonal, e a estimação prossegue. |
 | `max_coefficient_magnitude`   | number \| null | `null`   | Rede de segurança: reduz à ordem 0 se algum coeficiente exceder essa magnitude.                   |
-| `correlation_target`          | string  | `"inflows"` | Um entre `"inflows"`, `"residuals"`. Série a partir da qual a correlação espacial das afluências é estimada quando o modelo de afluências é ajustado, total ou parcialmente, a partir de `inflow_history.parquet` e o caso não fornece `scenarios/correlation.json`: as afluências padronizadas (`"inflows"`) ou os resíduos da autorregressão ajustada (`"residuals"`); veja [Modelo de afluências PAR(p) §6.1](/math/par-inflow-model/#61-estimacao-da-correlacao). O `training/model_provenance.json` a registra como `inflow.correlation_target`. |
 | `history_years`               | object \| null | `null` | Intervalo inclusivo `{"from": 1931, "to": 2024}` dos anos de `inflow_history.parquet` que a estimação lê: uma amostra é lida quando a ocorrência do período sazonal a que ela pertence começa em um ano do intervalo. O intervalo limita as estatísticas sazonais, os coeficientes autorregressivos, a componente anual e a correlação estimada; ele não restringe nenhum outro leitor do arquivo: a tendência hidrológica derivada, as janelas do esquema `historical` (que `historical_years` restringe) e as aberturas `historical_residuals`. `null` lê todos os anos. `from` posterior a `to` é recusado quando `config.json` é carregado, e, quando a execução estima a partir de `inflow_history.parquet`, o mesmo ocorre com um intervalo que comece antes do primeiro ou termine depois do último ano do arquivo ([Anos do histórico de estimação fora do histórico](/reference/error-codes/#anos-do-historico-de-estimacao-fora-do-historico)). |
 
 Exemplo:
