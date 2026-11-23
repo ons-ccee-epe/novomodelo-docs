@@ -616,18 +616,16 @@ lag buffer for the next):
    shadowed day-wise by the initial conditions' recent observations wherever the
    two overlap (see §4.5 for the reason this is the only admissible seed).
 2. For each stage $t$: compute the deterministic PAR component, solve for
-   $\varepsilon_t$, update the lag buffer with $a_t^{\text{target}}$.
-3. Validate the inverted noise:
-   - When $\sigma_m = 0$, the inverted noise is $0$ if $a_t^{\text{target}}$
-     equals the deterministic component to within a numerical tolerance, and
-     otherwise has no finite value, which refuses the study (the PAR model
-     says the series is deterministic, but the scenario disagrees).
-   - Building the inverted window pool, which serves both the historical
-     replay and the historical-residual openings (§2.5), refuses the study
-     when a study stage has no season, when an inverted noise value is the
-     $\sigma_m = 0$ mismatch above or is not a number, or when the window pool
-     is empty. [Error Codes](/en/reference/error-codes/#stochasticpreparationerror)
-     lists the messages and the exit codes.
+   $\varepsilon_t$, update the lag buffer with $a_t^{\text{target}}$. When
+   $\sigma_m = 0$ the noise cannot move the inflow, so $\varepsilon_t = 0$
+   whatever $a_t^{\text{target}}$ is, and the replay takes the deterministic
+   component in place of the target value at that stage.
+3. Validate the inverted noise: building the inverted window pool, which
+   serves both the historical replay and the historical-residual openings
+   (§2.5), refuses the study when a study stage has no season, when an
+   inverted noise value is not finite, or when the window pool is empty.
+   [Error Codes](/en/reference/error-codes/#stochasticpreparationerror) lists
+   the messages and the exit codes.
 
 ### 4.4 Deterministic (σ = 0) External Columns
 
