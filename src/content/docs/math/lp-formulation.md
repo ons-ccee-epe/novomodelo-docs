@@ -424,7 +424,7 @@ $\bar{U}_h$ is the channel capacity, or a maximum diversion flow set for the sta
 
 ### Spillage Bounds (per hydro $h$, block $k$)
 
-Spillage $s_{h,k}$ is bounded below by $0$ and above by $+\infty$ unless a minimum or maximum spillage is set for the stage or for the block, which replaces the bound. Both bounds are hard. While the hydro is PreFilling, spillage is fixed at $[0, 0]$ ([Lifecycle Phases](#lifecycle-phases)).
+Spillage $s_{h,k}$ is bounded below by the hydro's minimum spillage and above by its maximum spillage, which are $0$ and $+\infty$ when unset; a minimum or maximum spillage set for the stage or for the block replaces the hydro's value. Both bounds are hard. While the hydro is PreFilling, spillage is fixed at $[0, 0]$ ([Lifecycle Phases](#lifecycle-phases)).
 
 ### Pumping Flow Bounds (per station $y$, block $k$)
 

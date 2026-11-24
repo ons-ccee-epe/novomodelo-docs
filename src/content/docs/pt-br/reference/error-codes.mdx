@@ -866,6 +866,30 @@ canal sem limite de capacidade omite `max_flow_m3s` ou o define como
 omita-o para um canal sem limite de capacidade. Um `max_diversion_m3s` por estágio ou por patamar
 em `constraints/hydro_bounds.parquet` continua limitando a vazão.
 
+#### Limite de vertimento negativo na entidade
+
+**Quando ocorre:** O `spillage.min_spillage_m3s` ou o
+`spillage.max_spillage_m3s` de uma hidrelétrica em `system/hydros.json` é
+negativo. O vertimento é uma vazão, de modo que o carregador rejeita um piso ou
+um teto negativo.
+
+**Campos:**
+
+| Campo         | Descrição |
+| ------------- | ----------- |
+| `description` | Contém uma linha `[SchemaViolation] system/hydros.json: field hydros[<i>].spillage.<key>: <key> must be >= 0, got <value>`, em que `<i>` é a posição da hidrelétrica no arquivo, a partir de zero, e `<key>` é `min_spillage_m3s` ou `max_spillage_m3s` |
+
+**Exemplo:**
+
+{/* capture: novomodelo validate negsp | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 2fbee557 (debug build of the release's source tree plus the entity spillage fields) | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy negsp; system/hydros.json: hydro 0 given a spillage object with max_spillage_m3s set to -5.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].spillage.max_spillage_m3s: max_spillage_m3s must be >= 0, got -5
+```
+
+**Solução:** Defina o valor como `0` ou mais, ou omita a chave, ou defina-a
+como `null`, para não haver limite desse lado.
+
 ---
 
 ### `InvalidReference`
@@ -994,6 +1018,8 @@ reportado sob este tipo — veja
 Um armazenamento inicial fora da faixa de armazenamento da hidrelétrica, ou listado no array
 errado de `initial_conditions.json`, também é reportado sob este tipo — veja
 [Armazenamento inicial recusado na carga](#armazenamento-inicial-recusado-na-carga).
+Uma hidrelétrica cujo `spillage.min_spillage_m3s` excede o seu `spillage.max_spillage_m3s` também é reportada sob este tipo — veja
+[Limites de vertimento da entidade invertidos](#limites-de-vertimento-da-entidade-invertidos).
 
 #### Linha de limites de restrição genérica sem nenhum extremo e sem resto afim
 
@@ -1115,6 +1141,33 @@ da faixa de `min_storage_hm3` a `max_storage_hm3` do reservatório em `system/hy
 ou corrija a faixa do reservatório quando for ela o valor errado. Em cada estágio
 listado, reduza o mínimo ou aumente o máximo em vigor. Veja
 [`constraints/hydro_bounds.parquet`](/reference/case-format/constraints/#constraintshydro_boundsparquet).
+
+#### Limites de vertimento da entidade invertidos
+
+**Quando ocorre:** O `spillage.min_spillage_m3s` de uma hidrelétrica em
+`system/hydros.json` é maior que o seu `spillage.max_spillage_m3s`. A
+verificação de regras de negócio rejeita o par antes que ele chegue ao PL,
+porque o intervalo `[min, max]` é vazio. A verificação só se aplica quando a
+hidrelétrica define os dois limites.
+
+**Campos:**
+
+| Campo         | Descrição |
+| ------------- | ----------- |
+| `description` | Contém uma linha `[InvalidValue] system/hydros.json (Hydro <id>): Hydro <id>: min_spillage_m3s (<min>) > max_spillage_m3s (<max>); spillage bounds are inconsistent` |
+
+**Exemplo:**
+
+{/* capture: novomodelo validate invsp | novomodelo   v0.20.0 | binary: novomodelo-cli sha256 2fbee557 (debug build of the release's source tree plus the entity spillage fields) | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy invsp; system/hydros.json: hydro 0 given a spillage object with min_spillage_m3s 20.0 and max_spillage_m3s 10.0; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+
+```text
+[InvalidValue] system/hydros.json (Hydro 0): Hydro 0: min_spillage_m3s (20) > max_spillage_m3s (10); spillage bounds are inconsistent
+```
+
+**Solução:** Faça `min_spillage_m3s` menor ou igual a
+`max_spillage_m3s` no objeto `spillage` da hidrelétrica. Um valor de
+`min_spillage_m3s` ou `max_spillage_m3s` em `constraints/hydro_bounds.parquet`
+substitui o valor da entidade nesse estágio ou patamar.
 
 #### Armazenamento inicial recusado na carga
 
