@@ -263,7 +263,7 @@ do esquema: um campo obrigatório está ausente de `config.json` ou de `system/h
 `min_storage_hm3` excede `max_storage_hm3` ou estágio cujo `num_openings` é
 0), um campo contém um tipo inesperado, ou um `id` de entidade aparece duas vezes em um
 arquivo de cadastro como `system/buses.json`. Emitido durante a verificação dos campos de um
-arquivo já analisado. Um calendário `post_study_*` de `stages.json` que viola as regras do calendário (seus ids, a ordem deles, sua ancoragem ou sua continuidade) também é um `SchemaViolation`; veja os
+arquivo já analisado. Um calendário `post_study_*` de `stages.json` com uma data que não pode ser lida, um `end_date` não posterior ao seu `start_date`, um `start_date` repetido ou um `id` que viola as regras de id do calendário também é um `SchemaViolation`; veja os
 [calendários pós-estudo](/reference/case-format/stages/#calendarios-pos-estudo) e a
 [página de condições de fronteira](/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
@@ -821,8 +821,9 @@ da térmica, como em `thermals[id=0]`.
 
 **Solução:** Mantenha apenas uma das duas chaves: atribua a `lead_stages` um inteiro maior ou igual
 a 1, ou a `lead_time_hours` um número maior que 0. Para uma antecedência maior que o horizonte
-de estudo, reduza a antecedência ou declare, em `post_study_stages.json`, um estágio pós-estudo que a antecedência
-alcance. Veja
+de estudo, reduza a antecedência ou declare um estágio pós-estudo que a antecedência alcance na
+lista `post_study_thermal_stages` de `stages.json` (veja os
+[calendários pós-estudo](/reference/case-format/stages/#calendarios-pos-estudo)). Veja
 [Visão geral da modelagem dos elementos do sistema §4](/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho) para o
 modelo de térmica antecipada e
 [`system/thermals.json`](/reference/case-format/system/#systemthermalsjson)
@@ -1088,8 +1089,8 @@ Um limite de armazenamento de `constraints/hydro_bounds.parquet` fora da faixa d
 reservatório, ou um estágio do estudo cujo armazenamento mínimo excede o máximo, também é
 reportado sob este tipo — veja
 [Limites de armazenamento por estágio recusados na carga](#limites-de-armazenamento-por-estagio-recusados-na-carga).
-Um armazenamento inicial fora da faixa de armazenamento da hidrelétrica, ou listado no array
-errado de `initial_conditions.json`, também é reportado sob este tipo — veja
+Um armazenamento inicial em `boundary_conditions.json` fora da faixa de armazenamento da hidrelétrica
+também é reportado sob este tipo — veja
 [Armazenamento inicial recusado na carga](#armazenamento-inicial-recusado-na-carga).
 Uma hidrelétrica cujo `spillage.min_spillage_m3s` excede o seu `spillage.max_spillage_m3s` também é reportada sob este tipo — veja
 [Limites de vertimento da entidade invertidos](#limites-de-vertimento-da-entidade-invertidos).
@@ -1244,17 +1245,16 @@ substitui o valor da entidade nesse estágio ou patamar.
 
 #### Armazenamento inicial recusado na carga
 
-**Quando ocorre:** `initial_conditions.json` define o armazenamento de uma hidrelétrica fora
-de sua faixa ou no array que não corresponde à sua configuração de `filling`:
+**Quando ocorre:** O `storage_hm3` de uma hidrelétrica em `boundary_conditions.json` define o
+armazenamento dela fora de sua faixa:
 
-- Um `storage[].value_hm3` de uma hidrelétrica sem configuração de `filling` está
+- Um `hydros[].storage_hm3` de uma hidrelétrica sem configuração de `filling` está
   fora da faixa `[min_storage_hm3, max_storage_hm3]` da própria hidrelétrica em
   `system/hydros.json`, além de uma tolerância relativa de `1e-9` (absoluta
   abaixo de 1 hm³). Uma hidrelétrica que entra em operação após o primeiro estágio também é
   verificada. O valor é recusado, nunca truncado. Uma hidrelétrica cujo `min_storage_hm3`
   excede seu `max_storage_hm3` reporta, em vez disso, aquele [`SchemaViolation`](#schemaviolation).
-- Uma hidrelétrica com configuração de `filling` está listada em `storage`, ou uma hidrelétrica
-  sem essa configuração está listada em `filling_storage`.
+- No `initial_conditions.json` obsoleto, uma hidrelétrica com configuração de `filling` listada em `storage`, ou uma sem ela listada em `filling_storage`, é recusada com uma mensagem `[InvalidValue]` que indica o array a que o valor pertence; o formato atual roteia cada valor por `filling`, então essa regra não se aplica a ele. Para converter um caso obsoleto, veja [Conversão de casos](/running/case-conversion/).
 
 Os `min_storage_hm3` e `max_storage_hm3` por estágio de
 `constraints/hydro_bounds.parquet` limitam o final do seu estágio, e não o armazenamento
@@ -1263,24 +1263,24 @@ aviso [`ModelQuality`](#modelquality), e não um erro.
 
 **Campos:**
 
-{/* quoted from source: check_initial_storage_range and check_initial_storage_array in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.22.0 */}
+{/* quoted from source: check_initial_storage_range in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit 95318d3ba90a */}
 
 | Campo         | Descrição |
 | ------------- | ----------- |
-| `description` | Contém uma linha `[InvalidValue] initial_conditions.json (Hydro <id>): Hydro <id>: initial storage (<value>) must lie in [min_storage_hm3, max_storage_hm3] = [<min>, <max>]` para um valor fora da faixa, ou `Hydro <id>: has a filling configuration, so its initial storage belongs in filling_storage, not storage` ou `Hydro <id>: has no filling configuration, so its initial storage belongs in storage, not filling_storage` para o array errado |
+| `description` | Contém uma linha `[InvalidValue] boundary_conditions.json (Hydro <id>): Hydro <id>: initial storage (storage_hm3 = <value>) must lie in [min_storage_hm3, max_storage_hm3] = [<min>, <max>]` |
 
 **Exemplo:**
 
-{/* quoted from source: check_initial_storage_range in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.22.0 — a 1dtoy case whose hydro 0 (storage range [0, 1000]) is seeded with storage 1200 */}
+{/* quoted from source: check_initial_storage_range in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit 95318d3ba90a — a case whose hydro 0 (storage range [0, 1000]) is seeded with storage_hm3 1200 */}
 
 ```text
-[InvalidValue] initial_conditions.json (Hydro 0): Hydro 0: initial storage (1200) must lie in [min_storage_hm3, max_storage_hm3] = [0, 1000]
+[InvalidValue] boundary_conditions.json (Hydro 0): Hydro 0: initial storage (storage_hm3 = 1200) must lie in [min_storage_hm3, max_storage_hm3] = [0, 1000]
 ```
 
-**Solução:** Defina o valor dentro da faixa `[min_storage_hm3,
-max_storage_hm3]` da hidrelétrica, ou mova a entrada para `filling_storage`, no caso de uma hidrelétrica com
-configuração de `filling`, e para `storage`, no caso de uma sem ela. Veja
-[Arquivos de condições iniciais](/reference/case-format/initial-conditions/).
+**Solução:** Defina o `storage_hm3` da hidrelétrica dentro de sua faixa `[min_storage_hm3,
+max_storage_hm3]`. Veja a
+[referência de `boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson).
+Para o `initial_conditions.json` obsoleto, mova a entrada para o array que corresponde à configuração de `filling` da hidrelétrica, ou converta o caso.
 
 ---
 
@@ -1379,7 +1379,7 @@ violada e as entidades envolvidas. Para as duas regras de penalidade, veja
 ([Compromisso de despacho em térmica não antecipada](#compromisso-de-despacho-em-termica-nao-antecipada),
 [Janela de compromisso ausente em térmica antecipada](#janela-de-compromisso-ausente-em-termica-antecipada),
 [Fronteira pós-estudo desancorada ou malformada](#fronteira-pos-estudo-desancorada-ou-malformada) e
-[Janela past_anticipated_commitments descoberta ou com cobertura excessiva](#janela-past_anticipated_commitments-descoberta-ou-com-cobertura-excessiva)),
+[Janela de compromisso descoberta ou com cobertura excessiva](#janela-de-compromisso-descoberta-ou-com-cobertura-excessiva)),
 a regra de sobrescrita de limites com `stage_id` não declarado
 ([`stage_id` não declarado em parquet de sobrescrita de limites](#stage_id-nao-declarado-em-parquet-de-sobrescrita-de-limites)) e
 as referências por patamar de restrição genérica
@@ -1425,62 +1425,72 @@ para o esquema atual do arquivo.
 
 #### Compromisso de despacho em térmica não antecipada
 
-**Quando ocorre:** As entradas `past_anticipated_commitments` de `initial_conditions.json`
-declaram um compromisso de despacho decidido externamente para uma térmica antecipada,
-identificado por `thermal_id`. A validação do caso rejeita qualquer entrada cujo `thermal_id`
-não corresponda a uma térmica com `anticipated_config` — seja porque a térmica não
-existe, seja porque existe mas não está configurada como antecipada.
+**Quando ocorre:** Os `commitments` de uma entrada de `thermals[]` em
+`boundary_conditions.json` declaram um compromisso de despacho decidido externamente
+para uma térmica antecipada, identificado pelo `thermal_id` da entrada. A validação do caso
+rejeita qualquer entrada cujo `thermal_id` não corresponda a uma térmica com
+`anticipated_config` — seja porque a térmica não existe, seja porque existe mas
+não está configurada como antecipada.
 
 **Campos:**
 
-| Campo         | Descrição                                                                                                                                                                                                                       |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Contém uma linha `[BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments[thermal_id=<id>]): Thermal <id>: referenced in past_anticipated_commitments but is not an anticipated thermal (anticipated_config is None or thermal does not exist)` |
+{/* quoted from source: unanticipated_commitments_wording in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a */}
+
+| Campo         | Descrição |
+| ------------- | ----------- |
+| `description` | Contém uma linha `[BusinessRuleViolation] boundary_conditions.json (thermals[thermal_id=<id>].commitments): thermal <id>: referenced in commitments but is not an anticipated thermal (anticipated_config is None or thermal does not exist)` |
 
 **Exemplo:**
 
-```
-constraint violation: [BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments[thermal_id=12]): Thermal 12: referenced in past_anticipated_commitments but is not an anticipated thermal (anticipated_config is None or thermal does not exist)
+{/* quoted from source: unanticipated_commitments_wording in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12 has commitments but no anticipated_config */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[thermal_id=12].commitments): thermal 12: referenced in commitments but is not an anticipated thermal (anticipated_config is None or thermal does not exist)
 ```
 
 **Solução:** Defina `anticipated_config` na térmica `<id>` em
-`system/thermals.json` ou remova/corrija o `thermal_id` na entrada
-`past_anticipated_commitments` problemática. Veja
-[Visão geral da modelagem dos elementos do sistema §4](/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho) para a configuração de térmicas antecipadas e [Formato do caso](/reference/case-format/)
-para o esquema de `initial_conditions.json`.
+`system/thermals.json` ou remova/corrija o `thermal_id` da entrada de `thermals[]`
+problemática em `boundary_conditions.json`. Veja
+[Visão geral da modelagem dos elementos do sistema §4](/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho) para a configuração de térmicas antecipadas e a
+[referência de `boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+para os `commitments`.
 
 #### Janela de compromisso ausente em térmica antecipada
 
 **Quando ocorre:** Toda térmica com `anticipated_config` precisa de ao menos uma
-janela em `past_anticipated_commitments` de `initial_conditions.json`, identificada por
+janela nos `commitments` de sua entrada de `thermals[]` em `boundary_conditions.json`, identificada por
 `thermal_id`. A validação do caso rejeita uma térmica que não tenha nenhuma, tanto para antecedência dada em
 estágios quanto para antecedência dada em horas.
 
 **Campos:**
 
-| Campo         | Descrição                                                                                                                                                                                                                                                               |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Contém uma linha `[BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments): Thermal <id>: missing entry in initial_conditions.past_anticipated_commitments; every anticipated thermal must have at least one commitment window` |
+{/* quoted from source: missing_commitments_wording in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a */}
+
+| Campo         | Descrição |
+| ------------- | ----------- |
+| `description` | Contém uma linha `[BusinessRuleViolation] boundary_conditions.json (thermals[thermal_id=<id>].commitments): thermal <id>: no commitments in boundary_conditions.json; every anticipated thermal must have at least one commitment window` |
 
 **Exemplo:**
 
-{/* capture: novomodelo validate ac | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy ac; system/thermals.json: thermal 0 given anticipated_config with lead_stages 1; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* quoted from source: missing_commitments_wording in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 0 has an anticipated_config with lead_stages 1 and no commitments */}
 
 ```text
-[BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments): Thermal 0: missing entry in initial_conditions.past_anticipated_commitments; every anticipated thermal must have at least one commitment window
+[BusinessRuleViolation] boundary_conditions.json (thermals[thermal_id=0].commitments): thermal 0: no commitments in boundary_conditions.json; every anticipated thermal must have at least one commitment window
 ```
 
-**Solução:** Adicione uma janela para a térmica em `past_anticipated_commitments` (um
+**Solução:** Adicione uma janela para a térmica em seus `commitments` (um
 compromisso de `0` MW é uma janela explícita) ou remova o `anticipated_config` da térmica.
-Veja [Janela `past_anticipated_commitments` descoberta ou com cobertura excessiva](#janela-past_anticipated_commitments-descoberta-ou-com-cobertura-excessiva)
-para a cobertura que as janelas devem atingir e [Formato do caso](/reference/case-format/)
-para o esquema de `initial_conditions.json`.
+Veja [Janela de compromisso descoberta ou com cobertura excessiva](#janela-de-compromisso-descoberta-ou-com-cobertura-excessiva)
+para a cobertura que as janelas devem atingir e a
+[referência de `boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+para o esquema do arquivo.
 
 #### Fronteira pós-estudo desancorada ou malformada
 
-**Quando ocorre:** A verificação de regras de negócio valida `post_study_stages.json` — o
-calendário da fronteira pós-horizonte — e as entregas de térmicas antecipadas que
-recaem sobre ele. Várias falhas distintas são coletadas nessa única verificação.
+**Quando ocorre:** A verificação de regras de negócio valida a fronteira pós-estudo — o
+calendário `post_study_thermal_stages` de `stages.json` e os `post_study_bounds` e
+`commitments` de `boundary_conditions.json` — e as entregas de térmicas antecipadas que
+recaem sobre ela. Várias falhas distintas são coletadas nessa única verificação.
 (Uma usina cuja antecedência é maior que todo o horizonte de estudo e não alcança **nenhum**
 estágio pós-estudo declarado é detectada antes, na validação de térmicas antecipadas,
 com uma mensagem
@@ -1489,15 +1499,19 @@ com uma mensagem
 [Antecedência inválida de térmica antecipada](#antecedencia-invalida-de-termica-antecipada)); para eliminá-la,
 reduza a antecedência ou declare um estágio pós-estudo que a antecedência alcance — veja
 [Visão geral da modelagem dos elementos do sistema §4](/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho).)
-As falhas pós-estudo, associadas a `post_study_stages.json`:
+As falhas pós-estudo:
 
-- O primeiro estágio do calendário pós-estudo não começa exatamente no final do
-  horizonte de estudo.
-- Os estágios pós-estudo não são contíguos em datas (lacuna ou sobreposição entre
+- Uma falha de calendário reportada em `stages.json` como `BusinessRuleViolation`: o
+  primeiro estágio pós-estudo não começa exatamente no final do horizonte de estudo, ou os
+  estágios pós-estudo não são contíguos em datas (lacuna ou sobreposição entre
   estágios consecutivos).
-- O `duration_hours` de um estágio pós-estudo, arredondado para dias inteiros, resulta em duração não positiva.
+- Uma falha de calendário reportada em `stages.json` como [`SchemaViolation`](#schemaviolation),
+  porque a carga recusa o arquivo antes de a verificação de regras de negócio ser executada: uma
+  data que não pode ser lida, um `end_date` que não é posterior ao seu `start_date`, um
+  `start_date` repetido, um `id` que colide com o `id` de outro estágio, ou um `id` do
+  calendário térmico que não continua o maior `id` de estágio do estudo na ordem de `start_date`.
 - **Regra 1** — a antecedência de uma usina alcança um estágio pós-estudo sem
-  célula `thermal_bounds` para seu `(thermal_id, post_study_stage_index)`.
+  linha `post_study_bounds` para o `stage_id` desse estágio.
 - **V2** — os compromissos de uma usina decididos antes do estudo e entregues após o
   horizonte não ladrilham os estágios pós-estudo que cobrem com cobertura `1.0`.
 - **V3** — uma janela de compromisso cobre um estágio pós-estudo que o próprio estudo
@@ -1505,57 +1519,81 @@ As falhas pós-estudo, associadas a `post_study_stages.json`:
 - **V5** — um compromisso fixo não nulo cobre um estágio pós-estudo fora da
   janela de entrada em operação da usina.
 
+As regras de estágio alcançado (Regra 1, V2, V3, V5) são reportadas em `boundary_conditions.json`
+como `BusinessRuleViolation`. O `post_study_stages.json` obsoleto reporta seu calendário e essas regras nesse arquivo, e também recusa um estágio cujo `duration_hours`, arredondado para dias inteiros, resulta em duração não positiva.
+
 **Campos:**
 
-| Campo         | Descrição                                                                                                          |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------|
-| `description` | Contém uma linha `[BusinessRuleViolation] post_study_stages.json (...): <message>` por falha — veja as mensagens abaixo |
+| Campo         | Descrição |
+| ------------- | ----------- |
+| `description` | Contém uma linha `[BusinessRuleViolation] stages.json (...): <message>` por falha de calendário, ou uma linha `[BusinessRuleViolation] boundary_conditions.json (thermals[id=<id>].anticipated_config): <message>` por falha de estágio alcançado — veja as mensagens abaixo |
 
 **Exemplo:**
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermal_stages[0].start_date): first post-study stage starts 2026-09-08 but the study horizon ends 2026-09-05; the post-study calendar must begin exactly at the study horizon end.
+{/* quoted from source: build_post_study_calendar in crates/novomodelo-io/src/validation/semantic/post_study_calendar.rs at novomodelo commit 95318d3ba90a — a first post-study stage starting 2026-09-08 on a study that ends 2026-09-05 */}
+
+```text
+[BusinessRuleViolation] stages.json (post_study_thermal_stages[0].start_date): first post-study stage starts 2026-09-08 but the study horizon ends 2026-09-05; the post-study calendar must begin exactly at the study horizon end.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermal_stages start_date=2026-10-01): post-study stages are not date-contiguous: the stage starting 2026-09-05 ends 2026-09-28 but the next stage starts 2026-10-01; each stage must end exactly where the next begins.
+{/* quoted from source: build_post_study_calendar in crates/novomodelo-io/src/validation/semantic/post_study_calendar.rs at novomodelo commit 95318d3ba90a — a post-study stage starting 2026-10-01 after a stage that ends 2026-09-28 */}
+
+```text
+[BusinessRuleViolation] stages.json (post_study_thermal_stages start_date=2026-10-01): post-study stages are not date-contiguous: the stage starting 2026-09-05 ends 2026-09-28 but the next stage starts 2026-10-01; each stage must end exactly where the next begins.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: anticipated lead reaches post-study stage index 0, but post_study_stages.json has no thermal_bounds entry for (thermal_id 12, post_study_stage_index 0).
+{/* quoted from source: validate_thermal_continuation in crates/novomodelo-io/src/stages.rs at novomodelo commit 95318d3ba90a — the second thermal-calendar entry carries id 14 where 13 is expected */}
+
+```text
+[SchemaViolation] stages.json: field post_study_thermal_stages[1].id: stage starting 2025-01-08 has id 14, expected 13 (the largest study stage id + 1 + its position in start_date order)
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: past_anticipated_commitments do not tile post-study stage index(es) [0] at coverage 1.0; declare the fixed commitment for each (a committed 0 MW is explicit).
+{/* quoted from source: PostStudyNames::missing_bound_message in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12 reaches post-study stage 13 */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: stage 13 is decided in-study and needs a post_study_bounds row in boundary_conditions.json.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: past_anticipated_commitments cover post-study stage index(es) [1], which the study itself decides; a declared fixed value there contradicts the study's own decision. Remove the window, or lengthen anticipated_config's lead so the delivery becomes pre-study-decided.
+{/* quoted from source: check_fixed_post_study_tiling in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12, post-study stage 12 uncovered */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: commitments do not tile post-study stage(s) [12] at coverage 1.0; declare the fixed commitment for each (a committed 0 MW is explicit).
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: past_anticipated_commitments cover post-study stage index(es) [2], which are past the plant's decision reach and cannot be represented. Remove the window, or shorten anticipated_config's lead so the delivery falls inside the reach.
+{/* quoted from source: check_post_study_window_excludes_unreachable_stages in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12, a window over post-study stage 13 (study-decided) and one over stage 14 (past the reach) */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: commitments cover post-study stage(s) [13], which the study itself decides; a declared fixed value there contradicts the study's own decision. Remove the window, or lengthen anticipated_config's lead so the delivery becomes pre-study-decided.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: past_anticipated_commitments window [2026-10-01, 2026-11-01) value_mw = 120 covers post-study stage index 0, which is outside the plant's commissioning window [entry=Some(0), exit=Some(6)); the plant is not in service for this stage and the fixed commitment cannot be delivered. Declare a zero commitment at this stage, or widen the commissioning window.
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: commitments cover post-study stage(s) [14], which are past the plant's decision reach and cannot be represented. Remove the window, or shorten anticipated_config's lead so the delivery falls inside the reach.
 ```
 
-**Solução:** Declare `post_study_stages.json` com o primeiro estágio começando
-exatamente no final do horizonte de estudo e cada estágio contíguo em datas com o seguinte.
-Adicione uma célula `thermal_bounds` para cada `(thermal_id, post_study_stage_index)` alcançado pela
+{/* quoted from source: check_fixed_commitment_within_window in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12, a 120 MW window over post-study stage 12 outside the commissioning window */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: commitments window [2026-10-01, 2026-11-01) value_mw = 120 covers post-study stage 12, which is outside the plant's commissioning window [entry=Some(0), exit=Some(6)); the plant is not in service for this stage and the fixed commitment cannot be delivered. Declare a zero commitment at this stage, or widen the commissioning window.
+```
+
+**Solução:** Declare o calendário `post_study_thermal_stages` em `stages.json`
+com o primeiro estágio começando exatamente no final do horizonte de estudo, cada estágio
+contíguo em datas com o seguinte e ids que continuam o maior id de estágio do estudo na ordem de
+`start_date`. Adicione uma linha `post_study_bounds` à entrada de `thermals[]` da usina
+em `boundary_conditions.json` para cada estágio pós-estudo alcançado pela
 antecedência decidida dentro do estudo de uma usina. Ladrilhe, com cobertura `1.0`, todo estágio pós-estudo coberto por uma
-janela `past_anticipated_commitments` de um compromisso decidido antes do estudo,
+janela de `commitments` de um compromisso decidido antes do estudo,
 sem nunca cobrir um estágio decidido pelo estudo ou além do alcance da usina,
 e mantenha todo compromisso fixo não nulo dentro da janela de entrada em operação da usina.
-Veja [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) para o modelo de fronteira e
-[Formato do caso](/reference/case-format/) para o
-esquema de `post_study_stages.json`.
+Veja [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) para o modelo de fronteira,
+os [calendários pós-estudo](/reference/case-format/stages/#calendarios-pos-estudo) e a
+[referência de `boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+para o esquema dos arquivos.
 
-#### Janela `past_anticipated_commitments` descoberta ou com cobertura excessiva
+#### Janela de compromisso descoberta ou com cobertura excessiva
 
-**Quando ocorre:** As janelas `past_anticipated_commitments` de uma térmica antecipada
-devem ladrilhar exatamente os estágios de entrega **dentro do estudo** que a usina decidiu
+**Quando ocorre:** As janelas de `commitments` de uma térmica antecipada
+em `boundary_conditions.json` devem ladrilhar exatamente os estágios de entrega **dentro do estudo** que a usina decidiu
 antes do estudo — cada um desses estágios coberto com fração `1.0` — e nunca um
 estágio que o próprio estudo decide. A verificação de regras de negócio reporta uma lacuna (um
 estágio inicial descoberto), um excesso de alcance (uma janela que cobre um estágio
@@ -1569,22 +1607,28 @@ separadamente, em
 
 **Campos:**
 
-| Campo         | Descrição                                                                                                                                        |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------|
-| `description` | Contém uma linha `[BusinessRuleViolation] initial_conditions.json (thermals[id=<id>].anticipated_config): <message>` — veja as mensagens abaixo |
+| Campo         | Descrição |
+| ------------- | ----------- |
+| `description` | Contém uma linha `[BusinessRuleViolation] boundary_conditions.json (thermals[id=<id>].anticipated_config): <message>` — veja as mensagens abaixo |
 
 **Exemplo:**
 
-```
-constraint violation: [BusinessRuleViolation] initial_conditions.json (thermals[id=7].anticipated_config): Thermal 7: past_anticipated_commitments do not tile the leading 2 delivery stage(s) at coverage 1.0; study stage id(s) [0] are not covered exactly once. Write a commitment window (a committed 0 MW is explicit) for every leading delivery stage.
+{/* quoted from source: check_commitment_coverage in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 7 with two leading delivery stages and no window over stage 0 */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=7].anticipated_config): thermal 7: commitments do not tile the leading 2 delivery stage(s) at coverage 1.0; study stage id(s) [0] are not covered exactly once. Write a commitment window (a committed 0 MW is explicit) for every leading delivery stage.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] initial_conditions.json (thermals[id=7].anticipated_config): Thermal 7: past_anticipated_commitments cover study stage id(s) [3] beyond the leading 2 calendar-derived delivery stage(s); a commitment window may not cover a study stage the study itself decides. Shorten the plant's anticipated_config lead so its window stays within the leading 2 delivery stage(s).
+{/* quoted from source: check_commitment_coverage in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 7 with a window over study stage 3 */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=7].anticipated_config): thermal 7: commitments cover study stage id(s) [3] beyond the leading 2 calendar-derived delivery stage(s); a commitment window may not cover a study stage the study itself decides. Shorten the plant's anticipated_config lead so its window stays within the leading 2 delivery stage(s).
 ```
 
-```
-constraint violation: [BusinessRuleViolation] initial_conditions.json (thermals[id=7].anticipated_config): Thermal 7: past_anticipated_commitments window [2026-08-15, 2026-09-15) straddles the study horizon end (2026-09-01); a single window may not cover both in-study and post-study delivery. Declare two windows split at the horizon instead: one ending at 2026-09-01 for the in-study coverage, one starting at 2026-09-01 for the post-study coverage.
+{/* quoted from source: check_no_straddling_commitment_window in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 7 with one window crossing a study horizon that ends 2026-09-01 */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=7].anticipated_config): thermal 7: commitments window [2026-08-15, 2026-09-15) straddles the study horizon end (2026-09-01); a single window may not cover both in-study and post-study delivery. Declare two windows split at the horizon instead: one ending at 2026-09-01 for the in-study coverage, one starting at 2026-09-01 for the post-study coverage.
 ```
 
 **Solução:** Escreva uma janela de compromisso para cada estágio de entrega dentro do estudo que a
@@ -1630,7 +1674,7 @@ dos estágios.
 #### Arquivos de fronteira atuais e antigos juntos
 
 **Quando ocorre:** `boundary_conditions.json` está no diretório do caso junto com
-`initial_conditions.json`, `post_study_stages.json` ou ambos. Os dois conjuntos
+os arquivos obsoletos `initial_conditions.json`, `post_study_stages.json` ou ambos. Os dois conjuntos
 de arquivos descrevem os mesmos dados de fronteira, então a validação se recusa
 a escolher entre eles. A mensagem é reportada em `boundary_conditions.json`;
 `{list}` é o arquivo obsoleto, ou os arquivos obsoletos, encontrados, cada um entre
@@ -2003,14 +2047,16 @@ e `stages.json` declara `season_definitions`. `{n}` conta as ocorrências do per
 totalmente cobertas a partir das quais a estimação faz o ajuste, dentro ou fora do horizonte do estudo;
 com `estimation.history_years` definido, apenas as que começam em seus anos.
 
-As mensagens de armazenamento inicial, reportadas em `initial_conditions.json` para a hidrelétrica:
+As mensagens de armazenamento inicial, reportadas em `boundary_conditions.json` para a hidrelétrica:
 
-{/* quoted from source: check_initial_storage_first_stage_bounds in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.22.0 */}
+{/* quoted from source: check_initial_storage_first_stage_bounds in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit 95318d3ba90a */}
 
 ```text
-Hydro {id}: initial storage ({value}) lies below the minimum storage ({min}) at the end of stage {stage_id}, its first operating stage; that stage must reach it from its own inflow
-Hydro {id}: initial storage ({value}) lies above the maximum storage ({max}) at the end of stage {stage_id}, its first operating stage; that stage must release the excess
+Hydro {id}: initial storage (storage_hm3 = {value}) lies below the minimum storage ({min}) at the end of stage {stage_id}, its first operating stage; that stage must reach it from its own inflow
+Hydro {id}: initial storage (storage_hm3 = {value}) lies above the maximum storage ({max}) at the end of stage {stage_id}, its first operating stage; that stage must release the excess
 ```
+
+O `initial_conditions.json` obsoleto reporta as mesmas mensagens nesse arquivo, com `initial storage ({value})` no lugar de `initial storage (storage_hm3 = {value})`.
 
 O primeiro estágio de operação é o primeiro estágio do estudo dentro da janela de
 entrada em operação da hidrelétrica. Seus limites são a linha no nível do estágio (`block_id` nulo) de
@@ -2075,10 +2121,10 @@ Avisos deste tipo não impedem a execução do solver.
 
 #### Arquivos de fronteira obsoletos em uso
 
-**Quando ocorre:** O diretório do caso contém `initial_conditions.json`, com ou
-sem `post_study_stages.json`, e não contém `boundary_conditions.json`. O caso
+**Quando ocorre:** O diretório do caso contém o `initial_conditions.json` obsoleto, com ou
+sem o `post_study_stages.json` obsoleto, e não contém `boundary_conditions.json`. O caso
 lê seus dados de fronteira do conjunto obsoleto de arquivos. O aviso é reportado
-em `initial_conditions.json`; `novomodelo validate` o imprime como uma linha
+no `initial_conditions.json` obsoleto; `novomodelo validate` o imprime como uma linha
 `warning:` e encerra com código `0`, e o caso continua executando.
 
 **Solução:** Converta o caso com

@@ -142,8 +142,8 @@ the failed read of it:
 [FileNotFound] system/buses.json: No such file or directory (os error 2)
 ```
 
-A case directory with neither `boundary_conditions.json` nor the deprecated
-`initial_conditions.json` gives one `[FileNotFound]` line for the pair:
+A case directory with neither `boundary_conditions.json` nor the
+deprecated `initial_conditions.json` gives one `[FileNotFound]` line for the pair:
 
 {/* quoted from source: resolve_boundary_source in crates/novomodelo-io/src/validation/structural.rs at novomodelo commit 95318d3ba90a */}
 
@@ -262,7 +262,7 @@ constraint: a required field is missing from `config.json` or `system/hydros.jso
 `min_storage_hm3` exceeds `max_storage_hm3`, or a stage whose `num_openings` is
 0), a field contains an unexpected type, or an entity `id` appears twice in a
 registry file such as `system/buses.json`. Emitted when the fields of a parsed
-file are checked. A `post_study_*` calendar in `stages.json` that breaks the calendar rules (its ids, their order, its anchoring or its contiguity) is also a `SchemaViolation`; see the
+file are checked. A `post_study_*` calendar in `stages.json` with an unparsable date, an `end_date` not after its `start_date`, a repeated `start_date`, or an `id` that breaks the calendar's id rules is also a `SchemaViolation`; see the
 [post-study calendars](/en/reference/case-format/stages/#post-study-calendars) and the
 [boundary conditions page](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
@@ -818,8 +818,9 @@ instead, as in `thermals[id=0]`.
 
 **Resolution:** Keep one of the two keys: give `lead_stages` an integer of at
 least 1, or `lead_time_hours` a number above 0. For a lead longer than the study
-horizon, shorten the lead, or declare, in `post_study_stages.json`, a post-study stage that the lead
-reaches. See
+horizon, shorten the lead, or declare a post-study stage that the lead reaches in the
+`post_study_thermal_stages` list of `stages.json` (see the
+[post-study calendars](/en/reference/case-format/stages/#post-study-calendars)). See
 [System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants) for the
 anticipated-thermal model and
 [`system/thermals.json`](/en/reference/case-format/system/#systemthermalsjson)
@@ -1083,8 +1084,8 @@ A `constraints/hydro_bounds.parquet` storage bound outside the reservoir's range
 or a study stage whose minimum storage exceeds its maximum, is reported under
 this kind too — see
 [Stage storage bounds refused at load](#stage-storage-bounds-refused-at-load).
-An initial storage outside the hydro's storage range, or listed in the wrong
-`initial_conditions.json` array, is reported under this kind too — see
+An initial storage in `boundary_conditions.json` outside the hydro's storage range
+is reported under this kind too — see
 [Initial storage refused at load](#initial-storage-refused-at-load).
 A hydro whose `spillage.min_spillage_m3s` exceeds its `spillage.max_spillage_m3s` is reported under this kind too — see
 [Inverted entity spillage bounds](#inverted-entity-spillage-bounds).
@@ -1237,18 +1238,17 @@ entity value for that stage or block.
 
 #### Initial storage refused at load
 
-**When it occurs:** `initial_conditions.json` seeds a hydro's storage outside
-its range or in the array that does not match its `filling` configuration:
+**When it occurs:** A hydro's `storage_hm3` in `boundary_conditions.json` seeds
+its storage outside its range:
 
-- A `storage[].value_hm3` of a hydro without a `filling` configuration lies
+- A `hydros[].storage_hm3` of a hydro without a `filling` configuration lies
   outside that hydro's own `[min_storage_hm3, max_storage_hm3]` from
   `system/hydros.json`, beyond a relative tolerance of `1e-9` (an absolute one
   below 1 hm³). A hydro that enters service after the first stage is checked
   too. The value is refused, never clamped. A hydro whose `min_storage_hm3`
   exceeds its `max_storage_hm3` reports that [`SchemaViolation`](#schemaviolation)
   instead.
-- A hydro with a `filling` configuration is listed under `storage`, or a hydro
-  without one is listed under `filling_storage`.
+- In the deprecated `initial_conditions.json`, a hydro with a `filling` configuration listed under `storage`, or one without it listed under `filling_storage`, is refused with an `[InvalidValue]` message naming the array the seed belongs in; the current format routes each seed by `filling`, so this rule does not apply to it. To convert a deprecated case, see [Case conversion](/en/running/case-conversion/).
 
 The stage `min_storage_hm3` and `max_storage_hm3` of
 `constraints/hydro_bounds.parquet` bound the end of their stage, not the initial
@@ -1257,24 +1257,24 @@ storage; a seed outside the bounds of the hydro's first operating stage is the
 
 **Fields:**
 
-{/* quoted from source: check_initial_storage_range and check_initial_storage_array in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.22.0 */}
+{/* quoted from source: check_initial_storage_range in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit 95318d3ba90a */}
 
 | Field         | Description |
 | ------------- | ----------- |
-| `description` | Contains a `[InvalidValue] initial_conditions.json (Hydro <id>): Hydro <id>: initial storage (<value>) must lie in [min_storage_hm3, max_storage_hm3] = [<min>, <max>]` line for a value out of range, or `Hydro <id>: has a filling configuration, so its initial storage belongs in filling_storage, not storage` or `Hydro <id>: has no filling configuration, so its initial storage belongs in storage, not filling_storage` for the wrong array |
+| `description` | Contains a `[InvalidValue] boundary_conditions.json (Hydro <id>): Hydro <id>: initial storage (storage_hm3 = <value>) must lie in [min_storage_hm3, max_storage_hm3] = [<min>, <max>]` line |
 
 **Example:**
 
-{/* quoted from source: check_initial_storage_range in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.22.0 — a 1dtoy case whose hydro 0 (storage range [0, 1000]) is seeded with storage 1200 */}
+{/* quoted from source: check_initial_storage_range in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit 95318d3ba90a — a case whose hydro 0 (storage range [0, 1000]) is seeded with storage_hm3 1200 */}
 
 ```text
-[InvalidValue] initial_conditions.json (Hydro 0): Hydro 0: initial storage (1200) must lie in [min_storage_hm3, max_storage_hm3] = [0, 1000]
+[InvalidValue] boundary_conditions.json (Hydro 0): Hydro 0: initial storage (storage_hm3 = 1200) must lie in [min_storage_hm3, max_storage_hm3] = [0, 1000]
 ```
 
-**Resolution:** Set the value inside the hydro's `[min_storage_hm3,
-max_storage_hm3]`, or move the entry to `filling_storage` for a hydro with a
-`filling` configuration and to `storage` for one without. See
-[Initial Conditions](/en/reference/case-format/initial-conditions/).
+**Resolution:** Set the hydro's `storage_hm3` inside its `[min_storage_hm3,
+max_storage_hm3]`. See the
+[`boundary_conditions.json` reference](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson).
+For the deprecated `initial_conditions.json`, move the entry to the array that matches the hydro's `filling` configuration, or convert the case.
 
 ---
 
@@ -1373,7 +1373,7 @@ was violated and which entities are involved. For the two penalty rules, see
 ([Commitment on a non-anticipated thermal](#commitment-on-a-non-anticipated-thermal),
 [Missing commitment window on an anticipated thermal](#missing-commitment-window-on-an-anticipated-thermal),
 [Post-study boundary unanchored or malformed](#post-study-boundary-unanchored-or-malformed) and
-[Uncovered or over-covered past_anticipated_commitments window](#uncovered-or-over-covered-past_anticipated_commitments-window)),
+[Uncovered or over-covered commitment window](#uncovered-or-over-covered-commitment-window)),
 the undeclared-`stage_id` bound-override rule
 ([Undeclared `stage_id` in bound-override parquet](#undeclared-stage_id-in-bound-override-parquet)) and
 the per-block generic-constraint references
@@ -1419,62 +1419,73 @@ for the current file's schema.
 
 #### Commitment on a non-anticipated thermal
 
-**When it occurs:** `initial_conditions.json`'s `past_anticipated_commitments`
-entries declare an externally-decided commitment for an anticipated thermal,
-keyed by `thermal_id`. Case validation rejects any entry whose `thermal_id`
-names no thermal with an `anticipated_config` — either the thermal does not
-exist, or it exists but is not configured as anticipated.
+**When it occurs:** The `commitments` of a `thermals[]` entry in
+`boundary_conditions.json` declare an externally-decided commitment for an
+anticipated thermal, keyed by the entry's `thermal_id`. Case validation rejects
+any entry whose `thermal_id` names no thermal with an `anticipated_config` —
+either the thermal does not exist, or it exists but is not configured as
+anticipated.
 
 **Fields:**
 
-| Field         | Description                                                                                                                                                                                                                     |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Contains a `[BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments[thermal_id=<id>]): Thermal <id>: referenced in past_anticipated_commitments but is not an anticipated thermal (anticipated_config is None or thermal does not exist)` line |
+{/* quoted from source: unanticipated_commitments_wording in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a */}
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[BusinessRuleViolation] boundary_conditions.json (thermals[thermal_id=<id>].commitments): thermal <id>: referenced in commitments but is not an anticipated thermal (anticipated_config is None or thermal does not exist)` line |
 
 **Example:**
 
-```
-constraint violation: [BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments[thermal_id=12]): Thermal 12: referenced in past_anticipated_commitments but is not an anticipated thermal (anticipated_config is None or thermal does not exist)
+{/* quoted from source: unanticipated_commitments_wording in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12 has commitments but no anticipated_config */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[thermal_id=12].commitments): thermal 12: referenced in commitments but is not an anticipated thermal (anticipated_config is None or thermal does not exist)
 ```
 
 **Resolution:** Either set `anticipated_config` on thermal `<id>` in
-`system/thermals.json`, or remove/correct the `thermal_id` in the offending
-`past_anticipated_commitments` entry. See
-[System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants) for anticipated-thermal configuration and [Case Format](/en/reference/case-format/)
-for `initial_conditions.json`'s schema.
+`system/thermals.json`, or remove or correct the `thermal_id` of the offending
+`thermals[]` entry in `boundary_conditions.json`. See
+[System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants) for anticipated-thermal configuration and the
+[`boundary_conditions.json` reference](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+for `commitments`.
 
 #### Missing commitment window on an anticipated thermal
 
 **When it occurs:** Every thermal with an `anticipated_config` needs at least one
-window in `initial_conditions.json`'s `past_anticipated_commitments`, keyed by
-`thermal_id`. Case validation rejects a thermal that has none, for a lead given in
+window in the `commitments` of its `thermals[]` entry in `boundary_conditions.json`,
+keyed by `thermal_id`. Case validation rejects a thermal that has none, for a lead given in
 stages and for a lead given in hours alike.
 
 **Fields:**
 
-| Field         | Description                                                                                                                                                                                                                                                             |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Contains a `[BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments): Thermal <id>: missing entry in initial_conditions.past_anticipated_commitments; every anticipated thermal must have at least one commitment window` line |
+{/* quoted from source: missing_commitments_wording in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a */}
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[BusinessRuleViolation] boundary_conditions.json (thermals[thermal_id=<id>].commitments): thermal <id>: no commitments in boundary_conditions.json; every anticipated thermal must have at least one commitment window` line |
 
 **Example:**
 
-{/* capture: novomodelo validate ac | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy ac; system/thermals.json: thermal 0 given anticipated_config with lead_stages 1; run with NO_COLOR=1, exit code 1; the Validation summary line, which carries the temporary path, is not quoted and the error: prefix is not quoted) */}
+{/* quoted from source: missing_commitments_wording in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 0 has an anticipated_config with lead_stages 1 and no commitments */}
 
 ```text
-[BusinessRuleViolation] initial_conditions.json (initial_conditions.past_anticipated_commitments): Thermal 0: missing entry in initial_conditions.past_anticipated_commitments; every anticipated thermal must have at least one commitment window
+[BusinessRuleViolation] boundary_conditions.json (thermals[thermal_id=0].commitments): thermal 0: no commitments in boundary_conditions.json; every anticipated thermal must have at least one commitment window
 ```
 
-**Resolution:** Add a window for the thermal to `past_anticipated_commitments` (a
+**Resolution:** Add a window for the thermal to its `commitments` (a
 committed `0` MW is an explicit window), or remove the thermal's `anticipated_config`.
-See [Uncovered or over-covered `past_anticipated_commitments` window](#uncovered-or-over-covered-past_anticipated_commitments-window)
-for the coverage the windows must reach and [Case Format](/en/reference/case-format/)
-for `initial_conditions.json`'s schema.
+See [Uncovered or over-covered commitment window](#uncovered-or-over-covered-commitment-window)
+for the coverage the windows must reach and the
+[`boundary_conditions.json` reference](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+for its schema.
 
 #### Post-study boundary unanchored or malformed
 
-**When it occurs:** The business-rule check validates `post_study_stages.json` — the
-post-horizon boundary calendar — and the anticipated-thermal deliveries that
-resolve onto it. Several distinct failures are collected under this one check.
+**When it occurs:** The business-rule check validates the post-study boundary — the
+`post_study_thermal_stages` calendar in `stages.json`, and the `post_study_bounds`
+and `commitments` of `boundary_conditions.json` — and the anticipated-thermal
+deliveries that resolve onto it. Several distinct failures are collected under
+this one check.
 (A plant whose lead is longer than the whole study horizon and reaches **no**
 declared post-study stage is caught earlier, at anticipated-thermal validation,
 with a
@@ -1483,15 +1494,19 @@ message (see
 [Invalid anticipated-thermal lead](#invalid-anticipated-thermal-lead)); to clear
 it, shorten the lead or declare a post-study stage the lead reaches — see
 [System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants).)
-The post-study failures, keyed to `post_study_stages.json`:
+The post-study failures:
 
-- The post-study calendar's first stage does not start exactly at the study
-  horizon end.
-- The post-study stages are not date-contiguous (a gap or overlap between
-  consecutive stages).
-- A post-study stage's `duration_hours` rounds to a non-positive whole-day span.
+- A calendar failure reported on `stages.json` as a `BusinessRuleViolation`: the
+  first post-study stage does not start exactly at the study horizon end, or the
+  post-study stages are not date-contiguous (a gap or overlap between consecutive
+  stages).
+- A calendar failure reported on `stages.json` as a [`SchemaViolation`](#schemaviolation),
+  because the load refuses the file before the business-rule check runs: an
+  unparsable date, an `end_date` not after its `start_date`, a repeated
+  `start_date`, an `id` that collides with another stage `id`, or a thermal-calendar
+  `id` that does not continue the largest study stage `id` in `start_date` order.
 - **Rule 1** — a plant's lead reaches a post-study stage with no
-  `thermal_bounds` cell for its `(thermal_id, post_study_stage_index)`.
+  `post_study_bounds` row for that stage's `stage_id`.
 - **V2** — a plant's commitments decided before the study and delivered past the
   horizon do not tile the post-study stages they cover at coverage `1.0`.
 - **V3** — a commitment window covers a post-study stage the study itself
@@ -1499,57 +1514,81 @@ The post-study failures, keyed to `post_study_stages.json`:
 - **V5** — a non-zero fixed commitment covers a post-study stage outside the
   plant's commissioning window.
 
+The reached-stage rules (Rule 1, V2, V3, V5) are reported on `boundary_conditions.json`
+as `BusinessRuleViolation`. The deprecated `post_study_stages.json` reports its calendar and these rules on that file, and also refuses a stage whose `duration_hours` rounds to a non-positive whole-day span.
+
 **Fields:**
 
-| Field         | Description                                                                                                        |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------|
-| `description` | Contains one `[BusinessRuleViolation] post_study_stages.json (...): <message>` line per failure — see the messages below |
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains one `[BusinessRuleViolation] stages.json (...): <message>` line per calendar failure, or one `[BusinessRuleViolation] boundary_conditions.json (thermals[id=<id>].anticipated_config): <message>` line per reached-stage failure — see the messages below |
 
 **Example:**
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermal_stages[0].start_date): first post-study stage starts 2026-09-08 but the study horizon ends 2026-09-05; the post-study calendar must begin exactly at the study horizon end.
+{/* quoted from source: build_post_study_calendar in crates/novomodelo-io/src/validation/semantic/post_study_calendar.rs at novomodelo commit 95318d3ba90a — a first post-study stage starting 2026-09-08 on a study that ends 2026-09-05 */}
+
+```text
+[BusinessRuleViolation] stages.json (post_study_thermal_stages[0].start_date): first post-study stage starts 2026-09-08 but the study horizon ends 2026-09-05; the post-study calendar must begin exactly at the study horizon end.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermal_stages start_date=2026-10-01): post-study stages are not date-contiguous: the stage starting 2026-09-05 ends 2026-09-28 but the next stage starts 2026-10-01; each stage must end exactly where the next begins.
+{/* quoted from source: build_post_study_calendar in crates/novomodelo-io/src/validation/semantic/post_study_calendar.rs at novomodelo commit 95318d3ba90a — a post-study stage starting 2026-10-01 after a stage that ends 2026-09-28 */}
+
+```text
+[BusinessRuleViolation] stages.json (post_study_thermal_stages start_date=2026-10-01): post-study stages are not date-contiguous: the stage starting 2026-09-05 ends 2026-09-28 but the next stage starts 2026-10-01; each stage must end exactly where the next begins.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: anticipated lead reaches post-study stage index 0, but post_study_stages.json has no thermal_bounds entry for (thermal_id 12, post_study_stage_index 0).
+{/* quoted from source: validate_thermal_continuation in crates/novomodelo-io/src/stages.rs at novomodelo commit 95318d3ba90a — the second thermal-calendar entry carries id 14 where 13 is expected */}
+
+```text
+[SchemaViolation] stages.json: field post_study_thermal_stages[1].id: stage starting 2025-01-08 has id 14, expected 13 (the largest study stage id + 1 + its position in start_date order)
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: past_anticipated_commitments do not tile post-study stage index(es) [0] at coverage 1.0; declare the fixed commitment for each (a committed 0 MW is explicit).
+{/* quoted from source: PostStudyNames::missing_bound_message in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12 reaches post-study stage 13 */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: stage 13 is decided in-study and needs a post_study_bounds row in boundary_conditions.json.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: past_anticipated_commitments cover post-study stage index(es) [1], which the study itself decides; a declared fixed value there contradicts the study's own decision. Remove the window, or lengthen anticipated_config's lead so the delivery becomes pre-study-decided.
+{/* quoted from source: check_fixed_post_study_tiling in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12, post-study stage 12 uncovered */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: commitments do not tile post-study stage(s) [12] at coverage 1.0; declare the fixed commitment for each (a committed 0 MW is explicit).
 ```
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: past_anticipated_commitments cover post-study stage index(es) [2], which are past the plant's decision reach and cannot be represented. Remove the window, or shorten anticipated_config's lead so the delivery falls inside the reach.
-```
+{/* quoted from source: check_post_study_window_excludes_unreachable_stages in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12, a window over post-study stage 13 (study-decided) and one over stage 14 (past the reach) */}
 
-```
-constraint violation: [BusinessRuleViolation] post_study_stages.json (thermals[id=12].anticipated_config): Thermal 12: past_anticipated_commitments window [2026-10-01, 2026-11-01) value_mw = 120 covers post-study stage index 0, which is outside the plant's commissioning window [entry=Some(0), exit=Some(6)); the plant is not in service for this stage and the fixed commitment cannot be delivered. Declare a zero commitment at this stage, or widen the commissioning window.
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: commitments cover post-study stage(s) [13], which the study itself decides; a declared fixed value there contradicts the study's own decision. Remove the window, or lengthen anticipated_config's lead so the delivery becomes pre-study-decided.
 ```
 
-**Resolution:** Declare `post_study_stages.json` with its first stage starting
-exactly at the study horizon end and every stage date-contiguous with the next.
-Add a `thermal_bounds` cell for every `(thermal_id, post_study_stage_index)` a
-plant's in-study-decided lead reaches. Tile every post-study stage that a
-`past_anticipated_commitments` window for a commitment decided before the study
-covers, at coverage `1.0`, never covering a stage the study decides or one past the plant's reach,
-and keep a non-zero fixed commitment inside the plant's commissioning window.
-See [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) for the boundary model and
-[Case Format](/en/reference/case-format/) for
-`post_study_stages.json`'s schema.
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: commitments cover post-study stage(s) [14], which are past the plant's decision reach and cannot be represented. Remove the window, or shorten anticipated_config's lead so the delivery falls inside the reach.
+```
 
-#### Uncovered or over-covered `past_anticipated_commitments` window
+{/* quoted from source: check_fixed_commitment_within_window in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 12, a 120 MW window over post-study stage 12 outside the commissioning window */}
 
-**When it occurs:** An anticipated thermal's `past_anticipated_commitments`
-windows must tile exactly the **in-study** delivery stages the plant decided
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=12].anticipated_config): thermal 12: commitments window [2026-10-01, 2026-11-01) value_mw = 120 covers post-study stage 12, which is outside the plant's commissioning window [entry=Some(0), exit=Some(6)); the plant is not in service for this stage and the fixed commitment cannot be delivered. Declare a zero commitment at this stage, or widen the commissioning window.
+```
+
+**Resolution:** Declare the `post_study_thermal_stages` calendar in `stages.json`
+with its first stage starting exactly at the study horizon end, every stage
+date-contiguous with the next, and ids that continue the largest study stage id in
+`start_date` order. Add a `post_study_bounds` row to the plant's `thermals[]` entry
+in `boundary_conditions.json` for every post-study stage that the plant's
+in-study-decided lead reaches. Tile every post-study stage that a `commitments`
+window for a commitment decided before the study covers, at coverage `1.0`, never
+covering a stage the study decides or one past the plant's reach, and keep a
+non-zero fixed commitment inside the plant's commissioning window.
+See [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) for the boundary model,
+the [post-study calendars](/en/reference/case-format/stages/#post-study-calendars) and the
+[`boundary_conditions.json` reference](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+for the file schemas.
+
+#### Uncovered or over-covered commitment window
+
+**When it occurs:** An anticipated thermal's `commitments`
+windows in `boundary_conditions.json` must tile exactly the **in-study** delivery stages the plant decided
 before the study — every such stage covered at fraction `1.0` — and never a
 stage the study itself decides. The business-rule check reports a gap (an
 uncovered leading stage), an over-reach (a window covering a study-decided
@@ -1563,22 +1602,28 @@ separately, under
 
 **Fields:**
 
-| Field         | Description                                                                                                                                  |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------|
-| `description` | Contains a `[BusinessRuleViolation] initial_conditions.json (thermals[id=<id>].anticipated_config): <message>` line — see the messages below |
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[BusinessRuleViolation] boundary_conditions.json (thermals[id=<id>].anticipated_config): <message>` line — see the messages below |
 
 **Example:**
 
-```
-constraint violation: [BusinessRuleViolation] initial_conditions.json (thermals[id=7].anticipated_config): Thermal 7: past_anticipated_commitments do not tile the leading 2 delivery stage(s) at coverage 1.0; study stage id(s) [0] are not covered exactly once. Write a commitment window (a committed 0 MW is explicit) for every leading delivery stage.
+{/* quoted from source: check_commitment_coverage in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 7 with two leading delivery stages and no window over stage 0 */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=7].anticipated_config): thermal 7: commitments do not tile the leading 2 delivery stage(s) at coverage 1.0; study stage id(s) [0] are not covered exactly once. Write a commitment window (a committed 0 MW is explicit) for every leading delivery stage.
 ```
 
-```
-constraint violation: [BusinessRuleViolation] initial_conditions.json (thermals[id=7].anticipated_config): Thermal 7: past_anticipated_commitments cover study stage id(s) [3] beyond the leading 2 calendar-derived delivery stage(s); a commitment window may not cover a study stage the study itself decides. Shorten the plant's anticipated_config lead so its window stays within the leading 2 delivery stage(s).
+{/* quoted from source: check_commitment_coverage in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 7 with a window over study stage 3 */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=7].anticipated_config): thermal 7: commitments cover study stage id(s) [3] beyond the leading 2 calendar-derived delivery stage(s); a commitment window may not cover a study stage the study itself decides. Shorten the plant's anticipated_config lead so its window stays within the leading 2 delivery stage(s).
 ```
 
-```
-constraint violation: [BusinessRuleViolation] initial_conditions.json (thermals[id=7].anticipated_config): Thermal 7: past_anticipated_commitments window [2026-08-15, 2026-09-15) straddles the study horizon end (2026-09-01); a single window may not cover both in-study and post-study delivery. Declare two windows split at the horizon instead: one ending at 2026-09-01 for the in-study coverage, one starting at 2026-09-01 for the post-study coverage.
+{/* quoted from source: check_no_straddling_commitment_window in crates/novomodelo-io/src/validation/semantic/thermal.rs at novomodelo commit 95318d3ba90a — thermal 7 with one window crossing a study horizon that ends 2026-09-01 */}
+
+```text
+[BusinessRuleViolation] boundary_conditions.json (thermals[id=7].anticipated_config): thermal 7: commitments window [2026-08-15, 2026-09-15) straddles the study horizon end (2026-09-01); a single window may not cover both in-study and post-study delivery. Declare two windows split at the horizon instead: one ending at 2026-09-01 for the in-study coverage, one starting at 2026-09-01 for the post-study coverage.
 ```
 
 **Resolution:** Write a commitment window for every in-study delivery stage the
@@ -1624,7 +1669,7 @@ declaration.
 #### Deprecated and current boundary files together
 
 **When it occurs:** `boundary_conditions.json` is in the case directory together
-with `initial_conditions.json`, `post_study_stages.json`, or both. The two file
+with the deprecated `initial_conditions.json`, `post_study_stages.json`, or both. The two file
 sets describe the same boundary data, so validation refuses to choose between
 them. The message is reported on `boundary_conditions.json`; `{list}` is the
 deprecated file or files found, each in quotes, joined by ` and `.
@@ -1995,14 +2040,16 @@ and `stages.json` declares `season_definitions`. `{n}` counts the fully covered
 season occurrences the estimation fits from, inside or outside the study horizon;
 with `estimation.history_years` set, only those that start in its years.
 
-The initial-storage messages, reported on `initial_conditions.json` for the hydro:
+The initial-storage messages, reported on `boundary_conditions.json` for the hydro:
 
-{/* quoted from source: check_initial_storage_first_stage_bounds in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo v0.22.0 */}
+{/* quoted from source: check_initial_storage_first_stage_bounds in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo commit 95318d3ba90a */}
 
 ```text
-Hydro {id}: initial storage ({value}) lies below the minimum storage ({min}) at the end of stage {stage_id}, its first operating stage; that stage must reach it from its own inflow
-Hydro {id}: initial storage ({value}) lies above the maximum storage ({max}) at the end of stage {stage_id}, its first operating stage; that stage must release the excess
+Hydro {id}: initial storage (storage_hm3 = {value}) lies below the minimum storage ({min}) at the end of stage {stage_id}, its first operating stage; that stage must reach it from its own inflow
+Hydro {id}: initial storage (storage_hm3 = {value}) lies above the maximum storage ({max}) at the end of stage {stage_id}, its first operating stage; that stage must release the excess
 ```
+
+The deprecated `initial_conditions.json` reports the same messages on that file, with `initial storage ({value})` in place of `initial storage (storage_hm3 = {value})`.
 
 The first operating stage is the first study stage inside the hydro's
 commissioning window. Its bounds are the stage-level row (`block_id` null) of
@@ -2066,10 +2113,10 @@ Warnings of this type do not prevent the solver from running.
 
 #### Deprecated boundary files in use
 
-**When it occurs:** The case directory holds `initial_conditions.json`, with or
-without `post_study_stages.json`, and no `boundary_conditions.json`. The case
+**When it occurs:** The case directory holds the deprecated `initial_conditions.json`, with or
+without the deprecated `post_study_stages.json`, and no `boundary_conditions.json`. The case
 reads its boundary data from the deprecated file set. The warning is reported
-on `initial_conditions.json`; `novomodelo validate` prints it as a `warning:`
+on the deprecated `initial_conditions.json`; `novomodelo validate` prints it as a `warning:`
 line and exits `0`, and the case still runs.
 
 **Resolution:** Convert the case with
