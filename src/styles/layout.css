@@ -7,14 +7,31 @@
    leans on wide multi-column config/schema tables, math display blocks, and
    code. It leaves large empty gutters on desktop AND starves dense tables. */
 
-/* 1. Article measure. Widen from Starlight's 45rem so desktop reclaims the
-   horizontal space either side of the column and the reference tables get room
-   to breathe. This is the site's single content-width knob — tune here. Prose
-   runs slightly wider than a blog measure as a result; acceptable for a
-   table/math/code-heavy technical reference, and the win on the dense chapters
-   outweighs it. */
+/* 1. Article measure. The column is 56rem (Starlight's default is 45rem). From
+   a 97.5rem (1560px) window it takes what the left sidebar, a sidebar-wide TOC
+   and a 4rem gutter leave, up to 100rem, so wide tables, math and code use the
+   screen; running text keeps the 56rem measure at every width. This is the
+   site's single content-width knob — tune here. */
 :root {
-  --sl-content-width: 56rem;
+  --nm-prose-width: 56rem;
+  --sl-content-width: clamp(
+    var(--nm-prose-width),
+    100vw - 2 * var(--sl-sidebar-width) - 4rem,
+    100rem
+  );
+}
+
+.sl-markdown-content :is(p, ul, ol, dl, blockquote):not(:where(table *, .not-content *)),
+.sl-markdown-content .starlight-aside {
+  max-width: var(--nm-prose-width);
+}
+
+/* Centred blocks centre under the running text and grow rightward only when
+   wider than it. */
+.sl-markdown-content :is(.katex-display, .d2-fig, .vf-plot) {
+  width: fit-content;
+  min-width: min(100%, var(--nm-prose-width));
+  max-width: 100%;
 }
 
 /* 2. Table column floor. Starlight already renders tables as
@@ -25,7 +42,9 @@
    `Description` column. A per-cell min-width floors every column so short
    columns keep their tokens on one line; long prose columns still expand past
    it, and a table whose floors sum past the measure scrolls (the mobile /
-   many-column case) instead of crushing.
+   many-column case) instead of crushing. Names in table code wrap at the <wbr>
+   points scripts/rehype-table-code-breaks.mjs adds, so a long key does not set
+   its column's floor.
 
    6em is the minimal safe floor: the widest short token in the config tables
    (`boolean`, 58px) plus Starlight's 16px×2 cell padding needs ~90px; 6em

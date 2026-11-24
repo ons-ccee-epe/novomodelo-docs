@@ -8,6 +8,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { createKatexStrict } from "./scripts/rehype-katex-strict.mjs";
 import rehypeAsciiHeadingIds from "./scripts/rehype-ascii-heading-ids.mjs";
+import rehypeTableCodeBreaks from "./scripts/rehype-table-code-breaks.mjs";
 
 // Wrap each astro-d2 inline SVG in a <div class="d2-fig"> (scroll box + native
 // sizing — see src/styles/diagrams.css and Footer.astro `sizeD2Figures`).
@@ -220,14 +221,16 @@ export default defineConfig({
   // rehype-katex runs with `strict: "error"`, and the katex-strict recorder
   // after it collects every KaTeX error rehype-katex records. Its
   // `astro:build:done` hook then fails the build listing them
-  // (scripts/rehype-katex-strict.mjs). rehypeAsciiHeadingIds runs last: it
+  // (scripts/rehype-katex-strict.mjs). rehypeTableCodeBreaks lets names in table
+  // code wrap at their dots and slashes (scripts/rehype-table-code-breaks.mjs).
+  // rehypeAsciiHeadingIds runs last: it
   // assigns every heading its id, as Astro computes it, without diacritics
   // (pt-BR `histórica` -> `historica`; scripts/rehype-ascii-heading-ids.mjs).
   markdown: {
     processor: unified({
       remarkPlugins: [remarkMath],
       // prettier-ignore
-      rehypePlugins: [[rehypeKatex, { strict: "error" }], katexStrict.rehypeKatexStrict, rehypeWrapD2, rehypeAsciiHeadingIds],
+      rehypePlugins: [[rehypeKatex, { strict: "error" }], katexStrict.rehypeKatexStrict, rehypeWrapD2, rehypeTableCodeBreaks, rehypeAsciiHeadingIds],
     }),
   },
   integrations: [
@@ -517,9 +520,9 @@ export default defineConfig({
         "./src/styles/brand.css",
         "./src/styles/fonts.css",
         // layout.css (measure + table density) is a SEPARATE concern from the
-        // colour/type files above — it touches only --sl-content-width, table
-        // column floors and the right-sidebar TOC width, so its order among them
-        // is arbitrary.
+        // colour/type files above — it touches only --sl-content-width, the
+        // prose measure, table column floors and the right-sidebar TOC width, so
+        // its order among them is arbitrary.
         "./src/styles/layout.css",
         // components.css: Starlight's type scale, buttons and active state in
         // the hotsite's terms (design-system.md §3, §5, §8).

@@ -381,8 +381,9 @@ colours are §4.2; this section is the flowchart-specific idiom.
 d2 draws directed graphs natively:
 
 - **Direction**: `direction: down` (default for a vertical flow) or
-  `direction: right`. The Starlight content column is ~56rem — a wide `right`
-  flow with many nodes scrolls horizontally, so prefer `down` for long chains.
+  `direction: right`. The content column is 56rem on a laptop-width window
+  (`src/styles/layout.css`) — a wide `right` flow with many nodes scrolls
+  horizontally there, so prefer `down` for long chains.
 - **Decisions**: `conv: converged? {shape: diamond}`. Fold a "compute X → test X"
   pair into the decision itself to save a node and vertical space.
 - **Start / stop**: `{shape: oval}`.
