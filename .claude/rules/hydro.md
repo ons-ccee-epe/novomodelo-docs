@@ -55,11 +55,12 @@ turbine capacity (`max_turbined_m3s` or `max_generation_mw` ≤ `1e-9`, `Hydro::
 whose FPHA source is computed, or precomputed with no hyperplane rows, resolves
 to constant productivity `0.0` with provenance
 `ProductionModelSource::NoTurbineCapacity`, no export rows, and a
-`no_turbine_capacity` entry in `training/hydro_models.json`. After the
-slope average and before the snap, `fit_gamma_s_for_planes` limits each `γ_S`
-to `max(γ_S, min(0, −(γ₀ + γ_V·v_min)/S_max))` over the fitting window's
-`v_min` (skipped when `S_max ≤ 0`; precomputed planes are not limited), so a
-computed plane is ≥ 0 at zero turbining over the window. In the LP, a term
+`no_turbine_capacity` entry in `training/hydro_models.json`. `fit_gamma_s_for_planes`
+keeps each plane's mean `γ_S`, with no bound from the fitting window (snapped
+to +0.0 above `−1e-10`; `S_max ≤ 0` leaves it at 0), so a plane can fall below
+0 at zero turbining under lateral flow, where the LP turbines water at 0 MW or
+pays plane slack; `semantic.5b.55` warns only on a precomputed plane below 0
+at `(v_min, 0, 0)` of the fitting window. In the LP, a term
 without capacity folds to 0 in the turbined and generation caps; an FPHA plant
 without capacity at every block of a stage is Dormant (no generation column,
 plane rows or slack; it spills); a (cell, block) without capacity in a live

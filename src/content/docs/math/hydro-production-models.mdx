@@ -256,13 +256,7 @@ where MLT is the plant's long-term mean inflow (m³/s), the mean of its recorded
 
 **Range of validity.** The plane is anchored at zero lateral flow and fitted on $[0, S_{max}]$. Above $S_{max}$ it extrapolates linearly and does not reproduce $h_{tail}$. The plane is not an outer bound of $\phi$ in $q_{lat}$: where the tailrace is convex over the operated range, generation is concave in $q_{lat}$, and the least-squares slope makes the plane understate generation at small lateral flow and overstate it near $S_{max}$.
 
-**Limit.** After the averaging, each slope is bounded below so that the plane is not below 0 at zero turbining at the corner $(v_{min}, S_{max})$:
-
-$$
-\gamma_s^m \leftarrow \max\!\Big(\gamma_s^m,\ \min\!\big(0,\ -(\gamma_0^m + \gamma_v^m \, v_{min}) / S_{max}\big)\Big)
-$$
-
-with $v_{min}$ the fitting window's lower volume (§2.6.1). Whenever $\gamma_0^m + \gamma_v^m v_{min} \ge 0$, the plane is then at or above 0 at zero turbining at $(v_{min}, S_{max})$. The limit applies before the sign snap below, and to a run-of-river plant too. With $S_{max} = 0$ it does nothing, and $\gamma_s^m$ stays 0.
+**Zero turbining under lateral flow.** At $q = 0$, a plane with $\gamma_s^m < 0$ reads $\gamma_0^m + \gamma_v^m v + \gamma_s^m q_{lat}$, which falls below 0 once $q_{lat} > (\gamma_0^m + \gamma_v^m v) / \lvert\gamma_s^m\rvert$, and at every $q_{lat} > 0$ for the origin plane ($\gamma_0^m = \gamma_v^m = 0$). The LP then meets the plane row by turbining water that produces nothing, since $\gamma_q^m q$ lifts the plane back to 0, or, where the turbines cannot lift it, with the plane slack of §2.9. With $S_{max} = 0$, $\gamma_s^m$ is 0.
 
 **Sign**: $\gamma_s^m \le 0$ (more lateral flow raises the tailrace, reduces generation). A slope that is non-negative or negligibly negative is **snapped to exactly 0** (Implementation notes, "Computed-FPHA fitting behavior") to protect LP column scaling from near-zero structural coefficients.
 
@@ -274,8 +268,6 @@ An optional post-fit step merges consecutive **near-parallel or near-coincident*
 - **Distance**: merge consecutive pairs whose normalised mean-squared generation difference $\delta = \text{EQM}/\phi_{\max}^2 < \varepsilon/100$, where $\phi_{\max}$ is the largest value of the exact production $\phi$ (uncapped) over the fitting grid, with the tolerance $\varepsilon$ in percent and EQM estimated over sampled operating points. Uses a deterministically-seeded PRNG (seeded from stable plant/stage/plane-pair identity, never from wall clock or MPI rank), so results are bit-identical across input ordering and rank count.
 
 **Origin-plane invariant**: the plane through the origin ($\gamma_0^m \approx 0 \wedge \gamma_v^m \approx 0$, generating zero power at zero turbining) is **never merged**.
-
-**Zero generation at zero turbining**: every computed plane, merged or not, is at or above 0 at $q = 0$ for $v \in [v_{min}, v_{max}]$ and $q_{lat} \in [0, S_{max}]$ whenever $\gamma_0^m + \gamma_v^m v_{min} \ge 0$. The limit of §2.7 places the corner $(v_{min}, 0, S_{max})$, where the plane is lowest, at or above 0. A merge takes the coefficient-wise mean of two planes, and the corner value is linear in the coefficients, so the merged plane keeps the property. Outside that range, at a lateral flow above $S_{max}$, a plane can fall below 0 at zero turbining, and the LP then turbines water that produces nothing or pays plane slack (§2.9). Planes supplied precomputed are not limited (see the [implementation notes](#implementation-in-novomodelo)).
 
 Reduction is optional and applies only when selected (Configure tab).
 

@@ -1885,7 +1885,7 @@ disabled on every study stage despite supplied autoregressive coefficients, a
 negative value in `scenarios/inflow_history.parquet`, a season with none of
 the samples the estimation fits from that file, a hydro-season with at least one, but fewer than
 `estimation.min_observations_per_season`, fully covered season occurrences in that
-file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW at zero turbined flow, an initial
+file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW with no turbined flow and no spillage, an initial
 storage outside the storage bounds at the end of the hydro's first operating
 stage, a `tailrace_flow` declaration on a hydro that uses FPHA at no study stage, or, under a `lognormal_3p` inflow residual, a seasonal mean inflow at or
 below zero or the `none` inflow method. Each is reported as a warning.
@@ -1958,13 +1958,13 @@ Each pair is written `Hydro {hydro_id} at stage {stage_id} ({floor} > {incoming}
 
 The precomputed-plane message, reported on `system/fpha_hyperplanes.parquet` for the hydro:
 
-{/* quoted from source: check_fpha_precomputed_plane_at_zero_turbining in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo v0.21.0 */}
+{/* quoted from source: check_fpha_precomputed_plane_at_zero_turbining in crates/novomodelo-io/src/validation/semantic/scenarios.rs at novomodelo v0.22.0 */}
 
 ```text
-FPHA plane below zero at zero turbining: {entity} -- {n_pairs} (stage, plane) pair(s) at stages {stages} fall below 0 MW with no turbined flow; the earliest crosses 0 MW at {s_star} m³/s of spillage (stage {stage_id}, plane {plane_id}, storage {v_min} hm³, spillage up to {s_ref} m³/s), so while it spills the hydro turbines water at 0 MW, or reports fpha_violation_mw where turbining cannot lift the plane to 0 MW
+FPHA plane below zero at zero turbining: {entity} -- {n_pairs} (stage, plane) pair(s) at stages {stages} fall below 0 MW with no turbined flow and no spillage; the lowest reads {power_mw} MW (stage {stage_id}, plane {plane_id}, storage {v_min} hm³), so the hydro turbines water at 0 MW, or reports fpha_violation_mw where turbining cannot lift the plane to 0 MW
 ```
 
-The check skips a hydro with no FPHA entry, a hydro whose FPHA is computed (`source: "computed"`) and a hydro without turbine capacity. It covers each study stage whose entry resolves to `fpha`, and a stage uses its own `stage_id` rows, else the all-stage (`stage_id` null) rows. It evaluates each row at zero turbined flow, at the fitting window's minimum storage and at the upper end of the spillage fit range (`spillage_fit_max_m3s`, or its default), with `kappa` multiplying `gamma_0` only. `{s_star}` is the spillage at which the plane reaches 0 MW, (`kappa`·`gamma_0` + `gamma_v`·v_min)/|`gamma_s`| when that sum is positive and 0 otherwise. The earliest crossing is the smallest `{s_star}`, with ties broken by stage id and then plane id. `{stages}` lists the flagged stage ids as ascending runs written `a-b` (or a single id) and joined by `, `. One warning is reported per hydro.
+The check skips a hydro with no FPHA entry, a hydro whose FPHA is computed (`source: "computed"`) and a hydro without turbine capacity. It covers each study stage whose entry resolves to `fpha`, and a stage uses its own `stage_id` rows, else the all-stage (`stage_id` null) rows. It evaluates each row at zero turbined flow and zero spillage, at the fitting window's minimum storage, with `kappa` multiplying `gamma_0` only: `{power_mw}` is `kappa`·`gamma_0` + `gamma_v`·v_min. The lowest is the smallest `{power_mw}`, with ties broken by stage id and then plane id. `{stages}` lists the flagged stage ids as ascending runs written `a-b` (or a single id) and joined by `, `. One warning is reported per hydro.
 
 The tailrace-flow message, reported on `system/hydros.json` under rule `semantic.5a.70`:
 
@@ -1997,7 +1997,7 @@ names at most ten hydros and counts the rest as `and {n} more`.
 inflow-lag warning, see
 [`stages[].state_variables` — Cut Projection](/en/math/cut-management/#stagesstate_variables--cut-projection);
 for the initial-storage warning, check that the first operating stage can reach
-its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_s` to at least −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, with the storage v_min and the spillage S_ref the message prints, or fit the planes from geometry with `source: "computed"`, whose planes get this limit ([Lateral-Flow Secant](/en/math/hydro-production-models#27-lateral-flow-secant)); a plane whose crossing is at 0 m³/s needs a larger `gamma_0` or `gamma_v`; for the tailrace-flow warning, select FPHA for the hydro in `extensions/production_models.json` or remove `tailrace_flow` from the hydro; for a `lognormal_3p` warning, check the flagged seasonal means, or set an [`inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity) method other than `none`.
+its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_0` or `gamma_v` until `kappa`·`gamma_0` + `gamma_v`·v_min is at least 0 at the storage v_min the message prints, or fit the planes from geometry with `source: "computed"`; for the tailrace-flow warning, select FPHA for the hydro in `extensions/production_models.json` or remove `tailrace_flow` from the hydro; for a `lognormal_3p` warning, check the flagged seasonal means, or set an [`inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity) method other than `none`.
 Warnings of this type do not prevent the solver from running.
 
 ---

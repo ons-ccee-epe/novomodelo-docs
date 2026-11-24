@@ -256,13 +256,7 @@ em que MLT é a vazão média de longo termo da usina (m³/s), a média do seu h
 
 **Faixa de validade.** O plano é ancorado em vazão lateral nula e ajustado em $[0, S_{max}]$. Acima de $S_{max}$ ele extrapola linearmente e não reproduz $h_{tail}$. O plano não é um limite externo de $\phi$ em $q_{lat}$: onde o canal de fuga é convexo na faixa operada, a geração é côncava em $q_{lat}$, e a inclinação de mínimos quadrados faz o plano subestimar a geração com vazão lateral pequena e superestimá-la perto de $S_{max}$.
 
-**Limite.** Após a média, cada inclinação é limitada inferiormente para que o plano não fique abaixo de 0 com turbinamento nulo no vértice $(v_{min}, S_{max})$:
-
-$$
-\gamma_s^m \leftarrow \max\!\Big(\gamma_s^m,\ \min\!\big(0,\ -(\gamma_0^m + \gamma_v^m \, v_{min}) / S_{max}\big)\Big)
-$$
-
-com $v_{min}$ o volume inferior da janela de ajuste (§2.6.1). Sempre que $\gamma_0^m + \gamma_v^m v_{min} \ge 0$, o plano fica então em 0 ou acima com turbinamento nulo em $(v_{min}, S_{max})$. O limite é aplicado antes do ajuste de sinal abaixo, e também a uma usina a fio d'água. Com $S_{max} = 0$, ele não tem efeito, e $\gamma_s^m$ permanece 0.
+**Turbinamento nulo com vazão lateral.** Em $q = 0$, um plano com $\gamma_s^m < 0$ vale $\gamma_0^m + \gamma_v^m v + \gamma_s^m q_{lat}$, que fica abaixo de 0 quando $q_{lat} > (\gamma_0^m + \gamma_v^m v) / \lvert\gamma_s^m\rvert$, e em todo $q_{lat} > 0$ no caso do plano pela origem ($\gamma_0^m = \gamma_v^m = 0$). O PL então atende à linha do plano turbinando água que nada produz, já que $\gamma_q^m q$ eleva o plano de volta a 0, ou, onde as turbinas não conseguem elevá-lo, com a folga do plano da §2.9. Com $S_{max} = 0$, $\gamma_s^m$ é 0.
 
 **Sinal**: $\gamma_s^m \le 0$ (mais vazão lateral eleva o nível de jusante e reduz a geração). Uma inclinação não negativa ou negativa desprezível é **ajustada para exatamente 0** (Notas de implementação, "Comportamento do ajuste da FPHA calculada") para proteger o escalonamento das colunas do PL contra coeficientes estruturais próximos de zero.
 
@@ -274,8 +268,6 @@ Uma etapa opcional pós-ajuste funde planos consecutivos **quase paralelos ou qu
 - **Distância**: funde pares consecutivos cuja diferença quadrática média de geração normalizada $\delta = \text{EQM}/\phi_{\max}^2 < \varepsilon/100$, em que $\phi_{\max}$ é o maior valor da produção exata $\phi$ (não limitada) sobre a grade de ajuste, com a tolerância $\varepsilon$ em percentual e o EQM estimado sobre pontos de operação amostrados. Usa um gerador pseudoaleatório com semente determinística (derivada da identidade estável usina/estágio/par de planos, nunca do relógio do sistema nem do processo MPI), de modo que os resultados são idênticos bit a bit independentemente da ordem da entrada e do número de processos.
 
 **Invariante do plano pela origem**: o plano que passa pela origem ($\gamma_0^m \approx 0 \wedge \gamma_v^m \approx 0$, com geração nula para turbinamento nulo) **nunca é fundido**.
-
-**Geração nula com turbinamento nulo**: todo plano calculado, fundido ou não, fica em 0 ou acima em $q = 0$ para $v \in [v_{min}, v_{max}]$ e $q_{lat} \in [0, S_{max}]$ sempre que $\gamma_0^m + \gamma_v^m v_{min} \ge 0$. O limite da §2.7 coloca o vértice $(v_{min}, 0, S_{max})$, onde o plano é mais baixo, em 0 ou acima. Uma fusão toma a média coeficiente a coeficiente de dois planos, e o valor no vértice é linear nos coeficientes, de modo que o plano fundido mantém a propriedade. Fora dessa faixa, com uma vazão lateral acima de $S_{max}$, um plano pode ficar abaixo de 0 com turbinamento nulo, e o PL então turbina água que nada produz ou paga folga do plano (§2.9). Os planos fornecidos pré-calculados não são limitados (veja as [notas de implementação](#implementacao-no-novo-modelo)).
 
 A redução é opcional e só se aplica quando selecionada (aba Configurar).
 
