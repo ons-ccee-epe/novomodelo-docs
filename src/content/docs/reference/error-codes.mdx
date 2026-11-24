@@ -142,8 +142,19 @@ the failed read of it:
 [FileNotFound] system/buses.json: No such file or directory (os error 2)
 ```
 
+A case directory with neither `boundary_conditions.json` nor the deprecated
+`initial_conditions.json` gives one `[FileNotFound]` line for the pair:
+
+{/* quoted from source: resolve_boundary_source in crates/novomodelo-io/src/validation/structural.rs at novomodelo commit 95318d3ba90a */}
+
+```text
+[FileNotFound] boundary_conditions.json: required file 'boundary_conditions.json' (or the deprecated 'initial_conditions.json') not found in case directory
+```
+
 **Resolution:** Create the missing file in the correct subdirectory. The required files are: `config.json`, `penalties.json`, `stages.json`,
-`initial_conditions.json`, `system/buses.json`, and `system/hydros.json`.
+`boundary_conditions.json` (or the deprecated `initial_conditions.json`), `system/buses.json`, and `system/hydros.json`.
+To create `boundary_conditions.json`, see the
+[boundary conditions page](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
 ---
 
@@ -161,6 +172,9 @@ parse fails. `config.json` and
 A `training.stopping_rules` entry that carries a field that belongs to a *different* rule `type` — for example,
 `seconds` (a `time_limit` field) on a `bound_stalling` rule — is also rejected
 as a `ParseError` with an `unknown field` message.
+An unknown key in `boundary_conditions.json`, or in an entry of a `post_study_*` list in `stages.json`, is also a `ParseError`; see the
+[boundary conditions page](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson) and the
+[post-study calendars](/en/reference/case-format/stages/#post-study-calendars).
 
 **Display format:**
 
@@ -248,7 +262,9 @@ constraint: a required field is missing from `config.json` or `system/hydros.jso
 `min_storage_hm3` exceeds `max_storage_hm3`, or a stage whose `num_openings` is
 0), a field contains an unexpected type, or an entity `id` appears twice in a
 registry file such as `system/buses.json`. Emitted when the fields of a parsed
-file are checked.
+file are checked. A `post_study_*` calendar in `stages.json` that breaks the calendar rules (its ids, their order, its anchoring or its contiguity) is also a `SchemaViolation`; see the
+[post-study calendars](/en/reference/case-format/stages/#post-study-calendars) and the
+[boundary conditions page](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
 **Example:**
 
@@ -936,7 +952,8 @@ only. See [hydros case format](/en/reference/case-format/hydros) for the
 **When it occurs:** A cross-entity foreign-key reference points to an entity
 that does not exist in the expected registry. For example, one of a hydro
 plant's unit groups' `bus_id` references a bus that is not in
-`system/buses.json`. Emitted when the cross-entity references are resolved.
+`system/buses.json`. Emitted when the cross-entity references are resolved. A plant id in `boundary_conditions.json` that names no declared plant is also an `InvalidReference`; see the
+[boundary conditions page](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
 **Example:**
 
@@ -1361,6 +1378,9 @@ the undeclared-`stage_id` bound-override rule
 ([Undeclared `stage_id` in bound-override parquet](#undeclared-stage_id-in-bound-override-parquet)) and
 the per-block generic-constraint references
 ([Per-block generic-constraint references](#per-block-generic-constraint-references)).
+The boundary file-set rules are under
+[Deprecated and current boundary files together](#deprecated-and-current-boundary-files-together) and
+[Post-study calendar beside the deprecated boundary files](#post-study-calendar-beside-the-deprecated-boundary-files).
 The pumping-station rule is under
 [Pumping station outside its endpoints' Operating windows](#pumping-station-outside-its-endpoints-operating-windows).
 The computed-FPHA geometry rule is under
@@ -1600,6 +1620,50 @@ error: [BusinessRuleViolation] constraints/hydro_bounds.parquet (hydro_id=0, sta
 IDs in `stages.json`. For a typo (e.g., `15` instead of `5`), fix the row; for a
 stale override referencing a removed stage, delete the row or update the stages
 declaration.
+
+#### Deprecated and current boundary files together
+
+**When it occurs:** `boundary_conditions.json` is in the case directory together
+with `initial_conditions.json`, `post_study_stages.json`, or both. The two file
+sets describe the same boundary data, so validation refuses to choose between
+them. The message is reported on `boundary_conditions.json`; `{list}` is the
+deprecated file or files found, each in quotes, joined by ` and `.
+
+{/* quoted from source: resolve_boundary_source in crates/novomodelo-io/src/validation/structural.rs at novomodelo commit 95318d3ba90a */}
+
+```text
+'boundary_conditions.json' is present together with the deprecated {list}; keep one set: 'boundary_conditions.json', or the deprecated 'initial_conditions.json' with an optional 'post_study_stages.json'
+```
+
+The line prints as `[BusinessRuleViolation] boundary_conditions.json: <message>`.
+
+**Resolution:** Keep one set. To keep `boundary_conditions.json`, delete the
+deprecated files. To keep the deprecated set, delete `boundary_conditions.json`.
+To move a deprecated set to the current format, run
+`python3 scripts/migrate/boundary_conditions.py <case>`; see
+[Case conversion](/en/running/case-conversion/) and the
+[boundary conditions page](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson).
+
+#### Post-study calendar beside the deprecated boundary files
+
+**When it occurs:** `stages.json` declares a `post_study_*` list while the case
+reads its boundary data from the deprecated `initial_conditions.json` file set.
+That file set ignores the list, so validation refuses the case instead of
+dropping the list silently. The message is reported on `stages.json`.
+
+{/* quoted from source: check_post_study_format in crates/novomodelo-io/src/validation/semantic/post_study_format.rs at novomodelo commit 95318d3ba90a */}
+
+```text
+stages.json declares a post_study_* list, but the case reads its boundary data from the deprecated initial_conditions.json file set, which ignores it; move the boundary data to boundary_conditions.json or remove the list.
+```
+
+The line prints as `[BusinessRuleViolation] stages.json: <message>`.
+
+**Resolution:** Move the boundary data to `boundary_conditions.json`, or remove
+the `post_study_*` list from `stages.json`. To convert the case, run
+`python3 scripts/migrate/boundary_conditions.py <case>`; see
+[Case conversion](/en/running/case-conversion/) and the
+[post-study calendars](/en/reference/case-format/stages/#post-study-calendars).
 
 #### Per-block generic-constraint references
 
@@ -1999,6 +2063,19 @@ inflow-lag warning, see
 for the initial-storage warning, check that the first operating stage can reach
 its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_0` or `gamma_v` until `kappa`·`gamma_0` + `gamma_v`·v_min is at least 0 at the storage v_min the message prints, or fit the planes from geometry with `source: "computed"`; for the tailrace-flow warning, select FPHA for the hydro in `extensions/production_models.json` or remove `tailrace_flow` from the hydro; for a `lognormal_3p` warning, check the flagged seasonal means, or set an [`inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity) method other than `none`.
 Warnings of this type do not prevent the solver from running.
+
+#### Deprecated boundary files in use
+
+**When it occurs:** The case directory holds `initial_conditions.json`, with or
+without `post_study_stages.json`, and no `boundary_conditions.json`. The case
+reads its boundary data from the deprecated file set. The warning is reported
+on `initial_conditions.json`; `novomodelo validate` prints it as a `warning:`
+line and exits `0`, and the case still runs.
+
+**Resolution:** Convert the case with
+`python3 scripts/migrate/boundary_conditions.py <case>`; see
+[Case conversion](/en/running/case-conversion/) and the
+[boundary conditions page](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
 ---
 

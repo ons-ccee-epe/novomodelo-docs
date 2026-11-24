@@ -142,9 +142,20 @@ a falha na sua leitura:
 [FileNotFound] system/buses.json: No such file or directory (os error 2)
 ```
 
+Um diretório do caso sem `boundary_conditions.json` nem o `initial_conditions.json` obsoleto
+gera uma linha `[FileNotFound]` para o par:
+
+{/* quoted from source: resolve_boundary_source in crates/novomodelo-io/src/validation/structural.rs at novomodelo commit 95318d3ba90a */}
+
+```text
+[FileNotFound] boundary_conditions.json: required file 'boundary_conditions.json' (or the deprecated 'initial_conditions.json') not found in case directory
+```
+
 **Solução:** Crie o arquivo ausente no subdiretório correto. Os arquivos obrigatórios são: `config.json`, `penalties.json`, `stages.json`,
-`initial_conditions.json`, `system/buses.json` e
+`boundary_conditions.json` (ou o `initial_conditions.json` obsoleto), `system/buses.json` e
 `system/hydros.json`.
+Para criar `boundary_conditions.json`, veja a
+[página de condições de fronteira](/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
 ---
 
@@ -162,6 +173,9 @@ de um arquivo falha. `config.json` e
 Uma entrada de `training.stopping_rules` que contenha um campo pertencente a *outro* `type` de regra — por exemplo,
 `seconds` (um campo de `time_limit`) em uma regra `bound_stalling` — também é rejeitada
 como `ParseError`, com uma mensagem `unknown field`.
+Uma chave desconhecida em `boundary_conditions.json`, ou em uma entrada de uma lista `post_study_*` de `stages.json`, também é um `ParseError`; veja a
+[página de condições de fronteira](/reference/case-format/boundary-conditions/#boundary_conditionsjson) e os
+[calendários pós-estudo](/reference/case-format/stages/#calendarios-pos-estudo).
 
 **Formato de exibição:**
 
@@ -249,7 +263,9 @@ do esquema: um campo obrigatório está ausente de `config.json` ou de `system/h
 `min_storage_hm3` excede `max_storage_hm3` ou estágio cujo `num_openings` é
 0), um campo contém um tipo inesperado, ou um `id` de entidade aparece duas vezes em um
 arquivo de cadastro como `system/buses.json`. Emitido durante a verificação dos campos de um
-arquivo já analisado.
+arquivo já analisado. Um calendário `post_study_*` de `stages.json` que viola as regras do calendário (seus ids, a ordem deles, sua ancoragem ou sua continuidade) também é um `SchemaViolation`; veja os
+[calendários pós-estudo](/reference/case-format/stages/#calendarios-pos-estudo) e a
+[página de condições de fronteira](/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
 **Exemplo:**
 
@@ -941,7 +957,8 @@ fuga com `own_outflow_factor`. Uma entrada da própria usina pertence apenas a
 **Quando ocorre:** Uma referência de chave estrangeira entre entidades aponta para uma entidade
 que não existe no cadastro esperado. Por exemplo, o `bus_id` de um dos grupos de unidades geradoras
 de uma usina hidrelétrica referencia um barramento que não está em
-`system/buses.json`. Emitido durante a resolução das referências entre entidades.
+`system/buses.json`. Emitido durante a resolução das referências entre entidades. Um id de usina em `boundary_conditions.json` que não nomeia nenhuma usina declarada também é um `InvalidReference`; veja a
+[página de condições de fronteira](/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
 **Exemplo:**
 
@@ -1367,6 +1384,9 @@ a regra de sobrescrita de limites com `stage_id` não declarado
 ([`stage_id` não declarado em parquet de sobrescrita de limites](#stage_id-nao-declarado-em-parquet-de-sobrescrita-de-limites)) e
 as referências por patamar de restrição genérica
 ([Referências por patamar de restrição genérica](#referencias-por-patamar-de-restricao-generica)).
+As regras do conjunto de arquivos de fronteira estão em
+[Arquivos de fronteira atuais e antigos juntos](#arquivos-de-fronteira-atuais-e-antigos-juntos) e
+[Calendário pós-estudo junto aos arquivos de fronteira antigos](#calendario-pos-estudo-junto-aos-arquivos-de-fronteira-antigos).
 A regra da usina elevatória está em
 [Usina elevatória fora das janelas de operação de suas extremidades](#usina-elevatoria-fora-das-janelas-de-operacao-de-suas-extremidades).
 A regra da geometria da FPHA calculada está em
@@ -1606,6 +1626,51 @@ error: [BusinessRuleViolation] constraints/hydro_bounds.parquet (hydro_id=0, sta
 declarados em `stages.json`. Em caso de erro de digitação (por exemplo, `15` em vez de `5`), corrija a linha; em caso de
 sobrescrita obsoleta que referencia um estágio removido, exclua a linha ou atualize a declaração
 dos estágios.
+
+#### Arquivos de fronteira atuais e antigos juntos
+
+**Quando ocorre:** `boundary_conditions.json` está no diretório do caso junto com
+`initial_conditions.json`, `post_study_stages.json` ou ambos. Os dois conjuntos
+de arquivos descrevem os mesmos dados de fronteira, então a validação se recusa
+a escolher entre eles. A mensagem é reportada em `boundary_conditions.json`;
+`{list}` é o arquivo obsoleto, ou os arquivos obsoletos, encontrados, cada um entre
+aspas e unidos por ` and `.
+
+{/* quoted from source: resolve_boundary_source in crates/novomodelo-io/src/validation/structural.rs at novomodelo commit 95318d3ba90a */}
+
+```text
+'boundary_conditions.json' is present together with the deprecated {list}; keep one set: 'boundary_conditions.json', or the deprecated 'initial_conditions.json' with an optional 'post_study_stages.json'
+```
+
+A linha é impressa como `[BusinessRuleViolation] boundary_conditions.json: <message>`.
+
+**Solução:** Mantenha um só conjunto. Para manter `boundary_conditions.json`,
+exclua os arquivos obsoletos. Para manter o conjunto obsoleto, exclua
+`boundary_conditions.json`. Para converter um conjunto obsoleto ao formato atual,
+execute `python3 scripts/migrate/boundary_conditions.py <case>`; veja
+[Conversão de casos](/running/case-conversion/) e a
+[página de condições de fronteira](/reference/case-format/boundary-conditions/#boundary_conditionsjson).
+
+#### Calendário pós-estudo junto aos arquivos de fronteira antigos
+
+**Quando ocorre:** `stages.json` declara uma lista `post_study_*` enquanto o caso
+lê seus dados de fronteira do conjunto obsoleto de arquivos `initial_conditions.json`.
+Esse conjunto ignora a lista, então a validação recusa o caso em vez de
+descartar a lista em silêncio. A mensagem é reportada em `stages.json`.
+
+{/* quoted from source: check_post_study_format in crates/novomodelo-io/src/validation/semantic/post_study_format.rs at novomodelo commit 95318d3ba90a */}
+
+```text
+stages.json declares a post_study_* list, but the case reads its boundary data from the deprecated initial_conditions.json file set, which ignores it; move the boundary data to boundary_conditions.json or remove the list.
+```
+
+A linha é impressa como `[BusinessRuleViolation] stages.json: <message>`.
+
+**Solução:** Mova os dados de fronteira para `boundary_conditions.json` ou remova
+a lista `post_study_*` de `stages.json`. Para converter o caso, execute
+`python3 scripts/migrate/boundary_conditions.py <case>`; veja
+[Conversão de casos](/running/case-conversion/) e os
+[calendários pós-estudo](/reference/case-format/stages/#calendarios-pos-estudo).
 
 #### Referências por patamar de restrição genérica
 
@@ -2007,6 +2072,19 @@ aviso de tendência hidrológica, veja
 para o aviso de armazenamento inicial, verifique se o primeiro estágio de operação consegue atingir
 seus limites de armazenamento ou mova o armazenamento inicial para dentro deles; para o aviso de piso crescente, reduza o piso que sobe, eleve o piso do estágio anterior ou use o método de afluência `penalty` (veja [a precondição de recurso completo](/math/penalty-system#precondicao-de-recurso-completo)); para o aviso do plano pré-calculado, eleve o `gamma_0` ou o `gamma_v` do plano sinalizado até que `kappa`·`gamma_0` + `gamma_v`·v_min seja pelo menos 0 no armazenamento v_min que a mensagem imprime, ou ajuste os planos a partir da geometria com `source: "computed"`; para o aviso da vazão do canal de fuga, selecione a FPHA para a hidrelétrica em `extensions/production_models.json` ou remova `tailrace_flow` da hidrelétrica; para um aviso do `lognormal_3p`, verifique as médias sazonais sinalizadas ou defina um método de [`inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity) diferente de `none`.
 Avisos deste tipo não impedem a execução do solver.
+
+#### Arquivos de fronteira obsoletos em uso
+
+**Quando ocorre:** O diretório do caso contém `initial_conditions.json`, com ou
+sem `post_study_stages.json`, e não contém `boundary_conditions.json`. O caso
+lê seus dados de fronteira do conjunto obsoleto de arquivos. O aviso é reportado
+em `initial_conditions.json`; `novomodelo validate` o imprime como uma linha
+`warning:` e encerra com código `0`, e o caso continua executando.
+
+**Solução:** Converta o caso com
+`python3 scripts/migrate/boundary_conditions.py <case>`; veja
+[Conversão de casos](/running/case-conversion/) e a
+[página de condições de fronteira](/reference/case-format/boundary-conditions/#boundary_conditionsjson).
 
 ---
 
