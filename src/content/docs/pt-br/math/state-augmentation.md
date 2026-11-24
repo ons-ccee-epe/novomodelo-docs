@@ -163,13 +163,13 @@ As parcelas de água em trânsito estendem o vetor de estado (§1), sendo $B = \
 
 ### Fixação do estado (limites de coluna)
 
-Como qualquer outra coordenada de estado de entrada, cada parcela de água em trânsito de entrada é representada por sua própria coluna do PL ([Estrutura e escalonamento do PL §1](/math/lp-layout-and-scaling#1-estrutura-de-colunas-e-linhas)) e fixada em seu valor do estado visitado por **limites de coluna** inferior e superior iguais:
+Como o armazenamento de entrada (§2), cada parcela de água em trânsito de entrada é representada por sua própria coluna do PL ([Estrutura e escalonamento do PL §1](/math/lp-layout-and-scaling#1-estrutura-de-colunas-e-linhas)) e fixada em seu valor do estado visitado por **limites de coluna** inferior e superior iguais:
 
 $$
 \underline{b}^{\,\mathrm{in}}_{h,d} = \bar{b}^{\,\mathrm{in}}_{h,d} = \hat{b}_{h,d}
 $$
 
-onde $\hat{b}_{h,d}$ é o volume de água em trânsito de entrada, a parcela de saída do estágio anterior (ou, no primeiro estágio, o valor inicial derivado das defluências em trânsito declaradas antes do estudo — ver [Visão geral da modelagem dos elementos do sistema — Tempo de viagem na cascata](/math/system-elements#tempo-de-viagem-na-cascata) e [Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/math/hydro-production-models#implementacao-no-novo-modelo)). O **custo reduzido** da coluna fixada da parcela é o coeficiente do corte para essa dimensão de água em trânsito (ver abaixo) — o mesmo regime usado para o armazenamento (§2) e as defasagens AR (§4).
+onde $\hat{b}_{h,d}$ é o volume de água em trânsito de entrada, a parcela de saída do estágio anterior (ou, no primeiro estágio, o valor inicial derivado das defluências em trânsito declaradas antes do estudo — ver [Visão geral da modelagem dos elementos do sistema — Tempo de viagem na cascata](/math/system-elements#tempo-de-viagem-na-cascata) e [Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/math/hydro-production-models#implementacao-no-novo-modelo)). O **custo reduzido** da coluna fixada da parcela é o coeficiente do corte para essa dimensão de água em trânsito (ver abaixo) — o mesmo regime usado para o armazenamento (§2) e as posições do anel de despacho antecipado (§5).
 
 ### Entrada de chegada defasada no balanço hídrico
 

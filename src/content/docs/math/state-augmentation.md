@@ -163,13 +163,13 @@ The buckets extend the state vector (§1), with $B = \sum_h L_h$ the total bucke
 
 ### State pinning (column bounds)
 
-Like every other incoming state coordinate, each incoming bucket is carried on its own LP column ([LP Layout and Scaling §1](/en/math/lp-layout-and-scaling#1-column-and-row-layout)) and pinned to its trial value by equal lower and upper **column bounds**:
+Like incoming storage (§2), each incoming bucket is carried on its own LP column ([LP Layout and Scaling §1](/en/math/lp-layout-and-scaling#1-column-and-row-layout)) and pinned to its trial value by equal lower and upper **column bounds**:
 
 $$
 \underline{b}^{\,\mathrm{in}}_{h,d} = \bar{b}^{\,\mathrm{in}}_{h,d} = \hat{b}_{h,d}
 $$
 
-where $\hat{b}_{h,d}$ is the incoming in-transit volume, the previous stage's outgoing bucket (or, at the first stage, the seed derived from the in-transit releases declared before the study — see [System Element Modeling Overview — Cascade Travel Time](/en/math/system-elements#cascade-travel-time) and [Hydro Production Function Models — Implementation in Novomodelo](/en/math/hydro-production-models#implementation-in-novomodelo)). The **reduced cost** of the pinned bucket column is the cut coefficient for that in-transit dimension (see below) — the same regime used for storage (§2) and AR lags (§4).
+where $\hat{b}_{h,d}$ is the incoming in-transit volume, the previous stage's outgoing bucket (or, at the first stage, the seed derived from the in-transit releases declared before the study — see [System Element Modeling Overview — Cascade Travel Time](/en/math/system-elements#cascade-travel-time) and [Hydro Production Function Models — Implementation in Novomodelo](/en/math/hydro-production-models#implementation-in-novomodelo)). The **reduced cost** of the pinned bucket column is the cut coefficient for that in-transit dimension (see below) — the same regime used for storage (§2) and the ring slots (§5).
 
 ### Delayed-arrival water-balance entry
 
