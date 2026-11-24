@@ -26,24 +26,24 @@ commissioning-gated at its delivery stage** `t+K` (`columns.rs`,
 (`setup/mod.rs`; `novomodelo-io` has no fan-out check). A lead past the horizon is
 rejected at case load only when it exceeds the whole study horizon
 (`lead_stages` > stage count, or `lead_time_hours` > summed study hours) and the
-plant reaches no declared `post_study_stages.json` post-study stage
+plant reaches no declared `post_study_thermal_stages` post-study stage
 (`validation/semantic/thermal.rs`); a decision stage whose delivery falls beyond
 the study horizon and the declared post-study stages is gated off
 (`lp/indexer/anticipated_gate.rs`). The decision column's cost is
 `cost × delivery hours × relative_delivery_discount(decision, delivery)`
 (`columns.rs`; `time_value.rs`, `D(t+K)/D(t)`). An in-study-decided
 post-horizon delivery is bounded and costed on its decision column by the
-`post_study_stages.json` cell, the sole surface for it, and only the commitment
+`thermals[].post_study_bounds` row of `boundary_conditions.json`, the sole surface for it, and only the commitment
 it carries into the terminal state is boundary-priced. Pre-study-decided
-deliveries past the horizon (DECOMP já-comandada) ride `initial_conditions.json`
-`past_anticipated_commitments` windows extending past `T`: their fuel is sunk and
+deliveries past the horizon (DECOMP já-comandada) ride `boundary_conditions.json`
+`thermals[].commitments` windows extending past `T`: their fuel is sunk and
 booked nowhere, and only their state contribution is folded into the boundary
 cut intercepts (`build_boundary_fold` in `policy/reconcile.rs`).
 Sub-tolerance drift at a delivery
 bound is absorbed by the read-back state canonicalization that clamps the outgoing
 state onto its resolved box (`solve/stage_solve.rs` `assemble_outgoing_state`), not
 by a per-solve reconcile pass; genuine over-commitment — a
-`past_anticipated_commitments` `value_mw` outside the plant's
+`commitments` `value_mw` outside the plant's
 `[min_generation_mw, max_generation_mw]` — is rejected at case load as a named
 `BusinessRuleViolation` (`validation/semantic/thermal.rs`
 `check_committed_value_bounds`, naming the thermal, its window, the value, and the

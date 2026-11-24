@@ -116,10 +116,10 @@ associando a antecedência por usina descrita em [Visão geral da modelagem dos 
 | `lead_stages`     | integer | Número de estágios de antecipação de despacho, independente do calendário. Um valor `2` significa que o compromisso para o estágio `t` deve ser decidido no estágio `t - 2`. Deve ser `>= 1`. |
 | `lead_time_hours` | number  | Antecedência física de despacho, em horas; deve ser finita e `> 0`. O compromisso de cada estágio de entrega é decidido no estágio que contém o instante situado uma antecedência antes do fim do estágio de entrega (um instante sobre a fronteira entre estágios pertence ao estágio anterior); uma entrega cujo instante é igual ou anterior ao início do estudo é decidida antes do estudo. Quando o instante cai dentro do próprio estágio de entrega, a entrega não é antecipada: a usina é despachada como termelétrica comum nesse estágio, e a preparação do estudo registra um aviso indicando a usina e o estágio. |
 
-Fornecer ambas as chaves, ou nenhuma delas, é um erro de carga. Uma antecedência que ultrapassa o horizonte do estudo — `lead_stages` maior que o número de estágios, ou `lead_time_hours` maior que a soma do horizonte — é rejeitada na carga, **a menos que** a antecedência da usina alcance um **estágio pós-estudo declarado** (ambos os modos de antecedência são condicionados da mesma forma): tal compromisso é entregue além do horizonte, seja ele decidido no estudo ou antes dele. Sem um estágio pós-estudo a alcançar, a usina nunca poderia entregar dentro do horizonte do estudo, e a antecedência além do horizonte é rejeitada. Uma antecedência `lead_time_hours` grosseira o bastante para que um estágio de decisão decida mais de um estágio de entrega é rejeitada na preparação do estudo; uma antecedência `lead_stages` nunca produz essa situação. Ver [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) e [`post_study_stages.json`](/reference/case-format/stages/#post_study_stagesjson) para a fronteira contra a qual uma entrega pós-horizonte é precificada.
+Fornecer ambas as chaves, ou nenhuma delas, é um erro de carga. Uma antecedência que ultrapassa o horizonte do estudo — `lead_stages` maior que o número de estágios, ou `lead_time_hours` maior que a soma do horizonte — é rejeitada na carga, **a menos que** a antecedência da usina alcance um **estágio pós-estudo de termelétrica declarado** (ambos os modos de antecedência são condicionados da mesma forma): tal compromisso é entregue além do horizonte, seja ele decidido no estudo ou antes dele. Sem um estágio pós-estudo de termelétrica a alcançar, a usina nunca poderia entregar dentro do horizonte do estudo, e a antecedência além do horizonte é rejeitada. Uma antecedência `lead_time_hours` grosseira o bastante para que um estágio de decisão decida mais de um estágio de entrega é rejeitada na preparação do estudo; uma antecedência `lead_stages` nunca produz essa situação. Ver [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary) e [Calendários pós-estudo](/reference/case-format/stages/#calendarios-pos-estudo) para a fronteira contra a qual uma entrega pós-horizonte é precificada.
 
-Uma usina com antecipação também declara, em `past_anticipated_commitments` de
-`initial_conditions.json`, todo compromisso que decidiu antes do estudo
+Uma usina com antecipação também declara, em `commitments` de sua entrada em
+`thermals[]` de [`boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson), todo compromisso que decidiu antes do estudo
 ([Visão geral da modelagem dos elementos do sistema §4](/math/system-elements#usinas-termeletricas-com-antecipacao-de-despacho),
 "Compromissos decididos antes do estudo"). Cada entrada é uma **janela datada,
 ancorada na entrega** — uma potência comprometida em MW mantida constante em
@@ -127,15 +127,20 @@ ancorada na entrega** — uma potência comprometida em MW mantida constante em
 
 ```json
 {
-  "past_anticipated_commitments": [
-    { "thermal_id": 2, "start_date": "2025-11-01", "end_date": "2025-12-01", "value_mw": 0.0 }
+  "thermals": [
+    {
+      "thermal_id": 2,
+      "commitments": [
+        { "start_date": "2025-11-01", "end_date": "2025-12-01", "value_mw": 0.0 }
+      ]
+    }
   ]
 }
 ```
 
 | Campo        | Tipo                    | Descrição |
 | ------------ | ----------------------- | ----------- |
-| `thermal_id` | integer                 | Identificador de uma termelétrica com antecipação (deve conter `anticipated_config`). |
+| `thermal_id` | integer                 | Identificador da entrada de `thermals[]`, uma termelétrica com antecipação (deve conter `anticipated_config`). |
 | `start_date` | string (data ISO-8601)  | Início da janela de compromisso (inclusive). |
 | `end_date`   | string (data ISO-8601)  | Fim da janela de compromisso (**exclusive**); deve ser posterior a `start_date`. |
 | `value_mw`   | number                  | Potência comprometida em MW, mantida constante ao longo da janela. |
@@ -173,16 +178,17 @@ Uma termelétrica com antecipação cuja antecedência entrega **após o horizon
 formas de declaração, conforme quem decide o compromisso:
 
 - **Decidido no estudo, entregue após o horizonte** — limitado e custeado **exclusivamente**
-  por uma célula `thermal_bounds[]` em
-  [`post_study_stages.json`](/reference/case-format/stages/#post_study_stagesjson)
-  (`{thermal_id, post_study_stage_index, cost_per_mwh, min_mw, max_mw}`), uma
-  por estágio pós-estudo alcançado. O estudo decide os MW; a célula fornece seu
+  por uma linha `post_study_bounds` de sua entrada em `thermals[]` de
+  [`boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+  (`{stage_id, cost_per_mwh, min_mw, max_mw}`, com `stage_id` um id do
+  [calendário](/reference/case-format/stages/#calendarios-pos-estudo) `post_study_thermal_stages`), uma
+  por estágio pós-estudo alcançado. O estudo decide os MW; a linha fornece seu
   preço e sua capacidade.
 - **Decidido antes do estudo, entregue após o horizonte** — uma janela
-  `past_anticipated_commitments` (acima) que se estende além do fim do horizonte.
+  `commitments` (acima) que se estende além do fim do horizonte.
 
 Uma decisão dentro do estudo é cobrada em sua coluna de decisão ao `cost_per_mwh`
-de sua célula `thermal_bounds[]`, descontado a partir do estágio de entrega, e a
+de sua linha `post_study_bounds`, descontado a partir do estágio de entrega, e a
 fronteira carregada precifica o compromisso transportado para o estado terminal; sem
 `policy.boundary` declarado em `config.json`,
 a preparação do estudo avisa que a entrega é precificada com valor terminal nulo. Um
@@ -232,10 +238,10 @@ geração entregue por patamar, e não o compromisso antecipado.
 | Custo não negativo           | Erro de esquema       | `cost_per_mwh` deve ser não negativo. |
 | Ordenação dos limites de geração | Viabilidade física | `min_mw` deve ser `<= max_mw`. |
 | Validade da antecedência     | Viabilidade física    | Quando `anticipated_config` está presente, `lead_stages` deve ser `>= 1`; um `lead_stages` acima do número de estágios do estudo, ou um `lead_time_hours` acima da soma das horas do horizonte, é rejeitado, a menos que a antecedência alcance um estágio pós-estudo declarado. |
-| Cobertura das janelas de compromisso | Erro de referência | As janelas `past_anticipated_commitments` de toda termelétrica com antecipação devem cobrir exatamente todo estágio de entrega que a usina decidiu antes do estudo (cobertura `1.0`, sem lacunas nem sobreposições) — tanto os estágios iniciais dentro do estudo quanto os estágios pós-horizonte decididos antes do estudo —, nunca um estágio que o próprio estudo decide, e nenhuma janela pode atravessar o fim do horizonte. |
-| Referência à termelétrica do compromisso | Erro de referência | O `thermal_id` de toda entrada de `past_anticipated_commitments` deve referenciar uma termelétrica com antecipação. |
-| Limites do valor comprometido | Viabilidade física   | O `value_mw` de cada janela de `past_anticipated_commitments` deve estar dentro da faixa de geração resolvida de todo estágio de entrega coberto (cobertura dentro do estudo) ou dos limites estáticos `[min_mw, max_mw]` da usina (puramente pós-horizonte), dentro da tolerância do solver. Ver [Códigos de erro](/reference/error-codes). |
-| Limites de entrega pós-estudo | Erro de referência   | Todo estágio pós-estudo alcançado pela antecedência de uma termelétrica com antecipação deve ter uma célula `thermal_bounds[]` correspondente em `post_study_stages.json`, e todo estágio pós-estudo coberto por uma janela de compromisso decidido antes do estudo deve ser coberto com cobertura `1.0`. Ver [Códigos de erro](/reference/error-codes) para os modos exatos de falha. |
+| Cobertura das janelas de compromisso | Erro de referência | As janelas `commitments` de toda termelétrica com antecipação devem cobrir exatamente todo estágio de entrega que a usina decidiu antes do estudo (cobertura `1.0`, sem lacunas nem sobreposições) — tanto os estágios iniciais dentro do estudo quanto os estágios pós-horizonte decididos antes do estudo —, nunca um estágio que o próprio estudo decide, e nenhuma janela pode atravessar o fim do horizonte. |
+| Referência à termelétrica do compromisso | Erro de referência | O `thermal_id` de toda entrada de `thermals[]` com `commitments` deve referenciar uma termelétrica com antecipação. |
+| Limites do valor comprometido | Viabilidade física   | O `value_mw` de cada janela de `commitments` deve estar dentro da faixa de geração resolvida de todo estágio de entrega coberto (cobertura dentro do estudo) ou dos limites estáticos `[min_mw, max_mw]` da usina (puramente pós-horizonte), dentro da tolerância do solver. Ver [Códigos de erro](/reference/error-codes). |
+| Limites de entrega pós-estudo | Erro de referência   | Todo estágio pós-estudo alcançado pela antecedência de uma termelétrica com antecipação deve ter uma linha `post_study_bounds` correspondente em `boundary_conditions.json`, e todo estágio pós-estudo coberto por uma janela de compromisso decidido antes do estudo deve ser coberto com cobertura `1.0`. Ver [Códigos de erro](/reference/error-codes) para os modos exatos de falha. |
 
 ### `system/non_controllable_sources.json` — Cadastro de fontes não despacháveis (NCS)
 

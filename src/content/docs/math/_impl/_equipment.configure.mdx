@@ -116,10 +116,10 @@ attaching the per-plant lead described in [System Element Modeling Overview §4]
 | `lead_stages`     | integer | Number of stages of dispatch anticipation, calendar-free. A value of `2` means the commitment for stage `t` must be decided at stage `t - 2`. Must be `>= 1`. |
 | `lead_time_hours` | number  | Physical anticipation lead in hours; must be finite and `> 0`. Each delivery stage's commitment is decided at the stage containing the instant one lead before the delivery stage's end (an instant on a stage boundary belongs to the earlier stage); a delivery whose instant is at or before the study start is decided before the study. When the instant falls inside the delivery stage itself, the delivery is not anticipated: the plant dispatches as an ordinary thermal at that stage, and the study setup logs a warning naming the plant and the stage. |
 
-Supplying both keys, or neither, is a load error. A lead that reaches past the study horizon — `lead_stages` exceeding the stage count, or `lead_time_hours` exceeding the summed horizon — is rejected at load **unless** the plant's lead reaches a **declared post-study stage** (both lead modes are gated identically): such a commitment is delivered past the horizon, whether decided in the study or before it. With no post-study stage to reach, the plant can never deliver within the study horizon and the over-horizon lead is rejected. A `lead_time_hours` lead coarse enough that one decision stage would decide more than one delivery stage is rejected when the study is set up; a `lead_stages` lead never does this. See [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) and [`post_study_stages.json`](/en/reference/case-format/stages/#post_study_stagesjson) for the boundary a post-horizon delivery is priced against.
+Supplying both keys, or neither, is a load error. A lead that reaches past the study horizon — `lead_stages` exceeding the stage count, or `lead_time_hours` exceeding the summed horizon — is rejected at load **unless** the plant's lead reaches a **declared post-study thermal stage** (both lead modes are gated identically): such a commitment is delivered past the horizon, whether decided in the study or before it. With no post-study thermal stage to reach, the plant can never deliver within the study horizon and the over-horizon lead is rejected. A `lead_time_hours` lead coarse enough that one decision stage would decide more than one delivery stage is rejected when the study is set up; a `lead_stages` lead never does this. See [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) and [Post-study calendars](/en/reference/case-format/stages/#post-study-calendars) for the boundary a post-horizon delivery is priced against.
 
-An anticipated plant also declares, in `initial_conditions.json`'s
-`past_anticipated_commitments`, every commitment it decided before the study
+An anticipated plant also declares, in the `commitments` of its `thermals[]`
+entry in [`boundary_conditions.json`](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson), every commitment it decided before the study
 ([System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants),
 "Commitments decided before the study"). Each entry is a **dated,
 delivery-anchored window** — a committed MW rate held constant over
@@ -127,15 +127,20 @@ delivery-anchored window** — a committed MW rate held constant over
 
 ```json
 {
-  "past_anticipated_commitments": [
-    { "thermal_id": 2, "start_date": "2025-11-01", "end_date": "2025-12-01", "value_mw": 0.0 }
+  "thermals": [
+    {
+      "thermal_id": 2,
+      "commitments": [
+        { "start_date": "2025-11-01", "end_date": "2025-12-01", "value_mw": 0.0 }
+      ]
+    }
   ]
 }
 ```
 
 | Field        | Type                    | Description |
 | ------------ | ----------------------- | ----------- |
-| `thermal_id` | integer                 | Identifier of an anticipated thermal (must carry `anticipated_config`). |
+| `thermal_id` | integer                 | Identifier of the `thermals[]` entry, an anticipated thermal (must carry `anticipated_config`). |
 | `start_date` | string (ISO-8601 date)  | Start of the commitment window (inclusive). |
 | `end_date`   | string (ISO-8601 date)  | End of the commitment window (**exclusive**); must be after `start_date`. |
 | `value_mw`   | number                  | Committed MW rate held constant over the window. |
@@ -173,16 +178,17 @@ An anticipated thermal whose lead delivers **after the study horizon** has two
 declaration surfaces, by who decides the commitment:
 
 - **Decided in-study, delivered post-horizon** — bounded and costed **solely**
-  by a `thermal_bounds[]` cell in
-  [`post_study_stages.json`](/en/reference/case-format/stages/#post_study_stagesjson)
-  (`{thermal_id, post_study_stage_index, cost_per_mwh, min_mw, max_mw}`), one
-  per reached post-study stage. The study decides the MW; the cell supplies its
+  by a `post_study_bounds` row of its `thermals[]` entry in
+  [`boundary_conditions.json`](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+  (`{stage_id, cost_per_mwh, min_mw, max_mw}`, `stage_id` an id of the
+  `post_study_thermal_stages` [calendar](/en/reference/case-format/stages/#post-study-calendars)), one
+  per reached post-study stage. The study decides the MW; the row supplies its
   price and capability.
 - **Decided before the study, delivered post-horizon** — a
-  `past_anticipated_commitments` window (above) extending past the horizon end.
+  `commitments` window (above) extending past the horizon end.
 
 An in-study decision is charged on its decision column at the `cost_per_mwh`
-of its `thermal_bounds[]` cell, discounted from the delivery stage, and the
+of its `post_study_bounds` row, discounted from the delivery stage, and the
 loaded boundary prices the commitment carried into the terminal state; with no
 `policy.boundary` declared in `config.json`,
 the study setup warns that the delivery prices at zero terminal value. A
@@ -232,10 +238,10 @@ per-block delivered generation, not the forward commitment.
 | Non-negative cost            | Schema error          | `cost_per_mwh` must be non-negative. |
 | Generation bounds ordering   | Physical feasibility  | `min_mw` must be `<= max_mw`. |
 | Anticipated lead validity    | Physical feasibility  | When `anticipated_config` is present, `lead_stages` must be `>= 1`; a `lead_stages` above the study's stage count, or a `lead_time_hours` above the summed horizon hours, is rejected unless the lead reaches a declared post-study stage. |
-| Commitment-window tiling     | Reference error       | Every anticipated thermal's `past_anticipated_commitments` windows must tile every delivery stage the plant decided before the study exactly (coverage `1.0`, no gap, no overlap) — in-study leading stages and post-horizon stages decided before the study alike — never a stage the study itself decides, and no window may straddle the horizon end. |
-| Commitment thermal reference | Reference error   | Every `past_anticipated_commitments` entry's `thermal_id` must reference an anticipated thermal. |
-| Commitment value bounds      | Physical feasibility  | Each `past_anticipated_commitments` window's `value_mw` must lie within every covered delivery stage's resolved generation box (in-study coverage) or the plant's static `[min_mw, max_mw]` bounds (purely post-horizon), within solver tolerance. See [Error Codes](/en/reference/error-codes). |
-| Post-study delivery bounds   | Reference error       | Every post-study stage an anticipated thermal's lead reaches must carry a matching `post_study_stages.json` `thermal_bounds[]` cell, and every post-study stage covered by a window for a commitment decided before the study must be tiled at coverage `1.0`. See [Error Codes](/en/reference/error-codes) for the exact failure modes. |
+| Commitment-window tiling     | Reference error       | Every anticipated thermal's `commitments` windows must tile every delivery stage the plant decided before the study exactly (coverage `1.0`, no gap, no overlap) — in-study leading stages and post-horizon stages decided before the study alike — never a stage the study itself decides, and no window may straddle the horizon end. |
+| Commitment thermal reference | Reference error   | Every `thermals[]` entry with `commitments` must reference an anticipated thermal. |
+| Commitment value bounds      | Physical feasibility  | Each `commitments` window's `value_mw` must lie within every covered delivery stage's resolved generation box (in-study coverage) or the plant's static `[min_mw, max_mw]` bounds (purely post-horizon), within solver tolerance. See [Error Codes](/en/reference/error-codes). |
+| Post-study delivery bounds   | Reference error       | Every post-study stage an anticipated thermal's lead reaches must carry a matching `post_study_bounds` row in `boundary_conditions.json`, and every post-study stage covered by a window for a commitment decided before the study must be tiled at coverage `1.0`. See [Error Codes](/en/reference/error-codes) for the exact failure modes. |
 
 ### `system/non_controllable_sources.json` — NCS Registry
 
