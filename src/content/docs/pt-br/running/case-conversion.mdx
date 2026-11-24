@@ -573,6 +573,15 @@ de importação `CI` ou de exportação `CE` com esse número no seu submercado;
 não corresponde a um único contrato desse tipo descarta a sua restrição, com um aviso
 `decomp-fe-no-contract`.
 
+Quando o deck opera Itaipu e o seu registro `RI` declara uma carga da ANDE positiva
+(`carga_ande`), o `convert decomp` acrescenta a restrição `RI_ANDE`: a geração de
+Itaipu na barra das suas unidades de 50 Hz, maior ou igual à carga da ANDE em cada
+estágio e patamar com carga positiva, com uma folga `per_hour` à penalidade das
+restrições `RE`. O DECOMP desconta a carga da ANDE da geração de 50 Hz antes que essa
+geração chegue ao submercado, de modo que só essas unidades a atendem; o caso soma a
+carga à demanda da barra do submercado onde elas ficam, e sem a restrição as demais
+usinas do submercado poderiam atendê-la.
+
 Uma restrição LIBS mantém seus termos de decisão na expressão e incorpora seus
 termos de dados ao limite em cada estágio e patamar: a carga, os aliases, a
 potência disponível, um termo `peq_<name>_<subsystem>` (a geração da série de
@@ -592,7 +601,7 @@ A folga de cada restrição flexível declara sua `penalty_basis`: a VminOP é
 `per_unit`, de modo que sua penalidade é cobrada por MWh de violação, e as restrições
 elétricas são `per_hour`. No fluxo do DECOMP, a RHE limita a energia armazenada útil
 da mesma forma que a VminOP, uma restrição por registro, e é `per_unit`; as restrições `RE`,
-`HQ`, `HV` e LIBS são `per_hour`.
+`HQ`, `HV`, LIBS e `RI_ANDE` são `per_hour`.
 
 ---
 

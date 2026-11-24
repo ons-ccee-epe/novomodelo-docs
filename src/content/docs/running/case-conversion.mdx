@@ -569,6 +569,15 @@ a `per_unit` slack. An `FE` term of an `RE` constraint becomes a term on the
 that matches no single such contract drops its constraint, with a
 `decomp-fe-no-contract` warning.
 
+When the deck operates Itaipu and its `RI` record declares a positive ANDE load
+(`carga_ande`), `convert decomp` adds the constraint `RI_ANDE`: Itaipu's
+generation at the bus of its 50 Hz units, at or above the ANDE load in each
+stage and block with a positive load, with a `per_hour` slack at the penalty of
+the `RE` constraints. DECOMP takes the ANDE load out of the 50 Hz generation
+before that generation reaches the submarket, so those units alone serve it; the
+case adds the load to the demand of the submarket bus where they sit, and without
+the constraint the submarket's other plants could serve it.
+
 A LIBS restriction keeps its decision terms in the expression and folds its
 data terms into the bound at each stage and block: the load, the aliases, the
 available power, a `peq_<name>_<subsystem>` term (the generation of that
@@ -588,7 +597,7 @@ Each soft constraint's slack declares its `penalty_basis`: VminOP is
 `per_unit`, so its penalty is charged per MWh of violation, and the electric
 constraints are `per_hour`. On the DECOMP track, RHE bounds useful stored energy
 the same way as VminOP, one constraint per record, and is `per_unit`; the `RE`,
-`HQ`, `HV` and LIBS constraints are `per_hour`.
+`HQ`, `HV`, LIBS and `RI_ANDE` constraints are `per_hour`.
 
 ---
 
