@@ -1269,42 +1269,6 @@ linha `[BusinessRuleViolation]`; essa entrada fica sob `SchemaViolation`, onde s
 As regras de volume do estágio das restrições genéricas estão em
 [Restrições genéricas com volume do estágio](#restricoes-genericas-com-volume-do-estagio).
 
-#### Coluna determinística de afluência externa sob modelo autorregressivo
-
-**Quando ocorre:** No esquema de amostragem de afluências `external`, a média e o desvio-padrão
-sazonais de uma afluência são substituídos pelos momentos amostrais de seu
-arquivo de cenários externos apenas para uma hidrelétrica de ordem autorregressiva 0 sem componente
-anual; uma hidrelétrica cujos arquivos declaram um coeficiente de defasagem ou um componente anual
-mantém as estatísticas declaradas em seus próprios arquivos. A substituição é feita por classe: uma
-classe de carga ou de fonte não despachável obtém seus momentos de seu arquivo externo
-apenas quando essa própria classe é `external`.
-
-Uma coluna constante (σ = 0) é aceita para carga, NCS e uma hidrelétrica de ordem 0
-sem componente anual, mas é **rejeitada** para uma hidrelétrica cujos arquivos declaram uma
-ordem autorregressiva acima de 0 ou um componente anual: um único valor determinístico
-não pode substituir tal modelo, pois teria de ser igual à própria saída
-PAR determinística do modelo, estágio a estágio, que o carregador não
-reconstrói a partir de uma coluna constante.
-
-**Campos:**
-
-| Campo         | Descrição                                                                                                  |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `description` | Contém uma linha `[BusinessRuleViolation] <external inflow file> (inflow entity <e> stage <stage_id>): <message>` |
-
-**Exemplo:**
-
-```
-constraint violation: [BusinessRuleViolation] scenarios/external_inflow_scenarios.parquet (inflow entity 7 stage 3): inflow external library at stage 3, entity 7: every scenario value is constant (σ = 0), but this hydro's inflow follows an autoregressive model of order > 0; a deterministic value here would have to equal that model's own deterministic PAR output at every stage, which this loader does not compute upstream
-```
-
-**Solução:** Dê à coluna externa uma variação real de estágio para estágio ou
-reduza o modelo autorregressivo de afluências da usina para ordem 0 (sem coeficiente de defasagem, sem
-componente anual), se sua afluência for de fato determinística. Veja
-[Geração de cenários §4.4](/math/scenario-generation) para a regra de aceitação/rejeição
-e [`scenario_source`](/running/configuration/#trainingscenario_source) para a
-configuração do esquema.
-
 #### Parâmetros escalares fora do diretório de restrições
 
 **Quando ocorre:** Os parâmetros escalares são lidos apenas de
@@ -2201,9 +2165,9 @@ Cada mensagem é `insufficient data: ` seguido do texto abaixo:
   V2.1: stage {stage_id} (index {index}) has season_id: None; all study stages must have a season_id assigned
   ```
 - Um resíduo do conjunto não é finito:
-  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:579-598 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:579-596 at novomodelo v0.22.0 */}
   ```text
-  V2.3: historical library contains non-finite eta (NEG_INFINITY or NaN) at window year {year}, stage id {stage_id}, hydro id {hydro_id} — sigma=0 with non-matching historical observation or numerical failure
+  V2.3: historical library contains non-finite eta {value} at window year {year}, stage id {stage_id}, hydro id {hydro_id}
   ```
 
 V2.1 nomeia o id do estágio e, em seguida, seu índice a partir de 0. Um estágio não tem período sazonal
@@ -2213,7 +2177,7 @@ com um modelo de afluências de ordem 1 e um mapa de períodos sazonais `custom`
 estágio e seu período sazonal de defasagem, mas deixa descoberta a data de início de um estágio posterior,
 `novomodelo validate` reporta V2.1.
 
-V2.3 nomeia o ano da janela, o id do estágio e o id da hidrelétrica.
+V2.3 nomeia o valor, o ano da janela, o id do estágio e o id da hidrelétrica.
 
 **Exibição em `novomodelo validate`:** a fase é `StochasticPreparationError`
 e o código de saída é `1`. A linha `error:` traz o rótulo do arquivo e o

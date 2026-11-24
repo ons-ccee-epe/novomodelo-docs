@@ -617,37 +617,29 @@ buffer de defasagens para o seguinte):
    sobrepostas, dia a dia, pelas observações recentes das condições iniciais onde as
    duas se sobrepõem (veja a §4.5 para o motivo de esta ser a única semente admissível).
 2. Para cada estágio $t$: calcula a componente determinística do PAR, resolve para
-   $\varepsilon_t$ e atualiza o buffer de defasagens com $a_t^{\text{target}}$.
-3. Valida o ruído invertido:
-   - Quando $\sigma_m = 0$, o ruído invertido é $0$ se $a_t^{\text{target}}$
-     for igual à componente determinística dentro de uma tolerância numérica e,
-     caso contrário, não tem valor finito, o que faz o estudo ser recusado (o modelo PAR
-     diz que a série é determinística, mas o cenário discorda).
-   - A construção do conjunto de janelas invertidas, que serve tanto à reprodução
-     histórica quanto às aberturas por resíduos históricos (§2.5), recusa o estudo
-     quando um estágio do estudo não tem período sazonal, quando um valor de ruído invertido é a
-     incompatibilidade com $\sigma_m = 0$ descrita acima ou não é um número, ou quando o conjunto de janelas
-     está vazio. [Códigos de erro](/reference/error-codes/#stochasticpreparationerror)
-     lista as mensagens e os códigos de saída.
+   $\varepsilon_t$ e atualiza o buffer de defasagens com $a_t^{\text{target}}$. Quando
+   $\sigma_m = 0$, o ruído não altera a afluência, de modo que $\varepsilon_t = 0$
+   qualquer que seja $a_t^{\text{target}}$, e a reprodução adota a componente
+   determinística no lugar do valor-alvo nesse estágio.
+3. Valida o ruído invertido: a construção do conjunto de janelas invertidas, que serve
+   tanto à reprodução histórica quanto às aberturas por resíduos históricos (§2.5),
+   recusa o estudo quando um estágio do estudo não tem período sazonal, quando um valor
+   de ruído invertido não é finito ou quando o conjunto de janelas está vazio.
+   [Códigos de erro](/reference/error-codes/#stochasticpreparationerror) lista as
+   mensagens e os códigos de saída.
 
 ### 4.4 Colunas externas determinísticas (σ = 0)
 
 A coluna externa de uma classe pode ser **constante** — todas as realizações idênticas,
-desvio-padrão zero. Como as estatísticas da classe são derivadas das
-próprias amostras (§4.1), o Novo Modelo interpreta isso como uma série genuinamente determinística,
-e não malformada, e a **aceita** para a carga, para fontes não
+desvio-padrão zero. O Novo Modelo interpreta isso como uma série determinística, e não
+malformada, e a **aceita** para todas as classes. Para a carga, para fontes não
 despacháveis e para uma afluência com modelo de **ordem 0** (sem defasagem autorregressiva e
-sem componente anual): a base determinística é exatamente esse valor constante.
-
-Uma coluna constante é **rejeitada** apenas para uma afluência cujo modelo tenha uma
-defasagem autorregressiva ou uma componente anual. Um único valor determinístico não pode
-substituir tal modelo: ele teria de ser igual à própria saída determinística do PAR, estágio a estágio,
-do modelo — que depende da evolução do estado de defasagens e não é
-reconstruída a partir de uma coluna constante —; assim, a carga falha, indicando a classe, o estágio
-e a entidade. Isso é distinto da verificação de ancoragem da inversão da §4.3: trata-se de uma
-regra de admissibilidade da coluna aplicada na carga, e não de um teste do resíduo por estágio. (A
-mensagem concreta de rejeição é uma questão da camada de software — veja
-[Códigos de erro](/reference/error-codes).)
+sem componente anual), as estatísticas da classe são derivadas das próprias amostras (§4.1),
+de modo que a base determinística é exatamente esse valor constante. Uma afluência cujo modelo
+tenha uma defasagem autorregressiva ou uma componente anual mantém as estatísticas do seu
+modelo, e a inversão da §4.3 converte a constante em um valor de ruído por estágio, que a
+simulação forward reproduz como o valor registrado (exceto em um período sazonal cujo
+$\sigma_m$ é zero, passo 2 da §4.3).
 
 ### 4.5 Consistência de x₀ na reprodução histórica
 

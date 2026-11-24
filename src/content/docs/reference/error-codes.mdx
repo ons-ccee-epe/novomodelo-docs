@@ -1265,42 +1265,6 @@ The horizon rule of [Invalid anticipated-thermal lead](#invalid-anticipated-ther
 The stage-volume rules of generic constraints are under
 [Stage-volume generic constraints](#stage-volume-generic-constraints).
 
-#### Deterministic external inflow column under an autoregressive model
-
-**When it occurs:** Under the `external` inflow sampling scheme, an inflow's
-seasonal mean and standard deviation are replaced by the sample moments of its
-external scenario file only for a hydro of autoregressive order 0 with no annual
-component; a hydro whose files declare a lag coefficient or an annual component
-keeps the statistics its own files declare. The substitution is per class: a
-load or non-controllable-source class takes its moments from its external file
-only when that class is itself `external`.
-
-A constant (σ = 0) column is accepted for load, NCS, and a hydro of order 0
-with no annual component, but **rejected** for a hydro whose files declare an
-autoregressive order above 0 or an annual component: a single deterministic
-value cannot stand in for such a model, since it would have to equal that
-model's own stage-by-stage deterministic PAR output, which the loader does not
-reconstruct from a flat column.
-
-**Fields:**
-
-| Field         | Description                                                                                              |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `description` | Contains a `[BusinessRuleViolation] <external inflow file> (inflow entity <e> stage <stage_id>): <message>` line |
-
-**Example:**
-
-```
-constraint violation: [BusinessRuleViolation] scenarios/external_inflow_scenarios.parquet (inflow entity 7 stage 3): inflow external library at stage 3, entity 7: every scenario value is constant (σ = 0), but this hydro's inflow follows an autoregressive model of order > 0; a deterministic value here would have to equal that model's own deterministic PAR output at every stage, which this loader does not compute upstream
-```
-
-**Resolution:** Give the external column genuine stage-to-stage variation, or
-drop the plant's autoregressive inflow model to order 0 (no lag coefficient, no
-annual component) if its inflow really is deterministic. See
-[Scenario Generation §4.4](/en/math/scenario-generation) for the accept/reject
-rule and [`scenario_source`](/en/running/configuration/#trainingscenario_source) for the
-scheme configuration.
-
 #### Scalar parameters outside the constraints directory
 
 **When it occurs:** Scalar parameters are read from
@@ -2196,9 +2160,9 @@ Each message is `insufficient data: ` followed by the text below:
   V2.1: stage {stage_id} (index {index}) has season_id: None; all study stages must have a season_id assigned
   ```
 - A residual of the pool is not finite:
-  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:579-598 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:579-596 at novomodelo v0.22.0 */}
   ```text
-  V2.3: historical library contains non-finite eta (NEG_INFINITY or NaN) at window year {year}, stage id {stage_id}, hydro id {hydro_id} — sigma=0 with non-matching historical observation or numerical failure
+  V2.3: historical library contains non-finite eta {value} at window year {year}, stage id {stage_id}, hydro id {hydro_id}
   ```
 
 V2.1 names the stage id, then the stage's 0-based index. A stage has no season
@@ -2208,7 +2172,7 @@ with an inflow model of order 1 and a `custom` season map that covers the first
 stage and its lag season but leaves one later stage's start date uncovered,
 `novomodelo validate` reports V2.1.
 
-V2.3 names the window's year, the stage id and the hydro id.
+V2.3 names the value, the window's year, the stage id and the hydro id.
 
 **Rendering under `novomodelo validate`:** the phase is `StochasticPreparationError`
 and the exit code is `1`. The `error:` line carries the file label and the
