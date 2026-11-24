@@ -413,8 +413,8 @@ Post-horizon commitments the study decides, keyed
 decision whose delivery stage is a post-study stage, at its decision stage; a
 scenario with no such decision writes no partition. 7 columns. All columns are
 non-nullable. Hive-partitioned by `scenario_id`
-(`anticipated_lanes/scenario_id=NNNN/data.parquet`); written only when the
-study declares `post_study_stages`.
+(`anticipated_lanes/scenario_id=NNNN/data.parquet`); written only when
+`stages.json` declares `post_study_thermal_stages`.
 
 **Methodology:** [State Augmentation](/en/math/state-augmentation)
 
@@ -434,8 +434,8 @@ study declares `post_study_stages`.
 
 Run-level echo of every commitment **decided before the study** and delivered
 past the study horizon (for the equivalent term in other planning tools, see the
-[Glossary](/en/reference/glossary)), declared as `past_anticipated_commitments`
-windows extending past the horizon end. Unlike
+[Glossary](/en/reference/glossary)), declared as `thermals[].commitments`
+windows in `boundary_conditions.json` extending past the horizon end. Unlike
 `simulation/anticipated_lanes/`, this file is **not** under `simulation/`, is
 **unpartitioned**, and carries no scenario, stage, or node axis: each row is a
 resolved input, scenario- and stage-independent. One row per fixed post-horizon
@@ -452,7 +452,7 @@ folded into the boundary cuts' intercepts.
 | ------------ | ------- | -------- | ----- | -------------------------------------------------------- |
 | `thermal_id` | Int32   | No       | —     | Anticipated thermal unit ID.                             |
 | `start_date` | Date32  | No       | —     | First delivery date of the fixed window.                 |
-| `end_date`   | Date32  | No       | —     | End of the fixed window (exclusive): the window's `end_date` as declared in `past_anticipated_commitments`. |
+| `end_date`   | Date32  | No       | —     | End of the fixed window (exclusive): the window's `end_date` as declared in `thermals[].commitments`. |
 | `value_mw`   | Float64 | No       | MW    | Committed delivery held constant over the window, in MW. |
 
 ---

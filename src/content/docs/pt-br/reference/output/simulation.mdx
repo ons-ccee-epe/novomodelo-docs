@@ -413,8 +413,8 @@ Compromissos de despacho posteriores ao horizonte decididos pelo estudo, indexad
 decisão cujo estágio de entrega é um estágio pós-estudo, no seu estágio de decisão; um
 cenário sem tal decisão não grava partição. 7 colunas. Todas as colunas são
 não anuláveis. Particionado (Hive) por `scenario_id`
-(`anticipated_lanes/scenario_id=NNNN/data.parquet`); gravado somente quando o
-estudo declara `post_study_stages`.
+(`anticipated_lanes/scenario_id=NNNN/data.parquet`); gravado somente quando
+`stages.json` declara `post_study_thermal_stages`.
 
 **Metodologia:** [Aumento do espaço de estados](/math/state-augmentation)
 
@@ -434,8 +434,8 @@ estudo declara `post_study_stages`.
 
 Eco, em nível da execução, de todo compromisso de despacho **decidido antes do estudo** e entregue
 após o horizonte do estudo (para o termo equivalente em outras ferramentas de planejamento, veja o
-[Glossário](/reference/glossary)), declarado como janelas `past_anticipated_commitments`
-que se estendem além do fim do horizonte. Diferentemente de
+[Glossário](/reference/glossary)), declarado como janelas `thermals[].commitments`
+em `boundary_conditions.json` que se estendem além do fim do horizonte. Diferentemente de
 `simulation/anticipated_lanes/`, este arquivo **não** fica em `simulation/`, **não é
 particionado** e não tem eixo de cenário, estágio ou nó: cada linha é uma
 entrada resolvida, independente de cenário e de estágio. Uma linha por janela fixa
@@ -452,7 +452,7 @@ incorporada aos termos independentes dos cortes de fronteira.
 | ------------ | ------- | -------- | -------- | --------- |
 | `thermal_id` | Int32   | Não      | —        | ID da unidade termelétrica com antecipação de despacho. |
 | `start_date` | Date32  | Não      | —        | Primeira data de entrega da janela fixa. |
-| `end_date`   | Date32  | Não      | —        | Fim da janela fixa (exclusive): o `end_date` da janela conforme declarado em `past_anticipated_commitments`. |
+| `end_date`   | Date32  | Não      | —        | Fim da janela fixa (exclusive): o `end_date` da janela conforme declarado em `thermals[].commitments`. |
 | `value_mw`   | Float64 | Não      | MW       | Entrega comprometida, mantida constante ao longo da janela, em MW. |
 
 ---
