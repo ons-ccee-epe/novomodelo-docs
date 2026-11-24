@@ -288,6 +288,37 @@ famílias de remanso ([Modelos de função de produção hidrelétrica
 §2.3.1](/math/hydro-production-models#231-familias-quarticas-por-partes-do-canal-de-fuga-acoplamento-por-remanso)) —, substitui o modelo no nível da entidade no ajuste da FPHA calculada para qualquer usina que tenha linhas nesse
 arquivo; a derivação da produtibilidade equivalente continua lendo o modelo no nível da entidade.
 
+**Vazão de jusante** — o bloco opcional `tailrace_flow` declara quais vazões elevam o
+nível de jusante, separadamente da curva `tailrace`, que associa uma vazão a um nível.
+Todos os campos são opcionais e, por padrão, o bloco considera apenas a vazão defluente
+da própria usina.
+
+```json
+"tailrace_flow": {
+  "own_outflow_factor": 1.0,
+  "outflow_influences": [ { "hydro_id": 7, "factor": 1.0 } ],
+  "incremental_inflow_influences": [ { "hydro_id": 3, "factor": 0.5 } ]
+}
+```
+
+A vazão de jusante é `f·q + q_lat`: `own_outflow_factor` é `f` (`1.0` quando ausente ou
+`null`) e pondera a vazão turbinada da própria usina, e `q_lat` é o vertimento da própria
+usina multiplicado por `f` mais a vazão de cada usina listada vezes seu `factor`. Uma
+entrada de `outflow_influences` soma a vazão turbinada mais o vertimento dessa usina; uma
+entrada de `incremental_inflow_influences` soma a afluência incremental realizada dessa
+usina. Veja a definição em
+[Modelos de função de produção hidrelétrica §2.2](/math/hydro-production-models#22-funcao-de-producao-exata).
+
+Uma usina pode citar a si mesma em `incremental_inflow_influences`, de modo que sua própria
+afluência incremental eleve seu próprio nível de jusante. Ela não pode citar a si mesma em
+`outflow_influences`: a vazão defluente própria é definida por `own_outflow_factor`. Os
+fatores são não negativos, não precisam somar `1`, e as listas são ordenadas por `hydro_id`
+na carga, de modo que a ordem não altera os resultados.
+
+Somente o modelo FPHA lê a vazão de jusante, no ajuste da FPHA e nos planos do PL.
+Usinas de produtibilidade constante a ignoram, e um `tailrace_flow` fora do padrão em uma
+usina que não usa FPHA em nenhum estágio do estudo emite o aviso `semantic.5a.70`.
+
 **Perdas hidráulicas** — o bloco `hydraulic_losses` modela a perda de carga no
 conduto forçado; ausente significa sem perdas.
 
@@ -463,3 +494,6 @@ enchimento e retirada que esse arquivo também contém.
 | Faixa do armazenamento inicial | Erro semântico | Um valor de `storage` deve estar dentro de `[min_storage_hm3, max_storage_hm3]` da própria usina, inclusive para uma usina que entra em operação mais adiante no estudo. |
 | Armazenamento inicial no primeiro estágio de operação | Aviso | Um valor de `storage` fora dos limites `min_storage_hm3`/`max_storage_hm3` de final de estágio do primeiro estágio de operação da usina (de `constraints/hydro_bounds.parquet` ou, na falta, os da própria usina) é aceito com um aviso; o armazenamento inicial é usado como declarado. |
 | Tamanho do array de evaporação | Erro de esquema | `coefficients_mm` deve ter exatamente 12 valores; `reference_volumes_hm3`, quando presente, também deve ter exatamente 12 valores dentro de `[min_storage_hm3, max_storage_hm3]`. |
+| Fatores e duplicatas da vazão de jusante | Erro de esquema | `own_outflow_factor` e todo `factor` de influência devem ser finitos e `>= 0`; um `hydro_id` aparece no máximo uma vez por lista; `outflow_influences` não pode citar a própria usina. |
+| Referência da vazão de jusante | Erro de referência | Todo `hydro_id` de influência deve corresponder a um `id` em `hydros.json`. |
+| Vazão de jusante sem FPHA | Aviso de qualidade do modelo | Um `tailrace_flow` fora do padrão em uma usina que não usa FPHA em nenhum estágio do estudo não tem efeito (`semantic.5a.70`). |

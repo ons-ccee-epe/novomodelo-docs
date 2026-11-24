@@ -97,7 +97,7 @@ Decomposição do custo por estágio. Uma linha por estágio. 30 colunas.
 
 ## `simulation/hydros/`
 
-Resultados do despacho das usinas hidrelétricas. Uma linha por trinca (estágio, patamar, usina hidrelétrica). 42 colunas.
+Resultados do despacho das usinas hidrelétricas. Uma linha por trinca (estágio, patamar, usina hidrelétrica). 45 colunas.
 
 **Metodologia:** [Formulação do PL](/math/lp-formulation) · [Modelos de função de produção hidrelétrica](/math/hydro-production-models)
 
@@ -151,8 +151,13 @@ o par no ponto de referência e o par da média na faixa útil (`integrated_*`).
 | `integrated_accumulated_productivity_mw_per_m3s` | Float64 | Não      | MW/(m³/s) | `integrated_equivalent_productivity_mw_per_m3s` somada sobre esta usina e todas as usinas a jusante [MW/(m³/s)]. |
 | `stored_energy_initial_mw`                       | Float64 | Não      | MW        | `stored_energy_initial_mwh` ÷ o total de horas dos patamares do estágio [MW] — o mesmo divisor em todas as linhas de patamar do estágio, nunca as horas do próprio patamar. |
 | `stored_energy_final_mw`                         | Float64 | Não      | MW        | `stored_energy_final_mwh` ÷ o total de horas dos patamares do estágio [MW]. |
+| `tailrace_flow_m3s`                              | Float64 | Sim      | m³/s      | Vazão de jusante [m³/s]: a vazão defluente própria da usina multiplicada pelo seu fator de defluência, mais a vazão lateral das usinas e das vazões incrementais que a influenciam. Nula, a menos que a usina use FPHA calculada no estágio. |
+| `tailrace_level_m`                               | Float64 | Sim      | m         | Nível de jusante na vazão de jusante [m]. Nulo, a menos que a usina use FPHA calculada no estágio. |
+| `net_head_m`                                     | Float64 | Sim      | m         | Queda líquida [m]: nível de montante no armazenamento médio do patamar menos o nível de jusante e as perdas hidráulicas, limitada inferiormente a 0. Nula, a menos que a usina use FPHA calculada no estágio. |
 
 As colunas `stored_energy_initial_mwh` e `stored_energy_final_mwh` são iguais ao produto no ponto de referência (com `accumulated_productivity_mw_per_m3s`) somente quando a faixa física de armazenamento de uma usina é degenerada ou quando ela não tem geometria VHA resolvível.
+
+As colunas `tailrace_flow_m3s`, `tailrace_level_m` e `net_head_m` avaliam a função de produção não linear ([Modelos de função de produção hidrelétrica §2.2](/math/hydro-production-models#22-funcao-de-producao-exata)) nas vazões resolvidas, com o armazenamento médio do patamar $(v_{initial} + v_{final})/2$. Sob o método de não negatividade de vazão `truncation`, a vazão incremental que usam é a efetiva: a vazão realizada mais a folga. Elas não reproduzem a geração dada pelos planos da FPHA do LP, de modo que `generation_mw` em geral difere da função de produção avaliada nessas grandezas. As três são nulas para usinas de produtibilidade constante, para FPHA pré-calculada e nos estágios em que a usina não usa FPHA calculada. Nenhuma coluna traz a vazão lateral isolada: ela é `tailrace_flow_m3s` menos o termo da defluência própria.
 
 ---
 

@@ -33,6 +33,7 @@ Campos principais:
 | `hydros[].generation.model`                       | string          | Sim         | —       | —           | Um de `"constant_productivity"` ou `"fpha"`; qualquer outro nome é rejeitado na carga. |
 | `hydros[].specific_productivity_mw_per_m3s_per_m` | number \| null  | Não         | `null`  | MW/(m³/s)/m | Produtibilidade específica ρ_esp [MW/(m³/s)/m]. Obrigatória para UHEs com FPHA que derivam ρ_eq da geometria VHA (volume–área–cota); em qualquer UHE com linhas em `system/hydro_geometry.parquet`, também alimenta o cálculo da média sobre a faixa útil (substituições por estágio em `system/hydro_energy_productivity.parquet`). |
 | `hydros[].tailrace`                               | object \| null  | Não         | —       | —           | Modelo do nível de jusante (canal de fuga): `"polynomial"` ou `"piecewise"` |
+| `hydros[].tailrace_flow` | object \| null | Não | `null` | — | Vazão lateral que eleva o nível de jusante para a FPHA: `own_outflow_factor` e duas listas de influências (veja abaixo); veja [Modelos de função de produção §2.2](/math/hydro-production-models#22-funcao-de-producao-exata) |
 | `hydros[].hydraulic_losses`                       | object \| null  | Não         | —       | —           | Modelo de perda hidráulica: `"factor"` ou `"constant"` |
 | `hydros[].efficiency`                             | object \| null  | Não         | —       | —           | Modelo de rendimento da turbina: `"constant"` |
 | `hydros[].evaporation`                            | object \| null  | Não         | —       | —           | Configuração de evaporação: `coefficients_mm` (12 valores) e `reference_volumes_hm3` opcional |
@@ -58,6 +59,11 @@ Campos principais:
 | `hydros[].tailrace.coefficients`             | array          | Condicional | —       | —        | Obrigatório quando `type` é `"polynomial"`. Nível de jusante como polinômio da vazão defluente total, com coeficientes em potências crescentes. |
 | `hydros[].tailrace.points[].outflow_m3s`     | number         | Sim         | —       | m³/s     | Vazão defluente total no ponto. O array `points` é obrigatório quando `type` é `"piecewise"`. |
 | `hydros[].tailrace.points[].height_m`        | number         | Sim         | —       | m        | Nível de jusante na vazão defluente do ponto. |
+| `hydros[].tailrace_flow.own_outflow_factor` | number \| null | Não | `1.0` | — | Peso da vazão turbinada mais vertida da própria usina na sua vazão de jusante; `>= 0`. `null` ou ausente significa `1.0`. |
+| `hydros[].tailrace_flow.outflow_influences[].hydro_id` | integer | Sim | — | — | Usina cuja vazão turbinada mais vertida eleva o nível de jusante desta usina; não pode ser a própria usina. |
+| `hydros[].tailrace_flow.outflow_influences[].factor` | number | Sim | — | — | Peso adimensional da vazão defluente dessa usina; `>= 0`. |
+| `hydros[].tailrace_flow.incremental_inflow_influences[].hydro_id` | integer | Sim | — | — | Usina cuja afluência incremental realizada eleva o nível de jusante desta usina; pode ser a própria usina. |
+| `hydros[].tailrace_flow.incremental_inflow_influences[].factor` | number | Sim | — | — | Peso adimensional da afluência incremental dessa usina; `>= 0`. |
 | `hydros[].hydraulic_losses.type`             | string         | Sim         | —       | —        | Um de `"factor"`, `"constant"`. Seleciona a forma da perda hidráulica. |
 | `hydros[].hydraulic_losses.value`            | number         | Condicional | —       | —        | Obrigatório quando `type` é `"factor"`. Fração da queda bruta (nível de montante menos nível de jusante). |
 | `hydros[].hydraulic_losses.value_m`          | number         | Condicional | —       | m        | Obrigatório quando `type` é `"constant"`. Perda hidráulica, independente da vazão e da queda. |
@@ -141,3 +147,16 @@ usa-se o padrão global de `penalties.json`. Os seguintes campos são suportados
 - `min_turbined_m3s` e `max_turbined_m3s` de cada grupo devem ser `>= 0`.
 - A soma dos máximos dos grupos deve ser no máximo igual aos máximos da usina, e a soma dos mínimos no mínimo igual aos mínimos da usina (vazão
   turbinada e geração, cada uma verificada contra os valores declarados, não contra as substituições por estágio).
+- Os fatores de `tailrace_flow` (`own_outflow_factor` e cada `factor` de influência) devem ser finitos e `>= 0`
+  ([`SchemaViolation`](/reference/error-codes#schemaviolation)).
+- Cada `hydro_id` aparece no máximo uma vez por lista de influências
+  ([`SchemaViolation`](/reference/error-codes#schemaviolation)).
+- `outflow_influences` não pode citar a própria usina, pois a vazão defluente própria é ponderada por `own_outflow_factor`
+  ([`SchemaViolation`](/reference/error-codes#schemaviolation)); `incremental_inflow_influences` pode citar a própria usina.
+- Todo `hydro_id` de influência deve nomear uma usina de `hydros.json`
+  ([`InvalidReference`](/reference/error-codes#invalidreference)).
+- Uma chave desconhecida dentro de `tailrace_flow` ou de uma entrada de influência é recusada
+  ([`ParseError`](/reference/error-codes#parseerror)).
+- A ordem das listas de influências não altera os resultados; as listas são ordenadas por `hydro_id` na carga.
+- Um `tailrace_flow` fora do padrão em uma usina que não usa FPHA em nenhum estágio do estudo não tem efeito e emite o
+  aviso `semantic.5a.70` ([`ModelQuality`](/reference/error-codes#modelquality)); usinas de produtibilidade constante o ignoram.

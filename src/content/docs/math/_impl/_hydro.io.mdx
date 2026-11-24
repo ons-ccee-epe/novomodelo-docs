@@ -25,7 +25,8 @@ Each row names a data source, the fields the methodology above reads from it, an
 
 | Data source | Fields | Used for |
 | ---- | ---- | ---- |
-| Hydro plant entity | `tailrace` (polynomial or piecewise) | $h_{tail}(q_{out})$ computation |
+| Hydro plant entity | `tailrace` (polynomial or piecewise) | $h_{tail}$ computation |
+| Hydro plant entity | `tailrace_flow` (own outflow factor, outflow and incremental-inflow influences) | lateral flow $q_{lat}$ in $h_{tail}(f_h \, q + q_{lat})$ |
 | Hydro plant entity | `hydraulic_losses` (factor or constant) | $h_{loss}$ computation |
 | Hydro plant entity | `efficiency` (constant) | Turbine efficiency $\eta$ |
 | Hydro plant entity | `specific_productivity_mw_per_m3s_per_m` (FPHA, and the useful-range mean evaluator for any model) | $\rho_{esp}$ for $\rho_{eq}$ derivation (§4.1) and $\bar\rho_{eq}$ (§4.3) |
@@ -47,6 +48,7 @@ Each row names a data source, the fields the methodology above reads from it, an
 | `hydro_models/fpha_deviation_points.parquet` | Per-plane FPHA fit-deviation sample points — a fitting diagnostic. Written **only** when the `exports.fpha_deviation_points` flag is enabled (**default off**) **and** at least one deviation point exists; absent otherwise. |
 | Hydro generation and storage output columns | Per-(stage, block, hydro) dispatch results (turbined flow, spillage, generation, storage) written alongside every other entity's output rows — the plant total, unchanged by bus-partitioning. |
 | Energy-conversion columns of `simulation/hydros/` | The reference-point (`equivalent_productivity_mw_per_m3s`, `accumulated_productivity_mw_per_m3s`) and useful-range mean (`integrated_*`) productivities, `incremental_inflow_energy_mw`, and stored energy in MWh and MW (`stored_energy_{initial,final}_{mwh,mw}`) — see §4 above and the Output Format reference. |
+| Tailrace columns of `simulation/hydros/` | `tailrace_flow_m3s`, `tailrace_level_m` and `net_head_m`: the nonlinear production function's tailrace flow, tailrace level and net head at the solved flows (§2.2); null unless the plant uses computed FPHA at the stage — see the Output Format reference. |
 | `simulation/hydro_bus_generation/` | Per-(stage, block, hydro, bus) cell dispatch results — `turbined_m3s`, `generation_mw`, `generation_mwh`; `bus_id` always non-null. See Implementation notes for the exact-sum caveat on the `generation_mw` column. |
 | `simulation/in_transit/` | Per-(stage, downstream hydro, maturity lag) in-transit water volumes on declared travel-time arcs, including the delayed arrival that enters the receiving plant's water balance; written only when a travel-time arc is declared (schema: [Simulation Output](/en/reference/output/simulation/#simulationin_transit)). |
 | `simulation/transit_seed/` | Scenario-level rolling release-window seed for a declared travel-time arc — five columns (`scenario_id`, `hydro_id`, `start_date`, `end_date`, `value_m3s`), carrying no stage/node prefix. Written only when a travel-time arc is declared; absent otherwise. Feeds a continuing run's own `initial_conditions.past_defluences` (study chaining). |

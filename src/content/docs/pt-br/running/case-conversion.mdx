@@ -513,6 +513,22 @@ e é a forma mais barata de absorver um excedente.
 Um parque declarado nos dois cartões de geração, ou com mais de um estado
 operativo, interrompe a conversão.
 
+O `convert decomp` também converte os registros `VL`, `VU` e `VA` do deck em
+[`tailrace_flow`](/reference/case-format/hydros) nas usinas com FPHA, de modo
+que o nível do canal de fuga sobe com as vazões laterais que o deck acrescenta
+([Modelos de função de produção hidrelétrica §2.2](/math/hydro-production-models#22-funcao-de-producao-exata)).
+Um posto `VA` corresponde à usina cujo posto `AC NUMPOS` ele é no primeiro
+estágio. Pares `VU` ou `VA` duplicados são somados, e um `VU` que nomeia a
+própria usina é somado ao fator de vazão defluente da própria usina. Um `VA`
+cujo posto é o da própria usina converte-se em uma entrada própria em
+`incremental_inflow_influences`, sem diagnóstico. Um `VL` duplicado, um posto
+não mapeado ou ambíguo, uma usina cujo vertimento não chega ao canal de fuga
+(`AC VERTJU`) e uma usina convertida a produtibilidade constante descartam o
+termo com um aviso. Um `VU` cuja usina influenciadora não está no caso é
+descartado sem aviso. Um polinômio `VL` substitui o canal de fuga constante
+apenas onde nenhuma curva `polinjus` se aplica. Os avisos trazem códigos
+`tailrace-*` na saída `--json` de `check decomp` e `convert decomp`.
+
 Para a lista completa de regras de conversão, consulte o
 [guia do fluxo NEWAVE](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.21.0/docs/newave.md) do novomodelo-bridge.
 

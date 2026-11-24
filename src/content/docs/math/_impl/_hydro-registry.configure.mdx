@@ -279,6 +279,35 @@ per-plant piecewise-quartic tailrace curves with backwater families ([Hydro Prod
 §2.3.1](/en/math/hydro-production-models#231-piecewise-quartic-tailrace-families-backwater-coupling)) — replaces the entity-level model in the computed-FPHA fit for any plant that has rows in
 that file; the equivalent-productivity derivation keeps reading the entity-level model.
 
+**Tailrace flow** — the optional `tailrace_flow` block declares which flows raise
+the tailrace level, separately from the `tailrace` curve that maps a flow to a level.
+Every field is optional and the block defaults to the plant's own outflow only.
+
+```json
+"tailrace_flow": {
+  "own_outflow_factor": 1.0,
+  "outflow_influences": [ { "hydro_id": 7, "factor": 1.0 } ],
+  "incremental_inflow_influences": [ { "hydro_id": 3, "factor": 0.5 } ]
+}
+```
+
+The tailrace flow is `f·q + q_lat`: `own_outflow_factor` is `f` (`1.0` when absent or
+`null`) and weights the plant's own turbined flow, and `q_lat` is the plant's own spill
+scaled by `f` plus each listed plant's flow times its `factor`. An `outflow_influences`
+entry adds that plant's turbined flow plus spill; an `incremental_inflow_influences`
+entry adds that plant's realized incremental inflow. See
+[Hydro Production Function Models §2.2](/en/math/hydro-production-models#22-exact-production-function)
+for the definition.
+
+A plant may name itself in `incremental_inflow_influences`, so that its own incremental
+inflow raises its own tailrace. It may not name itself in `outflow_influences`: its own
+outflow is set by `own_outflow_factor`. Factors are non-negative, need not sum to `1`, and
+the lists are sorted by `hydro_id` at load, so their order does not change results.
+
+Only the FPHA model reads the tailrace flow, in the FPHA fit and the LP planes.
+Constant-productivity plants ignore it, and a non-default `tailrace_flow` on a plant that
+uses FPHA at no study stage draws the `semantic.5a.70` warning.
+
 **Hydraulic losses** — the `hydraulic_losses` block models head loss in the
 penstock; absent means lossless.
 
@@ -452,3 +481,6 @@ file also carries.
 | Initial storage range             | Semantic error         | A `storage` value must lie in the hydro's own `[min_storage_hm3, max_storage_hm3]`, for a hydro entering service later in the study too. |
 | Initial storage at the first operating stage | Warning | A `storage` value outside the end-of-stage `min_storage_hm3`/`max_storage_hm3` of the hydro's first operating stage (from `constraints/hydro_bounds.parquet`, else the hydro's own) is accepted with a warning; the initial storage is used as declared. |
 | Evaporation array length          | Schema error           | `coefficients_mm` must have exactly 12 values; `reference_volumes_hm3`, when present, must also have exactly 12 values within `[min_storage_hm3, max_storage_hm3]`. |
+| Tailrace-flow factors and duplicates | Schema error | `own_outflow_factor` and every influence `factor` must be finite and `>= 0`; a `hydro_id` appears at most once per list; `outflow_influences` must not name the plant itself. |
+| Tailrace-flow reference | Reference error | Every influence `hydro_id` must match an `id` in `hydros.json`. |
+| Tailrace flow without FPHA | Model-quality warning | A non-default `tailrace_flow` on a plant that uses FPHA at no study stage has no effect (`semantic.5a.70`). |

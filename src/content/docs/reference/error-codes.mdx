@@ -886,6 +886,47 @@ flow, so the loader rejects a negative floor or ceiling.
 **Resolution:** Set the value to `0` or more, or leave the key out, or set it
 to `null`, for no bound on that side.
 
+#### Invalid tailrace flow declaration
+
+**When it occurs:** A hydro's `tailrace_flow` object in `system/hydros.json` breaks one of four rules:
+
+- `own_outflow_factor` is negative or not finite.
+- A `factor` in `outflow_influences` or `incremental_inflow_influences` is negative or not finite.
+- A hydro appears more than once in the same influence list.
+- A hydro lists itself in `outflow_influences`. A plant's own outflow is weighted by `own_outflow_factor` alone; the plant may list itself in `incremental_inflow_influences`.
+
+**Fields:**
+
+| Field         | Description |
+| ------------- | ----------- |
+| `description` | Contains a `[SchemaViolation] system/hydros.json: field hydros[<i>].tailrace_flow.<path>: <message>` line, where `<i>` is the hydro's zero-based position in the file and `<path>` names the offending key or list entry, such as `own_outflow_factor` or `outflow_influences[<j>].factor` |
+
+**Example:** One line per message form.
+
+{/* quoted from source: validate_tailrace_flow in crates/novomodelo-io/src/system/hydros.rs at novomodelo 4a270e08 */}
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].tailrace_flow.own_outflow_factor: own_outflow_factor must be finite and >= 0, got -1
+```
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].tailrace_flow.outflow_influences[0].factor: factor must be finite and >= 0, got -0.1
+```
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].tailrace_flow.incremental_inflow_influences[1].hydro_id: hydro 20 is listed more than once in incremental_inflow_influences
+```
+
+```text
+[SchemaViolation] system/hydros.json: field hydros[0].tailrace_flow.outflow_influences[0].hydro_id: hydro 10 lists itself in outflow_influences; a hydro's own outflow is set by own_outflow_factor, not by listing itself
+```
+
+**Resolution:** Use a finite factor of `0` or more. List each hydro once per
+influence list. Set the plant's own share of the tailrace flow with
+`own_outflow_factor`. A self entry belongs in `incremental_inflow_influences`
+only. See [hydros case format](/en/reference/case-format/hydros) for the
+`tailrace_flow` fields.
+
 ---
 
 ### `InvalidReference`
@@ -905,10 +946,24 @@ plant's unit groups' `bus_id` references a bus that is not in
 [InvalidReference] system/hydros.json (Hydro 0 unit group 0): Hydro 0 unit group 0 references non-existent Bus 99 via field 'bus_id'
 ```
 
+A hydro whose `tailrace_flow` influence list names a hydro that does not exist:
+
+{/* quoted from source: HYDRO_TAILRACE_OUTFLOW_INFLUENCE and HYDRO_TAILRACE_INCREMENTAL_INFLOW_INFLUENCE in crates/novomodelo-io/src/validation/referential.rs at novomodelo 4a270e08 */}
+
+```text
+[InvalidReference] system/hydros.json (Hydro 3): Hydro 3 references non-existent Hydro 100 via field 'tailrace_flow.outflow_influences.hydro_id'
+```
+
+```text
+[InvalidReference] system/hydros.json (Hydro 3): Hydro 3 references non-existent Hydro 200 via field 'tailrace_flow.incremental_inflow_influences.hydro_id'
+```
+
 **Resolution:** Either add the referenced entity to its registry file, or
 correct the ID in the referencing file. Check all ID references:
 `unit_groups[].bus_id`, `thermals.bus_id`, `lines.source_bus_id`,
-`lines.target_bus_id`, `hydros.downstream_id`.
+`lines.target_bus_id`, `hydros.downstream_id`,
+`hydros.tailrace_flow.outflow_influences[].hydro_id`,
+`hydros.tailrace_flow.incremental_inflow_influences[].hydro_id`.
 
 **See also:** a `constraints/ncs_bounds.parquet` row with an undeclared `stage_id` is reported under this
 kind — see
@@ -1832,7 +1887,7 @@ the samples the estimation fits from that file, a hydro-season with at least one
 `estimation.min_observations_per_season`, fully covered season occurrences in that
 file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW at zero turbined flow, an initial
 storage outside the storage bounds at the end of the hydro's first operating
-stage, or, under a `lognormal_3p` inflow residual, a seasonal mean inflow at or
+stage, a `tailrace_flow` declaration on a hydro that uses FPHA at no study stage, or, under a `lognormal_3p` inflow residual, a seasonal mean inflow at or
 below zero or the `none` inflow method. Each is reported as a warning.
 
 **Example:**
@@ -1911,6 +1966,16 @@ FPHA plane below zero at zero turbining: {entity} -- {n_pairs} (stage, plane) pa
 
 The check skips a hydro with no FPHA entry, a hydro whose FPHA is computed (`source: "computed"`) and a hydro without turbine capacity. It covers each study stage whose entry resolves to `fpha`, and a stage uses its own `stage_id` rows, else the all-stage (`stage_id` null) rows. It evaluates each row at zero turbined flow, at the fitting window's minimum storage and at the upper end of the spillage fit range (`spillage_fit_max_m3s`, or its default), with `kappa` multiplying `gamma_0` only. `{s_star}` is the spillage at which the plane reaches 0 MW, (`kappa`·`gamma_0` + `gamma_v`·v_min)/|`gamma_s`| when that sum is positive and 0 otherwise. The earliest crossing is the smallest `{s_star}`, with ties broken by stage id and then plane id. `{stages}` lists the flagged stage ids as ascending runs written `a-b` (or a single id) and joined by `, `. One warning is reported per hydro.
 
+The tailrace-flow message, reported on `system/hydros.json` under rule `semantic.5a.70`:
+
+{/* quoted from source: check_tailrace_flow_effect in crates/novomodelo-io/src/validation/semantic/hydro.rs at novomodelo 4a270e08 */}
+
+```text
+Hydro {name} (id={id}): tailrace_flow has no effect because the hydro uses FPHA at no study stage; select FPHA in extensions/production_models.json or remove tailrace_flow
+```
+
+The warning fires for a hydro with a non-default `tailrace_flow` that has no entry in `extensions/production_models.json`, or whose entry selects FPHA at no study stage. A `tailrace_flow` affects only the FPHA production function, so the declaration has no effect on such a hydro.
+
 The two `lognormal_3p` messages, which `novomodelo validate` reports and
 `novomodelo run` does not, the first on `scenarios/` and the second on
 `config.json`:
@@ -1932,7 +1997,7 @@ names at most ten hydros and counts the rest as `and {n} more`.
 inflow-lag warning, see
 [`stages[].state_variables` — Cut Projection](/en/math/cut-management/#stagesstate_variables--cut-projection);
 for the initial-storage warning, check that the first operating stage can reach
-its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_s` to at least −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, with the storage v_min and the spillage S_ref the message prints, or fit the planes from geometry with `source: "computed"`, whose planes get this limit ([Lateral-Flow Secant](/en/math/hydro-production-models#27-lateral-flow-secant)); a plane whose crossing is at 0 m³/s needs a larger `gamma_0` or `gamma_v`; for a `lognormal_3p` warning, check the flagged seasonal means, or set an [`inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity) method other than `none`.
+its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_s` to at least −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, with the storage v_min and the spillage S_ref the message prints, or fit the planes from geometry with `source: "computed"`, whose planes get this limit ([Lateral-Flow Secant](/en/math/hydro-production-models#27-lateral-flow-secant)); a plane whose crossing is at 0 m³/s needs a larger `gamma_0` or `gamma_v`; for the tailrace-flow warning, select FPHA for the hydro in `extensions/production_models.json` or remove `tailrace_flow` from the hydro; for a `lognormal_3p` warning, check the flagged seasonal means, or set an [`inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity) method other than `none`.
 Warnings of this type do not prevent the solver from running.
 
 ---
