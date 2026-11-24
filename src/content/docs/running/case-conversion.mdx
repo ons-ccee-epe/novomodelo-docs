@@ -182,7 +182,7 @@ output/
   config.json
   stages.json
   penalties.json
-  initial_conditions.json
+  boundary_conditions.json
   conversion_manifest.json
   system/
     hydros.json
@@ -233,7 +233,8 @@ A case written by `convert decomp` does not write `scenarios/inflow_history.parq
   `scenarios/external_ncs_scenarios.parquet`
 - `constraints/contract_bounds.parquet` and
   `constraints/hydro_unit_group_bounds.parquet`
-- `post_study_stages.json` at the top level
+- the `post_study_thermal_stages` and `post_study_water_stages` lists in `stages.json`,
+  and the post-study bounds in `boundary_conditions.json`
 - the imported boundary under `boundary/` (see
   [Converting a DECOMP Deck](#converting-a-decomp-deck))
 
@@ -455,7 +456,7 @@ hours; the policy's other GNL coefficients are left out. A plant with no
 coefficient for that delivery, or a coefficient of exactly zero, is written as
 `0.0` with a warning. Each stage's `mapcut` record 10 carries the cost of the
 GNL generation committed before the study, priced from the commitment windows
-in the case's `initial_conditions.json`.
+in the case's `boundary_conditions.json` (or the deprecated `initial_conditions.json`).
 
 | Flag                 | Description                                                       |
 | -------------------- | ----------------------------------------------------------------- |
@@ -632,6 +633,65 @@ Each soft constraint's slack declares its `penalty_basis`: VminOP is
 constraints are `per_hour`. On the DECOMP track, RHE bounds useful stored energy
 the same way as VminOP, one constraint per record, and is `per_unit`; the `RE`,
 `HQ`, `HV`, LIBS and `RI_ANDE` constraints are `per_hour`.
+
+### Converting deprecated boundary files
+
+A case whose initial state lives in the deprecated `initial_conditions.json`, with
+the post-study calendars in the deprecated `post_study_stages.json`, moves to
+[`boundary_conditions.json`](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+and the `post_study_thermal_stages` and `post_study_water_stages` lists of
+[`stages.json`](/en/reference/case-format/stages/#post-study-calendars) with the
+script `boundary_conditions.py` in a novomodelo checkout:
+
+```bash
+python3 scripts/migrate/boundary_conditions.py DECK_DIR [DECK_DIR ...]
+```
+
+`convert newave` and `convert decomp` write the current files directly, so a case
+they produce already uses the current files. The script handles cases authored by hand or
+converted earlier.
+
+The script plans every deck before it writes any, so a refused deck leaves all
+the decks untouched. Each deck prints one stdout line, `DECK: OUTCOME`:
+
+| Outcome           | Meaning                                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `migrated`        | `boundary_conditions.json` is written and the deprecated files are deleted. When a post-study list is written, `stages.json` is rewritten by a JSON re-dump, so its formatting changes. |
+| `already current` | The deck has `boundary_conditions.json` and no deprecated file; nothing is written.                                                         |
+
+The script exits `0` when every deck is migrated or already current, `1` when any
+deck is refused (one stderr line `DECK: reason` per refusal), and `2` for a usage
+error.
+
+| Deprecated field                                                  | Current field                                                         |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `initial_conditions.json` `storage[]`, `filling_storage[]`        | `boundary_conditions.json` `hydros[].storage_hm3`                     |
+| `initial_conditions.json` `recent_observations`                   | `hydros[].recent_inflows`                                             |
+| `initial_conditions.json` `past_defluences`                       | `hydros[].past_defluences`                                            |
+| `initial_conditions.json` `past_anticipated_commitments`          | `thermals[].commitments`                                              |
+| `post_study_stages.json` `thermal_stages` (or the `stages` spelling) | `stages.json` `post_study_thermal_stages`, with ids and `end_date`  |
+| `post_study_stages.json` `water_bucket_stages` (`start_date` and `duration_hours`) | `stages.json` `post_study_water_stages`, with ids and `end_date` |
+| `post_study_stages.json` `thermal_bounds[]` (`post_study_stage_index`) | `thermals[].post_study_bounds` (`stage_id`)                       |
+
+The post-study ids continue the study's stage sequence: thermal stages first,
+then water stages, each in `start_date` order. A case with a water travel time
+and no `water_bucket_stages` gets the water calendar the deprecated reader
+resolves to.
+
+The script refuses a deck, and leaves it untouched, when:
+
+- it mixes `boundary_conditions.json` with the deprecated files;
+- `stages.json` declares a `post_study_*` list beside the deprecated files;
+- the deprecated reader itself refuses it: a storage value in the wrong array,
+  a malformed post-study calendar, or a `post_study_stage_index` out of range;
+- a hydro has a storage value that one `storage_hm3` cannot hold;
+- a post-study stage is not a whole number of days. The script never rounds a
+  duration, so such a deck stays on the deprecated files.
+
+Cuts and all outputs of a migrated case are identical to those of the deprecated
+case, except in a case with a water travel time: `policy/cuts/*.bin` dates the
+transit-bucket slots past the horizon, where the deprecated deck writes a
+placeholder date.
 
 ---
 

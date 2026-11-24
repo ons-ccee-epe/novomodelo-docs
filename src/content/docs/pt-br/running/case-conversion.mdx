@@ -183,7 +183,7 @@ output/
   config.json
   stages.json
   penalties.json
-  initial_conditions.json
+  boundary_conditions.json
   conversion_manifest.json
   system/
     hydros.json
@@ -235,7 +235,8 @@ Um caso gravado pelo `convert decomp` não grava `scenarios/inflow_history.parqu
   `scenarios/external_ncs_scenarios.parquet`
 - `constraints/contract_bounds.parquet` e
   `constraints/hydro_unit_group_bounds.parquet`
-- `post_study_stages.json` no nível superior
+- as listas `post_study_thermal_stages` e `post_study_water_stages` no `stages.json`,
+  e os limites pós-estudo no `boundary_conditions.json`
 - a fronteira importada, em `boundary/` (veja
   [Convertendo um deck do DECOMP](#convertendo-um-deck-do-decomp))
 
@@ -459,7 +460,7 @@ desse estágio; os demais coeficientes de GNL da política ficam de fora. Uma us
 coeficiente para essa entrega, ou com coeficiente exatamente zero, é gravada como `0.0`,
 com um aviso. O registro 10 do `mapcut` de cada estágio traz o custo da geração de GNL
 comandada antes do estudo, precificada a partir das janelas de comando do
-`initial_conditions.json` do caso.
+`boundary_conditions.json` do caso (ou do `initial_conditions.json` obsoleto).
 
 | Flag                 | Descrição                                                       |
 | -------------------- | ----------------------------------------------------------------- |
@@ -635,6 +636,68 @@ A folga de cada restrição flexível declara sua `penalty_basis`: a VminOP é
 elétricas são `per_hour`. No fluxo do DECOMP, a RHE limita a energia armazenada útil
 da mesma forma que a VminOP, uma restrição por registro, e é `per_unit`; as restrições `RE`,
 `HQ`, `HV`, LIBS e `RI_ANDE` são `per_hour`.
+
+### Convertendo arquivos de contorno obsoletos
+
+Um caso cujo estado inicial está no `initial_conditions.json` obsoleto, com os
+calendários pós-estudo no `post_study_stages.json` obsoleto, passa para o
+[`boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+e para as listas `post_study_thermal_stages` e `post_study_water_stages` do
+[`stages.json`](/reference/case-format/stages/#calendarios-pos-estudo) com o
+script `boundary_conditions.py` de um checkout do novomodelo:
+
+```bash
+python3 scripts/migrate/boundary_conditions.py DECK_DIR [DECK_DIR ...]
+```
+
+O `convert newave` e o `convert decomp` gravam diretamente os arquivos atuais,
+então um caso produzido por eles já usa os arquivos atuais. O script atende casos
+escritos à mão ou convertidos antes.
+
+O script planeja todos os decks antes de gravar qualquer um, de modo que um deck
+recusado deixa todos os decks intactos. Cada deck imprime uma linha na saída
+padrão, `DECK: RESULTADO`:
+
+| Resultado         | Significado                                                                                                                                              |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `migrated`        | O `boundary_conditions.json` é gravado e os arquivos obsoletos são apagados. Quando uma lista pós-estudo é gravada, o `stages.json` é regravado por um novo despejo JSON, então sua formatação muda. |
+| `already current` | O deck tem `boundary_conditions.json` e nenhum arquivo obsoleto; nada é gravado.                                                                         |
+
+O script termina com código `0` quando todo deck é migrado ou já está atual, `1`
+quando algum deck é recusado (uma linha `DECK: motivo` no stderr por recusa) e
+`2` para erro de uso.
+
+| Campo obsoleto                                                    | Campo atual                                                           |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `initial_conditions.json` `storage[]`, `filling_storage[]`        | `boundary_conditions.json` `hydros[].storage_hm3`                     |
+| `initial_conditions.json` `recent_observations`                   | `hydros[].recent_inflows`                                             |
+| `initial_conditions.json` `past_defluences`                       | `hydros[].past_defluences`                                            |
+| `initial_conditions.json` `past_anticipated_commitments`          | `thermals[].commitments`                                              |
+| `post_study_stages.json` `thermal_stages` (ou a grafia `stages`)  | `stages.json` `post_study_thermal_stages`, com ids e `end_date`       |
+| `post_study_stages.json` `water_bucket_stages` (`start_date` e `duration_hours`) | `stages.json` `post_study_water_stages`, com ids e `end_date` |
+| `post_study_stages.json` `thermal_bounds[]` (`post_study_stage_index`) | `thermals[].post_study_bounds` (`stage_id`)                      |
+
+Os ids pós-estudo continuam a sequência de estágios do estudo: primeiro os
+estágios térmicos, depois os de água, cada lista em ordem de `start_date`. Um
+caso com tempo de viagem da água e sem `water_bucket_stages` recebe o calendário
+de água que o leitor obsoleto resolve.
+
+O script recusa um deck, e o deixa intacto, quando:
+
+- ele mistura o `boundary_conditions.json` com os arquivos obsoletos;
+- o `stages.json` declara uma lista `post_study_*` ao lado dos arquivos obsoletos;
+- o próprio leitor obsoleto o recusa: um valor de armazenamento no vetor errado,
+  um calendário pós-estudo malformado ou um `post_study_stage_index` fora do
+  intervalo;
+- uma usina hidrelétrica tem um valor de armazenamento que um único `storage_hm3`
+  não comporta;
+- um estágio pós-estudo não tem um número inteiro de dias. O script nunca
+  arredonda uma duração, então esse deck permanece nos arquivos obsoletos.
+
+Os cortes e todas as saídas de um caso migrado são idênticos aos do caso
+obsoleto, exceto em um caso com tempo de viagem da água: o
+`policy/cuts/*.bin` data os slots dos baldes de trânsito além do horizonte, onde
+o deck obsoleto grava uma data provisória.
 
 ---
 
