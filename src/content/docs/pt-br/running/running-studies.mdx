@@ -45,7 +45,7 @@ novomodelo validate /path/to/my_study
 
 Uma validação bem-sucedida imprime as contagens de entidades e sai com código 0:
 
-{/* capture: novomodelo validate my_study | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path; exit 0, stderr empty */}
+{/* capture: novomodelo validate my_study | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path; exit 0, stderr empty */}
 
 ```text
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -59,7 +59,7 @@ mostra apenas o campo ausente, porque a leitura de `system/hydros.json` para
 ali, antes que qualquer valor seja verificado. O valor negativo é reportado depois que o
 campo é restaurado:
 
-{/* capture: novomodelo validate my_study 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json edited with jq: .hydros[0] |= del(.reservoir), then .hydros[0].generation.max_turbined_m3s = -5.0); run from an empty working directory with a relative case path; exit 1, stderr empty */}
+{/* capture: novomodelo validate my_study 2>&1 | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; system/hydros.json edited with jq: .hydros[0] |= del(.reservoir), then .hydros[0].generation.max_turbined_m3s = -5.0); run from an empty working directory with a relative case path; exit 1, stderr empty */}
 
 ```text
 Validation: 1 errors, 0 warnings in my_study
@@ -160,7 +160,7 @@ Um trecho da saída de `novomodelo run my_study` sobre o caso gerado, com stdout
 e stderr enviadas ao mesmo arquivo. Ele omite o
 cabeçalho, a linha `Host` e as linhas de progresso entre a primeira e a última de cada fase:
 
-{/* capture: novomodelo run my_study 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path and stderr redirected to a file; excerpt: the banner, the Host line and the progress lines between the first and the last of each phase are not quoted */}
+{/* capture: novomodelo run my_study 2>&1 | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: novomodelo init --template 1dtoy my_study, no diff; run from an empty working directory with a relative case path and stderr redirected to a file; excerpt: the banner, the Host line and the progress lines between the first and the last of each phase are not quoted */}
 
 ```text
 Execution
@@ -169,7 +169,7 @@ Execution
   Threads:   1 rayon thread
 Loading case: my_study
 Setup
-  Load:            3ms
+  Load:            2ms
   Stochastic fit:  0ms
   Production fit:  0ms
   Evaporation fit: 0ms
@@ -184,30 +184,30 @@ Model provenance
   Correlation:     n/a
   Opening tree:    estimated
 Training   starting... (max 128 iterations)
-Training   1/128 iter  LB: 1.22821e7  UB: 2.12369e7  gap: 72.91002%  fwd: 2ms / bwd: 2ms  [00:00:00 < 00:00:00]
-Training   128/128 iter  LB: 2.06161e7  UB: 5.79592e5  gap: -97.18865%  fwd: 0ms / bwd: 2ms  [00:00:00]
-Training complete in 0.4s (128 iterations, iteration_limit)
+Training   1/128 iter  LB: 1.22821e7  UB: 2.12369e7  gap: 72.91002%  fwd: 1ms / bwd: 1ms  [00:00:00 < 00:00:00]
+Training   128/128 iter  LB: 2.06161e7  UB: 5.79592e5  gap: -97.18865%  fwd: 0ms / bwd: 3ms  [00:00:00]
+Training complete in 0.5s (128 iterations, iteration_limit)
   Lower bound:  2.06161e7 $/stage
   Upper bound:  5.79592e5 +/- 0.00000e0 $/stage
   Gap:          -97.18865% (started at 72.91002%)
   Policy rows:  384 active / 384 generated
   LP solves:    5632 (5632 first-try, 0 retried, 0 failed)
-  Avg iter:     3ms
+  Avg iter:     4ms
   Time split:   Forward  2ms (<1%)   solve 2ms · wait 0ms (0% of phase)
-                Backward 194ms (43%)   solve 194ms · wait 0ms (0% of phase)
-                Serial   250ms (56%)   bound 50ms · selection 0ms · other 200ms
+                Backward 276ms (50%)   solve 267ms · wait 0ms (0% of phase)
+                Serial   274ms (50%)   bound 66ms · selection 0ms · other 208ms
 Writing training outputs...
-Output written to my_study/output/ (0.0s)
+Output written to my_study/output/ (0.1s)
 Simulation starting... (100 scenarios across 1 ranks × 1 threads)
-Simulation 1/100 scenarios  LP: 1.3ms avg  [00:00:00 < 00:00:00]
-Simulation 100/100 scenarios  LP: 0.9ms avg  [00:00:00]
+Simulation 1/100 scenarios  LP: 1.1ms avg  [00:00:00 < 00:00:00]
+Simulation 100/100 scenarios  LP: 0.7ms avg  [00:00:00]
 Simulation complete in 0.5s (100 scenarios)
   Completed: 100  Failed: 0
   Expected cost: 1.28652e7 +/- 5.74102e6 (std: 2.92909e7)
   LP solves:    400 (400 first-try, 0 retried, 0 failed)
-  Avg/scenario: 0.006s
-  Time split:   Solver 346ms (61%)
-                Other  220ms (39%)
+  Avg/scenario: 0.005s
+  Time split:   Solver 261ms (50%)
+                Other  262ms (50%)
 Writing simulation outputs...
 Output written to my_study/output/ (0.0s)
 ```
@@ -326,25 +326,25 @@ O trecho abaixo compara uma thread com quatro no caso gerado, com
 definido como `1000`. Cada bloco começa com o comando que o produziu, e o trecho mantém
 apenas a linha `Threads` e a linha de conclusão de cada fase. Os tempos são de uma única máquina:
 
-{/* capture: novomodelo run my_study --threads 1 2>&1; novomodelo run my_study --threads 4 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; config.json edited with jq: training.selection.forward_passes 8 and simulation.selection.num_scenarios 1000); run from an empty working directory with a relative case path, the output directory emptied between the runs, both runs exit 0; excerpt: per run, the Threads line and the two phase completion lines are quoted, the rest of the run including the Host line is not */}
+{/* capture: novomodelo run my_study --threads 1 2>&1; novomodelo run my_study --threads 4 2>&1 | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; config.json edited with jq: training.selection.forward_passes 8 and simulation.selection.num_scenarios 1000); run from an empty working directory with a relative case path, the output directory emptied between the runs, both runs exit 0; excerpt: per run, the Threads line and the two phase completion lines are quoted, the rest of the run including the Host line is not */}
 
 ```text
 $ novomodelo run my_study --threads 1
   Threads:   1 rayon thread
-Training complete in 7.1s (128 iterations, iteration_limit)
-Simulation complete in 12.8s (1000 scenarios)
+Training complete in 2.5s (128 iterations, iteration_limit)
+Simulation complete in 4.9s (1000 scenarios)
 
 $ novomodelo run my_study --threads 4
   Threads:   4 rayon threads
-Training complete in 3.2s (128 iterations, iteration_limit)
-Simulation complete in 5.0s (1000 scenarios)
+Training complete in 1.5s (128 iterations, iteration_limit)
+Simulation complete in 2.0s (1000 scenarios)
 ```
 
 `--threads` define as threads de trabalho de cada processo (cada rank MPI). Recebe um
 inteiro maior ou igual a `1`, com padrão `1`. O conjunto de threads resolve em paralelo os PLs da simulação forward,
 da simulação backward e da simulação final, de modo que o ganho de velocidade é limitado pelo
 trabalho paralelo disponível: as simulações forward por iteração, os estados visitados da
-simulação backward e os cenários de simulação. No trecho, o treinamento roda cerca de duas vezes mais rápido com quatro threads e a simulação, cerca de duas vezes e meia: neste caso, as resoluções dos PLs ocupam a maior parte do tempo de relógio de cada fase, e elas são executadas em paralelo. Veja
+simulação backward e os cenários de simulação. No trecho, o treinamento roda cerca de 1,7 vez mais rápido com quatro threads e a simulação, cerca de 2,5 vezes: neste caso, as resoluções dos PLs ocupam a maior parte do tempo de relógio de cada fase, e elas são executadas em paralelo. Veja
 [Aceleradores de desempenho](/running/performance/) para o modelo de execução.
 
 ### Backend de comunicação

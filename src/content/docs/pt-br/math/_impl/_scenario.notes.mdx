@@ -19,7 +19,7 @@ A seleção de janela e de cenário externo aplica o hash a `(iteration, scenari
 
 ### Cadeia de defasagens da inversão
 
-{/* quoted from source: crates/novomodelo-sddp/src/setup/mod.rs:1823-1837 at novomodelo v0.21.0 */}
+{/* quoted from source: crates/novomodelo-sddp/src/setup/mod.rs:1871-1885 at novomodelo v0.22.0 */}
 A inversão do §4.3 avança sua cadeia de defasagens com as transições de defasagem por estágio usadas pelo PL. `resolve_stage_lag_transitions` deriva a ordem PAR a jusante e as transições de defasagem por estágio (`StageLagTransition`) e é, nas palavras do código-fonte, "The sole owner of both derivations" (a única responsável por ambas as derivações); a montagem do PL e a biblioteca de cenários históricos a chamam uma vez cada, sobre seus próprios modelos PAR.
 
 A biblioteca guarda uma impressão digital (fingerprint) da tendência hidrológica que originou sua cadeia de inversão: um digest SipHash-1-3 dos valores de defasagem da tendência como bytes `f64` little-endian. O Novo Modelo o reporta como `historical_library_seed_digest` em `training/model_provenance.json` (veja [Arquivos de metadados](/reference/output/metadata/#trainingmodel_provenancejson)) e o omite quando nenhuma biblioteca foi construída. Um digest diferente do digest da tendência recém-derivada indica uma biblioteca invertida a partir de outro x₀, cuja reprodução não é exata.
@@ -33,57 +33,57 @@ A regra σ = 0 do §4.3 compara o desvio-padrão com `0.0` de forma exata; com �
 O Novo Modelo registra estes oito avisos no log e prossegue. Cada texto abaixo é fixo, exceto pelos valores em seus marcadores. No `novomodelo run` com dois ou mais processos MPI, apenas o rank 0 os imprime.
 
 - **Limitação por cenários externos.** Uma classe no esquema externo tem, em um estágio, menos cenários externos brutos que o `branching_factor` do estágio, e nenhuma limitação mais restritiva se aplica:
-  {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:142-150 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:138-146 at novomodelo v0.22.0 */}
   ```text
   External scenarios: {} raw scenarios < branching_factor {}; opening tree clamped to {} openings
   ```
 - **Limitação pelo conjunto de janelas.** Um estágio `historical_residuals` tem um conjunto de janelas menor que seu `branching_factor`:
-  {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:285-293 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/generate.rs:281-289 at novomodelo v0.22.0 */}
   ```text
   HistoricalResiduals: {} historical windows < branching_factor {}; opening tree clamped to {} openings
   ```
 - **Recurso alternativo fora da amostra.** Uma classe no esquema `out_of_sample` tem estágios que selecionam `selective` ou `historical_residuals`, e a simulação forward sorteia ruídos Monte Carlo simples nesses estágios:
-  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/mod.rs:567-569 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/mod.rs:567-569 at novomodelo v0.22.0 */}
   ```text
   class '{class_str}' has {count} out-of-sample forward stage(s) selecting {methods} noise, not implemented in the forward pass; falling back to the sample-average method for stage id(s) {stage_ids:?}
   ```
 
   O marcador `{methods}` assume `selective`, `historical_residuals` ou `selective or historical_residuals`, e o método de média amostral (sample-average) é o método Monte Carlo simples (`saa`).
 - **Poucas janelas históricas.** O conjunto de janelas históricas contém menos janelas que o número de simulações forward:
-  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/window.rs:145-153 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/window.rs:145-153 at novomodelo v0.22.0 */}
   ```text
   fewer windows ({}) than forward passes ({forward_passes}): historical sampling will repeat windows across forward passes
   ```
 - **Poucas janelas na biblioteca histórica.** O Novo Modelo verifica novamente o conjunto de janelas históricas ao validar a biblioteca construída a partir dele, de modo que a mesma insuficiência gera um segundo aviso:
-  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:609-617 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/historical.rs:606-614 at novomodelo v0.22.0 */}
   ```text
   historical library has fewer windows ({}) than forward passes ({}); windows will be reused across forward passes
   ```
 - **Poucos cenários na biblioteca externa.** Nenhum estágio de uma biblioteca de cenários externos contém tantos cenários quanto o número de simulações forward; cada classe no esquema externo é verificada separadamente:
-  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/external.rs:785-795 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/sampling/external.rs:772-782 at novomodelo v0.22.0 */}
   ```text
   external {class} library has fewer scenarios ({n_scenarios}) than forward passes ({forward_passes}); scenarios will be reused across forward passes
   ```
 
   O marcador `{class}` assume `inflow`, `load` ou `ncs`.
 - **Coordenadas constantes na correspondência de momentos.** A correspondência de momentos (moment matching) encontra usinas hidrelétricas cujas aberturas em um estágio gerado são todas iguais e as mantém como sorteadas; as contagens abrangem a árvore inteira:
-  {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:163-171 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:152-160 at novomodelo v0.22.0 */}
   ```text
   moment matching left {coordinates} inflow coordinate(s) in {stages} stage(s) as drawn: every opening is equal there
   ```
 - **Cópias menores de grupo de ruído na correspondência de momentos.** Um estágio de um grupo de ruído tem menos aberturas que o primeiro estágio do seu grupo, já com correspondência de momentos, de modo que as aberturas que ele copia não passam, como conjunto, pela correspondência de momentos:
-  {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:172-178 at novomodelo v0.21.0 */}
+  {/* quoted from source: crates/novomodelo-stochastic/src/tree/moment_matching.rs:161-167 at novomodelo v0.22.0 */}
   ```text
   {stages} stage(s) copy a noise-group stage with a different opening count; their copied openings are not moment-matched
   ```
 
 ### Limite de dimensão do Sobol
 
-{/* quoted from source: crates/novomodelo-stochastic/src/tree/qmc_sobol/sobol_directions.rs:25 at novomodelo v0.21.0 */}
+{/* quoted from source: crates/novomodelo-stochastic/src/tree/qmc_sobol/sobol_directions.rs:25 at novomodelo v0.22.0 */}
 
 Os números de direção de Sobol cobrem `SOBOL_MAX_DIM: usize = 21201` dimensões. Um estágio em `qmc_sobol` cujo vetor de ruídos tenha mais coordenadas é rejeitado com o erro abaixo, em que `{method}` é `sobol`.
 
-{/* quoted from source: crates/novomodelo-stochastic/src/error.rs:46 at novomodelo v0.21.0 */}
+{/* quoted from source: crates/novomodelo-stochastic/src/error.rs:46 at novomodelo v0.22.0 */}
 
 `noise dimension {dim} exceeds maximum supported dimension {max_dim} for {method}`
 
