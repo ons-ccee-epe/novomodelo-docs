@@ -425,6 +425,7 @@ export default defineConfig({
                     "reference/case-format/scenarios",
                     "reference/case-format/constraints",
                     "reference/case-format/penalties",
+                    "reference/case-format/boundary-conditions",
                     "reference/case-format/initial-conditions",
                   ],
                 },

@@ -1,0 +1,173 @@
+---
+title: Boundary Condition Files
+description: The boundary_conditions.json file, field by field — the initial reservoir storage, the recent inflows and pre-study releases of each hydro, and the committed windows and post-study bounds of each thermal.
+---
+
+This page documents `boundary_conditions.json`, which holds the values at the edges of the study horizon, grouped by
+plant: the starting state and pre-study records on the left edge, and the committed and priced deliveries past the horizon on
+the right edge. The [File summary](/en/reference/case-format/#file-summary) maps every case file to its page, and
+[Conventions](/en/reference/case-format/#conventions) states the rules shared by all of them.
+
+---
+
+## `boundary_conditions.json`
+
+**Methodology:** [State Augmentation](/en/math/state-augmentation/) · [System Element Modeling Overview](/en/math/system-elements/) · [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary)
+
+Initial reservoir storage, recent inflow observations and pre-study releases already in transit for each hydro, and
+the committed windows and post-study cost and generation bounds for each thermal.
+
+| Name       | Type  | Required | Default | Units | Description                                                                                  |
+| ---------- | ----- | -------- | ------- | ----- | -------------------------------------------------------------------------------------------- |
+| `hydros`   | array | No       | `[]`    | —     | One entry per hydro with boundary data (see below); a hydro with none may be left out        |
+| `thermals` | array | No       | `[]`    | —     | One entry per thermal with boundary data (see below); a thermal with none may be left out    |
+
+Plant ids are unique in each list. An id that names no plant declared in `system/hydros.json` or `system/thermals.json`
+is refused at validation (`referential.1`), and an unknown key anywhere in the file is a `[ParseError]`. The loader
+sorts the lists and their windows after reading, so declaration order does not change the results.
+
+**`hydros[]` entry fields:**
+
+| Name                       | Type    | Required | Default | Units | Description                                                                                                  |
+| -------------------------- | ------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------ |
+| `hydros[].hydro_id`        | integer | Yes      | —       | —     | Hydro plant identifier; unique within `hydros`                                                               |
+| `hydros[].storage_hm3`     | number  | No       | —       | hm³   | Reservoir volume at the start of the study; `>= 0`, with the range rules below                               |
+| `hydros[].recent_inflows`  | array   | No       | `[]`    | —     | Observed inflow windows before the study start (see below)                                                   |
+| `hydros[].past_defluences` | array   | No       | `[]`    | —     | Pre-study release windows seeding the in-transit buckets of a declared travel-time arc (see below)           |
+
+**`storage_hm3`** gives one value per hydro. The rule set follows the hydro's `filling` field in
+[`system/hydros.json`](/en/reference/case-format/hydros/): a hydro without `filling` takes a value inside
+`[min_storage_hm3, max_storage_hm3]`, within a relative tolerance of `1e-9`, including a hydro that enters service
+later in the study; a hydro with `filling` takes a value in `[0, min_storage_hm3)`, and `0` when
+`filling.start_stage_id` is greater than `0`. The value is the storage at the start of the first stage and is used as
+declared: the stage `min_storage_hm3` and `max_storage_hm3` of
+[`constraints/hydro_bounds.parquet`](/en/reference/case-format/constraints/#constraintshydro_boundsparquet)
+bound the storage at the end of their stage, not the initial storage. When the value lies outside those end-of-stage
+bounds at the hydro's first operating stage, validation warns and names the stage, because that stage must reach the
+bound from its own inflow or release the excess. A hydro dormant at the start of the study keeps this storage at every
+stage before it enters service or starts filling ([System Element Modeling Overview](/en/math/system-elements#not-yet-commissioned-hydros-prefilling)).
+A hydro with no `storage_hm3` starts at its `min_storage_hm3`, or at `0` when it has a `filling` configuration or is out
+of service at the first study stage; the omission draws no diagnostic. The `filling` rules are listed under
+**Validation** on [Hydro Plant Files](/en/reference/case-format/hydros/).
+
+**`recent_inflows`** are observed inflow windows before the study start. The PAR lag chain and the mid-period
+accumulator are seeded from `scenarios/inflow_history.parquet`'s windowed record, shadowed day-wise by `recent_inflows`
+wherever the two overlap, so a study that begins mid-season (for example on January 5) supplies the observed inflow for
+January 1 to 4.
+
+| Name                                   | Type   | Required | Default | Units | Description                                                          |
+| -------------------------------------- | ------ | -------- | ------- | ----- | -------------------------------------------------------------------- |
+| `hydros[].recent_inflows[].start_date` | string | Yes      | —       | —     | Start of the observation window (inclusive), ISO 8601 YYYY-MM-DD    |
+| `hydros[].recent_inflows[].end_date`   | string | Yes      | —       | —     | End of the observation window (exclusive), ISO 8601 YYYY-MM-DD; must be after `start_date` |
+| `hydros[].recent_inflows[].value_m3s`  | number | Yes      | —       | m³/s  | Average inflow observed over the window; finite                      |
+
+Windows of the same hydro must not overlap or share a `start_date`; adjacent windows
+(`start_date == previous end_date`) are accepted. A negative value is accepted — the quantity is incremental inflow (a
+plant's natural flow minus its upstream plants'), so a negative window is real hydrology, and the configured
+[inflow non-negativity](/en/math/inflow-nonnegativity) method decides how the water balance treats it. Semantic
+validation reports one warning per file naming the negative count and the most-negative value's hydro, so a genuinely
+sign-flipped series still stands out.
+
+**`past_defluences`** supply the pre-study releases already in transit on a declared travel-time arc
+(`hydros[].travel_time_hours`), so the first stages' delayed-arrival buckets are seeded rather than empty. Each entry
+gives a release window and its average rate for an upstream plant whose outflow feeds a downstream arc.
+
+| Name                                    | Type   | Required | Default | Units | Description                                                                              |
+| --------------------------------------- | ------ | -------- | ------- | ----- | ---------------------------------------------------------------------------------------- |
+| `hydros[].past_defluences[].start_date` | string | Yes      | —       | —     | Start of the release window (inclusive), ISO 8601 YYYY-MM-DD                             |
+| `hydros[].past_defluences[].end_date`   | string | Yes      | —       | —     | End of the release window (exclusive), ISO 8601 YYYY-MM-DD; must be after `start_date`   |
+| `hydros[].past_defluences[].value_m3s`  | number | Yes      | —       | m³/s  | Average release rate over the window; finite and non-negative                            |
+
+The windows of a plant must cover the arc's in-transit span at study start — `[start_0 − travel_time, start_0)` — with
+no gap and none future-dated past the study start; otherwise the study is rejected. There is no fallback for incomplete
+coverage. Windows must not overlap; adjacent windows are accepted.
+
+**`thermals[]` entry fields:**
+
+| Name                           | Type    | Required | Default | Units | Description                                                                                                   |
+| ------------------------------ | ------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------- |
+| `thermals[].thermal_id`        | integer | Yes      | —       | —     | Thermal plant identifier; unique within `thermals`                                                            |
+| `thermals[].commitments`       | array   | No       | `[]`    | —     | Committed MW windows decided before the study, in-study or past the horizon (see below)                       |
+| `thermals[].post_study_bounds` | array   | No       | `[]`    | —     | Cost and generation bounds per post-study stage the study decides (see below)                                 |
+
+An anticipated thermal must still declare its `commitments`.
+
+**`commitments`** supply the externally decided committed MW rate for an anticipated thermal plant — every delivery the
+plant **decided before the study begins**, whether that delivery matures inside the horizon (seeding its ring slot at
+the first stage) or past it. Each entry is a dated window carrying a constant rate:
+
+| Name                                  | Type   | Required | Default | Units | Description                                                                               |
+| ------------------------------------- | ------ | -------- | ------- | ----- | ----------------------------------------------------------------------------------------- |
+| `thermals[].commitments[].start_date` | string | Yes      | —       | —     | Start of the commitment window (inclusive), ISO 8601 YYYY-MM-DD                           |
+| `thermals[].commitments[].end_date`   | string | Yes      | —       | —     | End of the commitment window (exclusive), ISO 8601 YYYY-MM-DD; must be after `start_date` |
+| `thermals[].commitments[].value_mw`   | number | Yes      | —       | MW    | Committed MW rate held constant over the window; finite                                   |
+
+A plant's windows must **tile every delivery stage the plant decided before the study, exactly** — coverage `1.0`, no
+gap, no overlap. Those stages may fall on **either side** of the horizon: the leading in-study delivery stages, and any
+post-horizon stages of a delivery decided before the study. A window may **never** cover a stage the study itself
+decides, and a single window may not straddle the horizon end — split it into an in-study window ending at the horizon
+and a post-study window starting there. A stretch with no scheduled commitment still needs an explicit `0.0`-rate window
+rather than a gap left to be inferred. An in-study window's `value_mw` is checked against the resolved generation bounds
+of every covered stage at which the plant is in service, and a purely post-horizon window's against the plant's static
+`[min_generation_mw, max_generation_mw]`; a non-zero window may not cover a stage outside the plant's commissioning
+window, when it declares one. The values are **sunk cost**: their fuel never enters the study objective. With a boundary
+loaded, a post-horizon window's state contribution is folded once, at load, into every boundary cut's intercept, and the
+window is echoed at its real delivery date in `anticipated/fixed_deliveries.parquet`. See
+[System Element Modeling Overview §4](/en/math/system-elements#anticipated-thermal-plants) for the delivery-stage
+mechanics the windows tile against.
+
+**`post_study_bounds`** price and limit a delivery the study decides. Each row names a post-study thermal stage by its
+`id` in the `post_study_thermal_stages` calendar of `stages.json`
+([Post-study calendars](/en/reference/case-format/stages/#post-study-calendars)):
+
+| Name                                           | Type    | Required | Default | Units | Description                                                                                  |
+| ---------------------------------------------- | ------- | -------- | ------- | ----- | -------------------------------------------------------------------------------------------- |
+| `thermals[].post_study_bounds[].stage_id`      | integer | Yes      | —       | —     | Id of an entry of `post_study_thermal_stages`; at most once per plant                        |
+| `thermals[].post_study_bounds[].cost_per_mwh`  | number  | Yes      | —       | USD/MWh | Fuel cost at this stage; finite                                                              |
+| `thermals[].post_study_bounds[].min_mw`        | number  | Yes      | —       | MW    | Lower bound of the delivered MW rate at this stage; finite                                   |
+| `thermals[].post_study_bounds[].max_mw`        | number  | Yes      | —       | MW    | Upper bound of the delivered MW rate at this stage; finite and `>= min_mw`                   |
+
+A row is required for every post-study stage whose delivery the plant's lead places on a decision of the study; a stage
+delivered by a `commitments` window needs no row. A `stage_id` that names no `post_study_thermal_stages` entry is refused.
+A commitment decided before the study and delivered past the horizon is a `commitments` window; a commitment decided
+in-study and delivered past the horizon is a `post_study_bounds` row. See
+[Post-Study Boundary & Chained Studies](/en/math/post-study-boundary) for the boundary formulation both feed.
+
+Example:
+
+```json
+{
+  "hydros": [
+    {
+      "hydro_id": 0,
+      "storage_hm3": 80.0,
+      "recent_inflows": [
+        { "start_date": "2025-12-15", "end_date": "2026-01-01", "value_m3s": 12.0 }
+      ],
+      "past_defluences": [
+        { "start_date": "2025-11-01", "end_date": "2026-01-01", "value_m3s": 20.0 }
+      ]
+    }
+  ],
+  "thermals": [
+    {
+      "thermal_id": 86,
+      "commitments": [
+        { "start_date": "2026-01-01", "end_date": "2026-02-01", "value_mw": 0.0 },
+        { "start_date": "2026-11-01", "end_date": "2026-11-07", "value_mw": 120.0 }
+      ],
+      "post_study_bounds": [
+        { "stage_id": 121, "cost_per_mwh": 210.0, "min_mw": 0.0, "max_mw": 350.0 }
+      ]
+    }
+  ]
+}
+```
+
+### Deprecated format
+
+`initial_conditions.json` and `post_study_stages.json` are still read, with a warning. A case may not mix them with
+`boundary_conditions.json`: a case that carries `boundary_conditions.json` together with either legacy file is refused.
+The legacy files are documented on [Initial Condition Files](/en/reference/case-format/initial-conditions/). To convert a
+case, run `python3 scripts/migrate/boundary_conditions.py <case>` from a novomodelo checkout; see
+[Case Conversion](/en/running/case-conversion/).
