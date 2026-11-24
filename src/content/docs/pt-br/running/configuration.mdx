@@ -50,6 +50,7 @@ Todas as chaves de `config.json` até o segundo nível, com seu tipo e valor pad
 | `simulation.cut_set`                         | string          | Não      | `"all"`      | —     | Um de `"all"`, `"active"`. Quais linhas da política os PLs de estágio da simulação contêm. Veja [`simulation`](#simulation).                       |
 | `modeling`                                   | object          | Não      | `{}`         | —     | Controla opções de modelagem física. Veja [`modeling`](#modeling).                                                                                 |
 | `modeling.inflow_non_negativity`             | object          | Não      | `{}`         | —     | Tratamento de sorteios negativos de afluência do modelo PAR. Veja [`modeling.inflow_non_negativity`](#modelinginflow_non_negativity).              |
+| `modeling.inflow_residual`                   | object          | Não      | `{}`         | —     | Distribuição do resíduo de afluência do modelo PAR(p), `"normal"` ou `"lognormal_3p"`. Veja [`modeling.inflow_residual`](#modelinginflow_residual). |
 | `modeling.cost_scale_factor`                 | number \| null  | Não      | `1000000.0`  | —     | Divisor de todo coeficiente da função objetivo que não seja de θ; `null` ou ausente usa o padrão. Veja [`modeling.cost_scale_factor`](#modelingcost_scale_factor). |
 | `estimation`                                 | object          | Não      | `{}`         | —     | Controla o processo de estimação do modelo PAR(p). Veja [`estimation`](#estimation).                                                               |
 | `estimation.max_order`                       | integer         | Não      | `6`          | —     | Ordem máxima de defasagem considerada no ajuste do modelo. Veja [`estimation`](#estimation).                                                       |
@@ -814,6 +815,7 @@ Controla opções de modelagem física.
 | Campo                   | Tipo   | Padrão         | Descrição                                                                                                                         |
 | ----------------------- | ------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `inflow_non_negativity` | object | `{}`           | Estratégia de tratamento de sorteios negativos de afluência do modelo PAR.                                                        |
+| `inflow_residual`       | object | `{}`           | Distribuição do resíduo de afluência do modelo PAR(p). Veja abaixo.                                                               |
 | `cost_scale_factor`     | number \| null | `1000000.0`    | Divisor de todo coeficiente da função objetivo que não seja de θ (condicionamento da função objetivo; não altera o modelo, ao contrário dos demais campos desta seção). Veja abaixo. |
 
 ### `modeling.inflow_non_negativity`
@@ -855,6 +857,64 @@ Exemplo — a folga `"penalty"` sem limite superior no lugar do padrão:
   "modeling": {
     "inflow_non_negativity": {
       "method": "penalty"
+    }
+  }
+}
+```
+
+### `modeling.inflow_residual`
+
+| Campo          | Tipo   | Padrão     | Descrição                            |
+| -------------- | ------ | ---------- | ------------------------------------ |
+| `distribution` | string | `"normal"` | Um de `"normal"`, `"lognormal_3p"`.  |
+
+Em cada resolução, o modelo PAR(p) dá à vazão incremental de cada usina uma
+média condicional, calculada a partir das defasagens de afluência daquela
+resolução, e um desvio-padrão do resíduo. `distribution` define a distribuição
+do resíduo somado à média:
+
+- `"normal"` (padrão) -- um resíduo gaussiano. A afluência pode ser negativa, e
+  [`inflow_non_negativity`](#modelinginflow_non_negativity) a trata.
+- `"lognormal_3p"` -- experimental: um resíduo lognormal de três parâmetros com
+  a mesma média e o mesmo desvio-padrão, limitado inferiormente em afluência
+  zero, de modo que a afluência não é negativa. Onde a média condicional não é
+  positiva, a usina recebe o resíduo gaussiano naquela resolução, e
+  `inflow_non_negativity` trata uma afluência negativa como em `"normal"`.
+
+Os dois valores sorteiam o mesmo ruído; só o resíduo construído a partir dele
+muda. [Modelo de afluências PAR(p) §2.7](/math/par-inflow-model/#27-residuo-lognormal)
+apresenta a transformação. Como nos dois métodos de truncamento, o resíduo
+depende das defasagens de afluência de cada resolução, então o limite inferior
+pode exceder o limite superior.
+
+Em um caso com modelo PAR(p), `"lognormal_3p"` é recusado, por `novomodelo
+validate` e por `novomodelo run` antes do treinamento, com código de saída `1`,
+quando o caso também usa algum de:
+
+- `"external"` ou `"historical"` como `scheme` de afluência de
+  `training.scenario_source` ou `simulation.scenario_source`;
+- `"enumerated"` como `training.selection.method` ou `simulation.selection.method`;
+- um estágio cujo `sampling_method` é `"historical_residuals"`;
+- um nó de `policy_graph` com `scenario_id`.
+
+Um único erro nomeia todos os conflitos
+([`StudySetupError`](/reference/error-codes/#studysetuperror)).
+`novomodelo validate`, mas não `novomodelo run`, avisa sobre as resoluções que
+recebem o resíduo gaussiano: em uma usina e estação cuja afluência média sazonal
+é zero ou negativa, e com `inflow_non_negativity.method = "none"`, em que essa
+afluência pode ser negativa
+([`ModelQuality`](/reference/error-codes/#modelquality)).
+
+Uma política treinada com qualquer um dos valores é carregada e simulada com o
+outro.
+
+Exemplo:
+
+```json
+{
+  "modeling": {
+    "inflow_residual": {
+      "distribution": "lognormal_3p"
     }
   }
 }

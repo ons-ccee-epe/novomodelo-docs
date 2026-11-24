@@ -116,7 +116,7 @@ Other PAR(p) implementations may follow different conventions:
 
 - they often write the autoregressive coefficients as $\phi$, which this chapter writes $\psi$ (original units) and $\psi^*$ (standardized);
 - some store the innovation standard deviation, while this model stores the seasonal sample standard deviation $s_m$ and derives the innovation standard deviation $\sigma_m = s_m\, r_m$ at load (§4);
-- some draw residuals from a lognormal distribution, while this model's innovations are Gaussian and negative realizations are treated as in [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity).
+- some draw residuals from a lognormal distribution; this model's residuals are Gaussian unless `modeling.inflow_residual.distribution` selects the lognormal residual of §2.7, and negative realizations are treated as in [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity).
 
 For equivalent terms in other planning tools, see the [Glossary](/en/reference/glossary).
 :::
@@ -215,6 +215,26 @@ Whether the lagged inflows enter a stage's cuts is a per-stage choice; a cut tha
 | Lag coefficients   | $\psi_{m(t),\ell}$ | One per (hydro, lag) | Realized inflow (lag terms); chain rule of the inflow-lag cut coefficients | Derived from stored $\psi^*$ and $s_m$ at initialization (§2.2) |
 | Deterministic base | $b_{h,m(t)}$       | One per hydro        | Realized inflow (fixed term)              | Precomputed from $\mu$ and $\psi$                                      |
 | Noise scale        | $\sigma_{m(t)}$    | One per hydro        | Realized inflow (noise factor)            | Derived from the closure-derived $r_m$ (§4.1) and $s_m$ at initialization (§2.2) |
+
+### 2.7 Lognormal Residual
+
+With `modeling.inflow_residual.distribution = "lognormal_3p"` ([Configuration](/en/running/configuration/#modelinginflow_residual)), the noise term $\sigma_{m(t)} \cdot \varepsilon_t$ of §2.5 is replaced by a lognormal residual formed from the conditional mean of the solve,
+
+$$
+p_h = b_{h,m(t)} + \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \hat{a}_{h,\ell}
+$$
+
+so that
+
+$$
+\hat{z}_h = p_h \exp\!\left(\tilde{\sigma}_h \varepsilon_t - \tfrac{1}{2} \tilde{\sigma}_h^2\right), \qquad \tilde{\sigma}_h^2 = \ln\!\left(1 + \left(\sigma_{m(t)} / p_h\right)^2\right)
+$$
+
+For a standard-normal $\varepsilon_t$, $\hat{z}_h$ has mean $p_h$ and standard deviation $\sigma_{m(t)}$, the moments of the Gaussian residual, and is never negative: the residual is a three-parameter lognormal with its lower bound at zero inflow, applied to the hydro's incremental inflow. The draws $\varepsilon_t$, their correlation and the opening tree are those of the Gaussian residual.
+
+Where $p_h \le 0$, or $p_h$ is so close to zero that $(\sigma_{m(t)} / p_h)^2$ overflows, the hydro takes the Gaussian residual $\sigma_{m(t)} \cdot \varepsilon_t$ at that solve, and [inflow non-negativity](/en/math/inflow-nonnegativity) treats a negative $\hat{z}_h$ as under the Gaussian residual. At $\sigma_{m(t)} = 0$, $\hat{z}_h = p_h$.
+
+The residual depends on the incoming lags through $p_h$. The cut coefficients on the lags hold the residual at its trial-point value (the chain rule of [PAR(p) Folding](/en/math/par-folding) carries no derivative of the transform), so, as with the truncation amount of [Inflow Non-Negativity §7](/en/math/inflow-nonnegativity#7-truncation-and-the-lower-bound), each cut is tight at its trial point, but the lower bound is not guaranteed to stay below the optimal value, and it can exceed the upper bound.
 
 ## 3. Estimation
 

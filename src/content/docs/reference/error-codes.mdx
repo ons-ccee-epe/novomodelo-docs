@@ -1778,9 +1778,10 @@ disabled on every study stage despite supplied autoregressive coefficients, a
 negative value in `scenarios/inflow_history.parquet`, a season with none of
 the samples the estimation fits from that file, a hydro-season with at least one, but fewer than
 `estimation.min_observations_per_season`, fully covered season occurrences in that
-file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW at zero turbined flow, or an initial
+file, an advisory on a hydro's declared `travel_time_hours`, a hard storage floor that rises above the floor the previous stage leaves, a precomputed FPHA plane that falls below 0 MW at zero turbined flow, an initial
 storage outside the storage bounds at the end of the hydro's first operating
-stage. Each is reported as a warning.
+stage, or, under a `lognormal_3p` inflow residual, a seasonal mean inflow at or
+below zero or the `none` inflow method. Each is reported as a warning.
 
 **Example:**
 
@@ -1858,12 +1859,28 @@ FPHA plane below zero at zero turbining: {entity} -- {n_pairs} (stage, plane) pa
 
 The check skips a hydro with no FPHA entry, a hydro whose FPHA is computed (`source: "computed"`) and a hydro without turbine capacity. It covers each study stage whose entry resolves to `fpha`, and a stage uses its own `stage_id` rows, else the all-stage (`stage_id` null) rows. It evaluates each row at zero turbined flow, at the fitting window's minimum storage and at the upper end of the spillage fit range (`spillage_fit_max_m3s`, or its default), with `kappa` multiplying `gamma_0` only. `{s_star}` is the spillage at which the plane reaches 0 MW, (`kappa`·`gamma_0` + `gamma_v`·v_min)/|`gamma_s`| when that sum is positive and 0 otherwise. The earliest crossing is the smallest `{s_star}`, with ties broken by stage id and then plane id. `{stages}` lists the flagged stage ids as ascending runs written `a-b` (or a single id) and joined by `, `. One warning is reported per hydro.
 
+The two `lognormal_3p` messages, which `novomodelo validate` reports and
+`novomodelo run` does not, the first on `scenarios/` and the second on
+`config.json`:
+
+{/* quoted from source: inflow_residual_warnings in crates/novomodelo-sddp/src/validate_phases.rs at novomodelo v0.22.0 */}
+
+```text
+modeling.inflow_residual.distribution = "lognormal_3p": the seasonal mean inflow is <= 0 at {list}; there the inflow takes the normal residual whenever its conditional mean is not positive
+modeling.inflow_residual.distribution = "lognormal_3p" with modeling.inflow_non_negativity.method = "none": an inflow that takes the normal residual can be negative
+```
+
+`{list}` names each hydro with its seasons, or with its stage ids at stages
+without a season, as ascending runs written `a-b` (or a single number) and
+joined by `, `, for example `hydro 0 (stages 0, 2), hydro 3 (seasons 0-11)`. It
+names at most ten hydros and counts the rest as `and {n} more`.
+
 **Resolution:** Review the flagged input. For a penalty-ordering warning, see
 [Load-time penalty checks](/en/math/penalty-system#implementation-in-novomodelo); for the
 inflow-lag warning, see
 [`stages[].state_variables` — Cut Projection](/en/math/cut-management/#stagesstate_variables--cut-projection);
 for the initial-storage warning, check that the first operating stage can reach
-its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_s` to at least −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, with the storage v_min and the spillage S_ref the message prints, or fit the planes from geometry with `source: "computed"`, whose planes get this limit ([Lateral-Flow Secant](/en/math/hydro-production-models#27-lateral-flow-secant)); a plane whose crossing is at 0 m³/s needs a larger `gamma_0` or `gamma_v`.
+its storage bounds, or move the initial storage inside them; for the rising-floor warning, lower the rising floor, raise the previous stage's floor, or use the `penalty` inflow method (see [the complete-recourse precondition](/en/math/penalty-system#complete-recourse-precondition)); for the precomputed-plane warning, raise the flagged plane's `gamma_s` to at least −(`kappa`·`gamma_0` + `gamma_v`·v_min)/S_ref, with the storage v_min and the spillage S_ref the message prints, or fit the planes from geometry with `source: "computed"`, whose planes get this limit ([Lateral-Flow Secant](/en/math/hydro-production-models#27-lateral-flow-secant)); a plane whose crossing is at 0 m³/s needs a larger `gamma_0` or `gamma_v`; for a `lognormal_3p` warning, check the flagged seasonal means, or set an [`inflow_non_negativity`](/en/running/configuration/#modelinginflow_non_negativity) method other than `none`.
 Warnings of this type do not prevent the solver from running.
 
 ---
@@ -2305,8 +2322,8 @@ describes the `openings` key.
 **Severity:** Error
 
 **When it occurs:** Study construction fails on a case without `policy.boundary`: a scenario library (the
-forward `historical` scheme's included), an external-library check, a solver-profile check, or the admission
-gate of the `gap` rule and of the `dynamic` selection method and `max_active_per_stage`. File label: `scenarios/` for a stochastic-model error,
+forward `historical` scheme's included), an external-library check, a solver-profile check, the admission
+gate of the `gap` rule and of the `dynamic` selection method and `max_active_per_stage`, or the `lognormal_3p` gate of `modeling.inflow_residual.distribution`. File label: `scenarios/` for a stochastic-model error,
 `config.json` otherwise. On a case with `policy.boundary`, the same failures report
 [`BoundaryReconciliationError`](#boundaryreconciliationerror). `novomodelo validate` exits `1`.
 
@@ -2317,6 +2334,28 @@ gate of the `gap` rule and of the `dynamic` selection method and `max_active_per
 ```text
 scenarios/: stochastic error: insufficient data: no valid historical windows found: ensure that inflow history covers the required seasons for at least one starting year
 ```
+
+A `"lognormal_3p"` residual on a case that also uses an input it does not
+support ([`modeling.inflow_residual`](/en/running/configuration/#modelinginflow_residual))
+is refused with one message that names every conflict, joined by `; `:
+
+{/* quoted from source: reject_unsupported_combinations_under_lognormal in crates/novomodelo-sddp/src/setup/mod.rs at novomodelo v0.22.0 */}
+
+```text
+config.json: configuration validation error: modeling.inflow_residual.distribution = "lognormal_3p" does not support {conflicts}
+```
+
+Each conflict is one of:
+
+- `training.scenario_source.inflow.scheme = "{scheme}"` or
+  `simulation.scenario_source.inflow.scheme = "{scheme}"`, with `{scheme}`
+  `external` or `historical`;
+- `training.selection.method = "enumerated"` or
+  `simulation.selection.method = "enumerated"`;
+- `stages[].sampling_method = "historical_residuals" (stage {stage})`;
+- `policy_graph.nodes[].scenario_id (node {node}, stage {stage})`.
+
+Set `distribution` to `"normal"`, or change the conflicting inputs.
 
 ---
 
@@ -2841,7 +2880,7 @@ A stage-LP failure in simulation exits `3`, and every other simulation failure e
 
 ### Communication failures
 
-{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-401 at novomodelo v0.21.0 */}
+{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-397 and 417-434 at novomodelo v0.22.0 */}
 
 {/* quoted from source: crates/novomodelo-cli/src/error.rs:264-270 and 289-307, crates/novomodelo-comm/src/types.rs:25-70 and 73-120, crates/novomodelo-comm/src/factory.rs:256-293, crates/novomodelo-comm/src/ferrompi.rs:87-93, crates/novomodelo-sddp/src/error.rs:36-38 and 48-51, crates/novomodelo-sddp/src/cut/wire.rs:176-180, crates/novomodelo-sddp/src/workspace/workspace.rs:218-223, crates/novomodelo-sddp/src/training/training.rs:461-463 and 491-493, crates/novomodelo-cli/src/commands/broadcast.rs:420-438, crates/novomodelo-cli/src/commands/run/mod.rs:319-336, crates/novomodelo-cli/src/commands/run/setup.rs:361-371, crates/novomodelo-cli/src/commands/run/training.rs:97-111 and 130-132, crates/novomodelo-cli/src/commands/run/simulation.rs:390-392 and crates/novomodelo-sddp/src/training/session/mod.rs:373-384, 756 and 839 at novomodelo v0.21.0 */}
 
@@ -2855,8 +2894,9 @@ A stage-LP failure in simulation exits `3`, and every other simulation failure e
 | `gather_basis_store: rank {rank} sent more than its {passes} rows at node {node}` or `gather_basis_store: rank {rank}'s basis payload at node {node} does not fit an i32 count` | `1` | Rank 0 cannot decode the stored LP bases it gathers from every process at a periodic checkpoint or at the end of training, or the bases one process holds for a node exceed an MPI count. The `novomodelo validate` hint after it does not apply. | Report the case with the message. |
 | `rank 0 signaled broadcast failure (length 0)`                                                                                                                                                                                                                                                                                                                                                                        | `4`       | Rank 0 fails while loading the case, before it broadcasts the study, so the other processes receive an empty broadcast; rank 0 exits with the code of its own error.                                                                                                                                                                               | Fix the error that rank 0 prints under its `rank 0:` line.                                                                                            |
 | `hydro model preprocessing error on non-root rank: {e}`                                                                                                                                                                                                                                                                                                                                                               | `4`       | A process other than rank 0 fails to prepare the hydro models, which it rebuilds from the case directory.                                                                                                                                                                                                                                          | Give every process read access to the same case directory, and read `{e}` for the cause.                                                              |
-| `opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same tree from the broadcast inputs`                                                                                                                                                                                                                                                                      | `4`       | On two or more MPI processes, the digests of the opening tree that the ranks built differ after setup, so they would train against different trees; `{min}` and `{max}` are the smallest and the largest digest, each `0x` and 16 hexadecimal digits ([Opening tree across MPI ranks](/en/math/scenario-generation/#implementation-in-novomodelo)).   | Report the case with the message.                                                                                                                     |
-| `opening tree fingerprint exchange failed: {e}`                                                                                                                                                                                                                                                                                                                                                                       | `4`       | The exchange of the opening-tree digests across the MPI processes fails; `{e}` is the communication error.                                                                                                                                                                                                                                         | Read `{e}` for the failing operation.                                                                                                                 |
+| `opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same opening tree from the broadcast inputs`                                                                                                                                                                                                                                                                      | `4`       | On two or more MPI processes, the digests of the opening tree that the ranks built differ after setup, so they would train against different trees; `{min}` and `{max}` are the smallest and the largest digest, each `0x` and 16 hexadecimal digits ([Opening tree across MPI ranks](/en/math/scenario-generation/#implementation-in-novomodelo)).   | Report the case with the message.                                                                                                                     |
+| `PAR model differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same PAR model from the broadcast inputs` | `4` | On two or more MPI processes, the digests of the PAR model that the ranks built differ after setup, so they would compute inflows from different models; `{min}` and `{max}` are the smallest and the largest digest, each `0x` and 16 hexadecimal digits ([PAR model across MPI ranks](/en/math/par-inflow-model/#implementation-in-novomodelo)). | Report the case with the message. |
+| `{what} fingerprint exchange failed: {e}` | `4` | The exchange of the opening-tree or PAR-model digests across the MPI processes fails; `{what}` is `opening tree` or `PAR model`, and `{e}` is the communication error. | Read `{e}` for the failing operation. |
 | `enumerated training at world >= 2 requires a graph with no interior branching (a deterministic trunk + terminal fan): node {node_id} is a non-leaf node not shared by every root→leaf path — the enumerated forward's per-rank state exchange is elided for it, so the replicated backward would cut against a zeroed incoming state on any rank that never visits it, pending the interior-node state-exchange fix` | `1`       | Enumerated training (`training.selection.method` `"enumerated"`) runs on two or more MPI processes over a policy graph with an interior branching node; the message has no prefix and is followed by ``-> run `novomodelo validate <CASE_DIR>` for a full diagnostic report``, although `novomodelo validate` does not check this and exits `0` on the case. | Keep all branching at the last stage, run on one process, or use sampled selection.                                                                   |
 
 Requesting the MPI backend from a binary built without MPI support prints:

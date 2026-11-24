@@ -89,10 +89,10 @@ Os números de direção de Sobol cobrem `SOBOL_MAX_DIM: usize = 21201` dimensõ
 
 ### Árvore de aberturas entre ranks MPI
 
-{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-401 and crates/novomodelo-stochastic/src/tree/opening_tree.rs:258-275 at novomodelo v0.21.0 */}
+{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-397 and 417-434 and crates/novomodelo-stochastic/src/tree/opening_tree.rs:259-276 at novomodelo v0.22.0 */}
 
 Com dois ou mais processos MPI, o `novomodelo run` verifica, depois da montagem, que todos os ranks construíram a mesma árvore de aberturas. Cada rank calcula o hash da sua árvore com FNV-1a de 64 bits sobre o número de estágios, a dimensão do ruído, o número de aberturas de cada estágio, o padrão de bits de cada valor de ruído e a ordem de resolução, e os ranks trocam o menor e o maior resumo (digest). Quando os dois diferem, a execução para com código `4` antes do treinamento ([Falhas de comunicação](/reference/error-codes/#falhas-de-comunicacao)):
 
 ```text
-opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same tree from the broadcast inputs
+opening tree differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same opening tree from the broadcast inputs
 ```

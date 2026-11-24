@@ -123,3 +123,13 @@ são executadas ou de como as usinas são distribuídas entre elas. Veja
 mecanismo completo, que o processo de estimação deste capítulo compartilha com o
 processo de ajuste da FPHA calculada descrito em
 [Modelos de função de produção hidrelétrica](/math/hydro-production-models).
+
+### Modelo PAR entre ranks MPI
+
+{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-397 and 417-434 and crates/novomodelo-stochastic/src/par/precompute.rs:418-440 at novomodelo v0.22.0 */}
+
+Com dois ou mais processos MPI, o `novomodelo run` verifica, depois da montagem, que todos os ranks construíram o mesmo modelo PAR. Cada rank calcula o hash do seu modelo com FNV-1a de 64 bits sobre o número de estágios, o número de usinas hidrelétricas, a maior ordem AR, a ordem AR de cada usina e se ela tem componente anual, e o padrão de bits de cada valor das suas tabelas de base determinística, de desvio-padrão do ruído e de coeficientes AR, e os ranks trocam o menor e o maior resumo (digest). Quando os dois diferem, a execução para com código `4` antes do treinamento ([Falhas de comunicação](/reference/error-codes/#falhas-de-comunicacao)):
+
+```text
+PAR model differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same PAR model from the broadcast inputs
+```

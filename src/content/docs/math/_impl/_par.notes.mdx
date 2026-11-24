@@ -122,3 +122,13 @@ run or how hydros are distributed across them. See
 mechanism, which this chapter's estimation pipeline shares with the
 computed-FPHA fitting pipeline described in
 [Hydro Production Function Models](/en/math/hydro-production-models).
+
+### PAR model across MPI ranks
+
+{/* quoted from source: crates/novomodelo-cli/src/commands/run/setup.rs:387-397 and 417-434 and crates/novomodelo-stochastic/src/par/precompute.rs:418-440 at novomodelo v0.22.0 */}
+
+On two or more MPI processes, `novomodelo run` checks after setup that every rank built the same PAR model. Each rank hashes its model with 64-bit FNV-1a over the stage count, the hydro count, the largest AR order, each hydro's AR order and whether it carries an annual component, and the bit pattern of every value of its deterministic-base, innovation-standard-deviation and AR-coefficient tables, and the ranks exchange the smallest and the largest digest. When the two differ, the run stops with exit `4` before training ([Communication failures](/en/reference/error-codes/#communication-failures)):
+
+```text
+PAR model differs across MPI ranks (fingerprints {min:#018x} to {max:#018x}); every rank must build the same PAR model from the broadcast inputs
+```
