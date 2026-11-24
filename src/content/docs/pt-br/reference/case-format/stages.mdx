@@ -1,12 +1,13 @@
 ---
 title: "Arquivos de estágios"
-description: O eixo temporal de um caso, campo a campo — stages.json, com seu grafo da política, estágios, patamares e períodos sazonais, e o arquivo opcional post_study_stages.json, com os calendários pós-horizonte.
+description: O eixo temporal de um caso, campo a campo — stages.json, com seu grafo da política, estágios, patamares, períodos sazonais e calendários pós-estudo, e o arquivo obsoleto post_study_stages.json.
 ---
 
-Um caso do Novo Modelo descreve seu eixo temporal em dois arquivos na raiz do caso. `stages.json` é obrigatório: contém o
-grafo da política (policy graph), os estágios do estudo com seus patamares de carga, o mapa opcional de períodos sazonais e os estágios pré-estudo opcionais.
-`post_study_stages.json` é opcional: contém os calendários pós-horizonte das entregas das térmicas e da água em trânsito, e os
-limites de custo e de entrega por térmica para compromissos de despacho decididos dentro do estudo e entregues após o horizonte. O [Resumo dos arquivos](/reference/case-format/#resumo-dos-arquivos)
+Um caso do Novo Modelo descreve seu eixo temporal em `stages.json`, um arquivo obrigatório na raiz do caso. Ele contém o
+grafo da política (policy graph), os estágios do estudo com seus patamares de carga, o mapa opcional de períodos sazonais, os
+estágios pré-estudo opcionais e os calendários pós-estudo opcionais das entregas das térmicas e da água em trânsito.
+`post_study_stages.json` é o antigo local, obsoleto, desses calendários e dos limites de custo e de entrega por térmica, que agora ficam em `boundary_conditions.json`.
+O [Resumo dos arquivos](/reference/case-format/#resumo-dos-arquivos)
 associa cada arquivo do caso à sua página, e [Convenções](/reference/case-format/#convencoes) apresenta as regras comuns a todos eles.
 
 ---
@@ -214,9 +215,65 @@ mais curto desses não pode ter, com tolerância de 7 dias, a duração de um pe
 mais fino; por isso, estágios mensais e trimestrais usam valores distintos de `season_id`. Um estágio
 que viola a regra é um erro [`BusinessRuleViolation`](/reference/error-codes/#businessruleviolation).
 
+### Calendários pós-estudo
+
+**Metodologia:** [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary/)
+
+Duas listas opcionais datam os compromissos que um estudo decide dentro do horizonte e entrega depois dele.
+`post_study_thermal_stages` data as entregas das térmicas; `post_study_water_stages` data as parcelas de água em
+trânsito entre usinas. Os estágios existem apenas para a fronteira: nunca são despachados, não têm patamares,
+aberturas, medida de risco nem período sazonal, e nunca carregam cortes de Benders. Cada entrada tem o mesmo formato
+de uma entrada de `pre_study_stages[]`, e `end_date` é exclusiva. Os limites de custo e de entrega por térmica que
+esses estágios precificam ficam em `thermals[].post_study_bounds`, na [página de condições de contorno](/reference/case-format/boundary-conditions/#boundary_conditionsjson).
+
+| Nome                                 | Tipo    | Obrigatório | Padrão | Unidades | Descrição                                                                                              |
+| ------------------------------------ | ------- | -------- | ------- | ----- | ------------------------------------------------------------------------------------------------------ |
+| `post_study_thermal_stages`          | array   | Não      | —       | —     | Estágios de entrega térmica após o horizonte do estudo, em qualquer ordem; ordenados por `start_date` após a leitura |
+| `post_study_thermal_stages[].id`     | integer | Sim      | —       | —     | Identificador do estágio; o estágio na posição `j` em ordem de `start_date` tem id `max(stages[].id) + 1 + j` |
+| `post_study_thermal_stages[].start_date` | string | Sim   | —       | —     | Data de início do estágio (inclusive), ISO 8601 YYYY-MM-DD; única na lista                             |
+| `post_study_thermal_stages[].end_date`   | string | Sim   | —       | —     | Data de fim do estágio (exclusiva), ISO 8601 YYYY-MM-DD; posterior a `start_date`                      |
+| `post_study_water_stages`            | array   | Não      | —       | —     | Estágios de água em trânsito após o horizonte do estudo, em qualquer ordem; ordenados por `start_date` após a leitura |
+| `post_study_water_stages[].id`       | integer | Sim      | —       | —     | Identificador do estágio; único e acima de todo id de estágio do estudo                                |
+| `post_study_water_stages[].start_date`   | string | Sim   | —       | —     | Data de início do estágio (inclusive), ISO 8601 YYYY-MM-DD; única na lista                             |
+| `post_study_water_stages[].end_date`     | string | Sim   | —       | —     | Data de fim do estágio (exclusiva), ISO 8601 YYYY-MM-DD; posterior a `start_date`                      |
+
+Uma entrada com qualquer outra chave é um erro [`ParseError`](/reference/error-codes/#parseerror).
+
+As regras que valem entre as listas:
+
+- Os ids de estágio são únicos entre os estágios pré-estudo, os estágios do estudo e as duas listas pós-estudo.
+- Cada lista é ordenada por `start_date` após a leitura, e um `start_date` repetido na mesma lista é recusado.
+- O primeiro estágio de cada lista começa no fim do horizonte do estudo, e o `end_date` de cada estágio é igual ao
+  `start_date` do seguinte. Um calendário que viola isso é um erro [`BusinessRuleViolation`](/reference/error-codes/#businessruleviolation).
+- Um id que colide com outro estágio, um id térmico fora da sequência acima, um id de água igual ou abaixo de um id do
+  estudo e um `start_date` repetido são recusados na carga como [`SchemaError`](/reference/error-codes/#schemaerror).
+- O calendário da água deve cobrir o maior `travel_time_hours` de qualquer UHE; o calendário térmico deve alcançar todo
+  estágio pós-estudo que o prazo de uma térmica antecipada alcança.
+- Uma lista `post_study_*` em um caso que ainda usa o `initial_conditions.json` obsoleto é um erro
+  [`BusinessRuleViolation`](/reference/error-codes/#businessruleviolation).
+
+```json
+{
+  "stages": [ /* estágios do estudo, ids 0 a 119 */ ],
+  "post_study_thermal_stages": [
+    { "id": 120, "start_date": "2026-11-01", "end_date": "2026-11-07" },
+    { "id": 121, "start_date": "2026-11-07", "end_date": "2026-11-14" }
+  ],
+  "post_study_water_stages": [
+    { "id": 200, "start_date": "2026-11-01", "end_date": "2026-12-01" }
+  ]
+}
+```
+
 ---
 
 ## `post_study_stages.json`
+
+:::caution[Arquivo obsoleto]
+`post_study_stages.json` ainda é lido, com um aviso, e não pode ser combinado com `boundary_conditions.json`. Seus
+calendários `thermal_stages[]` e `water_bucket_stages[]` correspondem a `post_study_thermal_stages` e `post_study_water_stages`
+em `stages.json`, e suas linhas `thermal_bounds[]` correspondem a `thermals[].post_study_bounds` em `boundary_conditions.json`.
+:::
 
 **Metodologia:** [Fronteira pós-estudo e estudos encadeados](/math/post-study-boundary/)
 

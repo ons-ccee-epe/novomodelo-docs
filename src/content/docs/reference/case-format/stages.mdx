@@ -1,12 +1,13 @@
 ---
 title: Stage Files
-description: The study time axis of a case, field by field — stages.json with its policy graph, stages, blocks and seasons, and the optional post_study_stages.json with the post-horizon calendars.
+description: The study time axis of a case, field by field — stages.json with its policy graph, stages, blocks, seasons and post-study calendars, and the deprecated post_study_stages.json.
 ---
 
-A Novomodelo case describes its time axis in two files at the case root. `stages.json` is required: it holds the
-policy graph, the study stages with their load blocks, the optional season map, and the optional pre-study stages.
-`post_study_stages.json` is optional: it holds the post-horizon calendars of thermal deliveries and in-transit water, and the
-per-thermal cost and delivery bounds for commitments that are decided inside the study and delivered after the horizon. The [File summary](/en/reference/case-format/#file-summary)
+A Novomodelo case describes its time axis in `stages.json`, a required file at the case root. It holds the
+policy graph, the study stages with their load blocks, the optional season map, the optional pre-study stages, and the
+optional post-study calendars of thermal deliveries and in-transit water. `post_study_stages.json` is the deprecated
+earlier home of those calendars and of the per-thermal cost and delivery bounds, which now live in `boundary_conditions.json`.
+The [File summary](/en/reference/case-format/#file-summary)
 maps every case file to its page, and [Conventions](/en/reference/case-format/#conventions) states the rules shared by all of them.
 
 ---
@@ -213,9 +214,65 @@ are. On a map that layers resolutions, as this one does, such a shorter stage ma
 of a finer level's season length, so monthly and quarterly stages use distinct `season_id` values. A
 stage that breaks the rule is a [`BusinessRuleViolation`](/en/reference/error-codes/#businessruleviolation) error.
 
+### Post-study calendars
+
+**Methodology:** [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary/)
+
+Two optional lists date the commitments that a study decides inside its horizon and delivers after it.
+`post_study_thermal_stages` dates thermal deliveries; `post_study_water_stages` dates the slots of water in
+transit between plants. The stages are boundary-only: they are never dispatched, carry no blocks, openings,
+risk measure or season, and never carry Benders cuts. Each entry has the same shape as a `pre_study_stages[]`
+entry, and `end_date` is exclusive. The per-thermal cost and delivery bounds that these stages price live in
+`thermals[].post_study_bounds` on the [boundary conditions page](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson).
+
+| Name                                 | Type    | Required | Default | Units | Description                                                                                          |
+| ------------------------------------ | ------- | -------- | ------- | ----- | ---------------------------------------------------------------------------------------------------- |
+| `post_study_thermal_stages`          | array   | No       | —       | —     | Thermal-delivery stages after the study horizon, in any order; sorted by `start_date` after reading |
+| `post_study_thermal_stages[].id`     | integer | Yes      | —       | —     | Stage identifier; the stage at position `j` in `start_date` order has id `max(stages[].id) + 1 + j`  |
+| `post_study_thermal_stages[].start_date` | string | Yes   | —       | —     | Stage start date (inclusive), ISO 8601 YYYY-MM-DD; unique within the list                            |
+| `post_study_thermal_stages[].end_date`   | string | Yes   | —       | —     | Stage end date (exclusive), ISO 8601 YYYY-MM-DD; after `start_date`                                  |
+| `post_study_water_stages`            | array   | No       | —       | —     | Water-in-transit stages after the study horizon, in any order; sorted by `start_date` after reading  |
+| `post_study_water_stages[].id`       | integer | Yes      | —       | —     | Stage identifier; unique and above every study stage id                                              |
+| `post_study_water_stages[].start_date`   | string | Yes   | —       | —     | Stage start date (inclusive), ISO 8601 YYYY-MM-DD; unique within the list                            |
+| `post_study_water_stages[].end_date`     | string | Yes   | —       | —     | Stage end date (exclusive), ISO 8601 YYYY-MM-DD; after `start_date`                                  |
+
+An entry with any other key is a [`ParseError`](/en/reference/error-codes/#parseerror).
+
+The rules that hold across the lists:
+
+- Stage ids are unique across the pre-study stages, the study stages and both post-study lists.
+- Each list is sorted by `start_date` after reading, and a repeated `start_date` within a list is refused.
+- The first stage of each list starts at the study horizon end, and each stage's `end_date` equals the next stage's
+  `start_date`. A calendar that breaks this is a [`BusinessRuleViolation`](/en/reference/error-codes/#businessruleviolation) error.
+- An id that collides with another stage, a thermal id off the sequence above, a water id at or below a study id, and a
+  repeated `start_date` are refused at load as a [`SchemaError`](/en/reference/error-codes/#schemaerror).
+- The water calendar must cover the largest `travel_time_hours` of any hydro; the thermal calendar must reach every
+  post-study stage that an anticipated thermal's lead reaches.
+- A `post_study_*` list in a case that still uses the deprecated `initial_conditions.json` is a
+  [`BusinessRuleViolation`](/en/reference/error-codes/#businessruleviolation) error.
+
+```json
+{
+  "stages": [ /* study stages, ids 0 to 119 */ ],
+  "post_study_thermal_stages": [
+    { "id": 120, "start_date": "2026-11-01", "end_date": "2026-11-07" },
+    { "id": 121, "start_date": "2026-11-07", "end_date": "2026-11-14" }
+  ],
+  "post_study_water_stages": [
+    { "id": 200, "start_date": "2026-11-01", "end_date": "2026-12-01" }
+  ]
+}
+```
+
 ---
 
 ## `post_study_stages.json`
+
+:::caution[Deprecated file]
+`post_study_stages.json` is still read, with a warning, and cannot be combined with `boundary_conditions.json`. Its
+`thermal_stages[]` and `water_bucket_stages[]` calendars map to `post_study_thermal_stages` and `post_study_water_stages`
+in `stages.json`, and its `thermal_bounds[]` rows map to `thermals[].post_study_bounds` in `boundary_conditions.json`.
+:::
 
 **Methodology:** [Post-Study Boundary & Chained Studies](/en/math/post-study-boundary/)
 
