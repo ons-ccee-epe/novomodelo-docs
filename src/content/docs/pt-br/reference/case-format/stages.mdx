@@ -229,7 +229,8 @@ após o horizonte (sua coluna de decisão é cobrada ao custo da célula,
 descontado até o estágio de decisão, e a fronteira carregada valora o compromisso
 que ela contém). O arquivo é opcional. Quando ele está ausente, não há estágios pós-estudo, e um
 caso em que alguma usina hidrelétrica declara um tempo de viagem é carregado com um aviso e data suas
-parcelas de água em trânsito como o [formato obsoleto](#formato-obsoleto) faz. O arquivo
+parcelas de água em trânsito sobre os estágios do estudo, estendidos com cópias da duração do último
+estágio do estudo até que o calendário cubra cada tempo de viagem. O arquivo
 é **obrigatório** sempre que a antecedência de alguma térmica com antecipação de despacho alcança
 um estágio pós-estudo — a falta de uma célula para um estágio alcançado é rejeitada na carga,
 com indicação da usina e do índice do estágio pós-estudo. Veja
@@ -317,26 +318,3 @@ descontado do estágio pós-estudo até o estágio de decisão.
   ]
 }
 ```
-
-### Formato obsoleto
-
-Um arquivo pode, em vez disso, declarar um único calendário `stages[]`, com os mesmos campos de estágio,
-junto com `thermal_bounds[]`; ele é carregado com um aviso. Neste formato, `stages[]` data os dois tipos
-de compromisso: `thermal_bounds[].post_study_stage_index` indexa `stages[]`, e as parcelas de água em
-trânsito são datadas sobre os estágios do estudo seguidos de `stages[]`, estendidos com cópias da
-duração do último estágio até que o calendário cubra cada tempo de viagem. Um caso sem o arquivo data
-suas parcelas de água em trânsito da mesma forma, apenas a partir dos estágios do estudo. Um arquivo não
-pode misturar `stages[]` com `thermal_stages[]` ou `water_bucket_stages[]`; um arquivo que o faz é
-rejeitado na carga.
-
-| Nome                      | Tipo   | Obrigatório | Padrão | Unidades | Descrição                                                                                                           |
-| ------------------------- | ------ | -------- | ------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
-| `stages`                  | array  | Não      | —       | —     | Grafia obsoleta de `thermal_stages[]`; não pode ser combinada com `thermal_stages[]` ou `water_bucket_stages[]` |
-| `stages[].start_date`     | string | Sim      | —       | —     | Data de início do estágio (inclusive), ISO 8601 YYYY-MM-DD                                                            |
-| `stages[].duration_hours` | number | Sim      | —       | h     | Duração do estágio em horas; finita e `> 0.0`. `end_date` é derivada de `start_date + duration_hours`, nunca declarada |
-
-`python3 scripts/migrate/post_study_stages.py DECK_DIR [DECK_DIR ...]`, executado a partir do
-repositório do novomodelo, reescreve cada caso em `thermal_stages[]`, `thermal_bounds[]` e
-`water_bucket_stages[]`, com o mesmo calendário da água que este formato produz, de modo que os
-resultados do caso não mudam. Ele cria o arquivo para um caso que não o tem e declara um tempo de
-viagem, e não altera um arquivo sem `stages[]`.

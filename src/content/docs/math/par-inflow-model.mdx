@@ -620,21 +620,15 @@ Inflows are correlated across hydro plants: §6.1 estimates the cross-hydro corr
 
 ### 6.1 Correlation Estimation
 
-When the inflow model is fitted from the inflow history, in whole or in part, and the case supplies no correlation, the correlation matrix is estimated from the history, from one of two standardized series chosen per study. The **standardized inflow** of hydro $h$ at historical period $t$ is
+When the inflow model is fitted from the inflow history, in whole or in part, and the case supplies no correlation, the correlation matrix is estimated from the standardized historical inflows. The **standardized inflow** of hydro $h$ at historical period $t$ is
 
 $$
 \tilde{a}_{h,t} = \frac{a_{h,t} - \hat{\mu}_{m(t)}}{\hat{s}_{m(t)}}
 $$
 
-the inflow standardized by the seasonal statistics of §3.2, set to zero when $\hat{s}_{m(t)} = 0$; every observed period has one. The **standardized residual** of the autoregression is
+the inflow standardized by the seasonal statistics of §3.2, set to zero when $\hat{s}_{m(t)} = 0$; every observed period has one. The series measures the correlation of the inflows themselves; the scenario generator applies it to the innovations $\varepsilon_t$ of §1, whose correlation it equals in a season in which every hydro has order zero.
 
-$$
-\tilde{\varepsilon}_{h,t} = \tilde{a}_{h,t} - \sum_{\ell=1}^{p_{m(t)}} \psi^*_{m(t),\ell}\, \tilde{a}_{h,t-\ell}
-$$
-
-where $\psi^*_{m,\ell}$ are the model's standardized coefficients (§1.2). A period has a residual only when all $p_{m(t)}$ of its lagged inflows are observed. On the PAR(p)-A path the residual uses the lag coefficients only: the annual term of §7.1 does not enter it. The residual series measures the correlation of the innovations $\varepsilon_t$ of §1, the noise the scenario generator correlates; the standardized-inflow series measures the correlation of the inflows themselves. The two coincide in a season in which every hydro has order zero.
-
-Two estimates are formed from the chosen series: the pooled estimate $\hat{C}$ from its values in every season, and the per-season estimate $\hat{C}_m$ from its values at the periods in season $m$. Each off-diagonal entry is the Pearson correlation of the two hydros' values over the periods at which both hydros have one (a pairwise-complete estimate), with the covariance and the standard deviations taken with the Bessel divisor, one less than the number of such periods, unlike the population divisor of §3.2. The entry is zero when fewer than two such periods exist or when either standard deviation over them is below machine epsilon, and it is clamped to $[-1, 1]$; every diagonal entry is one. On the standardized-inflow series, a hydro whose seasonal standard deviation is zero in season $m$ has the value zero at every period of that season, so its off-diagonal entries of $\hat{C}_m$ are zero.
+Two estimates are formed from this series: the pooled estimate $\hat{C}$ from its values in every season, and the per-season estimate $\hat{C}_m$ from its values at the periods in season $m$. Each off-diagonal entry is the Pearson correlation of the two hydros' values over the periods at which both hydros have one (a pairwise-complete estimate), with the covariance and the standard deviations taken with the Bessel divisor, one less than the number of such periods, unlike the population divisor of §3.2. The entry is zero when fewer than two such periods exist or when either standard deviation over them is below machine epsilon, and it is clamped to $[-1, 1]$; every diagonal entry is one. A hydro whose seasonal standard deviation is zero in season $m$ has the value zero at every period of that season, so its off-diagonal entries of $\hat{C}_m$ are zero.
 
 The stages of season $m$ use $\hat{C}_m$ when every pair of hydros has at least 30 such periods in season $m$; all other stages use $\hat{C}$. Because each entry is computed over its own set of periods, neither estimate need be positive semidefinite; §6.3 handles an indefinite matrix.
 

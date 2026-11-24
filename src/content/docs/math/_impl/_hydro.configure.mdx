@@ -176,8 +176,6 @@ run-of-river plants (a constant forebay, so `gamma_v = 0`).
   "source": "computed",
   "volume_discretization_points": 5,
   "turbine_discretization_points": 5,
-  "spillage_discretization_points": 5,
-  "max_planes_per_hydro": 10,
   "fitting_window": null,
   "turbined_fit_max_m3s": null,
   "spillage_fit_max_m3s": null
@@ -190,8 +188,6 @@ All fields except `source` are optional:
 | -------------------------------- | ------- | ----------- |
 | `volume_discretization_points`   | 5       | Number of volume grid points for fitting. `1` selects the single-volume fit of a run-of-river plant; otherwise it must be `>= 2`. With a single fitting volume the fitter synthesizes two nearby volume samples and snaps `gamma_v` to exactly `0` (see Implementation notes). |
 | `turbine_discretization_points`  | 5       | Number of turbined-flow grid points. Must be `>= 2`. |
-| `spillage_discretization_points` | 5       | Validated (must be `>= 2`) but does **not** add a spillage axis to the fitting grid — the cloud and the $k_{FPHA}$ regression fix spillage at `0`, and the lateral-flow secant sweeps its own sample range independently (§2.7). The field is retained for input round-tripping. |
-| `max_planes_per_hydro`           | 10      | Accepted and validated (`>= 1`) but does not trim the plane set — the hull fitter emits exactly the upper-envelope facets. |
 | `fitting_window`                 | null    | Optional volume range for fitting; absent uses the plant's storage range, `min_storage_hm3` to `max_storage_hm3`, and each set bound is clamped into it. |
 | `turbined_fit_max_m3s`           | null    | Upper end (m³/s) of the turbined-flow axis of the fitting grid, $q^{fit}_{max}$ in §2.6.1; the axis starts at `0`. Finite and `> 0`, else rejected at load. Absent uses the plant's `max_turbined_m3s`. It may lie below or above `max_turbined_m3s`; the LP turbined-flow bounds stay the plant's own. |
 | `spillage_fit_max_m3s`           | null    | Upper end (m³/s) of the lateral-flow sample of the secant, $\bar{S}^{fit}$ in §2.7. Finite and `> 0`, else rejected at load. Absent uses twice the mean of the plant's `scenarios/inflow_history.parquet` values, or twice its `max_turbined_m3s` when that mean is not positive. |

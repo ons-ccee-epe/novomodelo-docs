@@ -16,8 +16,7 @@ O bloco `estimation` é uma chave de nível superior do `config.json` (no mesmo 
     "max_order": 6,
     "order_selection": "pacf",
     "min_observations_per_season": 30,
-    "max_coefficient_magnitude": null,
-    "correlation_target": "inflows"
+    "max_coefficient_magnitude": null
   }
 }
 ```
@@ -25,12 +24,6 @@ O bloco `estimation` é uma chave de nível superior do `config.json` (no mesmo 
 A seção [`estimation`](/running/configuration/#estimation) da
 referência de configuração lista todos os campos e seus valores padrão e descreve o
 comportamento de `min_observations_per_season`.
-
-`correlation_target` seleciona a série da §6.1 da metodologia a partir da qual uma
-correlação estimada é calculada: `"inflows"`, o padrão, para as afluências padronizadas,
-ou `"residuals"` para os resíduos da autorregressão ajustada. Ele não tem efeito em um
-caminho que não estima correlação (linhas 1–3 e 7 da tabela abaixo) nem quando
-`scenarios/correlation.json` é fornecido.
 
 `history_years` limita os anos de `scenarios/inflow_history.parquet` que a
 estimação lê, como um intervalo inclusivo, por exemplo `{"from": 1931, "to": 2024}`;
@@ -73,7 +66,7 @@ sempre o sobrescrevem com os valores ajustados.
 | 2 | 0 | 1 | 0 | `UserStatsWhiteNoise` | arquivo do usuário | ordem 0 (ruído branco) | identidade, a menos que `correlation.json` seja fornecido |
 | 3 | 0 | 1 | 1 | `UserProvidedNoHistory` | arquivo do usuário | arquivo do usuário | identidade, a menos que `correlation.json` seja fornecido |
 | 4 | 1 | 0 | 0 | `FullEstimation` | ajustadas a partir de H | ajustados a partir de H (PACF + Yule-Walker + Maceira & Damázio) | estimada a partir de H, a menos que `correlation.json` seja fornecido |
-| 5 | 1 | 0 | 1 | `UserArHistoryStats` | ajustadas a partir de H | arquivo do usuário | estimada a partir de H (com `"residuals"`, os resíduos dos coeficientes do usuário), a menos que `correlation.json` seja fornecido |
+| 5 | 1 | 0 | 1 | `UserArHistoryStats` | ajustadas a partir de H | arquivo do usuário | estimada a partir de H, a menos que `correlation.json` seja fornecido |
 | 6 | 1 | 1 | 0 | `PartialEstimation` | arquivo do usuário (o ajuste usa estatísticas estimadas a partir de H) | ajustados a partir de H | estimada a partir de H, a menos que `correlation.json` seja fornecido |
 | 7 | 1 | 1 | 1 | `UserProvidedAll` | arquivo do usuário | arquivo do usuário | identidade, a menos que `correlation.json` seja fornecido (o histórico não é reutilizado) |
 
@@ -81,7 +74,8 @@ Casos com `R = 1`, mas `H = 0` e `S = 0`, recaem na linha 1 — coeficientes AR
 sozinhos não conseguem conduzir a estimação.
 
 Uma correlação estimada (linhas 4–6, quando nenhum `correlation.json` é fornecido)
-contém um perfil agregado `"default"`. Em um ciclo com mais de um período sazonal, contém também
+é calculada a partir das afluências padronizadas da §6.1 da metodologia e contém um
+perfil agregado `"default"`. Em um ciclo com mais de um período sazonal, contém também
 um perfil `season_<id>` para cada período sazonal em que todo par de usinas tem
 pelo menos 30 períodos com valor das duas usinas — o `id` do período sazonal completado com zeros à esquerda até a largura do
 maior id, como em `season_03` em um ciclo de doze períodos sazonais — e um cronograma que

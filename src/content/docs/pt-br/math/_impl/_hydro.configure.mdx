@@ -176,8 +176,6 @@ usinas a fio d'água (nível de montante constante, logo `gamma_v = 0`).
   "source": "computed",
   "volume_discretization_points": 5,
   "turbine_discretization_points": 5,
-  "spillage_discretization_points": 5,
-  "max_planes_per_hydro": 10,
   "fitting_window": null,
   "turbined_fit_max_m3s": null,
   "spillage_fit_max_m3s": null
@@ -190,8 +188,6 @@ Todos os campos, exceto `source`, são opcionais:
 | -------------------------------- | ------- | ----------- |
 | `volume_discretization_points`   | 5       | Número de pontos da grade de volume para o ajuste. `1` seleciona o ajuste com volume único de uma usina a fio d'água; caso contrário, deve ser `>= 2`. Com um único volume de ajuste, o ajustador sintetiza duas amostras de volume próximas e fixa `gamma_v` em exatamente `0` (veja Notas de implementação). |
 | `turbine_discretization_points`  | 5       | Número de pontos da grade de vazão turbinada. Deve ser `>= 2`. |
-| `spillage_discretization_points` | 5       | Validado (deve ser `>= 2`), mas **não** acrescenta um eixo de vertimento à grade de ajuste — a nuvem e a regressão $k_{FPHA}$ fixam o vertimento em `0`, e a secante de vazão lateral percorre sua própria faixa de amostras de forma independente (§2.7). O campo é mantido para a ida e volta das entradas. |
-| `max_planes_per_hydro`           | 10      | Aceito e validado (`>= 1`), mas não reduz o conjunto de planos — o ajustador da envoltória emite exatamente as facetas da envoltória superior. |
 | `fitting_window`                 | null    | Faixa de volume opcional para o ajuste; se ausente, usa a faixa de armazenamento da usina, de `min_storage_hm3` a `max_storage_hm3`, e cada limite definido é restrito a ela. |
 | `turbined_fit_max_m3s`           | null    | Extremo superior (m³/s) do eixo de vazão turbinada da grade de ajuste, $q^{fit}_{max}$ em §2.6.1; o eixo começa em `0`. Finito e `> 0`; caso contrário, rejeitado na carga. Se ausente, usa o `max_turbined_m3s` da usina. Pode ficar abaixo ou acima de `max_turbined_m3s`; os limites de vazão turbinada do PL continuam sendo os da própria usina. |
 | `spillage_fit_max_m3s`           | null    | Extremo superior (m³/s) da amostra de vazão lateral da secante, $\bar{S}^{fit}$ em §2.7. Finito e `> 0`; caso contrário, rejeitado na carga. Se ausente, usa o dobro da média dos valores da usina em `scenarios/inflow_history.parquet`, ou o dobro de seu `max_turbined_m3s` quando essa média não é positiva. |
