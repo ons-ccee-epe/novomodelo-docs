@@ -118,7 +118,7 @@ and differ from the names a user sees in the load error.
 
 The `(nullable)` suffix is for input tables only, which have no Nullable column; an output table writes the plain name and states nullability in its Nullable column.
 
-JSON fields use JSON Schema type keywords, as the 18 vendored input schemas (`public/schemas/*.schema.json`) do. The
+JSON fields use JSON Schema type keywords, as the 19 vendored input schemas (`public/schemas/*.schema.json`) do. The
 nullable form below applies to input tables only; output tables state nullability in the Nullable column.
 
 | Name              | Meaning                                                                                                                                                                                   |

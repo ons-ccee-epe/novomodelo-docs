@@ -1,6 +1,6 @@
 // Vendored JSON Schema refresh (ticket-014, strategy §6b).
 //
-// The 18 JSON Schema files under public/schemas/ describe every JSON input
+// The 19 JSON Schema files under public/schemas/ describe every JSON input
 // file in a Novomodelo case directory. They are GENERATED in the `novomodelo` repo from
 // `novomodelo-io` Rust types (code = ground truth) — novomodelo-docs vendors a committed
 // copy of that generated output for the reference/json-schemas index page and
@@ -28,7 +28,7 @@
 //
 // Discovery: the schemas tree lives at `schemas/` since the novomodelo mdBook
 // retirement (v0.11.0) and at `book/src/schemas/` on earlier tags — the first
-// candidate path with entries at <ref> wins, and it must list exactly 18
+// candidate path with entries at <ref> wins, and it must list exactly 19
 // entries — a guard against a wrong ref or a partial tree.
 // `--check` mode is the advisory staleness check (the authoritative freshness
 // gate lives in `novomodelo`, ticket-016); default mode is the write path.
@@ -43,7 +43,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_NOVOMODELO_REF } from "./novomodelo-ref.mjs";
 
-const EXPECTED_COUNT = 18;
+const EXPECTED_COUNT = 19;
 // Ordered candidates for the schemas tree in novomodelo: `schemas/` from the mdBook
 // retirement (v0.11.0) onward, `book/src/schemas/` on earlier tags.
 const SCHEMAS_SUBPATHS = ["schemas", "book/src/schemas"];

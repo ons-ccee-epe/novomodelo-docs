@@ -441,9 +441,9 @@ test("readSchema throws naming the file for an unreadable path and for bad JSON"
   });
 });
 
-test("BINDINGS binds the 17 case-format JSON files to the vendored schema of the same stem, leaves config.json out", () => {
+test("BINDINGS binds the 18 case-format JSON files to the vendored schema of the same stem, leaves config.json out", () => {
   const files = Object.keys(BINDINGS);
-  assert.equal(files.length, 17);
+  assert.equal(files.length, 18);
   assert.ok(!("config.json" in BINDINGS));
   // D-215-1: every vendored schema but config is bound, so a schema a refresh adds cannot go unchecked.
   const vendored = readdirSync(SCHEMAS)
@@ -1054,7 +1054,7 @@ test("CLI reports DUPSECTION naming the pages when two pages or one page hold th
   });
 });
 
-test("CLI without --file checks all 17 bindings; --file checks one; only .md and .mdx files directly in --dir are read", () => {
+test("CLI without --file checks all 18 bindings; --file checks one; only .md and .mdx files directly in --dir are read", () => {
   const page = stagesPage(STAGES.map((record) => stagesRow(record)));
   withRoot(
     { "a.mdx": page, "notes.txt": page, "sub/b.mdx": page, "c.md": "Text.\n" },
@@ -1062,11 +1062,11 @@ test("CLI without --file checks all 17 bindings; --file checks one; only .md and
       const all = cli(["--dir", root]);
       assert.equal(all.status, 1);
       const lines = all.stdout.trimEnd().split("\n");
-      assert.equal(lines.filter((l) => l.startsWith("NOSECTION\t")).length, 16);
+      assert.equal(lines.filter((l) => l.startsWith("NOSECTION\t")).length, 17);
       assert.ok(!lines.some((l) => l.startsWith("DUPSECTION")));
       assert.equal(
         lines.at(-1),
-        `SUMMARY files=17 rows=${STAGES.length} missing=0 phantom=0 required=0 enum=0 nosection=16 dupsection=0`,
+        `SUMMARY files=18 rows=${STAGES.length} missing=0 phantom=0 required=0 enum=0 nosection=17 dupsection=0`,
       );
       const one = cli(["--dir", root, "--file", "stages.json"]);
       assert.equal(one.status, 0);

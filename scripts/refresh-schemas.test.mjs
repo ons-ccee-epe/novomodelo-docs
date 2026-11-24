@@ -1,7 +1,7 @@
 // Unit fixture for the refresh:schemas pure helpers (ticket-014).
 //
 // node:test + node:assert/strict, mirroring check-figures.test.mjs. Exercises
-// parseSchemaNames (ls-tree stdout -> sorted basenames, with the 18-count
+// parseSchemaNames (ls-tree stdout -> sorted basenames, with the 19-count
 // guard) and assertWellFormed (named throw on invalid JSON) directly, with no
 // filesystem or subprocess access.
 import test from "node:test";
@@ -9,11 +9,12 @@ import assert from "node:assert/strict";
 import { parseSchemaNames, assertWellFormed } from "./refresh-schemas.mjs";
 
 // A representative `git ls-tree --name-only <ref> book/src/schemas/` fixture:
-// 18 lines, deliberately NOT pre-sorted, with a trailing newline (as real git
+// 19 lines, deliberately NOT pre-sorted, with a trailing newline (as real git
 // output has).
 const LS_TREE_FIXTURE =
   [
     "book/src/schemas/thermals.schema.json",
+    "book/src/schemas/boundary_conditions.schema.json",
     "book/src/schemas/buses.schema.json",
     "book/src/schemas/config.schema.json",
     "book/src/schemas/correlation.schema.json",
@@ -34,6 +35,7 @@ const LS_TREE_FIXTURE =
   ].join("\n") + "\n";
 
 const EXPECTED_SORTED_NAMES = [
+  "boundary_conditions.schema.json",
   "buses.schema.json",
   "config.schema.json",
   "correlation.schema.json",
@@ -54,17 +56,17 @@ const EXPECTED_SORTED_NAMES = [
   "thermals.schema.json",
 ];
 
-test("parseSchemaNames maps an 18-line ls-tree fixture to 18 sorted basenames", () => {
+test("parseSchemaNames maps a 19-line ls-tree fixture to 19 sorted basenames", () => {
   assert.deepEqual(parseSchemaNames(LS_TREE_FIXTURE), EXPECTED_SORTED_NAMES);
 });
 
-test("parseSchemaNames throws when the count is not exactly 18 (wrong ref / partial tree)", () => {
+test("parseSchemaNames throws when the count is not exactly 19 (wrong ref / partial tree)", () => {
   const partial = LS_TREE_FIXTURE.split("\n").slice(0, 10).join("\n") + "\n";
-  assert.throws(() => parseSchemaNames(partial), /expected 18 schema files/);
+  assert.throws(() => parseSchemaNames(partial), /expected 19 schema files/);
 });
 
-test("parseSchemaNames throws on an empty tree (18 -> 0)", () => {
-  assert.throws(() => parseSchemaNames(""), /expected 18 schema files/);
+test("parseSchemaNames throws on an empty tree (19 -> 0)", () => {
+  assert.throws(() => parseSchemaNames(""), /expected 19 schema files/);
 });
 
 test("assertWellFormed throws a named error on invalid JSON", () => {

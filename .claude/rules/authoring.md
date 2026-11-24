@@ -88,7 +88,7 @@ partial filenames so the render split holds.
 
 ## JSON schemas
 
-The 18 input schemas are generated in `novomodelo` from `novomodelo-io`
+The 19 input schemas are generated in `novomodelo` from `novomodelo-io`
 types; this site **vendors** a committed copy (`public/schemas/`) refreshed by
 `npm run refresh:schemas -- --ref <tag>` (reads a git ref, never the novomodelo working
 tree). Refresh on each novomodelo release; the freshness gate stays in `novomodelo`.

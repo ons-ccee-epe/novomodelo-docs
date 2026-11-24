@@ -1,7 +1,7 @@
 // Input-schema gate, checker logic (E13 ticket-202a, GRD-03; ticket-215 wires
 // it as `check:input-schemas`).
 //
-// The 18 vendored JSON Schemas (`public/schemas/*.schema.json`) describe every
+// The 19 vendored JSON Schemas (`public/schemas/*.schema.json`) describe every
 // JSON input file of a case. The case-format pages state the same fields in
 // input tables (`docs/design/reference-conventions.md` section 2, header
 // exactly `Name | Type | Required | Default | Units | Description`). This
@@ -74,6 +74,7 @@ const schemasDir = join(scriptDir, "..", "public", "schemas");
 export const BINDINGS = {
   "penalties.json": "penalties",
   "stages.json": "stages",
+  "boundary_conditions.json": "boundary_conditions",
   "initial_conditions.json": "initial_conditions",
   "post_study_stages.json": "post_study_stages",
   "system/buses.json": "buses",
