@@ -22,7 +22,7 @@ Campos principais:
 | `hydros[].name`                                   | string          | Sim         | —       | —           | Nome legível da usina |
 | `hydros[].unit_groups`                            | array           | Sim         | —       | —           | Grupos de unidades geradoras que particionam a faixa de geração da usina, cada um em seu próprio barramento (veja abaixo); um array ausente, `null` ou vazio é rejeitado |
 | `hydros[].downstream_id`                          | integer \| null | Não         | —       | —           | ID da usina a jusante na cascata; `null` = canal de fuga sem usina a jusante |
-| `hydros[].travel_time_hours`                      | number \| null  | Não         | `null`  | h           | Tempo de viagem da água [horas] no arco principal da cascata até `downstream_id`; `null` ou `0.0` = instantâneo. Quando presente e estritamente positivo, a defluência é entregue a jusante após esse atraso e mantida como estado de Bellman de água em trânsito (veja [Visão geral da modelagem dos elementos do sistema §5](/math/system-elements) e [Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua)). Exige inicialização via `initial_conditions.past_defluences`. |
+| `hydros[].travel_time_hours`                      | number \| null  | Não         | `null`  | h           | Tempo de viagem da água [horas] no arco principal da cascata até `downstream_id`; `null` ou `0.0` = instantâneo. Quando presente e estritamente positivo, a defluência é entregue a jusante após esse atraso e mantida como estado de Bellman de água em trânsito (veja [Visão geral da modelagem dos elementos do sistema §5](/math/system-elements) e [Aumento do espaço de estados §6](/math/state-augmentation#6-tempo-de-viagem-da-agua)). Exige inicialização via `hydros[].past_defluences` em `boundary_conditions.json`. |
 | `hydros[].operational_start_date`                 | string          | Sim         | —       | —           | Obrigatório em toda entidade; veja [Campos comuns às entidades](/reference/case-format/#campos-comuns-as-entidades). |
 | `hydros[].entry_stage_id`                         | integer \| null | Não         | `null`  | —           | Estágio em que a usina entra em operação; `null` = sempre existe |
 | `hydros[].exit_stage_id`                          | integer \| null | Não         | `null`  | —           | Estágio em que a usina é desativada; `null` = nunca |
@@ -133,13 +133,13 @@ usa-se o padrão global de `penalties.json`. Os seguintes campos são suportados
 - `entry_stage_id` deve ser menor que `exit_stage_id` quando ambos estão definidos.
 - Uma usina com `filling` deve declarar `entry_stage_id`, com `filling.start_stage_id` anterior a ele, e nenhum `exit_stage_id`;
   `filling.start_stage_id` deve ser um estágio declarado do estudo.
-- Seu valor inicial `filling_storage` em `initial_conditions.json` deve estar em `[0, min_storage_hm3)` e ser `0` quando o enchimento
+- Seu valor inicial `hydros[].storage_hm3` em `boundary_conditions.json` deve estar em `[0, min_storage_hm3)` e ser `0` quando o enchimento
   começa em um `filling.start_stage_id` maior que `0` (o id declarado; assim, com ids de estágio do estudo acima de `0`, um enchimento que começa no primeiro estágio do estudo também precisa de valor inicial `0`); `filling_min_rate_m3s >= 0`.
 - Uma usina com fase de enchimento cujo `entry_stage_id` está no fim do horizonte de estudo ou além dele gera um aviso: ela permanece em fase de enchimento o tempo todo e nunca
   opera no estudo.
-- Uma usina sem `filling` tem seu valor inicial no array `storage` de `initial_conditions.json`, dentro de
-  `[min_storage_hm3, max_storage_hm3]`; uma usina com `filling` o tem em `filling_storage`
-  ([Arquivos de condições iniciais](/reference/case-format/initial-conditions/#initial_conditionsjson)).
+- O campo `filling` seleciona o conjunto de regras do valor inicial `hydros[].storage_hm3`: uma usina sem `filling` usa um valor
+  dentro de `[min_storage_hm3, max_storage_hm3]`; uma usina com `filling` usa um valor em `[0, min_storage_hm3)`
+  ([Arquivos de condições de contorno](/reference/case-format/boundary-conditions/#boundary_conditionsjson)).
 - O cronograma de enchimento deve atingir o volume morto; veja
   [Verificações de penalidade na carga](/math/penalty-system#implementacao-no-novo-modelo).
 - Os ids dos grupos de unidades geradoras são únicos dentro da usina, e a vazão turbinada mínima e a geração mínima de cada grupo não podem exceder seus
