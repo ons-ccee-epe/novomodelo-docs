@@ -135,8 +135,8 @@ the validity of the lower bound.
    and MPI configurations (see section 2.2)
 3. Correlation is applied per the active profile for each stage (see section
    2.4)
-4. Optionally, the inflow noise of each stage is **moment-matched** over the
-   stage's openings. For hydro $i$, let $\bar{\varepsilon}_i$ and $s_i$ be the
+4. The inflow noise of each stage is **moment-matched** over the stage's
+   openings. For hydro $i$, let $\bar{\varepsilon}_i$ and $s_i$ be the
    mean and the standard deviation, with divisor $N_t$, of its correlated noise
    values $\varepsilon_{i,1}, \ldots, \varepsilon_{i,N_t}$ at the stage. Each
    value is replaced by
@@ -616,37 +616,29 @@ lag buffer for the next):
    shadowed day-wise by the initial conditions' recent observations wherever the
    two overlap (see §4.5 for the reason this is the only admissible seed).
 2. For each stage $t$: compute the deterministic PAR component, solve for
-   $\varepsilon_t$, update the lag buffer with $a_t^{\text{target}}$.
-3. Validate the inverted noise:
-   - When $\sigma_m = 0$, the inverted noise is $0$ if $a_t^{\text{target}}$
-     equals the deterministic component to within a numerical tolerance, and
-     otherwise has no finite value, which refuses the study (the PAR model
-     says the series is deterministic, but the scenario disagrees).
-   - Building the inverted window pool, which serves both the historical
-     replay and the historical-residual openings (§2.5), refuses the study
-     when a study stage has no season, when an inverted noise value is the
-     $\sigma_m = 0$ mismatch above or is not a number, or when the window pool
-     is empty. [Error Codes](/en/reference/error-codes/#stochasticpreparationerror)
-     lists the messages and the exit codes.
+   $\varepsilon_t$, update the lag buffer with $a_t^{\text{target}}$. When
+   $\sigma_m = 0$ the noise cannot move the inflow, so $\varepsilon_t = 0$
+   whatever $a_t^{\text{target}}$ is, and the replay takes the deterministic
+   component in place of the target value at that stage.
+3. Validate the inverted noise: building the inverted window pool, which
+   serves both the historical replay and the historical-residual openings
+   (§2.5), refuses the study when a study stage has no season, when an
+   inverted noise value is not finite, or when the window pool is empty.
+   [Error Codes](/en/reference/error-codes/#stochasticpreparationerror) lists
+   the messages and the exit codes.
 
 ### 4.4 Deterministic (σ = 0) External Columns
 
 A class's external column may be **constant** — every realization identical,
-standard deviation zero. Because the class statistics are derived from the
-samples themselves (§4.1), Novomodelo reads that as a genuinely deterministic series
-rather than a malformed one, and **accepts** it for load, for non-controllable
-sources, and for an inflow with an **order-0** model (no autoregressive lag and
-no annual component): the deterministic base is exactly that constant value.
-
-A constant column is **rejected** only for an inflow whose model has an
-autoregressive lag or an annual component. A single deterministic value cannot
-stand in for such a model: it would have to equal the model's own stage-by-stage
-deterministic PAR output — which depends on the evolving lag state and is not
-reconstructed from a flat column — so the load fails, naming the class, stage,
-and entity. This is distinct from the §4.3 inversion anchor check: it is a
-load-time admissibility rule on the column, not a per-stage residual test. (The
-concrete rejection message is a software-layer concern — see
-[Error Codes](/en/reference/error-codes).)
+standard deviation zero. Novomodelo reads that as a deterministic series rather
+than a malformed one and **accepts** it for every class. For load, for
+non-controllable sources and for an inflow with an **order-0** model (no
+autoregressive lag and no annual component), the class statistics are derived
+from the samples themselves (§4.1), so the deterministic base is exactly that
+constant value. An inflow whose model has an autoregressive lag or an annual
+component keeps its model's statistics, and the inversion of §4.3 turns the
+constant into one noise value per stage, which the forward pass replays as the
+recorded value (except at a season whose $\sigma_m$ is zero, step 2 of §4.3).
 
 ### 4.5 x₀ Consistency Under Historical Replay
 

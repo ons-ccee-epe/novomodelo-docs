@@ -54,23 +54,17 @@ When **updating spatial correlation estimation or opening-tree moment matching**
 `multi-resolution-studies.md` §4, `_impl/_par.configure.mdx`,
 `_impl/_scenario.*`, `running/configuration.mdx`):
 
-→ `estimation.correlation_target` (`inflows` default | `residuals`,
-`crates/novomodelo-io/src/config/estimation.rs`) picks the series
-`compute_correlation_series` correlates
-(`crates/novomodelo-stochastic/src/par/fitting/correlation.rs`): the standardized
-inflow `(a − μ_m)/s_m` (population statistics, 0 when `s_m = 0`), or that minus
-the PAR lag terms (`ψ*` lag coefficients only, never the annual term). Both feed
-the same pairwise-complete Pearson estimates: a pooled `default` profile and a
+→ `compute_correlation_series`
+(`crates/novomodelo-stochastic/src/par/fitting/correlation.rs`) correlates the
+standardized inflow `(a − μ_m)/s_m` (population statistics, 0 when `s_m = 0`)
+through pairwise-complete Pearson estimates: a pooled `default` profile and a
 per-season `season_XX` profile where every pair has ≥ 30 periods
 (`MIN_CORRELATION_PAIRS`). Estimation runs only on `full_estimation`,
 `partial_estimation` and `user_ar_history_stats` without `correlation.json`;
 `correlation_source` is `user_file` whenever the file is present.
-→ `training.scenario_source.openings.moment_matching` (`per_coordinate` default |
-`none`; `generated` only, refused under `file`;
-`crates/novomodelo-io/src/config/scenario_source.rs`) runs `match_stage_moments`
-(`crates/novomodelo-stochastic/src/tree/moment_matching.rs`) after the
-correlation, per generated stage, on inflow coordinates only: population mean 0
-and variance `Σ_j D_cj²` (`implied_class_variances`, `correlation/resolve.rs`;
+→ `match_stage_moments` (`crates/novomodelo-stochastic/src/tree/moment_matching.rs`)
+runs on every generated tree after the correlation, per stage, on inflow
+coordinates only: population mean 0 and variance `Σ_j D_cj²` (`implied_class_variances`, `correlation/resolve.rs`;
 1 unless an eigenvalue was clipped). It skips `historical_residuals` stages,
 `file` trees, one-opening stages and constant coordinates; load and NCS noise and
 out-of-sample draws are never matched; the exported tree is the matched one.
@@ -79,10 +73,8 @@ out-of-sample draws are never matched; the exported tree is the matched one.
 with more openings, counted after the historical-window and external clamps,
 than the group's first stage (`StochasticError::InsufficientData`, exit 1;
 `validate` labels it `scenarios/inflow_history.parquet`); one with fewer copies
-the first openings, with a warning under moment matching.
+the first openings, with a warning.
 → **MPI**: `novomodelo run` compares `OpeningTree::fingerprint` (FNV-1a) as
 min/max across ranks (`crates/novomodelo-cli/src/commands/run/setup.rs`) and
 exits 4 on a mismatch; non-root ranks drop every log event below ERROR
 (`keeps_event`, `crates/novomodelo-cli/src/main.rs`).
-→ Python `StochasticSummary` and `ProvenanceReport` carry `correlation_target`
-and `opening_tree_moment_matching` (`reference/python-api.mdx`).

@@ -50,13 +50,13 @@ Todas as chaves de `config.json` até o segundo nível, com seu tipo e valor pad
 | `simulation.cut_set`                         | string          | Não      | `"all"`      | —     | Um de `"all"`, `"active"`. Quais linhas da política os PLs de estágio da simulação contêm. Veja [`simulation`](#simulation).                       |
 | `modeling`                                   | object          | Não      | `{}`         | —     | Controla opções de modelagem física. Veja [`modeling`](#modeling).                                                                                 |
 | `modeling.inflow_non_negativity`             | object          | Não      | `{}`         | —     | Tratamento de sorteios negativos de afluência do modelo PAR. Veja [`modeling.inflow_non_negativity`](#modelinginflow_non_negativity).              |
+| `modeling.inflow_residual`                   | object          | Não      | `{}`         | —     | Distribuição do resíduo de afluência do modelo PAR(p), `"normal"` ou `"lognormal_3p"`. Veja [`modeling.inflow_residual`](#modelinginflow_residual). |
 | `modeling.cost_scale_factor`                 | number \| null  | Não      | `1000000.0`  | —     | Divisor de todo coeficiente da função objetivo que não seja de θ; `null` ou ausente usa o padrão. Veja [`modeling.cost_scale_factor`](#modelingcost_scale_factor). |
 | `estimation`                                 | object          | Não      | `{}`         | —     | Controla o processo de estimação do modelo PAR(p). Veja [`estimation`](#estimation).                                                               |
 | `estimation.max_order`                       | integer         | Não      | `6`          | —     | Ordem máxima de defasagem considerada no ajuste do modelo. Veja [`estimation`](#estimation).                                                       |
 | `estimation.order_selection`                 | string          | Não      | `"pacf"`     | —     | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem. Veja [`estimation`](#estimation).                                                   |
 | `estimation.min_observations_per_season`     | integer         | Não      | `30`         | —     | Mínimo recomendado de ocorrências do período sazonal totalmente cobertas por período sazonal e usina. Veja [`estimation`](#estimation).                            |
 | `estimation.max_coefficient_magnitude`       | number \| null  | Não      | `null`       | —     | Reduz um ajuste à ordem 0 quando algum coeficiente excede essa magnitude. Veja [`estimation`](#estimation).                                        |
-| `estimation.correlation_target`              | string          | Não      | `"inflows"`  | —     | Um entre `"inflows"`, `"residuals"`. Série a partir da qual uma correlação de afluências estimada é calculada. Veja [`estimation`](#estimation).                       |
 | `estimation.history_years`                   | object \| null  | Não      | `null`       | —     | Intervalo inclusivo `{"from", "to"}` dos anos de `inflow_history.parquet` que a estimação lê; `null` lê todos os anos. Veja [`estimation`](#estimation). |
 | `policy`                                     | object          | Não      | `{}`         | —     | Controla a persistência da política. Veja [`policy`](#policy).                                                                                     |
 | `policy.path`                                | string          | Não      | `"./policy"` | —     | Diretório da política, resolvido em relação ao diretório de saída da execução. Veja [`policy`](#policy).                                           |
@@ -99,6 +99,7 @@ erro de carga (`deny_unknown_fields`).
 | ---------------- | ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `method`         | string  | Sim            | Um de `"sampled"`, `"enumerated"`.                                                                                                                                     |
 | `forward_passes` | integer | apenas `sampled` | Número de trajetórias de cenários por iteração (`>= 1`). Valores maiores reduzem a variância do corte de cada iteração, mas aumentam o custo por iteração. Rejeitado com `"enumerated"`. |
+| `first_iteration_trial_storage` | string | apenas `sampled`, opcional | Um de `"forward"` (padrão), `"storage_grid"`. Armazenamento em que a simulação backward da primeira iteração constrói seus cortes; veja [Armazenamento dos pontos de teste da primeira iteração](#armazenamento-dos-pontos-de-teste-da-primeira-iteracao). Rejeitado com `"enumerated"`. |
 
 **Não há padrão** para o número de simulações forward: a ausência de `training.selection` é
 um erro de carga fatal ([`SchemaViolation`](/reference/error-codes/#schemaviolation)).
@@ -138,6 +139,31 @@ outro nó tem as aberturas que seu estágio gera, de modo que esse estágio decl
 `num_openings: 1` em `stages.json`. Um caso com um nó que tenha mais é
 recusado na preparação do estudo, por `novomodelo validate` e por `novomodelo run` antes do treinamento, com código de saída `1`.
 
+#### Armazenamento dos pontos de teste da primeira iteração
+
+`first_iteration_trial_storage` define o armazenamento em que a simulação
+backward da primeira iteração do treinamento constrói seus cortes:
+
+- `"forward"` (padrão): o armazenamento que cada simulação forward atingiu.
+- `"storage_grid"`: uma grade uniforme de níveis de armazenamento. O ponto `k`
+  de `N`, com `N` o número `forward_passes`, coloca cada reservatório a `k/N`
+  do caminho entre seu armazenamento mínimo e seu armazenamento máximo em cada
+  estágio; o ponto mais baixo fica `1/N` acima do mínimo e o mais alto no
+  máximo. Todos os reservatórios se movem pela mesma fração: a grade nunca
+  combina um reservatório cheio com um vazio.
+
+As simulações forward não mudam: suas afluências, seu histórico de afluências e
+o limite superior da primeira iteração são os que elas produzem. Um reservatório
+em enchimento, ou fora de operação em um estágio ou no seguinte, mantém o
+armazenamento que sua simulação forward atingiu. A partir da segunda iteração,
+toda simulação backward usa o armazenamento forward. Uma execução `resume` que
+continua após a primeira iteração não é afetada; uma execução `warm_start`
+aplica a grade na sua própria primeira iteração.
+
+```json
+{ "method": "sampled", "forward_passes": 50, "first_iteration_trial_storage": "storage_grid" }
+```
+
 ### Campos opcionais
 
 | Campo           | Tipo               | Padrão  | Descrição                                                                                                                                                                                               |
@@ -167,7 +193,7 @@ o treinamento. Quando ausente, todas as classes usam por padrão `in_sample` (re
 | `load`             | object            | `in_sample`   | Esquema de amostragem da carga dos barramentos. Objeto com a chave `"scheme"`.                          |
 | `ncs`              | object            | `in_sample`   | Esquema de amostragem da disponibilidade das NCS. Objeto com a chave `"scheme"`.                        |
 | `historical_years` | array \| object   | descoberta automática | Restringe o conjunto de janelas históricas. Quando ausente, todo ano do histórico é candidato. Lista (`[1940, 1953]`) ou intervalo (`{"from": 1940, "to": 2010}`). Cada ano listado designa a janela cujo primeiro estágio do estudo cai na ocorrência, naquele ano, de seu período sazonal; a elegibilidade segue o [Conjunto de janelas históricas](/math/scenario-generation/#conjunto-de-janelas-historicas), e um ano que não a atenda é descartado sem mensagem. Um resultado vazio gera o erro "no valid historical windows found" ([Códigos de erro](/reference/error-codes/#stochasticpreparationerror)). O mesmo conjunto fornece as aberturas `historical_residuals`. |
-| `openings`         | object            | `{"source": "generated"}` | Origem da árvore de aberturas da simulação backward. `{"source": "generated"}` constrói a árvore internamente, com o `moment_matching` opcional de [`training.scenario_source.openings`](#trainingscenario_sourceopenings); `{"source": "file"}` lê uma árvore fornecida pelo usuário em `scenarios/noise_openings.parquet` (apenas com seleção amostrada, e não com `policy_graph.nodes[]` declarado em `stages.json`; qualquer dessas combinações é rejeitada na validação do caso). Apenas no treinamento. Um arquivo declarado e ausente interrompe a execução em sua fase estocástica ([Arquivo da árvore de aberturas ausente](/reference/error-codes/#arquivo-da-arvore-de-aberturas-ausente)). |
+| `openings`         | object            | `{"source": "generated"}` | Origem da árvore de aberturas da simulação backward. `{"source": "generated"}` constrói a árvore internamente e aplica a correspondência de momentos (moment matching) às suas aberturas de afluência ([`training.scenario_source.openings`](#trainingscenario_sourceopenings)); `{"source": "file"}` lê uma árvore fornecida pelo usuário em `scenarios/noise_openings.parquet` (apenas com seleção amostrada, e não com `policy_graph.nodes[]` declarado em `stages.json`; qualquer dessas combinações é rejeitada na validação do caso). Apenas no treinamento. Um arquivo declarado e ausente interrompe a execução em sua fase estocástica ([Arquivo da árvore de aberturas ausente](/reference/error-codes/#arquivo-da-arvore-de-aberturas-ausente)). |
 
 Valores válidos para `"scheme"`: `"in_sample"`, `"out_of_sample"`, `"external"` para todas as classes;
 `"historical"` apenas para `inflow`.
@@ -199,10 +225,8 @@ em `inflow_seasonal_stats.parquet` não são usadas na amostragem.
 Uma usina com ordem AR acima de 0 ou com componente anual
 mantém a média, o desvio-padrão e os coeficientes declarados em seus arquivos
 (ou os estimados a partir de `inflow_history.parquet` quando os arquivos os omitem).
-Uma coluna externa com σ = 0 é aceita para carga, NCS e um modelo de afluências de
-ordem AR 0 sem componente anual, e rejeitada para um modelo de afluências cujos
-arquivos declarem ordem AR acima de 0 ou componente anual (veja
-[Códigos de erro](/reference/error-codes/#coluna-deterministica-de-afluencia-externa-sob-modelo-autorregressivo)).
+Uma coluna externa com σ = 0 é aceita para todas as classes (veja
+[Geração de cenários §4.4](/math/scenario-generation/)).
 
 Exemplo — afluência fora da amostra com carga e NCS dentro da amostra:
 
@@ -227,32 +251,27 @@ para a descrição completa de cada esquema e das janelas históricas.
 
 ### `training.scenario_source.openings`
 
-De onde vem a árvore de aberturas da simulação backward e como uma árvore gerada é corrigida
+De onde vem a árvore de aberturas da simulação backward
 ([Geração de cenários §2.3](/math/scenario-generation/#23-arvore-de-aberturas)). Quando
-`openings` está ausente, a árvore é gerada com `moment_matching` no seu valor padrão.
+`openings` está ausente, a árvore é gerada.
 
 | Campo             | Tipo   | Padrão             | Descrição |
 | ----------------- | ------ | ------------------ | ----------- |
-| `source`          | string | `"generated"`      | Um entre `"generated"`, `"file"`. `"generated"` constrói a árvore a partir do `sampling_method` dos estágios; `"file"` a lê de `scenarios/noise_openings.parquet`. |
-| `moment_matching` | string | `"per_coordinate"` | Um entre `"per_coordinate"`, `"none"`; aceito apenas com `"source": "generated"`. `"per_coordinate"` desloca e escala as aberturas de afluência de cada estágio gerado de modo que, para cada usina hidrelétrica, sua média seja 0 e sua variância seja a que a correlação do estágio atribui ao ruído dessa usina (passo 4 de [§2.3](/math/scenario-generation/#23-arvore-de-aberturas)); `"none"` mantém as aberturas como sorteadas. Um estágio `historical_residuals`, um estágio com uma única abertura e os ruídos de carga e de NCS nunca passam pela correspondência de momentos (moment matching). |
+| `source`          | string | `"generated"`      | Um entre `"generated"`, `"file"`. `"generated"` constrói a árvore a partir do `sampling_method` dos estágios e aplica a ela a correspondência de momentos (moment matching): em cada estágio gerado, as aberturas de afluência de cada usina hidrelétrica são deslocadas e escaladas para média 0 e para a variância que a correlação do estágio atribui ao ruído dessa usina, igual a 1, a menos que a fatoração da correlação trunque um autovalor negativo (passo 4 de [§2.3](/math/scenario-generation/#23-arvore-de-aberturas)). Um estágio `historical_residuals`, um estágio com uma única abertura e os ruídos de carga e de NCS nunca passam pela correspondência de momentos. `"file"` lê a árvore de `scenarios/noise_openings.parquet` e a usa como fornecida. |
 
 ```json
 {
   "training": {
     "scenario_source": {
-      "openings": { "source": "generated", "moment_matching": "none" }
+      "openings": { "source": "file" }
     }
   }
 }
 ```
 
-`moment_matching` com `"source": "file"`, ou um valor fora dos dois, é recusado
-quando o `config.json` é carregado. A simulação forward dentro da amostra (in-sample) e o
+A simulação forward dentro da amostra (in-sample) e o
 `stochastic/noise_openings.parquet` exportado usam a árvore com correspondência de momentos; os sorteios da
-simulação forward fora da amostra (out-of-sample) não passam pela correspondência de momentos. O
-`training/model_provenance.json` registra o modo de uma árvore gerada como
-`inflow.opening_tree_moment_matching`
-([Arquivos de metadados](/reference/output/metadata/#trainingmodel_provenancejson)).
+simulação forward fora da amostra (out-of-sample) não passam pela correspondência de momentos.
 
 ### `training.stopping_rules`
 
@@ -790,6 +809,7 @@ Controla opções de modelagem física.
 | Campo                   | Tipo   | Padrão         | Descrição                                                                                                                         |
 | ----------------------- | ------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `inflow_non_negativity` | object | `{}`           | Estratégia de tratamento de sorteios negativos de afluência do modelo PAR.                                                        |
+| `inflow_residual`       | object | `{}`           | Distribuição do resíduo de afluência do modelo PAR(p). Veja abaixo.                                                               |
 | `cost_scale_factor`     | number \| null | `1000000.0`    | Divisor de todo coeficiente da função objetivo que não seja de θ (condicionamento da função objetivo; não altera o modelo, ao contrário dos demais campos desta seção). Veja abaixo. |
 
 ### `modeling.inflow_non_negativity`
@@ -831,6 +851,64 @@ Exemplo — a folga `"penalty"` sem limite superior no lugar do padrão:
   "modeling": {
     "inflow_non_negativity": {
       "method": "penalty"
+    }
+  }
+}
+```
+
+### `modeling.inflow_residual`
+
+| Campo          | Tipo   | Padrão     | Descrição                            |
+| -------------- | ------ | ---------- | ------------------------------------ |
+| `distribution` | string | `"normal"` | Um de `"normal"`, `"lognormal_3p"`.  |
+
+Em cada resolução, o modelo PAR(p) dá à vazão incremental de cada usina uma
+média condicional, calculada a partir das defasagens de afluência daquela
+resolução, e um desvio-padrão do resíduo. `distribution` define a distribuição
+do resíduo somado à média:
+
+- `"normal"` (padrão) -- um resíduo gaussiano. A afluência pode ser negativa, e
+  [`inflow_non_negativity`](#modelinginflow_non_negativity) a trata.
+- `"lognormal_3p"` -- experimental: um resíduo lognormal de três parâmetros com
+  a mesma média e o mesmo desvio-padrão, limitado inferiormente em afluência
+  zero, de modo que a afluência não é negativa. Onde a média condicional não é
+  positiva, a usina recebe o resíduo gaussiano naquela resolução, e
+  `inflow_non_negativity` trata uma afluência negativa como em `"normal"`.
+
+Os dois valores sorteiam o mesmo ruído; só o resíduo construído a partir dele
+muda. [Modelo de afluências PAR(p) §2.7](/math/par-inflow-model/#27-residuo-lognormal)
+apresenta a transformação. Como nos dois métodos de truncamento, o resíduo
+depende das defasagens de afluência de cada resolução, então o limite inferior
+pode exceder o limite superior.
+
+Em um caso com modelo PAR(p), `"lognormal_3p"` é recusado, por `novomodelo
+validate` e por `novomodelo run` antes do treinamento, com código de saída `1`,
+quando o caso também usa algum de:
+
+- `"external"` ou `"historical"` como `scheme` de afluência de
+  `training.scenario_source` ou `simulation.scenario_source`;
+- `"enumerated"` como `training.selection.method` ou `simulation.selection.method`;
+- um estágio cujo `sampling_method` é `"historical_residuals"`;
+- um nó de `policy_graph` com `scenario_id`.
+
+Um único erro nomeia todos os conflitos
+([`StudySetupError`](/reference/error-codes/#studysetuperror)).
+`novomodelo validate`, mas não `novomodelo run`, avisa sobre as resoluções que
+recebem o resíduo gaussiano: em uma usina e estação cuja afluência média sazonal
+é zero ou negativa, e com `inflow_non_negativity.method = "none"`, em que essa
+afluência pode ser negativa
+([`ModelQuality`](/reference/error-codes/#modelquality)).
+
+Uma política treinada com qualquer um dos valores é carregada e simulada com o
+outro.
+
+Exemplo:
+
+```json
+{
+  "modeling": {
+    "inflow_residual": {
+      "distribution": "lognormal_3p"
     }
   }
 }
@@ -883,7 +961,6 @@ em vez de exigir um `inflow_ar_coefficients.parquet` pré-calculado.
 | `order_selection`             | string  | `"pacf"` | Um de `"pacf"`, `"pacf_annual"`. Critério de seleção de ordem: baseado na FACP (PACF) ou na FACP com componente anual. |
 | `min_observations_per_season` | integer | `30`     | Número mínimo recomendado de ocorrências totalmente cobertas de cada período sazonal, por usina: as amostras a partir das quais a estimação faz o ajuste. Uma ocorrência é um intervalo do período sazonal em `season_definitions`, dentro ou fora do horizonte do estudo; ela só conta quando as linhas de `inflow_history.parquet` a cobrem integralmente e, com `history_years` definido, apenas quando ela começa em um desses anos. Quando a estimação é executada, um grupo (usina, período sazonal) com pelo menos uma ocorrência desse tipo, mas menos do que esse valor, gera um aviso [`ModelQuality`](/reference/error-codes/#modelquality) que indica a usina e o período sazonal, e a estimação prossegue. |
 | `max_coefficient_magnitude`   | number \| null | `null`   | Rede de segurança: reduz à ordem 0 se algum coeficiente exceder essa magnitude.                   |
-| `correlation_target`          | string  | `"inflows"` | Um entre `"inflows"`, `"residuals"`. Série a partir da qual a correlação espacial das afluências é estimada quando o modelo de afluências é ajustado, total ou parcialmente, a partir de `inflow_history.parquet` e o caso não fornece `scenarios/correlation.json`: as afluências padronizadas (`"inflows"`) ou os resíduos da autorregressão ajustada (`"residuals"`); veja [Modelo de afluências PAR(p) §6.1](/math/par-inflow-model/#61-estimacao-da-correlacao). O `training/model_provenance.json` a registra como `inflow.correlation_target`. |
 | `history_years`               | object \| null | `null` | Intervalo inclusivo `{"from": 1931, "to": 2024}` dos anos de `inflow_history.parquet` que a estimação lê: uma amostra é lida quando a ocorrência do período sazonal a que ela pertence começa em um ano do intervalo. O intervalo limita as estatísticas sazonais, os coeficientes autorregressivos, a componente anual e a correlação estimada; ele não restringe nenhum outro leitor do arquivo: a tendência hidrológica derivada, as janelas do esquema `historical` (que `historical_years` restringe) e as aberturas `historical_residuals`. `null` lê todos os anos. `from` posterior a `to` é recusado quando `config.json` é carregado, e, quando a execução estima a partir de `inflow_history.parquet`, o mesmo ocorre com um intervalo que comece antes do primeiro ou termine depois do último ano do arquivo ([Anos do histórico de estimação fora do histórico](/reference/error-codes/#anos-do-historico-de-estimacao-fora-do-historico)). |
 
 Exemplo:
@@ -1117,7 +1194,7 @@ Cada receita é um trecho de `config.json` que se mescla a um caso: uma chave do
 
 Treine com simulação forward enumerada e pare quando o gap exato se fechar. `relative_tolerance` é um percentual: `0.01` para com gap de 0,01%. A entrada `iteration_limit` encerra a execução se o gap não se fechar antes; uma simulação amostrada após o treinamento registra um aviso informativo na preparação ([`simulation.selection`](#simulationselection)). O critério [`gap`](#gap) só é admitido com seleção `enumerated` e a mesma medida de risco em todos os estágios (o padrão `expectation` atende), e todo estágio declara uma única abertura (`num_openings: 1` em `stages.json`), porque a seleção enumerada o exige ([`training.selection`](#trainingselection)).
 
-{/* capture: novomodelo validate case (exit 0); novomodelo run case --output <dir> (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
+{/* capture: novomodelo validate case (exit 0); novomodelo run case --output <dir> (exit 0) | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: 1dtoy + config.json training.selection and training.stopping_rules as below, stages[].num_openings: 1 on every stage */}
 
 ```json
 {
@@ -1135,7 +1212,7 @@ Treine com simulação forward enumerada e pare quando o gap exato se fechar. `r
 
 Limite uma execução pelo tempo de relógio. Com o [`stopping_mode`](#trainingstopping_mode) padrão (`"any"`), o treinamento para no primeiro critério satisfeito; portanto, combine [`time_limit`](#time_limit) com um `iteration_limit` acima do que o tempo permite: o treinamento nunca ultrapassa o maior `iteration_limit` do conjunto.
 
-{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: 1dtoy + config.json training.stopping_rules as below (one iteration_limit entry, replacing the case's 128) */}
 
 ```json
 {
@@ -1152,7 +1229,7 @@ Limite uma execução pelo tempo de relógio. Com o [`stopping_mode`](#trainings
 
 Treine com ruído dentro da amostra e simule com afluência fora da amostra. A `simulation.scenario_source.seed` (77) conduz os sorteios fora da amostra da simulação ([Resolução das sementes](#resolucao-das-sementes)). Os campos de `simulation.scenario_source` estão listados em [`simulation.scenario_source`](#simulationscenario_source).
 
-{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
+{/* capture: novomodelo validate case (exit 0) | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: 1dtoy + config.json training.selection, training.stopping_rules, training.scenario_source and simulation as below */}
 
 ```json
 {

@@ -32,7 +32,7 @@ diverge from the code, the spec must be updated — not the other way around.
 
 ## Current State
 
-**Synced to: novomodelo v0.21.0 (2026-11-16).**
+**Synced to: novomodelo v0.22.0 (2026-11-24).**
 
 The corpus is a **unified two-layer reference**: the annotation-free **math
 layer** (formulation, algorithm, worked examples) interleaved per topic with a
@@ -132,7 +132,7 @@ read; open them directly when working on the topic without reading a page first.
 | `hydro.md` | FPHA, cascade, inflow non-negativity, generic constraints pages | FPHA fit, water travel time, inflow-slack methods, `hydro_inflow` term |
 | `thermals-and-discounting.md` | state augmentation, equipment, discount, post-study pages | Anticipated thermals, discount factors |
 | `commissioning.md` | penalty, system-elements, entity pages | Filling, commissioning windows, initial storage, canonical entity order |
-| `stochastic.md` | scenario generation, PAR, multi-resolution pages | Historical sampling, correlation target, moment matching, noise groups, MPI fingerprint |
+| `stochastic.md` | scenario generation, PAR, multi-resolution pages | Historical sampling, correlation estimation, moment matching, noise groups, MPI fingerprint |
 | `diagrams.md` | `src/figures/**`, `src/components/**`, `src/styles/**`, `.mdx` pages | d2, Observable Plot and entity illustrations, semantic colours, site accent |
 | `quality-gates.md` | `scripts/**`, `package.json`, CI workflows | Gate prerequisites (d2, novomodelo binary, KaTeX strict) and CI wiring |
 
@@ -144,7 +144,7 @@ The translation guide and glossary is
 ## Quality Gates
 
 ```bash
-# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.21.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
+# export NOVOMODELO_BIN=~/.local/opt/novomodelo-v0.22.0/novomodelo-cli-x86_64-unknown-linux-gnu/novomodelo
 npm run check:figures && npm run check:voice && npm run check:counts \
   && npm run check:version && npm run check:narration && npm run check:error-coverage \
   && npm run check:input-schemas && npm run check:glossary && npm run check:ptbr-case && npm run check:python-api \

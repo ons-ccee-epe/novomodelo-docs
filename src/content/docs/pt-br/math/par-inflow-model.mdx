@@ -116,7 +116,7 @@ Outras implementações do PAR(p) podem seguir convenções diferentes:
 
 - é comum escreverem os coeficientes autorregressivos como $\phi$, que este capítulo escreve como $\psi$ (unidades originais) e $\psi^*$ (padronizado);
 - algumas armazenam o desvio-padrão do ruído, enquanto este modelo armazena o desvio-padrão amostral sazonal $s_m$ e deriva o desvio-padrão do ruído $\sigma_m = s_m\, r_m$ na carga (§4);
-- algumas sorteiam os resíduos de uma distribuição lognormal, enquanto os ruídos deste modelo são gaussianos e as realizações negativas são tratadas como em [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity).
+- algumas sorteiam os resíduos de uma distribuição lognormal; os resíduos deste modelo são gaussianos, a menos que `modeling.inflow_residual.distribution` selecione o resíduo lognormal da §2.7, e as realizações negativas são tratadas como em [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity).
 
 Para termos equivalentes em outras ferramentas de planejamento, veja o [Glossário](/reference/glossary).
 :::
@@ -215,6 +215,26 @@ A inclusão das afluências defasadas nos cortes de um estágio é uma escolha p
 | Coeficientes das defasagens | $\psi_{m(t),\ell}$ | Um por (usina hidrelétrica, defasagem) | Afluência realizada (termos de defasagem); regra da cadeia dos coeficientes dos cortes nas defasagens | Derivados de $\psi^*$ e $s_m$ armazenados, na inicialização (§2.2) |
 | Base determinística | $b_{h,m(t)}$      | Uma por usina hidrelétrica | Afluência realizada (termo fixo) | Pré-calculada a partir de $\mu$ e $\psi$                  |
 | Escala do ruído    | $\sigma_{m(t)}$    | Uma por usina hidrelétrica | Afluência realizada (fator do ruído) | Derivada do $r_m$ obtido pelo fechamento (§4.1) e de $s_m$, na inicialização (§2.2) |
+
+### 2.7 Resíduo lognormal
+
+Com `modeling.inflow_residual.distribution = "lognormal_3p"` ([Configuração](/running/configuration/#modelinginflow_residual)), o termo de ruído $\sigma_{m(t)} \cdot \varepsilon_t$ da §2.5 é substituído por um resíduo lognormal formado a partir da média condicional da resolução,
+
+$$
+p_h = b_{h,m(t)} + \sum_{\ell=1}^{p} \psi_{m(t),\ell} \cdot \hat{a}_{h,\ell}
+$$
+
+de modo que
+
+$$
+\hat{z}_h = p_h \exp\!\left(\tilde{\sigma}_h \varepsilon_t - \tfrac{1}{2} \tilde{\sigma}_h^2\right), \qquad \tilde{\sigma}_h^2 = \ln\!\left(1 + \left(\sigma_{m(t)} / p_h\right)^2\right)
+$$
+
+Para um $\varepsilon_t$ normal padrão, $\hat{z}_h$ tem média $p_h$ e desvio-padrão $\sigma_{m(t)}$, os momentos do resíduo gaussiano, e nunca é negativo: o resíduo é uma lognormal de três parâmetros com o limite inferior em afluência zero, aplicada à vazão incremental da usina hidrelétrica. Os sorteios $\varepsilon_t$, sua correlação e a árvore de aberturas são os do resíduo gaussiano.
+
+Onde $p_h \le 0$, ou $p_h$ é tão próximo de zero que $(\sigma_{m(t)} / p_h)^2$ transborda, a usina hidrelétrica recebe o resíduo gaussiano $\sigma_{m(t)} \cdot \varepsilon_t$ naquela resolução, e o [tratamento de afluências negativas](/math/inflow-nonnegativity) trata um $\hat{z}_h$ negativo como no resíduo gaussiano. Com $\sigma_{m(t)} = 0$, $\hat{z}_h = p_h$.
+
+O resíduo depende das defasagens de entrada por meio de $p_h$. Os coeficientes dos cortes nas defasagens mantêm o resíduo no seu valor no estado visitado (a regra da cadeia do [Folding do PAR(p)](/math/par-folding) não deriva a transformação); assim, como no montante de truncamento de [Métodos de tratamento de afluências negativas §7](/math/inflow-nonnegativity#7-truncamento-e-o-limite-inferior), cada corte é justo no seu estado visitado, mas não há garantia de que o limite inferior permaneça abaixo do valor ótimo, e ele pode exceder o limite superior.
 
 ## 3. Estimação
 
@@ -600,21 +620,15 @@ As afluências são correlacionadas entre usinas hidrelétricas: a §6.1 estima 
 
 ### 6.1 Estimação da correlação
 
-Quando o modelo de afluências é ajustado a partir do histórico de vazões, total ou parcialmente, e o caso não fornece correlação, a matriz de correlação é estimada a partir do histórico, com base em uma de duas séries padronizadas, escolhida por estudo. A **afluência padronizada** da usina hidrelétrica $h$ no período histórico $t$ é
+Quando o modelo de afluências é ajustado a partir do histórico de vazões, total ou parcialmente, e o caso não fornece correlação, a matriz de correlação é estimada a partir das afluências históricas padronizadas. A **afluência padronizada** da usina hidrelétrica $h$ no período histórico $t$ é
 
 $$
 \tilde{a}_{h,t} = \frac{a_{h,t} - \hat{\mu}_{m(t)}}{\hat{s}_{m(t)}}
 $$
 
-a afluência padronizada pelas estatísticas sazonais da §3.2, definida como zero quando $\hat{s}_{m(t)} = 0$; todo período observado tem uma. O **resíduo padronizado** da autorregressão é
+a afluência padronizada pelas estatísticas sazonais da §3.2, definida como zero quando $\hat{s}_{m(t)} = 0$; todo período observado tem uma. A série mede a correlação das próprias afluências; o gerador de cenários a aplica às inovações $\varepsilon_t$ da §1, cuja correlação ela iguala em um período sazonal em que todas as usinas têm ordem zero.
 
-$$
-\tilde{\varepsilon}_{h,t} = \tilde{a}_{h,t} - \sum_{\ell=1}^{p_{m(t)}} \psi^*_{m(t),\ell}\, \tilde{a}_{h,t-\ell}
-$$
-
-em que $\psi^*_{m,\ell}$ são os coeficientes padronizados do modelo (§1.2). Um período tem resíduo apenas quando todas as $p_{m(t)}$ afluências defasadas correspondentes são observadas. No caminho do PAR(p)-A, o resíduo usa apenas os coeficientes das defasagens: o termo anual da §7.1 não entra nele. A série de resíduos mede a correlação das inovações $\varepsilon_t$ da §1, o ruído que o gerador de cenários correlaciona; a série de afluências padronizadas mede a correlação das próprias afluências. As duas coincidem em um período sazonal em que todas as usinas têm ordem zero.
-
-Duas estimativas são formadas a partir da série escolhida: a estimativa agregada $\hat{C}$, a partir dos seus valores em todos os períodos sazonais, e a estimativa por período sazonal $\hat{C}_m$, a partir dos seus valores nos períodos pertencentes ao período sazonal $m$. Cada elemento fora da diagonal é a correlação de Pearson entre os valores das duas usinas sobre os períodos em que ambas têm valor (uma estimativa por pares completos), com a covariância e os desvios-padrão calculados com o divisor de Bessel, igual ao número desses períodos menos um, diferentemente do divisor populacional da §3.2. O elemento é nulo quando há menos de dois desses períodos ou quando algum dos desvios-padrão sobre eles é inferior ao épsilon da máquina, e é limitado ao intervalo $[-1, 1]$; todo elemento da diagonal é igual a um. Na série de afluências padronizadas, uma usina cujo desvio-padrão sazonal é zero no período sazonal $m$ tem valor zero em todos os períodos desse período sazonal, de modo que seus elementos fora da diagonal em $\hat{C}_m$ são nulos.
+Duas estimativas são formadas a partir dessa série: a estimativa agregada $\hat{C}$, a partir dos seus valores em todos os períodos sazonais, e a estimativa por período sazonal $\hat{C}_m$, a partir dos seus valores nos períodos pertencentes ao período sazonal $m$. Cada elemento fora da diagonal é a correlação de Pearson entre os valores das duas usinas sobre os períodos em que ambas têm valor (uma estimativa por pares completos), com a covariância e os desvios-padrão calculados com o divisor de Bessel, igual ao número desses períodos menos um, diferentemente do divisor populacional da §3.2. O elemento é nulo quando há menos de dois desses períodos ou quando algum dos desvios-padrão sobre eles é inferior ao épsilon da máquina, e é limitado ao intervalo $[-1, 1]$; todo elemento da diagonal é igual a um. Uma usina cujo desvio-padrão sazonal é zero no período sazonal $m$ tem valor zero em todos os períodos desse período sazonal, de modo que seus elementos fora da diagonal em $\hat{C}_m$ são nulos.
 
 Os estágios do período sazonal $m$ usam $\hat{C}_m$ quando todo par de usinas tem pelo menos 30 desses períodos no período sazonal $m$; todos os demais estágios usam $\hat{C}$. Como cada elemento é calculado sobre seu próprio conjunto de períodos, nenhuma das estimativas precisa ser semidefinida positiva; a §6.3 trata de uma matriz indefinida.
 

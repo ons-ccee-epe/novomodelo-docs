@@ -212,7 +212,7 @@ Com essas chaves em `config.json`, `novomodelo validate` aceita o caso.
 O validate lê o checkpoint em `policy.path` e aplica a mesma carga, de modo que
 isso confirma a configuração e a carga da política:
 
-{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; trained once with novomodelo run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
+{/* capture: novomodelo validate case 2>&1 | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; trained once with novomodelo run --quiet; then config.json: training.enabled false added and policy.path ./policy added, every other key unchanged) */}
 
 ```text
 Valid case: 1 buses, 1 hydros, 2 thermals, 0 lines
@@ -426,7 +426,7 @@ Uma [carga de fronteira](#cortes-de-fronteira) executa suas próprias verificaç
 1. **Leitura.** `manifest.bin` está presente e seu `format_version` binário é `4` (a
    verificação de `format_version`). Um `manifest.bin` marcado com outro valor, inclusive um
    checkpoint da versão 3, é recusado com:
-   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs:1728-1730 and crates/novomodelo-io/src/output/software.rs:15-16 (FORMAT_VERSION = 4) at novomodelo v0.21.0 */}
+   {/* quoted from source: crates/novomodelo-io/src/output/policy/codec.rs:1728-1730 and crates/novomodelo-io/src/output/software.rs:15-16 (FORMAT_VERSION = 4) at novomodelo v0.22.0 */}
    ```text
    unsupported checkpoint manifest format_version {format_version}; expected 4; re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
    ```
@@ -455,7 +455,7 @@ versão de correção ou pré-lançamento diferente (por exemplo, 0.17.0 contra 
 
 A recusa exibe:
 
-{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 at novomodelo v0.21.0 — not capturable (needs a checkpoint written by another software or version) */}
+{/* quoted from source: crates/novomodelo-sddp/src/error.rs:103-108 at novomodelo v0.22.0 — not capturable (needs a checkpoint written by another software or version) */}
 
 ```text
 policy was written by {writer}, but this is novomodelo {running}; a policy loads only in the software and version that wrote it: re-run the program that produced it with novomodelo {running}; for a converted boundary policy, convert it again
@@ -485,7 +485,7 @@ trata do nível binário.
 Uma carga da FCF completa usa uma base do PL armazenada apenas quando ela se ajusta ao PL do seu estágio, descarta
 as demais com um único aviso e prossegue. Por exemplo, `novomodelo run` exibe:
 
-{/* capture: novomodelo run case 2>&1 | novomodelo   v0.21.0 | binary: novomodelo-cli sha256 e484b9f8 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with novomodelo run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
+{/* capture: novomodelo run case 2>&1 | novomodelo   v0.22.0 | binary: novomodelo-cli sha256 235ff225 | case: temporary 1dtoy derivative (novomodelo init --template 1dtoy; stages.json: every stage carries two blocks PEAK and OFFPEAK with hours h // 2 and h - h // 2 of the single block's hours h, block_mode parallel; config.json: training.stopping_rules iteration_limit 3, simulation.enabled false; trained once with novomodelo run; then stages.json block_mode chronological on every stage, config.json training.enabled false and simulation.enabled true) */}
 
 ```text
 warning: stored bases not used: 4 of 4 do not fit the current LP (first: node 0, 27 columns, the LP has 28); a stored basis is used only when its column count equals the LP's, its row count equals the LP's template rows plus its recorded cut rows, its basic count equals its row count, and every recorded cut-row slot holds a loaded cut; the policy was trained on a different LP
@@ -1134,10 +1134,10 @@ print(len(reloaded["stage_cuts"][0]["cuts"]), reloaded["metadata"]["software_ver
 O script exibe o número de cortes recarregados e a versão que
 `write_policy_checkpoint` registrou:
 
-{/* capture: python round-trip example | novomodelo-python 0.21.0 (PyPI wheel sha256 2500704e) | python 3.12.3 | case: none */}
+{/* capture: python round-trip example | novomodelo-python 0.22.0 (PyPI wheel sha256 360cd66b) | python 3.12.3 | case: none */}
 
 ```text
-3 0.21.0
+3 0.22.0
 ```
 
 ### Validação das entradas
@@ -1171,7 +1171,7 @@ texto da exceção que gera.
 Um corte cujo comprimento de `coefficients` diverge do `state_dimension`
 de seu estágio:
 
-{/* capture: python input-validation snippet 1 of 3 (ValueError text) | novomodelo-python 0.21.0 (PyPI wheel sha256 2500704e) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+{/* capture: python input-validation snippet 1 of 3 (ValueError text) | novomodelo-python 0.22.0 (PyPI wheel sha256 360cd66b) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
 
 ```python
 bad_cuts = [
@@ -1200,7 +1200,7 @@ novomodelo.write_policy_checkpoint("output/policy", bad_cuts, metadata)
 Uma entrada de `stage_states` cujo comprimento do `data` plano diverge de
 `count * state_dimension`:
 
-{/* capture: python input-validation snippet 2 of 3 (ValueError text) | novomodelo-python 0.21.0 (PyPI wheel sha256 2500704e) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
+{/* capture: python input-validation snippet 2 of 3 (ValueError text) | novomodelo-python 0.22.0 (PyPI wheel sha256 360cd66b) | python 3.12.3 | case: none; context: metadata and stage_cuts of the round-trip example */}
 
 ```python
 stage_states = [
@@ -1223,7 +1223,7 @@ Um corte com `inflow_lag_coefficients` sem que um `inflow_lag_depth` seja inform
 reservar as posições de defasagem (indexado pelo id **inteiro** da UHE; índice `0` da lista = defasagem
 de profundidade 1):
 
-{/* capture: python input-validation snippet 3 of 3 (ValueError text) | novomodelo-python 0.21.0 (PyPI wheel sha256 2500704e) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
+{/* capture: python input-validation snippet 3 of 3 (ValueError text) | novomodelo-python 0.22.0 (PyPI wheel sha256 360cd66b) | python 3.12.3 | case: none; context: metadata of the round-trip example */}
 
 ```python
 stage_cuts = [

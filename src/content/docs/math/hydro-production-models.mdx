@@ -44,14 +44,14 @@ with:
 
 ## 2. FPHA (Approximate Hydroelectric Production Function)
 
-For accurate modeling of hydroelectric generation, FPHA (Approximate Hydroelectric Production Function) captures the nonlinear relationship between storage, flow, spillage, and generation through a piecewise-linear approximation. The approach follows the piecewise-linear hydro production model of [Diniz & Maceira (2008)](/en/reference/bibliography/#hydro-production), a four-dimensional relation that gives generation as a function of storage, turbined flow and spillage, with the head computed from the forebay and tailrace levels and the nonconcave regions of the exact function approximated by convexification and regression. Novomodelo fits its planes over storage and turbined flow at spillage = 0, by a convex hull with a least-squares correction (§2.6), and carries the spillage effect by the per-plane lateral-flow secant of §2.7 rather than a spillage axis in the fit.
+For accurate modeling of hydroelectric generation, FPHA (Approximate Hydroelectric Production Function) captures the nonlinear relationship between storage, flow, lateral flow, and generation through a piecewise-linear approximation. The approach follows the piecewise-linear hydro production model of [Diniz & Maceira (2008)](/en/reference/bibliography/#hydro-production), a four-dimensional relation that gives generation as a function of storage, turbined flow and spillage, with the head computed from the forebay and tailrace levels and the nonconcave regions of the exact function approximated by convexification and regression. Novomodelo fits its planes over storage and turbined flow at zero lateral flow, by a convex hull with a least-squares correction (§2.6), and carries the lateral-flow effect by the per-plane lateral-flow secant of §2.7 rather than a lateral-flow axis in the fit.
 
 ### 2.1 Notation
 
 This section uses the notation of the [LP Formulation](/en/math/lp-formulation); for equivalent terms in other planning tools, see the [Glossary](/en/reference/glossary#equivalent-terms-in-other-planning-tools).
 
 :::note[Note on lateral flow]
-The tailrace level depends on the outflow below the plant, which this model takes as $q_{out} = q + s$ (the plant's own turbined and spilled flow). The lateral-flow secant (§2.7) captures the spillage effect, and upstream releases or other inflows below the dam do not enter $q_{out}$.
+The tailrace level depends on the tailrace flow $f_h \, q + q_{lat}$, where $f_h$ is the plant's own outflow factor (1 by default) and $q_{lat}$ is the lateral flow defined in §2.2. The lateral-flow secant (§2.7) captures the effect of $q_{lat}$ on generation.
 :::
 
 ### 2.2 Exact Production Function
@@ -59,28 +59,36 @@ The tailrace level depends on the outflow below the plant, which this model take
 The **exact hydroelectric production function** relates generation to the operating state:
 
 $$
-\phi(v, q, s) = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}
+\phi(v, q, q_{lat}) = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}
 $$
 
 where:
 
 - $v$ = reservoir storage volume (hm³)
 - $q$ = turbined flow (m³/s)
-- $s$ = spillage flow (m³/s)
+- $q_{lat}$ = lateral flow (m³/s), the part of the tailrace flow that is not the plant's own turbined flow, defined below
 - $h_{net}$ = net head (m), clamped to $\ge 0$
 - $\eta_h$ = turbine efficiency (section 1), constant per plant; the factor $9.81\,\eta_h/1000$ (MW·s/m⁴) converts hydraulic power to electrical power
 
 The **net head** is computed as:
 
 $$
-h_{net}(v, q, s) = h_{fore}(v) - h_{tail}(q + s) - h_{loss}
+h_{net}(v, q, q_{lat}) = h_{fore}(v) - h_{tail}(f_h \, q + q_{lat}) - h_{loss}
 $$
 
 clamped to $\max(h_{net}, 0)$, where:
 
 - $h_{fore}(v)$ = forebay (upstream reservoir) level as function of storage
-- $h_{tail}(q + s)$ = tailrace (downstream channel) level as function of total outflow
-- $h_{loss}$ = hydraulic head losses (from the factor or constant model)
+- $h_{tail}(f_h \, q + q_{lat})$ = tailrace (downstream channel) level as function of the tailrace flow
+- $h_{loss}$ = hydraulic head losses (from the factor or constant model), which stay on the turbined flow $q$
+
+The **tailrace flow** is $f_h \, q + q_{lat}$, where $f_h$ is the plant's own outflow factor (1 by default). The **lateral flow** of plant $h$ in block $k$ is
+
+$$
+q_{lat,h,k} = f_h \, s_{h,k} + \sum_{j \in \mathcal{J}^{out}_h} f_{hj} \Big( \sum_{b' \in \mathcal{B}_j} q_{j,b',k} + s_{j,k} \Big) + \sum_{j \in \mathcal{J}^{inc}_h} f^{z}_{hj} \, \hat{z}_j
+$$
+
+where $s_{h,k}$ is the plant's own spillage, $\mathcal{J}^{out}_h$ is the set of plants declared as **outflow influences** of $h$, each adding its turbined flow over all its cells $\mathcal{B}_j$ plus its spillage, scaled by $f_{hj}$, and $\mathcal{J}^{inc}_h$ is the set of plants declared as **incremental-inflow influences** of $h$ (it may contain $h$ itself), each adding its realized incremental inflow $\hat{z}_j$ (m³/s), scaled by $f^{z}_{hj}$. Under a truncation inflow non-negativity method the term reads the effective incremental inflow, the realized value plus the inflow slack $\sigma^{inf}_j$. With no declaration, $f_h = 1$, both sets are empty, and $q_{lat} = s$.
 
 **Why linearization is needed**: $\phi$ is nonlinear in $(v, q)$ due to the bilinear product $q \times h_{net}$, nonlinear topology functions $h_{fore}(v)$ and $h_{tail}(q_{out})$, and flow-dependent hydraulic losses. For LP formulation, Novomodelo approximates $\phi$ with a set of linear hyperplanes.
 
@@ -98,7 +106,7 @@ $$
 
 #### Tailrace Level $h_{tail}(q_{out})$
 
-The downstream water level depends on total outflow. Three representations are supported:
+The downstream water level depends on the tailrace flow $q_{out} = f_h \, q + q_{lat}$ (§2.2). Three representations are supported:
 
 **Polynomial model**:
 
@@ -110,7 +118,7 @@ $$
 
 **Piecewise-quartic families (exact tailrace)**: an optional per-plant tailrace table provides piecewise degree-4 polynomial segments (evaluated via Horner's method), grouped into backwater families keyed by the downstream reservoir's reference forebay level — see §2.3.1.
 
-**Total downstream flow in LP**: $q_{out} = q + s$ (turbined flow + spillage). For FPHA fitting, spillage is fixed at $s = 0$ when building the generation cloud; the lateral-flow secant (§2.7) captures the spillage correction per plane.
+**Tailrace flow in fitting**: the generation cloud is built at zero lateral flow, $q_{lat} = 0$; the lateral-flow secant (§2.7) captures the correction per plane.
 
 #### 2.3.1 Piecewise-Quartic Tailrace Families (Backwater Coupling)
 
@@ -148,10 +156,10 @@ An FPHA plant has no single scalar productivity $\rho$. The fitted planes follow
 
 ### 2.5 FPHA Hyperplanes
 
-The FPHA approximation replaces the nonlinear production function $\phi(v, q, s)$ with a set of $M$ linear hyperplanes that form a **concave approximation** of the exact surface (an outer approximation of the capped cloud before the $k_{FPHA}$ correction of §2.6.3). Each hyperplane $m$ defines an upper bound on generation:
+The FPHA approximation replaces the nonlinear production function $\phi(v, q, q_{lat})$ with a set of $M$ linear hyperplanes that form a **concave approximation** of the exact surface (an outer approximation of the capped cloud before the $k_{FPHA}$ correction of §2.6.3). Each hyperplane $m$ defines an upper bound on generation:
 
 $$
-g_{h,k} \leq \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_q^m \cdot q_{h,k} + \gamma_s^m \cdot s_{h,k}
+g_{h,k} \leq \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_q^m \cdot q_{h,k} + \gamma_s^m \cdot q_{lat,h,k}
 $$
 
 The plane is fitted once per plant (§2.1–§2.8); a plant split across buses evaluates it **per (hydro, bus) cell** at LP-integration time, apportioning its flow-independent terms by each cell's share of the plant's declared maximum turbined flow — see §2.9 for the exact per-cell form.
@@ -160,10 +168,10 @@ The plane is fitted once per plant (§2.1–§2.8); a plant split across buses e
 
 | Coefficient | Sign | Meaning                                           |
 | ----------- | ---- | ------------------------------------------------- |
-| $\gamma_0^m$ | —    | Intercept (MW at zero storage, flow, spillage); its sign is not validated |
+| $\gamma_0^m$ | —    | Intercept (MW at zero storage, flow, lateral flow); its sign is not validated |
 | $\gamma_v^m$ | ≥ 0  | Higher storage → higher forebay → more generation |
 | $\gamma_q^m$ | ≥ 0 (> 0 on at least one plane per stage for precomputed planes) | More turbined flow → more generation              |
-| $\gamma_s^m$ | ≤ 0  | More spillage → higher tailrace → less net head   |
+| $\gamma_s^m$ | ≤ 0  | More lateral flow → higher tailrace → less net head, in MW per m³/s of lateral flow |
 
 **Source of hyperplanes**: planes are either pre-computed (supplied with the case) or computed from topology data during preprocessing. The computed fit is described in §2.6.
 
@@ -173,12 +181,12 @@ The computed-FPHA path produces hyperplanes from topology data in four stages: c
 
 #### 2.6.1 Grid and Cloud
 
-The fitter evaluates the exact production function $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ on a uniform two-dimensional grid over the fitting window, **with spillage $s = 0$ and lateral flow $= 0$**. The grid has:
+The fitter evaluates the exact production function $\phi = (9.81\,\eta_h/1000) \cdot q \cdot h_{net}$ on a uniform two-dimensional grid over the fitting window, **at zero lateral flow, $q_{lat} = 0$**. The grid has:
 
 - **Volume axis**: a configurable number of uniformly spaced values spanning the fitting window $[v_{min}, v_{max}]$. The window defaults to the plant's storage range $[V^{min}_h, V^{max}_h]$ (the [physical storage range](#43-useful-range-mean-productivity)), and each configured bound is clamped into that range. It is distinct from the reference volume (§4.1), which fixes an operating point, not this window. The point counts and the window are set on the [Configure tab](#implementation-in-novomodelo).
 - **Flow axis**: a configurable number of uniformly spaced values spanning $[0, q^{fit}_{max}]$, where the upper end $q^{fit}_{max}$ of the turbined-flow fit range is the plant's maximum turbined flow $q_{max}$ unless another upper end is set on the Configure tab. The axis **starts at $q = 0$**, where generation is zero; this zero-flow column anchors the lower closure of the cloud and eliminates the need for any synthetic closing point.
 
-Each cloud point is capped at the plant's installed capacity $\bar{G}_h$. Spillage is not a cloud dimension — it is fixed at zero throughout.
+Each cloud point is capped at the plant's installed capacity $\bar{G}_h$. Lateral flow is not a cloud dimension — it is fixed at zero throughout.
 
 **Plants without turbine capacity**: a plant has turbine capacity when its maximum turbined flow $q_{max}$ and its maximum generation $\bar{G}_h$ are both positive, each compared with a small absolute threshold in place of 0. Without it the cloud carries no production and no plane survives the hull: with $q_{max} = 0$ the flow axis collapses onto $q = 0$, where generation is zero, and with $\bar{G}_h = 0$ every point is capped at 0. Such a plant is modelled with zero productivity at every stage instead of a plane set; the [implementation notes](#no-turbine-capacity) give the threshold and how the plant is reported.
 
@@ -192,7 +200,7 @@ The 3-D convex hull of the $(V, Q, \text{generation})$ cloud is computed via the
 
 #### 2.6.3 Least-Squares $k_{FPHA}$ Correction
 
-The raw hull envelope $FPHA_0$ is optimistic where $\phi$ is non-concave and pessimistic where it is concave. A single scalar $k_{FPHA}$ corrects the bias by minimising the mean-squared error between $k_{FPHA} \cdot FPHA_0$ and the capped production $\min(\phi, \bar{G}_h)$ over the spill$=0$ grid:
+The raw hull envelope $FPHA_0$ is optimistic where $\phi$ is non-concave and pessimistic where it is concave. A single scalar $k_{FPHA}$ corrects the bias by minimising the mean-squared error between $k_{FPHA} \cdot FPHA_0$ and the capped production $\min(\phi, \bar{G}_h)$ over the zero-lateral-flow grid:
 
 $$
 k_{FPHA} = \frac{\sum_{i,j} FPHA_0(V_i,Q_j)\,\min\big(\phi(V_i,Q_j), \bar{G}_h\big)}{\sum_{i,j} FPHA_0(V_i,Q_j)^2}, \qquad FPHA = k_{FPHA}\cdot FPHA_0
@@ -201,12 +209,12 @@ $$
 Key properties:
 
 - The regression uses the **pointwise minimum** over the raw hull planes as $FPHA_0(V_i, Q_j)$, because the LP applies planes as $g \le \gamma_0^m + \gamma_v^m V + \gamma_q^m Q$ for every $m$, so the binding cap is the minimum, not the maximum.
-- The regression is over the spill$=0$ grid only — adding a spillage axis would pull $k_{FPHA}$ toward the larger-deviation spill region and degrade the no-spill operating region.
+- The regression is over the zero-lateral-flow grid only — adding a lateral-flow axis would pull $k_{FPHA}$ toward the larger-deviation lateral-flow region and degrade the no-lateral-flow operating region.
 - $k_{FPHA}$ scales the **whole affine function** ($\gamma_0^m, \gamma_v^m, \gamma_q^m$ alike), not just the intercept. It therefore differs from the factor $\kappa$ of precomputed planes, which scales the intercept only.
 - $k_{FPHA}$ may be **greater or less than 1** (an MSE balance, not a one-sided shrink). Validation requires $k_{FPHA} > 0$. A degenerate denominator (all-zero production) yields the neutral $k_{FPHA} = 1$.
 - Validation also requires $\gamma_v^m \ge 0$, $\gamma_q^m \ge 0$, $\gamma_s^m \le 0$.
 
-**Fit-quality diagnostic**: after the full pipeline, the relative mean-absolute-deviation of the emitted min-envelope vs the capped production $\min(\phi, \bar{G}_h)$ over the spill$=0$ grid is computed. A warning is emitted (in canonical plant/stage order) when it exceeds a threshold (Implementation notes, "Fit-quality warning") — typically indicating a strongly non-concave surface that no single $k_{FPHA}$ can track well.
+**Fit-quality diagnostic**: after the full pipeline, the relative mean-absolute-deviation of the emitted min-envelope vs the capped production $\min(\phi, \bar{G}_h)$ over the zero-lateral-flow grid is computed. A warning is emitted (in canonical plant/stage order) when it exceeds a threshold (Implementation notes, "Fit-quality warning") — typically indicating a strongly non-concave surface that no single $k_{FPHA}$ can track well.
 
 **Precomputed input**: precomputed planes may carry an intercept factor $\kappa \in (0, 1]$ (Configure tab) that scales each plane's intercept only ($\gamma_0^m \leftarrow \gamma_0^m \cdot \kappa$), unlike the whole-affine $k_{FPHA}$. The computed path does not use $\kappa$; its $k_{FPHA}$ correction plays that role.
 
@@ -216,17 +224,17 @@ The figure below shows a synthetic plant with normalized axes: storage, flow and
 
 ### 2.7 Lateral-Flow Secant
 
-Spillage raises the tailrace level, lowering net head and generation. The $\gamma_s^m$ coefficient of each plane is the mean, over the spill$=0$ grid points where that plane binds, of a **zero-anchored least-squares slope** of generation against lateral flow $q_{lat}$ (the plant's own spillage $s$).
+Lateral flow raises the tailrace level, lowering net head and generation. The $\gamma_s^m$ coefficient of each plane, in MW per m³/s of lateral flow, is the mean, over the zero-lateral-flow grid points where that plane binds, of a **zero-anchored least-squares slope** of generation against the lateral flow $q_{lat}$ of §2.2.
 
-**Pointwise slope.** At each grid point $(V_i, Q_j)$ of §2.6.1, the lateral flow is sampled at $N$ evenly spaced values $s_n = n \, S_{max} / N$, $n = 1, \ldots, N$, of $[0, S_{max}]$, and a line through the spill$=0$ generation is fit to the samples:
+**Pointwise slope.** At each grid point $(V_i, Q_j)$ of §2.6.1, the lateral flow is sampled at $N$ evenly spaced values $q_{lat,n} = n \, S_{max} / N$, $n = 1, \ldots, N$, of $[0, S_{max}]$, and a line through the zero-lateral-flow generation is fit to the samples:
 
 $$
-\sigma_{ij} = \frac{\sum_{n=1}^{N} s_n \big[\phi(V_i, Q_j, s_n) - \phi(V_i, Q_j, 0)\big]}{\sum_{n=1}^{N} s_n^2}
+\sigma_{ij} = \frac{\sum_{n=1}^{N} q_{lat,n} \big[\phi(V_i, Q_j, q_{lat,n}) - \phi(V_i, Q_j, 0)\big]}{\sum_{n=1}^{N} q_{lat,n}^2}
 $$
 
-The line is anchored at $\phi(V_i, Q_j, 0)$ instead of carrying a free intercept, because the plane already holds the spill$=0$ generation in its other terms. The slope samples the **uncapped** production function $\phi$ (not clipped at installed capacity $\bar{G}_h$), so the spillage sensitivity is read from the raw head curve and is not flattened wherever the capacity ceiling binds — unlike the cloud and the $k_{FPHA}$ regression (§2.6), which both use the capacity-capped output.
+The line is anchored at $\phi(V_i, Q_j, 0)$ instead of carrying a free intercept, because the plane already holds the zero-lateral-flow generation in its other terms. Each sample evaluates $\phi$ with the tailrace at $h_{tail}(f_h Q_j + q_{lat,n})$. The slope samples the **uncapped** production function $\phi$ (not clipped at installed capacity $\bar{G}_h$), so the lateral-flow sensitivity is read from the raw head curve and is not flattened wherever the capacity ceiling binds — unlike the cloud and the $k_{FPHA}$ regression (§2.6), which both use the capacity-capped output.
 
-**Binding points.** A grid point counts for plane $m$ when that plane is the binding bound there, the pointwise minimum over the planes of §2.6.3 at spill $= 0$, up to a small tolerance $\epsilon$, so a point on a facet edge counts for every plane that meets there:
+**Binding points.** A grid point counts for plane $m$ when that plane is the binding bound there, the pointwise minimum over the planes of §2.6.3 at zero lateral flow, up to a small tolerance $\epsilon$, so a point on a facet edge counts for every plane that meets there:
 
 $$
 \mathcal{A}_m = \Big\{ (i, j) : \hat{g}^m(V_i, Q_j) - \min_{m'} \hat{g}^{m'}(V_i, Q_j) \le \epsilon \Big\}, \qquad \hat{g}^m(V, Q) = \gamma_0^m + \gamma_v^m V + \gamma_q^m Q
@@ -246,17 +254,11 @@ $$
 
 where MLT is the plant's long-term mean inflow (m³/s), the mean of its recorded inflow history, and $q_{max}$ is the plant's maximum turbined flow, whatever the turbined-flow fit range of §2.6.1. The upper end $\bar{S}^{fit}$ is set on the Configure tab.
 
-**Limit.** After the averaging, each slope is bounded below so that the plane is not below 0 at zero turbining at the corner $(v_{min}, S_{max})$:
+**Range of validity.** The plane is anchored at zero lateral flow and fitted on $[0, S_{max}]$. Above $S_{max}$ it extrapolates linearly and does not reproduce $h_{tail}$. The plane is not an outer bound of $\phi$ in $q_{lat}$: where the tailrace is convex over the operated range, generation is concave in $q_{lat}$, and the least-squares slope makes the plane understate generation at small lateral flow and overstate it near $S_{max}$.
 
-$$
-\gamma_s^m \leftarrow \max\!\Big(\gamma_s^m,\ \min\!\big(0,\ -(\gamma_0^m + \gamma_v^m \, v_{min}) / S_{max}\big)\Big)
-$$
-
-with $v_{min}$ the fitting window's lower volume (§2.6.1). Whenever $\gamma_0^m + \gamma_v^m v_{min} \ge 0$, the plane is then at or above 0 at zero turbining at $(v_{min}, S_{max})$. The limit applies before the sign snap below, and to a run-of-river plant too. With $S_{max} = 0$ it does nothing, and $\gamma_s^m$ stays 0.
+**Zero turbining under lateral flow.** At $q = 0$, a plane with $\gamma_s^m < 0$ reads $\gamma_0^m + \gamma_v^m v + \gamma_s^m q_{lat}$, which falls below 0 once $q_{lat} > (\gamma_0^m + \gamma_v^m v) / \lvert\gamma_s^m\rvert$, and at every $q_{lat} > 0$ for the origin plane ($\gamma_0^m = \gamma_v^m = 0$). The LP then meets the plane row by turbining water that produces nothing, since $\gamma_q^m q$ lifts the plane back to 0, or, where the turbines cannot lift it, with the plane slack of §2.9. With $S_{max} = 0$, $\gamma_s^m$ is 0.
 
 **Sign**: $\gamma_s^m \le 0$ (more lateral flow raises the tailrace, reduces generation). A slope that is non-negative or negligibly negative is **snapped to exactly 0** (Implementation notes, "Computed-FPHA fitting behavior") to protect LP column scaling from near-zero structural coefficients.
-
-**Lateral axis**: the plant's own spillage ($q_{lat} = s$); upstream releases and post-incremental inflows do not enter it.
 
 ### 2.8 Similar-Hyperplane Reduction
 
@@ -266,8 +268,6 @@ An optional post-fit step merges consecutive **near-parallel or near-coincident*
 - **Distance**: merge consecutive pairs whose normalised mean-squared generation difference $\delta = \text{EQM}/\phi_{\max}^2 < \varepsilon/100$, where $\phi_{\max}$ is the largest value of the exact production $\phi$ (uncapped) over the fitting grid, with the tolerance $\varepsilon$ in percent and EQM estimated over sampled operating points. Uses a deterministically-seeded PRNG (seeded from stable plant/stage/plane-pair identity, never from wall clock or MPI rank), so results are bit-identical across input ordering and rank count.
 
 **Origin-plane invariant**: the plane through the origin ($\gamma_0^m \approx 0 \wedge \gamma_v^m \approx 0$, generating zero power at zero turbining) is **never merged**.
-
-**Zero generation at zero turbining**: every computed plane, merged or not, is at or above 0 at $q = 0$ for $v \in [v_{min}, v_{max}]$ and $s \in [0, S_{max}]$ whenever $\gamma_0^m + \gamma_v^m v_{min} \ge 0$. The limit of §2.7 places the corner $(v_{min}, 0, S_{max})$, where the plane is lowest, at or above 0. A merge takes the coefficient-wise mean of two planes, and the corner value is linear in the coefficients, so the merged plane keeps the property. Outside that range, at a spillage above $S_{max}$, a plane can fall below 0 at zero turbining, and the LP then turbines water that produces nothing or pays plane slack (§2.9). Planes supplied precomputed are not limited (see the [implementation notes](#implementation-in-novomodelo)).
 
 Reduction is optional and applies only when selected (Configure tab).
 
@@ -280,20 +280,26 @@ A hydro plant is partitioned into one or more **(hydro, bus) cells** — one per
 For each cell $(h, b)$ of a hydro $h$ using FPHA, block $k$, and plane $m \in \mathcal{M}_h$:
 
 $$
-g_{h,b,k} - \sigma^{fpha}_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot s_{h,k} \leq \lambda_{h,b} \, \gamma_0^m
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} - \lambda_{h,b} \, \gamma_v^m \cdot v_h^{avg} - \gamma_q^m \cdot q_{h,b,k} - \lambda_{h,b} \, \gamma_s^m \cdot q_{lat,h,k} \leq \lambda_{h,b} \, \gamma_0^m
 $$
 
-Every variable sits on the left with its plane coefficient negated, and the apportioned intercept is the row's upper bound; the row is the cap $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot s_{h,k} \big) + \gamma_q^m \cdot q_{h,b,k} + \sigma^{fpha}_{h,b,k}$.
+Every variable sits on the left with its plane coefficient negated, and the apportioned intercept is the row's upper bound; the row is the cap $g_{h,b,k} \leq \lambda_{h,b} \big( \gamma_0^m + \gamma_v^m \cdot v_h^{avg} + \gamma_s^m \cdot q_{lat,h,k} \big) + \gamma_q^m \cdot q_{h,b,k} + \sigma^{fpha}_{h,b,k}$.
 
 The coefficients are already $k_{FPHA}$-scaled — there is no separate pre-scaling step. The plane rows carry one slack $\sigma^{fpha}_{h,b,k} \geq 0$ per cell and block, with coefficient $-1$ in every plane row of that cell and block and in no other row; see [Hydro Generation Constraints](/en/math/lp-formulation#6-hydro-generation-constraints) for its price.
 
-$\lambda_{h,b}$ apportions the plane's **flow-independent** part — the intercept $\gamma_0^m$, the storage term, and the spillage term — by cell $(h,b)$'s share of the plant's declared maximum turbined flow:
+The lateral flow $q_{lat,h,k}$ of §2.2 enters the row through these LP columns, each with the coefficient $-\lambda_{h,b} \, \gamma_s^m$ times its factor:
+
+- the plant's own spillage $s_{h,k}$, times $f_h$;
+- each outflow-influencing plant $j$'s turbined flow in every cell and its spillage, times $f_{hj}$;
+- the realized incremental inflow $\hat{z}_j$ of each incremental-inflow-influencing plant $j$ (with its inflow slack $\sigma^{inf}_j$ under a truncation method), times $f^{z}_{hj}$. The inflow enters through the inflow-coupling sink, at the rate in m³/s with no block-duration factor, as a constant that shifts the row's bounds ([PAR(p) Folding §2](/en/math/par-folding#2-the-realized-inflow-outside-the-lp)).
+
+$\lambda_{h,b}$ apportions the plane's **flow-independent** part — the intercept $\gamma_0^m$, the storage term, and the lateral-flow term — by cell $(h,b)$'s share of the plant's declared maximum turbined flow:
 
 $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
-($0$ when the plant's declared total is $0$), a study-time constant derived from each unit group's declared maximum turbined flow — never recomputed per stage or block, and never re-derived from a resolved per-stage override, which would double-count an availability derate already enforced on the flow path by each cell's own column bounds. It satisfies $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$, and a single-cell plant has $\lambda_{h,b} = 1$ exactly. The flow coefficient $\gamma_q^m$ stays on the cell's own $q_{h,b,k}$ **unscaled** — it is the only term homogeneous in the cell partition, which is what makes $\sum_{b} g_{h,b,k}$ at fixed $v^{avg}_h$, $s_{h,k}$, and $\sum_b q_{h,b,k}$ recover the plant-level bound this per-cell form replaces.
+($0$ when the plant's declared total is $0$), a study-time constant derived from each unit group's declared maximum turbined flow — never recomputed per stage or block, and never re-derived from a resolved per-stage override, which would double-count an availability derate already enforced on the flow path by each cell's own column bounds. It satisfies $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$, and a single-cell plant has $\lambda_{h,b} = 1$ exactly. The flow coefficient $\gamma_q^m$ stays on the cell's own $q_{h,b,k}$ **unscaled** — it is the only term homogeneous in the cell partition, which is what makes $\sum_{b} g_{h,b,k}$ at fixed $v^{avg}_h$, $q_{lat,h,k}$, and $\sum_b q_{h,b,k}$ recover the plant-level bound this per-cell form replaces.
 
 #### Plants and Cells Without Turbine Capacity
 
@@ -322,7 +328,7 @@ On a chronological stage the row of block $k$ uses that block's own average stor
 When using FPHA, the generation variable $g_{h,b,k}$ is **not** directly computed from turbined flow. Instead:
 
 1. Generation is a free LP variable per cell, bounded by $[0, \bar{G}_{h,b}]$, where $\bar{G}_{h,b}$ sums the cell's own unit groups' declared maximum generation and closes against the plant's own resolved maximum (see [LP Formulation §6](/en/math/lp-formulation))
-2. FPHA constraints (one per plane $m$, per cell) provide upper bounds relating generation to storage, flow, and spillage
+2. FPHA constraints (one per plane $m$, per cell) provide upper bounds relating generation to storage, flow, and lateral flow
 3. Where generation has value, the optimizer raises it until an FPHA plane or a tighter bound such as $\bar{G}_{h,b}$ binds
 4. At an optimum where generation has value, each cell's generation lies on one of its FPHA hyperplane facets or on a tighter bound, such as $\bar{G}_{h,b}$
 
@@ -351,6 +357,8 @@ $$
 $$
 
 This reduced cost implicitly includes the water balance contribution (that of the row reading $v^{in}_h$: $\pi^{wb}_h$ on a parallel stage, $\pi^{wb}_{h,1}$ on a chronological stage), the FPHA contribution summed over every cell of the plant ($\frac{1}{2} \sum_{b \in \mathcal{B}_h} \lambda_{h,b} \sum_m \pi_{h,b,m}^{fpha} \cdot \gamma_v^m$, with $\pi_{h,b,m}^{fpha}$ summed over the blocks whose rows read $v^{in}_h$: every block on a parallel stage, block 1 on a chronological stage), the dual of the evaporation row ([LP Formulation — Evaporation Row](/en/math/lp-formulation#evaporation-row)) weighted by $\gamma^{ev}_{v,h}/2$ for a hydro with an evaporation model (block 1's row only on a chronological stage), and any generic constraint contributions — all resolved by the LP solver without explicit dual combination.
+
+**Inflow-dependent plane rows.** When a plant declares an incremental-inflow influence, its FPHA plane rows depend on the influencing plant's realized per-scenario incremental inflow $\hat{z}_j$. Their duals therefore enter that plant's inflow-lag cut coefficient, through the chain rule of [PAR(p) Folding §2](/en/math/par-folding#2-the-realized-inflow-outside-the-lp).
 
 For the complete cut coefficient computation, see [Cut Management](/en/math/cut-management).
 

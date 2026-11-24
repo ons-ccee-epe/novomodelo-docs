@@ -22,7 +22,7 @@ $$
 & \min\; C^{resource} + C^{recourse} + C^{violation} + C^{regularization} + d_{t \to t+1}\,\theta \\
 & v_h - v^{in}_h + \sum_{k \in \mathcal{K}} \zeta_k \big( q_{h,k} + s_{h,k} + u_{h,k} \big) + \cdots = \zeta \, \big( \hat{z}_h - T^{eff}_h \big) \quad (1) \\
 & \sum_{h \in \mathcal{H}_b} g_{h,b,k} + \sum_{j \in \mathcal{T}_b} g_{j,k} + \cdots + \sum_{s \in \mathcal{S}_b} \delta_{b,k,s} - \epsilon_{b,k} = D_{b,k} \quad (3) \\
-& g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, s_{h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (4) \\
+& g_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \, v^{avg}_h + \gamma^m_s \, q_{lat,h,k} \big) + \gamma^m_q \, q_{h,b,k} \quad (4) \\
 & e_h - \tfrac{\gamma^{ev}_{v,h}}{2} \, \big( v^{in}_h + v_h \big) - \sigma^{e+}_h + \sigma^{e-}_h = \gamma^{ev}_{0,h} \quad (5) \\
 & q_{h,k} + s_{h,k} + \sigma^{o-}_{h,k} \geq \underline{O}_h \quad (6) \\
 & q_{h,k} + s_{h,k} - \sigma^{o+}_{h,k} \leq \bar{O}_h \quad (7) \\
@@ -295,7 +295,7 @@ Constant-productivity hydros carry no separate generation column: $g_{h,b,k}$ is
 **FPHA Model** (for each plane $m \in \mathcal{M}_h$, cell $(h, b)$ of hydro $h \in \mathcal{H}^{fpha}$, block $k$):
 
 $$
-g_{h,b,k} - \sigma^{fpha}_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot s_{h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
+g_{h,b,k} - \sigma^{fpha}_{h,b,k} \leq \lambda_{h,b} \big( \gamma^m_0 + \gamma^m_v \cdot v^{avg}_h + \gamma^m_s \cdot q_{lat,h,k} \big) + \gamma^m_q \cdot q_{h,b,k}
 $$
 
 where $\sigma^{fpha}_{h,b,k} \geq 0$ (MW) is the **FPHA plane slack**, one per cell $(h, b)$ and block $k$, and $v^{avg}_h = (v^{in}_h + v_h)/2$ is the average storage during the stage, with $v^{in}_h$ being the incoming storage LP variable ([State Augmentation §2](/en/math/state-augmentation#2-pinning-by-column-bounds)) and $v_h$ the end-of-stage storage on a parallel stage; on a chronological stage the row of block $k$ reads that block's own average $(v_{h,k-1} + v_{h,k})/2$ ([Block Formulation Variants §2.4](/en/math/block-formulations#24-per-block-production-and-evaporation)) — a single plant-level quantity shared by every cell, since storage is not partitioned. $\lambda_{h,b}$ is cell $(h,b)$'s **apportionment share** of plant $h$'s declared maximum turbined flow,
@@ -304,15 +304,23 @@ $$
 \lambda_{h,b} = \frac{\sum_{u \,\in\, (h,b)} \bar{Q}_u}{\sum_{u \,\in\, h} \bar{Q}_u}
 $$
 
-(the ratio of the cell's own unit groups' declared maximum turbined flow to the plant's total, $0$ when the plant's total is $0$), so that $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ for every plant with a positive declared maximum turbined flow. Only the plane's flow-independent part — the intercept $\gamma^m_0$, the storage term, and the spillage term — is apportioned by $\lambda_{h,b}$; the flow coefficient $\gamma^m_q$ stays on the cell's own $q_{h,b,k}$ unscaled, because it alone is homogeneous in the cell partition (summing the per-cell rows at fixed $v^{avg}_h$, $s_{h,k}$, and $\sum_b q_{h,b,k}$ recovers the plant-level bound this replaces). A single-cell plant with a positive declared maximum turbined flow has $\lambda_{h,b} = 1$ exactly, so its row is the plant-level row.
+(the ratio of the cell's own unit groups' declared maximum turbined flow to the plant's total, $0$ when the plant's total is $0$), so that $\sum_{b \in \mathcal{B}_h} \lambda_{h,b} = 1$ for every plant with a positive declared maximum turbined flow. Only the plane's flow-independent part — the intercept $\gamma^m_0$, the storage term, and the lateral-flow term — is apportioned by $\lambda_{h,b}$; the flow coefficient $\gamma^m_q$ stays on the cell's own $q_{h,b,k}$ unscaled, because it alone is homogeneous in the cell partition (summing the per-cell rows at fixed $v^{avg}_h$, $q_{lat,h,k}$, and $\sum_b q_{h,b,k}$ recovers the plant-level bound this replaces). A single-cell plant with a positive declared maximum turbined flow has $\lambda_{h,b} = 1$ exactly, so its row is the plant-level row.
+
+$q_{lat,h,k}$ is the plant's lateral flow ([Hydro Production Function Models §2.9](/en/math/hydro-production-models#29-lp-integration)) and $\gamma^m_s \le 0$ is the plane's lateral-flow coefficient, in MW per m³/s. Written in the $\leq$ form with every term on the left, the row carries $-\lambda_{h,b} \, \gamma^m_s$ times a factor on each of these terms:
+
+- the plant's own spillage $s_{h,k}$, a column, times $f_h$;
+- for each outflow influence $j \in \mathcal{J}^{out}_h$, its turbined flow $\sum_{b' \in \mathcal{B}_j} q_{j,b',k}$ and spillage $s_{j,k}$, columns, times $f_{hj}$;
+- for each incremental-inflow influence $j \in \mathcal{J}^{inc}_h$, its realized incremental inflow $\hat{z}_j$, times $f^{z}_{hj}$. $\hat{z}_j$ is a number of the solve, not a column: it enters through the inflow-coupling sink, at the rate in m³/s, and shifts the row's bound ([PAR(p) Folding §2](/en/math/par-folding#2-the-realized-inflow-outside-the-lp)). Under a truncation inflow non-negativity method the inflow slack $\sigma^{inf}_j$, a column, carries the same coefficient.
+
+With no `tailrace_flow` declaration, $f_h = 1$, both sets of influences are empty and $q_{lat,h,k} = s_{h,k}$.
 
 The slack enters the row of every plane $m \in \mathcal{M}_h$ of its cell and block with coefficient $-1$, so generation may exceed every plane of the cell by the slack. It sits only in those plane rows: in no water-balance, load-balance or generic-constraint row, so the water balance and the inflow coupling carry no term for it. It is priced at $c^{fpha}_h$ (\$/MWh) times the block duration $\tau_k$ (§9). The plane displays that follow hold at $\sigma^{fpha}_{h,b,k} = 0$.
 
-For a plant with a positive declared maximum turbined flow the shares sum to $1$, so the per-cell rows of each plane sum to that plane's plant-level row (above). A sum of minima is at most the minimum of the sums, so at the same $v^{avg}_h$, $s_{h,k}$ and total turbined flow the cap the per-cell rows put on the plant's generation $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, on the left, is at most the plant-level envelope, the minimum over the planes of the plant-level rows, on the right:
+For a plant with a positive declared maximum turbined flow the shares sum to $1$, so the per-cell rows of each plane sum to that plane's plant-level row (above). A sum of minima is at most the minimum of the sums, so at the same $v^{avg}_h$, $q_{lat,h,k}$ and total turbined flow the cap the per-cell rows put on the plant's generation $\sum_{b \in \mathcal{B}_h} g_{h,b,k}$, on the left, is at most the plant-level envelope, the minimum over the planes of the plant-level rows, on the right:
 
 $$
-\sum_{b \in \mathcal{B}_h} \min_{m} \Big( \lambda_{h,b}\big(\gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s s_{h,k}\big) + \gamma^m_q q_{h,b,k} \Big)
-\;\le\; \min_{m} \Big( \gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s s_{h,k} + \gamma^m_q \sum_{b} q_{h,b,k} \Big)
+\sum_{b \in \mathcal{B}_h} \min_{m} \Big( \lambda_{h,b}\big(\gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s q_{lat,h,k}\big) + \gamma^m_q q_{h,b,k} \Big)
+\;\le\; \min_{m} \Big( \gamma^m_0 + \gamma^m_v v^{avg}_h + \gamma^m_s q_{lat,h,k} + \gamma^m_q \sum_{b} q_{h,b,k} \Big)
 $$
 
 Equality holds when the same plane attains the minimum in every cell, in particular when the cells turbine in proportion to their shares $\lambda_{h,b}$. For $\lambda_{h,b} > 0$ the minimum of cell $(h,b)$ is $\lambda_{h,b}$ times the plant-level envelope at the flow $q_{h,b,k}/\lambda_{h,b}$, so when every share is positive the display is Jensen's inequality for the concave envelope with the weights $\lambda_{h,b}$. A cell with $\lambda_{h,b} = 0$ keeps only its $\gamma^m_q \, q_{h,b,k}$ term, and the display still holds by the sum-of-minima argument.
@@ -424,7 +432,7 @@ $\bar{U}_h$ is the channel capacity, or a maximum diversion flow set for the sta
 
 ### Spillage Bounds (per hydro $h$, block $k$)
 
-Spillage $s_{h,k}$ is bounded below by $0$ and above by $+\infty$ unless a minimum or maximum spillage is set for the stage or for the block, which replaces the bound. Both bounds are hard. While the hydro is PreFilling, spillage is fixed at $[0, 0]$ ([Lifecycle Phases](#lifecycle-phases)).
+Spillage $s_{h,k}$ is bounded below by the hydro's minimum spillage and above by its maximum spillage, which are $0$ and $+\infty$ when unset; a minimum or maximum spillage set for the stage or for the block replaces the hydro's value. Both bounds are hard. While the hydro is PreFilling, spillage is fixed at $[0, 0]$ ([Lifecycle Phases](#lifecycle-phases)).
 
 ### Pumping Flow Bounds (per station $y$, block $k$)
 

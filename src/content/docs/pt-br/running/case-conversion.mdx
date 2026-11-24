@@ -200,7 +200,6 @@ output/
     load_factors.json
     non_controllable_factors.json
     inflow_history.parquet
-    inflow_seasonal_stats.parquet
     load_seasonal_stats.parquet
     non_controllable_stats.parquet
   constraints/
@@ -219,6 +218,11 @@ Os arquivos marcados como *(condicional)* só são gravados quando o deck de ori
 os dados correspondentes (*conditional: deck has generic constraints* = somente quando o
 deck tem restrições genéricas); `--dry-run` não grava absolutamente nada (o campo
 `would_write_paths` do relatório de conversão antecipa o conjunto que uma execução real gravaria).
+
+O Novo Modelo estima o modelo de afluências de um caso NEWAVE a partir de
+`scenarios/inflow_history.parquet`, nos anos de
+[`estimation.history_years`](/running/configuration/#estimation), que o
+`convert newave` lê do `confhd.dat`.
 
 Um caso gravado pelo `convert decomp` não grava `scenarios/inflow_history.parquet`,
 `constraints/penalty_overrides_bus.parquet` nem
@@ -268,6 +272,10 @@ do Novo Modelo ficam abaixo da afluência usada pelo balanço hídrico.
 O `compare` e o `dashboard` leem os coeficientes dos termos e os limites da restrição
 de cada restrição genérica a partir da saída `generic_constraints/resolved_echo.parquet`
 do Novo Modelo, tal como o PL os recebeu.
+
+O `compare` e o `dashboard` leem apenas as saídas da versão do novomodelo pareada com o
+novomodelo-bridge instalado. Saídas gravadas por uma versão anterior não são carregadas:
+execute o caso novamente com a versão pareada.
 
 | Flag                | Descrição                                                                                                                    |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -509,6 +517,22 @@ e é a forma mais barata de absorver um excedente.
 Um parque declarado nos dois cartões de geração, ou com mais de um estado
 operativo, interrompe a conversão.
 
+O `convert decomp` também converte os registros `VL`, `VU` e `VA` do deck em
+[`tailrace_flow`](/reference/case-format/hydros) nas usinas com FPHA, de modo
+que o nível do canal de fuga sobe com as vazões laterais que o deck acrescenta
+([Modelos de função de produção hidrelétrica §2.2](/math/hydro-production-models#22-funcao-de-producao-exata)).
+Um posto `VA` corresponde à usina cujo posto `AC NUMPOS` ele é no primeiro
+estágio. Pares `VU` ou `VA` duplicados são somados, e um `VU` que nomeia a
+própria usina é somado ao fator de vazão defluente da própria usina. Um `VA`
+cujo posto é o da própria usina converte-se em uma entrada própria em
+`incremental_inflow_influences`, sem diagnóstico. Um `VL` duplicado, um posto
+não mapeado ou ambíguo, uma usina cujo vertimento não chega ao canal de fuga
+(`AC VERTJU`) e uma usina convertida a produtibilidade constante descartam o
+termo com um aviso. Um `VU` cuja usina influenciadora não está no caso é
+descartado sem aviso. Um polinômio `VL` substitui o canal de fuga constante
+apenas onde nenhuma curva `polinjus` se aplica. Os avisos trazem códigos
+`tailrace-*` na saída `--json` de `check decomp` e `convert decomp`.
+
 Para a lista completa de regras de conversão, consulte o
 [guia do fluxo NEWAVE](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.21.0/docs/newave.md) do novomodelo-bridge.
 
@@ -524,7 +548,8 @@ método `level1`, com `check_frequency` `1` e `lookback_iterations` `2`, e,
 quando o `dger.dat` ativa a janela de cortes, emite um aviso de que o Novo Modelo não tem janela de cortes
 e mantém todos os cortes. O `convert newave` define
 [`modeling.inflow_non_negativity`](/running/configuration/#modelinginflow_non_negativity)
-como `truncation_with_penalty`, e o `convert decomp` o define como `penalty`, cuja
+como `truncation`, que eleva a zero uma afluência negativa, sem custo, e o
+`convert decomp` o define como `penalty`, cuja
 correção ilimitada mantém viável a passagem de uma iteração da importação da FCF de fronteira
 quando uma meta de volume se torna um piso rígido de armazenamento. O `convert decomp` treina e simula com a seleção `enumerated`.
 
@@ -573,6 +598,15 @@ de importação `CI` ou de exportação `CE` com esse número no seu submercado;
 não corresponde a um único contrato desse tipo descarta a sua restrição, com um aviso
 `decomp-fe-no-contract`.
 
+Quando o deck opera Itaipu e o seu registro `RI` declara uma carga da ANDE positiva
+(`carga_ande`), o `convert decomp` acrescenta a restrição `RI_ANDE`: a geração de
+Itaipu na barra das suas unidades de 50 Hz, maior ou igual à carga da ANDE em cada
+estágio e patamar com carga positiva, com uma folga `per_hour` à penalidade das
+restrições `RE`. O DECOMP desconta a carga da ANDE da geração de 50 Hz antes que essa
+geração chegue ao submercado, de modo que só essas unidades a atendem; o caso soma a
+carga à demanda da barra do submercado onde elas ficam, e sem a restrição as demais
+usinas do submercado poderiam atendê-la.
+
 Uma restrição LIBS mantém seus termos de decisão na expressão e incorpora seus
 termos de dados ao limite em cada estágio e patamar: a carga, os aliases, a
 potência disponível, um termo `peq_<name>_<subsystem>` (a geração da série de
@@ -592,7 +626,7 @@ A folga de cada restrição flexível declara sua `penalty_basis`: a VminOP é
 `per_unit`, de modo que sua penalidade é cobrada por MWh de violação, e as restrições
 elétricas são `per_hour`. No fluxo do DECOMP, a RHE limita a energia armazenada útil
 da mesma forma que a VminOP, uma restrição por registro, e é `per_unit`; as restrições `RE`,
-`HQ`, `HV` e LIBS são `per_hour`.
+`HQ`, `HV`, LIBS e `RI_ANDE` são `per_hour`.
 
 ---
 

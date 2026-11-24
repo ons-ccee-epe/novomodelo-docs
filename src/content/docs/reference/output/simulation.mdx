@@ -97,7 +97,7 @@ Per-stage cost breakdown. One row per stage. 30 columns.
 
 ## `simulation/hydros/`
 
-Hydro plant dispatch results. One row per (stage, block, hydro) triplet. 42 columns.
+Hydro plant dispatch results. One row per (stage, block, hydro) triplet. 45 columns.
 
 **Methodology:** [LP Formulation](/en/math/lp-formulation) · [Hydro Production Function Models](/en/math/hydro-production-models)
 
@@ -151,8 +151,13 @@ the reference-point pair and the useful-range mean (`integrated_*`) pair.
 | `integrated_accumulated_productivity_mw_per_m3s` | Float64 | No       | MW/(m³/s) | `integrated_equivalent_productivity_mw_per_m3s` summed over this plant and every downstream plant [MW/(m³/s)].                                                                                                                                                                                                                                                                                                                                                                                   |
 | `stored_energy_initial_mw`                       | Float64 | No       | MW        | `stored_energy_initial_mwh` ÷ the stage's total block hours [MW] — the same divisor on every block row of the stage, never the block's own hours.                                                                                                                                                                                                                                                                                                                                                |
 | `stored_energy_final_mw`                         | Float64 | No       | MW        | `stored_energy_final_mwh` ÷ the stage's total block hours [MW].                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `tailrace_flow_m3s`                              | Float64 | Yes      | m³/s      | Tailrace flow [m³/s]: the hydro's own release scaled by its outflow factor plus the lateral flow of the plants and incremental inflows that influence it. Null unless the hydro uses computed FPHA at the stage. |
+| `tailrace_level_m`                               | Float64 | Yes      | m         | Tailrace level at the tailrace flow [m]. Null unless the hydro uses computed FPHA at the stage. |
+| `net_head_m`                                     | Float64 | Yes      | m         | Net head [m]: forebay level at the block-average storage minus the tailrace level and hydraulic losses, floored at 0. Null unless the hydro uses computed FPHA at the stage. |
 
 The `stored_energy_initial_mwh` and `stored_energy_final_mwh` columns equal the reference-point product (with `accumulated_productivity_mw_per_m3s`) only when a plant's physical storage range is collapsed or it has no resolvable VHA geometry.
+
+The `tailrace_flow_m3s`, `tailrace_level_m` and `net_head_m` columns evaluate the nonlinear production function ([Hydro Production Models §2.2](/en/math/hydro-production-models#22-exact-production-function)) at the solved flows, with the block-average storage $(v_{initial} + v_{final})/2$. Under a `truncation` inflow non-negativity method, the incremental inflow they use is the effective one: the realized inflow plus the slack. They do not reproduce the generation the LP's FPHA planes give, so `generation_mw` generally differs from the production function evaluated at these quantities. All three are null for constant-productivity plants, for precomputed FPHA, and on stages where the plant does not use computed FPHA. No column holds the lateral flow on its own: it is `tailrace_flow_m3s` minus the own-release term.
 
 ---
 

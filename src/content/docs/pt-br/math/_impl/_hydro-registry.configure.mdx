@@ -94,7 +94,7 @@ nível superior tem uma única chave `"hydros"`, que contém um array de objetos
 Somente `id`, `name`, `operational_start_date`, `reservoir`,
 `outflow`, `generation` e `unit_groups` são obrigatórios. Todas as demais chaves
 de nível superior (`tailrace`, `hydraulic_losses`, `efficiency`, `evaporation`,
-`diversion`, `filling`, `penalties`) são opcionais e, quando ausentes, ficam
+`diversion`, `filling`, `spillage`, `penalties`) são opcionais e, quando ausentes, ficam
 desativadas.
 
 #### Campos principais
@@ -288,6 +288,37 @@ famílias de remanso ([Modelos de função de produção hidrelétrica
 §2.3.1](/math/hydro-production-models#231-familias-quarticas-por-partes-do-canal-de-fuga-acoplamento-por-remanso)) —, substitui o modelo no nível da entidade no ajuste da FPHA calculada para qualquer usina que tenha linhas nesse
 arquivo; a derivação da produtibilidade equivalente continua lendo o modelo no nível da entidade.
 
+**Vazão de jusante** — o bloco opcional `tailrace_flow` declara quais vazões elevam o
+nível de jusante, separadamente da curva `tailrace`, que associa uma vazão a um nível.
+Todos os campos são opcionais e, por padrão, o bloco considera apenas a vazão defluente
+da própria usina.
+
+```json
+"tailrace_flow": {
+  "own_outflow_factor": 1.0,
+  "outflow_influences": [ { "hydro_id": 7, "factor": 1.0 } ],
+  "incremental_inflow_influences": [ { "hydro_id": 3, "factor": 0.5 } ]
+}
+```
+
+A vazão de jusante é `f·q + q_lat`: `own_outflow_factor` é `f` (`1.0` quando ausente ou
+`null`) e pondera a vazão turbinada da própria usina, e `q_lat` é o vertimento da própria
+usina multiplicado por `f` mais a vazão de cada usina listada vezes seu `factor`. Uma
+entrada de `outflow_influences` soma a vazão turbinada mais o vertimento dessa usina; uma
+entrada de `incremental_inflow_influences` soma a afluência incremental realizada dessa
+usina. Veja a definição em
+[Modelos de função de produção hidrelétrica §2.2](/math/hydro-production-models#22-funcao-de-producao-exata).
+
+Uma usina pode citar a si mesma em `incremental_inflow_influences`, de modo que sua própria
+afluência incremental eleve seu próprio nível de jusante. Ela não pode citar a si mesma em
+`outflow_influences`: a vazão defluente própria é definida por `own_outflow_factor`. Os
+fatores são não negativos, não precisam somar `1`, e as listas são ordenadas por `hydro_id`
+na carga, de modo que a ordem não altera os resultados.
+
+Somente o modelo FPHA lê a vazão de jusante, no ajuste da FPHA e nos planos do PL.
+Usinas de produtibilidade constante a ignoram, e um `tailrace_flow` fora do padrão em uma
+usina que não usa FPHA em nenhum estágio do estudo emite o aviso `semantic.5a.70`.
+
 **Perdas hidráulicas** — o bloco `hydraulic_losses` modela a perda de carga no
 conduto forçado; ausente significa sem perdas.
 
@@ -404,6 +435,17 @@ resolvidos da fonte mais específica para a mais geral:
 2. **Sobrescrita no nível da entidade** (o bloco `penalties` dentro do objeto JSON da usina)
 3. **Padrão global** (a seção `hydro` de `penalties.json`, que deve estar sempre presente e completa)
 
+#### Limites de vertimento (`spillage`)
+
+O objeto opcional `spillage` limita o vertimento da usina em todos os patamares.
+
+```json
+"spillage": { "min_spillage_m3s": null, "max_spillage_m3s": 500.0 }
+```
+
+As duas chaves são opcionais e não negativas. Um mínimo acima do máximo é
+rejeitado na carga.
+
 #### Limites operativos variáveis por estágio (`constraints/hydro_bounds.parquet`)
 
 Além dos campos de desvio e vertimento no nível da entidade descritos acima,
@@ -423,9 +465,10 @@ desvio e a faixa de vertimento:
 
 Os três são não negativos — um valor negativo é rejeitado na carga, assim
 como uma faixa de vertimento com `min_spillage_m3s > max_spillage_m3s`. A
-ausência de linha deixa sem definição o piso de desvio e a faixa de vertimento
-da usina no estágio/patamar que a linha cobriria (sem piso; vertimento limitado
-apenas pelas demais restrições de vazão defluente da usina). Veja
+ausência de linha deixa sem definição o piso de desvio no estágio/patamar que a
+linha cobriria e mantém o vertimento nos valores de `spillage` da entidade
+(ilimitado superiormente e `0` inferiormente quando a usina não declara
+nenhum). O valor de uma linha substitui o valor da entidade campo a campo. Veja
 [Arquivos de restrições — `constraints/hydro_bounds.parquet`](/reference/case-format/constraints/#constraintshydro_boundsparquet)
 para a tabela completa de colunas, incluindo as colunas de sobrescrita de
 turbinamento, armazenamento, vazão defluente, geração, desvio máximo,
@@ -451,3 +494,6 @@ enchimento e retirada que esse arquivo também contém.
 | Faixa do armazenamento inicial | Erro semântico | Um valor de `storage` deve estar dentro de `[min_storage_hm3, max_storage_hm3]` da própria usina, inclusive para uma usina que entra em operação mais adiante no estudo. |
 | Armazenamento inicial no primeiro estágio de operação | Aviso | Um valor de `storage` fora dos limites `min_storage_hm3`/`max_storage_hm3` de final de estágio do primeiro estágio de operação da usina (de `constraints/hydro_bounds.parquet` ou, na falta, os da própria usina) é aceito com um aviso; o armazenamento inicial é usado como declarado. |
 | Tamanho do array de evaporação | Erro de esquema | `coefficients_mm` deve ter exatamente 12 valores; `reference_volumes_hm3`, quando presente, também deve ter exatamente 12 valores dentro de `[min_storage_hm3, max_storage_hm3]`. |
+| Fatores e duplicatas da vazão de jusante | Erro de esquema | `own_outflow_factor` e todo `factor` de influência devem ser finitos e `>= 0`; um `hydro_id` aparece no máximo uma vez por lista; `outflow_influences` não pode citar a própria usina. |
+| Referência da vazão de jusante | Erro de referência | Todo `hydro_id` de influência deve corresponder a um `id` em `hydros.json`. |
+| Vazão de jusante sem FPHA | Aviso de qualidade do modelo | Um `tailrace_flow` fora do padrão em uma usina que não usa FPHA em nenhum estágio do estudo não tem efeito (`semantic.5a.70`). |

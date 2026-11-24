@@ -95,7 +95,7 @@ npm run check:python-api # every public novomodelo-python stub symbol has an anc
 npm run check:ptbr-sync # each commit in origin/main..HEAD changes English pages with their pt-BR translations (also the commit-msg hook in .githooks/, installed by npm install)
 npm run check:d2      # D2 uses the ELK engine, never TALA
 npm run check:spdx    # 100% FOSS dependency audit
-npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.21.0 (NOVOMODELO_BIN or novomodelo on PATH)
+npm run check:gc-examples # every gc-check fence behaves as marked under novomodelo v0.22.0 (NOVOMODELO_BIN or novomodelo on PATH)
 npm run refresh:recordings -- --check # quickstart.gif matches scripts/recordings-provenance.json (check only)
 npm run check:type-spelling # reference Type cells use the reference-conventions §4 vocabulary
 npm run check:hex           # colours come only from src/styles/tokens.css (design-system.md)
@@ -133,7 +133,7 @@ its build serves, root locale first: `["pt-br", "en"]` serves pt-BR at `base`
 and English at `base` + `en/`, and an entry without `locales` (v0.19 and older)
 serves English only, at `base`. The version picker lists `latest`, then
 `versions` in file order, newest first: `latest` reads as the release it
-documents plus a latest tag (`v0.21.0 (latest)`, `v0.21.0 (mais recente)` on
+documents plus a latest tag (`v0.22.0 (latest)`, `v0.22.0 (mais recente)` on
 pt-BR pages) and each frozen entry as the release it documents (`vX.Y.z`). On an English page it lists every version and opens each
 at its English home; on a pt-BR page it lists the versions whose `locales`
 include `pt-br`. A novomodelo patch release updates `latest` in place. A frozen

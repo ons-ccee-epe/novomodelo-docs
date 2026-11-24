@@ -24,7 +24,8 @@ Cada linha indica uma fonte de dados, os campos que a metodologia acima lê dela
 
 | Fonte de dados | Campos | Uso |
 | ---- | ---- | ---- |
-| Entidade usina hidrelétrica | `tailrace` (polinomial ou por partes) | Cálculo de $h_{tail}(q_{out})$ |
+| Entidade usina hidrelétrica | `tailrace` (polinomial ou por partes) | Cálculo de $h_{tail}$ |
+| Entidade usina hidrelétrica | `tailrace_flow` (fator de defluência própria, influências de defluência e de vazão incremental) | Vazão lateral $q_{lat}$ em $h_{tail}(f_h \, q + q_{lat})$ |
 | Entidade usina hidrelétrica | `hydraulic_losses` (fator ou constante) | Cálculo de $h_{loss}$ |
 | Entidade usina hidrelétrica | `efficiency` (constante) | Rendimento da turbina $\eta$ |
 | Entidade usina hidrelétrica | `specific_productivity_mw_per_m3s_per_m` (FPHA, e o avaliador da média na faixa útil para qualquer modelo) | $\rho_{esp}$ para a obtenção de $\rho_{eq}$ (§4.1) e $\bar\rho_{eq}$ (§4.3) |
@@ -46,6 +47,7 @@ Cada linha indica uma fonte de dados, os campos que a metodologia acima lê dela
 | `hydro_models/fpha_deviation_points.parquet` | Pontos amostrais de desvio do ajuste da FPHA por plano — um diagnóstico do ajuste. Gravado **somente** quando a flag `exports.fpha_deviation_points` está habilitada (**desabilitada por padrão**) **e** existe pelo menos um ponto de desvio; ausente caso contrário. |
 | Colunas de saída de geração e armazenamento hidrelétricos | Resultados do despacho por (estágio, patamar, usina) (vazão turbinada, vertimento, geração, armazenamento), gravados junto às linhas de saída de todas as outras entidades — o total da usina, inalterado pela partição por barramento. |
 | Colunas de conversão de energia de `simulation/hydros/` | As produtibilidades no ponto de referência (`equivalent_productivity_mw_per_m3s`, `accumulated_productivity_mw_per_m3s`) e médias na faixa útil (`integrated_*`), `incremental_inflow_energy_mw` e a energia armazenada em MWh e MW (`stored_energy_{initial,final}_{mwh,mw}`) — veja o §4 acima e a referência de Formato de saída. |
+| Colunas de jusante de `simulation/hydros/` | `tailrace_flow_m3s`, `tailrace_level_m` e `net_head_m`: vazão de jusante, nível de jusante e queda líquida da função de produção não linear nas vazões resolvidas (§2.2); nulas, a menos que a usina use FPHA calculada no estágio — veja a referência de Formato de saída. |
 | `simulation/hydro_bus_generation/` | Resultados do despacho por célula (estágio, patamar, usina, barramento) — `turbined_m3s`, `generation_mw`, `generation_mwh`; `bus_id` é sempre não nulo. Veja nas Notas de implementação a ressalva sobre a soma exata na coluna `generation_mw`. |
 | `simulation/in_transit/` | Volumes de água em trânsito por (estágio, usina de jusante, defasagem de maturação) em arcos com tempo de viagem declarado, incluindo a chegada defasada que entra no balanço hídrico da usina receptora; gravado somente quando há arco com tempo de viagem declarado (esquema: [Saídas da simulação](/reference/output/simulation/#simulationin_transit)). |
 | `simulation/transit_seed/` | Semente, em nível de cenário, da janela móvel de defluências para um arco com tempo de viagem declarado — cinco colunas (`scenario_id`, `hydro_id`, `start_date`, `end_date`, `value_m3s`), sem prefixo de estágio/nó. Gravado somente quando há arco com tempo de viagem declarado; ausente caso contrário. Alimenta o `initial_conditions.past_defluences` de uma execução de continuação (encadeamento de estudos). |
