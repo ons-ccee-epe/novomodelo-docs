@@ -101,7 +101,7 @@ desativadas.
 
 | Campo | Tipo | Obrigatório | Descrição |
 | --- | --- | --- | --- |
-| `id` | integer | Sim | Identificador único e não negativo. Deve ser único entre todas as usinas hidrelétricas. Referenciado por `initial_conditions.json` e por outras usinas via `downstream_id`. |
+| `id` | integer | Sim | Identificador único e não negativo. Deve ser único entre todas as usinas hidrelétricas. Referenciado por [`boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson) e por outras usinas via `downstream_id`. |
 | `name` | string | Sim | Nome legível da usina. Usado nos arquivos de saída, nas mensagens de validação e no log. |
 | `downstream_id` | integer ou null | Não | Identificador da usina que recebe a vazão defluente desta usina. Ausente ou `null` significa que a usina está no final de sua cascata — a vazão defluente sai do sistema. |
 | `operational_start_date` | string (data ISO-8601) | Sim | Data de calendário (`YYYY-MM-DD`) em que a usina entra no histórico operacional do cadastro. Serve de procedência e de chave canônica de ordenação `(operational_start_date, id)` (veja [Convenções de notação](/overview/notation-conventions)) — independente de `entry_stage_id`/`exit_stage_id` abaixo, que são os únicos a controlar a entrada em operação. |
@@ -251,7 +251,7 @@ de Bellman adicional (veja [Aumento do espaço de estados §6](/math/state-augme
 aplica apenas ao arco principal da cascata — as transferências por desvio e
 por bombeamento são sempre instantâneas. Declarar um arco exige informar as
 defluências anteriores ao estudo que já estão em trânsito via
-`initial_conditions.past_defluences`, e a usina de jusante deve ter entrado em
+`hydros[].past_defluences` em `boundary_conditions.json`, e a usina de jusante deve ter entrado em
 operação até o primeiro estágio do estudo — veja
 [Modelos de função de produção hidrelétrica — Implementação no Novo Modelo](/math/hydro-production-models#implementacao-no-novo-modelo).
 
@@ -489,8 +489,8 @@ enchimento e retirada que esse arquivo também contém.
 | Ordenação dos limites de vazão defluente | Viabilidade física | Quando `max_outflow_m3s` está presente, deve ser `>= min_outflow_m3s`. |
 | Ordenação dos limites de turbinamento | Viabilidade física | `min_turbined_m3s` deve ser `<= max_turbined_m3s`. |
 | Consistência dos limites de geração | Viabilidade física | `min_generation_mw` deve ser `<= max_generation_mw`. |
-| Exclusividade das condições iniciais | Erro de esquema | Em `initial_conditions.json`, uma usina aparece no máximo uma vez em `storage`, no máximo uma vez em `filling_storage` e nunca em ambos; uma usina sem entrada não é rejeitada na carga e começa em seu piso de armazenamento. |
-| Array do armazenamento inicial | Erro semântico | Uma usina com bloco `filling` informa seu armazenamento inicial em `filling_storage`, e uma usina sem esse bloco, em `storage`; uma entrada no outro array é rejeitada. |
+| Unicidade das usinas nas condições de contorno | Erro de esquema | Um `hydro_id` aparece no máximo uma vez em `hydros[]` de `boundary_conditions.json`; uma usina sem entrada não é rejeitada na carga e começa em seu piso de armazenamento. |
+| Array do armazenamento inicial | Erro semântico | Aplica-se apenas ao `initial_conditions.json` obsoleto: uma usina com bloco `filling` informa seu armazenamento inicial em `filling_storage`, e uma usina sem esse bloco, em `storage`; uma entrada no outro array é rejeitada. |
 | Faixa do armazenamento inicial | Erro semântico | Um valor de `storage` deve estar dentro de `[min_storage_hm3, max_storage_hm3]` da própria usina, inclusive para uma usina que entra em operação mais adiante no estudo. |
 | Armazenamento inicial no primeiro estágio de operação | Aviso | Um valor de `storage` fora dos limites `min_storage_hm3`/`max_storage_hm3` de final de estágio do primeiro estágio de operação da usina (de `constraints/hydro_bounds.parquet` ou, na falta, os da própria usina) é aceito com um aviso; o armazenamento inicial é usado como declarado. |
 | Tamanho do array de evaporação | Erro de esquema | `coefficients_mm` deve ter exatamente 12 valores; `reference_volumes_hm3`, quando presente, também deve ter exatamente 12 valores dentro de `[min_storage_hm3, max_storage_hm3]`. |

@@ -40,10 +40,12 @@ PreFilling only, free during Filling and Operating (`columns.rs`; the phase is
 initial storage at every dormant stage: its storage floor is not applied and its
 ceiling is never below its own `max_storage_hm3` (`storage_floor_relaxed`,
 `storage_ceiling`, `hydro_state.rs`).
-→ **Initial storage**: an `initial_conditions.json` seed outside the hydro's own
-`[min_storage_hm3, max_storage_hm3]` is refused at load (`semantic.5a.53`,
-InvalidValue), as is a filling hydro under `storage` or a non-filling one under
-`filling_storage` (`semantic.5a.54`); the seed is used as declared, never moved
+→ **Initial storage**: a `boundary_conditions.json` `hydros[].storage_hm3` seed outside
+the hydro's own `[min_storage_hm3, max_storage_hm3]` is refused at load for a hydro
+without `filling` (`semantic.5a.53`, InvalidValue), and outside `[0, min_storage_hm3)`
+for a hydro with `filling` (`semantic.5a.7a`, InvalidValue); the deprecated `initial_conditions.json` also refuses a filling hydro
+under `storage` or a non-filling one under `filling_storage` (deprecated-file rule
+`semantic.5a.54`, fires only for that file); the seed is used as declared, never moved
 into stage 0's `hydro_bounds` storage bounds, which bound the end of that stage,
 and `novomodelo validate` warns when it lies outside them (`semantic.5a.55`,
 ModelQuality; `check_initial_storage_*`, `validation/semantic/hydro.rs`).

@@ -100,7 +100,7 @@ absent.
 
 | Field            | Type            | Required | Description |
 | ---------------- | --------------- | -------- | ----------- |
-| `id`             | integer         | Yes      | Unique non-negative identifier. Must be unique across all hydro plants. Referenced by `initial_conditions.json` and by other plants via `downstream_id`. |
+| `id`             | integer         | Yes      | Unique non-negative identifier. Must be unique across all hydro plants. Referenced by [`boundary_conditions.json`](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson) and by other plants via `downstream_id`. |
 | `name`           | string          | Yes      | Human-readable plant name. Used in output files, validation messages, and log output. |
 | `downstream_id`  | integer or null | No       | Identifier of the plant that receives this plant's outflow. Absent or `null` means the plant is at the bottom of its cascade — outflow leaves the system. |
 | `operational_start_date` | string (ISO-8601 date) | Yes | Calendar date (`YYYY-MM-DD`) the plant enters the registry's operational history. Provenance and the canonical `(operational_start_date, id)` ordering key (see [Notation Conventions](/en/overview/notation-conventions)) — independent of `entry_stage_id`/`exit_stage_id` below, which alone gate commissioning. |
@@ -243,7 +243,7 @@ Bellman state (see [State Augmentation §6](/en/math/state-augmentation#6-water-
 [Cascade Travel Time](#cascade-travel-time)). Travel time applies to the main
 cascade arc only — diversion and pumping transfers are always instantaneous.
 Declaring an arc requires seeding the pre-study releases already in transit via
-`initial_conditions.past_defluences`, and the downstream plant must have
+`hydros[].past_defluences` in `boundary_conditions.json`, and the downstream plant must have
 entered service by the first study stage — see
 [Hydro Production Function Models — Implementation in Novomodelo](/en/math/hydro-production-models#implementation-in-novomodelo).
 
@@ -476,8 +476,8 @@ file also carries.
 | Outflow bounds ordering           | Physical feasibility   | When `max_outflow_m3s` is present, it must be `>= min_outflow_m3s`. |
 | Turbine bounds ordering           | Physical feasibility   | `min_turbined_m3s` must be `<= max_turbined_m3s`. |
 | Generation bounds consistency     | Physical feasibility   | `min_generation_mw` must be `<= max_generation_mw`. |
-| Initial conditions exclusivity    | Schema error           | A hydro appears at most once in `storage`, at most once in `filling_storage`, and never in both, in `initial_conditions.json`; a hydro with no entry is not rejected at load and starts at its storage floor. |
-| Initial storage array             | Semantic error         | A hydro with a `filling` block has its initial storage in `filling_storage`, one without in `storage`; an entry in the other array is rejected. |
+| Boundary hydro uniqueness         | Schema error           | A `hydro_id` appears at most once in `hydros[]` of `boundary_conditions.json`; a hydro with no entry is not rejected at load and starts at its storage floor. |
+| Initial storage array             | Semantic error         | Applies to the deprecated `initial_conditions.json` only: a hydro with a `filling` block has its initial storage in `filling_storage`, one without in `storage`; an entry in the other array is rejected. |
 | Initial storage range             | Semantic error         | A `storage` value must lie in the hydro's own `[min_storage_hm3, max_storage_hm3]`, for a hydro entering service later in the study too. |
 | Initial storage at the first operating stage | Warning | A `storage` value outside the end-of-stage `min_storage_hm3`/`max_storage_hm3` of the hydro's first operating stage (from `constraints/hydro_bounds.parquet`, else the hydro's own) is accepted with a warning; the initial storage is used as declared. |
 | Evaporation array length          | Schema error           | `coefficients_mm` must have exactly 12 values; `reference_volumes_hm3`, when present, must also have exactly 12 values within `[min_storage_hm3, max_storage_hm3]`. |
