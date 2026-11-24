@@ -13,7 +13,7 @@ pertence às páginas [Formato do caso](/reference/case-format/) e [Formato de s
 | `scenarios/inflow_ar_coefficients.parquet` | Coeficientes AR padronizados, fornecidos pelo usuário ou estimados, uma linha por (UHE, estágio, defasagem) — esquema `[hydro_id, stage_id, lag, coefficient]`. A ordem do modelo AR é deduzida da contagem de linhas, não é armazenada explicitamente. |
 | `scenarios/inflow_annual_component.parquet` | Trinca anual opcional do PAR(p)-A fornecida pelo usuário (coeficiente, média e desvio-padrão da média móvel de 12 meses). Respeitada apenas nos caminhos de repasse — os caminhos de estimação a sobrescrevem com valores estimados (veja a aba Configurar). |
 | `scenarios/correlation.json` | Perfis nomeados de correlação espacial e cronograma opcional por estágio. Quando presente, prevalece sobre a correlação estimada ou identidade em todos os caminhos de origem das afluências. |
-| `initial_conditions.json` (linhas `recent_observations`) | Camada de condicionamento sobre o registro em janelas `inflow_history`: vazão observada em períodos parciais antes do início do estudo, sobrepondo-se a `inflow_history` dia a dia onde os dois coincidem. Alimenta a tendência hidrológica derivada, consumida pelos termos de defasagem e pelo acumulador de meio de período dos estágios iniciais do estudo (metodologia §2.5 e aba Configurar). |
+| [`boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson) (`hydros[].recent_inflows`) | Camada de condicionamento sobre o registro em janelas `inflow_history`: vazão observada em períodos parciais antes do início do estudo, sobrepondo-se a `inflow_history` dia a dia onde os dois coincidem. Alimenta a tendência hidrológica derivada, consumida pelos termos de defasagem e pelo acumulador de meio de período dos estágios iniciais do estudo (metodologia §2.5 e aba Configurar). |
 
 `scenarios/inflow_history.parquet` tem quatro funções:
 
@@ -84,7 +84,7 @@ Regras que o Novo Modelo impõe (ou que, se violadas, distorcem silenciosamente 
 - **As defasagens só avançam sob `season_definitions`.** Um `season_id` por estágio
   satisfaz a regra acima, mas sem `season_definitions` nenhum
   estágio completa um período de defasagem e a tendência hidrológica derivada é toda nula,
-  qualquer que seja o conteúdo de `inflow_history` e `recent_observations`: a carga é bem-sucedida
+  qualquer que seja o conteúdo de `inflow_history` e `recent_inflows`: a carga é bem-sucedida
   (com um aviso de que as defasagens iniciais de afluência são inicializadas com 0), e todo estágio
   recebe essas defasagens nulas.
 

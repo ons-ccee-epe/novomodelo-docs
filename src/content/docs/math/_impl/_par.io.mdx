@@ -13,7 +13,7 @@ is owned by the [Case Format](/en/reference/case-format/) and [Output Format](/e
 | `scenarios/inflow_ar_coefficients.parquet` | User-supplied or fitted standardized AR coefficients, one row per (hydro, stage, lag) — schema `[hydro_id, stage_id, lag, coefficient]`. The AR order is derived from the row count, not stored explicitly. |
 | `scenarios/inflow_annual_component.parquet` | Optional user-supplied PAR(p)-A annual triple (coefficient, mean, std of the rolling 12-month average). Honored only on the pass-through paths — the estimation paths overwrite it with fitted values (see the Configure tab). |
 | `scenarios/correlation.json` | Named spatial-correlation profiles and optional stage schedule. Wins over estimated or identity correlation on every inflow-source path when present. |
-| `initial_conditions.json` (`recent_observations` rows) | Conditioning layer over the windowed `inflow_history` record: observed inflow for partial periods before the study start, shadowing `inflow_history` day-wise wherever the two overlap. Feeds the derived inflow-lag seed consumed by the opening study stages' lag terms and mid-period accumulator (methodology §2.5, and the Configure tab). |
+| [`boundary_conditions.json`](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson) (`hydros[].recent_inflows`) | Conditioning layer over the windowed `inflow_history` record: observed inflow for partial periods before the study start, shadowing `inflow_history` day-wise wherever the two overlap. Feeds the derived inflow-lag seed consumed by the opening study stages' lag terms and mid-period accumulator (methodology §2.5, and the Configure tab). |
 
 `scenarios/inflow_history.parquet` has four roles:
 
@@ -84,7 +84,7 @@ Rules Novomodelo enforces (or that silently mis-scale the model if broken):
 - **The lags advance only under `season_definitions`.** A per-stage
   `season_id` satisfies the rule above, but without `season_definitions` no
   stage completes a lag period and the derived inflow-lag seed is all zero,
-  whatever `inflow_history` and `recent_observations` hold: the load succeeds
+  whatever `inflow_history` and `recent_inflows` hold: the load succeeds
   (with a warning that the initial inflow lags seed to 0), and every stage
   receives those zero lags.
 

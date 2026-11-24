@@ -88,7 +88,7 @@ perfil agregado (§6.1 da metodologia).
 | ----------------------------------------------------------- | -------------------------------------------------------------------- | ---- |
 | Teste rápido do PL sem estocasticidade                      | _(nenhum arquivo de cenários)_                                        | 1    |
 | Níveis sazonais determinísticos, sem autorregressão         | `inflow_seasonal_stats.parquet`                                       | 2    |
-| PAR(p) totalmente especificado pelo usuário, sem arquivo de histórico | `inflow_seasonal_stats.parquet`, `inflow_ar_coefficients.parquet` e, para ordem AR acima de 0, `recent_observations` cobrindo as posições de defasagem | 3    |
+| PAR(p) totalmente especificado pelo usuário, sem arquivo de histórico | `inflow_seasonal_stats.parquet`, `inflow_ar_coefficients.parquet` e, para ordem AR acima de 0, `recent_inflows` cobrindo as posições de defasagem | 3    |
 | Automático: ajustar tudo a partir das observações brutas    | `inflow_history.parquet`                                              | 4    |
 | Ajustar as estatísticas a partir do histórico e substituir a estrutura AR | `inflow_history.parquet`, `inflow_ar_coefficients.parquet` | 5    |
 | Substituir os níveis (média/desvio-padrão), mas deixar o Novo Modelo ajustar o AR | `inflow_history.parquet`, `inflow_seasonal_stats.parquet` | 6    |
@@ -106,14 +106,15 @@ neste arquivo quando a estimação está ativa. As colunas, as regras das janela
 arquivo estão em
 [`scenarios/inflow_history.parquet`](/reference/case-format/scenarios/#scenariosinflow_historyparquet).
 
-### Inicialização das defasagens e do acumulador — `recent_observations`
+### Inicialização das defasagens e do acumulador — `recent_inflows`
 
 Independentemente de qual caminho de estimação (se houver) o `inflow_history.parquet`
 conduz, seu registro por janelas é a semente das posições de defasagem do PAR do primeiro
 estágio do estudo e do acumulador de afluência do período em curso. O vetor opcional
-`recent_observations` de `initial_conditions.json` condiciona essa semente: as entradas têm o mesmo
-formato `hydro_id` / `start_date` / `end_date` / `value_m3s` de
-`inflow_history.parquet` e o substituem **dia a dia** onde os dois se sobrepõem
+`recent_inflows` de cada hidrelétrica em
+[`boundary_conditions.json`](/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+condiciona essa semente: as entradas têm o mesmo formato `start_date` / `end_date` / `value_m3s` de
+`inflow_history.parquet` (a hidrelétrica é a entrada `hydros[]` que as contém) e o substituem **dia a dia** onde os dois se sobrepõem
 (as duas séries nunca são mescladas). `value_m3s` aceita valores negativos nos
 dois arquivos: a grandeza é a vazão incremental, de modo que uma janela negativa é hidrologia
 real (ver [Métodos de tratamento de afluências negativas](/math/inflow-nonnegativity)).

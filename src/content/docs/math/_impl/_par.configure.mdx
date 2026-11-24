@@ -89,7 +89,7 @@ pooled profile (methodology §6.1).
 | ----------------------------------------------------------- | -------------------------------------------------------------------- | ---- |
 | Smoke-test the LP without stochasticity                     | _(no scenarios files)_                                                | 1    |
 | Deterministic seasonal levels, no autoregression             | `inflow_seasonal_stats.parquet`                                       | 2    |
-| Fully user-specified PAR(p) without a history file           | `inflow_seasonal_stats.parquet`, `inflow_ar_coefficients.parquet`, and, for an AR order above 0, `recent_observations` covering the lag slots | 3    |
+| Fully user-specified PAR(p) without a history file           | `inflow_seasonal_stats.parquet`, `inflow_ar_coefficients.parquet`, and, for an AR order above 0, `recent_inflows` covering the lag slots | 3    |
 | Hands-off: fit everything from raw observations              | `inflow_history.parquet`                                              | 4    |
 | Fit stats from history, override the AR structure            | `inflow_history.parquet`, `inflow_ar_coefficients.parquet`            | 5    |
 | Override the levels (mean/std) but let Novomodelo fit the AR       | `inflow_history.parquet`, `inflow_seasonal_stats.parquet`             | 6    |
@@ -107,14 +107,14 @@ in this file when estimation is active. The columns, window rules and roles of
 the file are in
 [`scenarios/inflow_history.parquet`](/en/reference/case-format/scenarios/#scenariosinflow_historyparquet).
 
-### Lag and accumulator seeding — `recent_observations`
+### Lag and accumulator seeding — `recent_inflows`
 
 Independently of which estimation path (if any) `inflow_history.parquet`
 drives, its windowed record is the seed for the opening study stage's PAR lag
-slots and mid-period inflow accumulator. `initial_conditions.json`'s optional
-`recent_observations` array conditions that seed: entries carry the same
-`hydro_id` / `start_date` / `end_date` / `value_m3s` shape as
-`inflow_history.parquet` and shadow it **day-wise** wherever the two overlap
+slots and mid-period inflow accumulator. The optional `recent_inflows` array of each
+hydro in [`boundary_conditions.json`](/en/reference/case-format/boundary-conditions/#boundary_conditionsjson)
+conditions that seed: entries carry the same `start_date` / `end_date` / `value_m3s`
+shape as `inflow_history.parquet` (the hydro is the enclosing `hydros[]` entry) and shadow it **day-wise** wherever the two overlap
 (the two series are never blended). `value_m3s` accepts negative values in
 both files: the quantity is incremental inflow, so a negative window is real
 hydrology (see [Inflow Non-Negativity Solution Methods](/en/math/inflow-nonnegativity)).
