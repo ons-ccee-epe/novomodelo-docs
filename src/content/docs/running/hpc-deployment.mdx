@@ -167,7 +167,10 @@ cd "mpich-${MPICH_VERSION}"
     --with-pmi=pmix \
     --with-pmix=/opt/pmix \
     --with-slurm=/opt/slurm \
-    --with-pm=no
+    --with-pm=no \
+    --enable-fast=O3,ndebug \
+    --disable-fortran \
+    --disable-cxx
 
 make -j"$(nproc)"
 make install
@@ -220,6 +223,9 @@ What each flag does:
 | `--with-pmix=/opt/pmix`          | Link the cluster's PMIx library, the same one SLURM's `pmix` plugin uses. If you omit it, MPICH silently uses its built-in client (see the caution above). |
 | `--with-slurm=/opt/slurm`        | Integrate with the cluster's SLURM installation.                                                 |
 | `--with-pm=no`                   | Build **no** internal process manager (no Hydra/`mpiexec`) — SLURM launches the ranks.           |
+| `--enable-fast=O3,ndebug`        | Compile MPICH at `-O3` without its internal assertions, the production runtime build.            |
+| `--disable-fortran`              | Skip the Fortran bindings, which Novomodelo does not use. Without it, configure stops when the machine has no Fortran compiler. |
+| `--disable-cxx`                  | Skip the C++ bindings, which Novomodelo does not use.                                            |
 
 :::caution[`--with-pm=no` means no `mpiexec`]
 With no process manager built in, this MPICH has no `mpiexec`/`mpirun` — launch
@@ -237,13 +243,8 @@ can see, for example `--prefix="$HOME/mpich-4.2.3"`. Then use that prefix in the
 runtime does not require rebuilding `novomodelo-mpi`, because the binary only
 depends on the stable `libmpi.so.12` ABI.
 
-Optional build flags:
-
-- **Trims.** Novomodelo uses no Fortran, C++, or MPI-IO bindings, so
-  `--disable-fortran --disable-cxx --disable-romio --disable-doc` shorten the
-  build without affecting Novomodelo.
-- **Faster runtime.** `--enable-fast=O3,ndebug` builds an optimised MPICH
-  without internal assertions.
+Novomodelo uses no MPI-IO, so `--disable-romio --disable-doc` can be added to
+shorten the build further without affecting Novomodelo.
 
 :::caution[Pin MPICH to a 4.2.x release]
 MPICH **4.3.0** introduced a PMI2 client regression that deadlocks multi-node

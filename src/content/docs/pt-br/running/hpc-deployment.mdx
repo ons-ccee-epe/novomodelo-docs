@@ -167,7 +167,10 @@ cd "mpich-${MPICH_VERSION}"
     --with-pmi=pmix \
     --with-pmix=/opt/pmix \
     --with-slurm=/opt/slurm \
-    --with-pm=no
+    --with-pm=no \
+    --enable-fast=O3,ndebug \
+    --disable-fortran \
+    --disable-cxx
 
 make -j"$(nproc)"
 make install
@@ -220,6 +223,9 @@ O que cada flag faz:
 | `--with-pmix=/opt/pmix`          | Liga à biblioteca PMIx do cluster, a mesma usada pelo plugin `pmix` do SLURM. Se for omitida, o MPICH usa silenciosamente seu cliente embutido (veja o alerta acima). |
 | `--with-slurm=/opt/slurm`        | Integra com a instalação do SLURM do cluster.                                                    |
 | `--with-pm=no`                   | **Não** compila nenhum gerenciador de processos interno (sem Hydra/`mpiexec`) — o SLURM lança os ranks. |
+| `--enable-fast=O3,ndebug`        | Compila o MPICH com `-O3` e sem as asserções internas, a compilação de runtime para produção.    |
+| `--disable-fortran`              | Omite as interfaces Fortran, que o Novo Modelo não usa. Sem ela, o configure para quando a máquina não tem compilador Fortran. |
+| `--disable-cxx`                  | Omite as interfaces C++, que o Novo Modelo não usa.                                              |
 
 :::caution[`--with-pm=no` significa ausência de `mpiexec`]
 Sem gerenciador de processos embutido, este MPICH não tem `mpiexec`/`mpirun` — o lançamento
@@ -237,13 +243,8 @@ exports de `PATH`/`LD_LIBRARY_PATH` e no script de lote. Substituir o runtime do
 não exige recompilar o `novomodelo-mpi`, pois o binário depende apenas da
 ABI estável `libmpi.so.12`.
 
-Flags de compilação opcionais:
-
-- **Reduções.** O Novo Modelo não usa as interfaces Fortran, C++ nem MPI-IO, de modo que
-  `--disable-fortran --disable-cxx --disable-romio --disable-doc` encurtam a
-  compilação sem afetar o Novo Modelo.
-- **Runtime mais rápido.** `--enable-fast=O3,ndebug` compila um MPICH otimizado,
-  sem asserções internas.
+O Novo Modelo não usa MPI-IO, de modo que `--disable-romio --disable-doc` podem ser
+acrescentadas para encurtar ainda mais a compilação sem afetar o Novo Modelo.
 
 :::caution[Fixe o MPICH em uma versão 4.2.x]
 O MPICH **4.3.0** introduziu uma regressão no cliente PMI2 que trava o `MPI_Init`
