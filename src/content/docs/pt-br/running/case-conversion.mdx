@@ -120,7 +120,7 @@ encontrou antes da falha junto ao erro, nas notas da conversão e no
 `diagnostics` do `--json`.
 
 Para a referência completa de flags de todos os comandos, consulte a
-[referência da CLI do novomodelo-bridge](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/cli.md).
+[referência da CLI do novomodelo-bridge](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/cli.md).
 
 ### Convertendo um deck do DECOMP
 
@@ -147,7 +147,7 @@ recusada na leitura pela verificação de formato.
 Para executar o caso com outra versão do novomodelo, instale a versão do novomodelo-bridge
 pareada com essa versão do novomodelo, que fixa seu `novomodelo-python`, e converta o
 deck novamente. O guia de DECOMP do novomodelo-bridge trata de
-[executar um caso com uma fronteira importada](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/decomp.md#running-a-case-with-an-imported-boundary).
+[executar um caso com uma fronteira importada](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/decomp.md#running-a-case-with-an-imported-boundary).
 :::
 
 ### O que é convertido
@@ -170,9 +170,9 @@ do deck, registro e coluna alimenta qual campo de saída e qual transformação
 é aplicada --, consulte os mapas de dados gerados pelo próprio bridge. Eles são produzidos por
 `scripts/gen-lineage-docs.py`, verificados por testes contra uma conversão real,
 marcados como "Do not edit by hand" e escritos em português:
-[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/newave-data-map.md)
+[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/newave-data-map.md)
 e
-[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/decomp-data-map.md).
+[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/decomp-data-map.md).
 
 ### Estrutura do diretório de saída
 
@@ -527,14 +527,14 @@ própria usina é somado ao fator de vazão defluente da própria usina. Um `VA`
 cujo posto é o da própria usina converte-se em uma entrada própria em
 `incremental_inflow_influences`, sem diagnóstico. Um `VL` duplicado, um posto
 não mapeado ou ambíguo, uma usina cujo vertimento não chega ao canal de fuga
-(`AC VERTJU`) e uma usina convertida a produtibilidade constante descartam o
+(um `VERTJU` igual a 0 no `hidr.dat`) e uma usina convertida a produtibilidade constante descartam o
 termo com um aviso. Um `VU` cuja usina influenciadora não está no caso é
 descartado sem aviso. Um polinômio `VL` substitui o canal de fuga constante
 apenas onde nenhuma curva `polinjus` se aplica. Os avisos trazem códigos
 `tailrace-*` na saída `--json` de `check decomp` e `convert decomp`.
 
 Para a lista completa de regras de conversão, consulte o
-[guia do fluxo NEWAVE](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/newave.md) do novomodelo-bridge.
+[guia do fluxo NEWAVE](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/newave.md) do novomodelo-bridge.
 
 ### Configurações do estudo
 
@@ -552,6 +552,14 @@ como `truncation`, que eleva a zero uma afluência negativa, sem custo, e o
 `convert decomp` o define como `penalty`, cuja
 correção ilimitada mantém viável a passagem de uma iteração da importação da FCF de fronteira
 quando uma meta de volume se torna um piso rígido de armazenamento. O `convert decomp` treina e simula com a seleção `enumerated`.
+
+O `convert newave` define o `distribution` de
+[`modeling.inflow_residual`](/running/configuration/#modelinginflow_residual)
+como `lognormal_3p`. Um deck determinístico e uma execução só de simulação sobre a
+série histórica não sorteiam ruído de afluência e mantêm o padrão `normal`. Um deck
+que treina e depois simula a série histórica também mantém `normal`, pois o Novo Modelo
+recusa `lognormal_3p` com uma simulação histórica, e o `convert newave` emite um aviso
+(`par-residual-lognormal-unavailable`).
 
 ### Suporte a medidas de risco
 
@@ -632,7 +640,7 @@ da mesma forma que a VminOP, uma restrição por registro, e é `per_unit`; as r
 
 ## Dependências
 
-O novomodelo-bridge 0.22.0 instala suas dependências de execução junto com o pacote. Quatro
+O novomodelo-bridge 0.22.1 instala suas dependências de execução junto com o pacote. Quatro
 fixações de versão são relevantes:
 
 - `novomodelo-python==0.22.0`: a versão fixada é a `MIN_NOVOMODELO_VERSION` do bridge
@@ -643,7 +651,7 @@ fixações de versão são relevantes:
   são construídos, que o bridge também importa diretamente.
 
 O bridge também requer pandas 3.1, plotly 7.1, polars 2.1, pyarrow 26, rich 15 e typer
-0.27.3 ou mais recentes, de modo que instalá-lo em um ambiente existente os atualiza.
+0.29.1 ou mais recentes, de modo que instalá-lo em um ambiente existente os atualiza.
 
 A versão mínima do novomodelo não torna as versões intercambiáveis: uma fronteira importada
 exige correspondência exata de versão (veja o aviso em

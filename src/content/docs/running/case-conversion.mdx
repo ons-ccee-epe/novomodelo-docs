@@ -120,7 +120,7 @@ found before the failure next to the error, in the conversion notes and in
 the `--json` `diagnostics`.
 
 For the complete flag reference for every command, see the
-[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/cli.md).
+[novomodelo-bridge CLI reference](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/cli.md).
 
 ### Converting a DECOMP Deck
 
@@ -146,7 +146,7 @@ refused at read by the format check.
 To run the case under another novomodelo release, install the novomodelo-bridge release
 paired with that novomodelo release, which pins its `novomodelo-python`, and convert the
 deck again. The novomodelo-bridge DECOMP guide covers
-[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/decomp.md#running-a-case-with-an-imported-boundary).
+[running a case with an imported boundary](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/decomp.md#running-a-case-with-an-imported-boundary).
 :::
 
 ### What Gets Converted
@@ -169,9 +169,9 @@ file, record, and column feeds which output field, and what transformation
 is applied -- see the bridge's own generated data maps. They are produced by
 `scripts/gen-lineage-docs.py`, verified by tests against a real conversion,
 marked "Do not edit by hand," and written in Portuguese:
-[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/newave-data-map.md)
+[`newave-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/newave-data-map.md)
 and
-[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/decomp-data-map.md).
+[`decomp-data-map.md`](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/decomp-data-map.md).
 
 ### Output Directory Structure
 
@@ -522,15 +522,16 @@ stage. Duplicate `VU` or `VA` pairs are summed, and a `VU` naming the plant
 itself is added to the plant's own outflow factor. A `VA` whose gauge is the
 plant's own converts to a self entry in `incremental_inflow_influences`,
 with no diagnostic. A duplicate `VL`, an unmapped or ambiguous gauge, a plant
-whose spill does not reach the tailrace (`AC VERTJU`) and a plant converted at
-constant productivity each drop the term with a warning. A `VU` whose
+whose spill does not reach the tailrace (a `VERTJU` of 0 in `hidr.dat`) and a
+plant converted at constant productivity each drop the term with a warning. A
+`VU` whose
 influencing plant is not in the case is dropped without a warning. A `VL`
 polynomial replaces the constant tailrace only where no `polinjus` curve
 applies. The warnings carry `tailrace-*` codes in the `--json` output of
 `check decomp` and `convert decomp`.
 
 For the full list of conversion rules, see the novomodelo-bridge
-[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.0/docs/newave.md).
+[NEWAVE track guide](https://github.com/ons-ccee-epe/novomodelo-bridge/blob/v0.22.1/docs/newave.md).
 
 ### Study Settings
 
@@ -548,6 +549,14 @@ to `truncation`, which lifts a negative inflow to zero at no cost, and
 `convert decomp` sets it to `penalty`, whose
 unbounded correction keeps the boundary-FCF import's one-iteration pass feasible
 when a volume target becomes a hard storage floor. `convert decomp` trains and simulates under the `enumerated` selection.
+
+`convert newave` sets the `distribution` of
+[`modeling.inflow_residual`](/en/running/configuration/#modelinginflow_residual)
+to `lognormal_3p`. A deterministic deck and a simulation-only run on the
+historical series draw no inflow noise and keep the `normal` default. A deck
+that trains and then simulates the historical series keeps `normal` too, since
+Novomodelo refuses `lognormal_3p` with a historical simulation, and
+`convert newave` warns (`par-residual-lognormal-unavailable`).
 
 ### Risk Measure Support
 
@@ -628,7 +637,7 @@ the same way as VminOP, one constraint per record, and is `per_unit`; the `RE`,
 
 ## Dependencies
 
-novomodelo-bridge 0.22.0 installs its runtime dependencies with the package. Four
+novomodelo-bridge 0.22.1 installs its runtime dependencies with the package. Four
 pins matter:
 
 - `novomodelo-python==0.22.0`: the pinned version is the bridge's `MIN_NOVOMODELO_VERSION`
@@ -639,7 +648,7 @@ pins matter:
   which the bridge also imports directly.
 
 The bridge also requires pandas 3.1, plotly 7.1, polars 2.1, pyarrow 26, rich 15
-and typer 0.27.3 or newer, so installing it into an existing environment
+and typer 0.29.1 or newer, so installing it into an existing environment
 upgrades them.
 
 The minimum novomodelo version does not make versions interchangeable: an imported boundary
