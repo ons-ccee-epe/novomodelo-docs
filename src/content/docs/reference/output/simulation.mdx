@@ -363,7 +363,8 @@ triplet. No block dimension — inflow lags are stage-level state variables.
 
 Water travel-time in-transit volumes. One row per (stage, downstream hydro,
 maturity lag) triplet. No block dimension — in-transit buckets are stage-level
-state variables. 7 columns. All columns are non-nullable. The directory is
+state variables. 9 columns. All columns except `arrival_start_date` and
+`arrival_end_date` are non-nullable. The directory is
 present **only when the system declares a travel-time arc**
 (`travel_time_hours` present, strictly positive, with a `downstream_id`).
 
@@ -378,6 +379,8 @@ present **only when the system declares a travel-time arc**
 | `lag`                   | Int32   | No       | —     | Maturity lag (1-based) of the bucket at the end of this stage: lag 1 arrives at the receiving plant at the next stage, lag `k` arrives `k` stages later.                                                                                                |
 | `in_transit_volume_hm3` | Float64 | No       | hm³   | Volume in this bucket at the end of the stage, in hm³. Water that would mature after the last stage is dropped when no terminal boundary is loaded, so such a bucket reads `0` (see [Horizon limitation](/en/math/state-augmentation#horizon-limitation)). |
 | `delayed_arrival_hm3`   | Float64 | No       | hm³   | Volume of the incoming lag-1 bucket, which enters the receiving plant's water balance at this stage or, while that plant is outside its commissioning window, the balance of the nearest downstream plant that is not PreFilling (with none, it leaves the modeled system), in hm³; written on the `lag` = 1 row and `0` on deeper lags. |
+| `arrival_start_date` | Int32 | Yes | — | First day of the stage at which this row's `in_transit_volume_hm3` arrives at the receiving plant (`lag` stages after this one), encoded `YYYYMMDD`. A bucket arriving after the last study stage is dated by the post-study water calendar (`post_study_water_stages`, or the thermal calendar when the case declares no water calendar), so rows near the end of the study carry dates past the study end. Null when the water arrives after that calendar ends. Does not date `delayed_arrival_hm3`. |
+| `arrival_end_date` | Int32 | Yes | — | End of that stage, encoded `YYYYMMDD`: the first day after it (exclusive). Null exactly when `arrival_start_date` is null. |
 
 ---
 
@@ -411,7 +414,7 @@ Post-horizon commitments the study decides, keyed
 `anticipated_committed_mw`/`anticipated_decision_mw` columns on
 [`simulation/thermals/`](#simulationthermals). One row per scenario and
 decision whose delivery stage is a post-study stage, at its decision stage; a
-scenario with no such decision writes no partition. 7 columns. All columns are
+scenario with no such decision writes no partition. 9 columns. All columns are
 non-nullable. Hive-partitioned by `scenario_id`
 (`anticipated_lanes/scenario_id=NNNN/data.parquet`); written only when
 `stages.json` declares `post_study_thermal_stages`.
@@ -424,9 +427,11 @@ non-nullable. Hive-partitioned by `scenario_id`
 | `stage_id`              | Int32   | No       | —     | Declared stage id of the decision stage, where the commitment is deposited into its ring slot.                                                                       |
 | `node_id`               | Int32   | No       | —     | Visited policy-graph node id; on a stage chain, the 0-based stage position (not the declared stage id).                                                              |
 | `thermal_id`            | Int32   | No       | —     | Anticipated thermal unit ID.                                                                                                                                         |
-| `delivery_date`         | Int32   | No       | —     | Calendar date the commitment delivers, encoded `YYYYMMDD` (`year*10000 + month*100 + day`).                                                                          |
+| `delivery_date`         | Int32   | No       | —     | First day of the calendar month in which the delivery stage starts, encoded `YYYYMMDD` (`YYYYMM01`); the delivery stage's own dates are `delivery_start_date` and `delivery_end_date`. |
 | `deposited_decision_mw` | Float64 | No       | MW    | Commitment decided at `stage_id` for delivery at `delivery_date`, in MW.                                                                                             |
 | `carried_committed_mw`  | Float64 | No       | MW    | Value of the ring slot holding the commitment at `stage_id`, in MW; the [deposit row](/en/math/state-augmentation#ring-rows) makes it equal to `deposited_decision_mw`. |
+| `delivery_start_date` | Int32 | No | — | First day of the delivery stage, encoded `YYYYMMDD`. |
+| `delivery_end_date` | Int32 | No | — | End of the delivery stage, encoded `YYYYMMDD`: the first day after it (exclusive). |
 
 ---
 

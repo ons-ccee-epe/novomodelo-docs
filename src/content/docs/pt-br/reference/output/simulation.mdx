@@ -363,7 +363,8 @@ Sem dimensão de patamar — as defasagens de afluência são variáveis de esta
 
 Volumes de água em trânsito decorrentes do tempo de viagem. Uma linha por trinca (estágio, usina hidrelétrica de jusante,
 defasagem de maturação). Sem dimensão de patamar — as parcelas de água em trânsito (in-transit buckets) são variáveis de estado
-do estágio. 7 colunas. Todas as colunas são não anuláveis. O diretório
+do estágio. 9 colunas. Todas as colunas, exceto `arrival_start_date` e
+`arrival_end_date`, são não anuláveis. O diretório
 existe **somente quando o sistema declara um arco com tempo de viagem**
 (`travel_time_hours` presente, estritamente positivo, com um `downstream_id`).
 
@@ -378,6 +379,8 @@ existe **somente quando o sistema declara um arco com tempo de viagem**
 | `lag`                   | Int32   | Não      | —        | Defasagem de maturação (base 1) da parcela de água em trânsito ao fim deste estágio: a defasagem 1 chega à usina receptora no estágio seguinte, a defasagem `k` chega `k` estágios depois. |
 | `in_transit_volume_hm3` | Float64 | Não      | hm³      | Volume nesta parcela de água em trânsito ao fim do estágio, em hm³. A água que maturaria após o último estágio é descartada quando nenhuma fronteira terminal é carregada, de modo que tal parcela registra `0` (veja [Limitação do horizonte](/math/state-augmentation#limitacao-de-horizonte)). |
 | `delayed_arrival_hm3`   | Float64 | Não      | hm³      | Volume da parcela de água em trânsito de defasagem 1 que chega, o qual entra no balanço hídrico da usina receptora neste estágio ou, enquanto essa usina estiver fora de sua janela de entrada em operação, no balanço da usina a jusante mais próxima que não esteja em pré-enchimento (se não houver, sai do sistema modelado), em hm³; gravado na linha com `lag` = 1 e `0` nas defasagens maiores. |
+| `arrival_start_date`    | Int32   | Sim      | —        | Primeiro dia do estágio em que o `in_transit_volume_hm3` desta linha chega à usina receptora (`lag` estágios após este), codificado como `YYYYMMDD`. Uma parcela de água em trânsito que chega após o último estágio do estudo é datada pelo calendário hídrico pós-estudo (`post_study_water_stages`, ou o calendário térmico quando o caso não declara calendário hídrico); por isso, linhas próximas ao fim do estudo registram datas posteriores ao fim do estudo. Nulo quando a água chega após o fim desse calendário. Não data `delayed_arrival_hm3`. |
+| `arrival_end_date`      | Int32   | Sim      | —        | Fim desse estágio, codificado como `YYYYMMDD`: o primeiro dia após ele (exclusive). Nulo exatamente quando `arrival_start_date` é nulo. |
 
 ---
 
@@ -411,7 +414,7 @@ Compromissos de despacho posteriores ao horizonte decididos pelo estudo, indexad
 `anticipated_committed_mw`/`anticipated_decision_mw` de
 [`simulation/thermals/`](#simulationthermals). Uma linha por cenário e
 decisão cujo estágio de entrega é um estágio pós-estudo, no seu estágio de decisão; um
-cenário sem tal decisão não grava partição. 7 colunas. Todas as colunas são
+cenário sem tal decisão não grava partição. 9 colunas. Todas as colunas são
 não anuláveis. Particionado (Hive) por `scenario_id`
 (`anticipated_lanes/scenario_id=NNNN/data.parquet`); gravado somente quando
 `stages.json` declara `post_study_thermal_stages`.
@@ -424,9 +427,11 @@ não anuláveis. Particionado (Hive) por `scenario_id`
 | `stage_id`              | Int32   | Não      | —        | Id declarado do estágio de decisão, no qual o compromisso é depositado em sua posição do anel de despacho antecipado (commitment ring slot). |
 | `node_id`               | Int32   | Não      | —        | Id do nó visitado do grafo da política; em uma cadeia de estágios, a posição do estágio com base 0 (não o id declarado do estágio). |
 | `thermal_id`            | Int32   | Não      | —        | ID da unidade termelétrica com antecipação de despacho. |
-| `delivery_date`         | Int32   | Não      | —        | Data do calendário em que o compromisso é entregue, codificada como `YYYYMMDD` (`year*10000 + month*100 + day`). |
+| `delivery_date`         | Int32   | Não      | —        | Primeiro dia do mês do calendário em que o estágio de entrega começa, codificado como `YYYYMMDD` (`YYYYMM01`); as datas do próprio estágio de entrega são `delivery_start_date` e `delivery_end_date`. |
 | `deposited_decision_mw` | Float64 | Não      | MW       | Compromisso decidido em `stage_id` para entrega em `delivery_date`, em MW. |
 | `carried_committed_mw`  | Float64 | Não      | MW       | Valor da posição do anel de despacho antecipado que contém o compromisso em `stage_id`, em MW; a [linha de depósito](/math/state-augmentation#linhas-do-ring) o torna igual a `deposited_decision_mw`. |
+| `delivery_start_date`   | Int32   | Não      | —        | Primeiro dia do estágio de entrega, codificado como `YYYYMMDD`. |
+| `delivery_end_date`     | Int32   | Não      | —        | Fim do estágio de entrega, codificado como `YYYYMMDD`: o primeiro dia após ele (exclusive). |
 
 ---
 
