@@ -1056,7 +1056,7 @@ is reconciled only when the run trains, so a case with training disabled reports
     "reconciled": true,
     "storage": { "copy": 44, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
     "inflow_lag": { "copy": 44, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
-    "transit_bucket": { "copy": 6, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
+    "transit_bucket": { "copy": 0, "fan_out": 1, "straddling": 0, "filled_from_storage": 1, "default_zero": 0, "dropped_source": 0 },
     "anticipated": { "copy": 3, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 1 },
     "anticipated_coverage": { "source_interval_count": 4 },
     "other_identity": { "copy": 0, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
@@ -1064,15 +1064,42 @@ is reconciled only when the run trains, so a case with training disabled reports
       { "family": "anticipated", "entity_id": 17, "subindex": 0, "interval": ["2028-01-01", "2028-02-01"], "reference_date": null }
     ],
     "straddling_slots": [],
-    "filled_from_storage_slots": []
+    "filled_from_storage_slots": [
+      { "family": "transit-bucket", "entity_id": 9, "subindex": 1, "interval": ["2027-12-01", "2028-01-01"], "reference_date": null }
+    ],
+    "transit_bucket_mapping": [
+      {
+        "target": { "family": "transit-bucket", "entity_id": 4, "subindex": 1, "interval": ["2027-12-01", "2028-01-01"], "reference_date": null },
+        "resolution": "fan_out",
+        "sources": [
+          { "slot": { "family": "transit-bucket", "entity_id": 4, "subindex": 1, "interval": ["2027-12-01", "2028-01-01"], "reference_date": null }, "weight": 1.0 }
+        ]
+      },
+      {
+        "target": { "family": "transit-bucket", "entity_id": 9, "subindex": 1, "interval": ["2027-12-01", "2028-01-01"], "reference_date": null },
+        "resolution": "filled_from_storage",
+        "sources": [
+          { "slot": { "family": "storage", "entity_id": 9, "subindex": 0, "interval": null, "reference_date": null }, "weight": 1.0 }
+        ]
+      }
+    ]
   }
 }
 ```
+
+A run that trains with `policy.boundary` writes the same `boundary_date` and `report`
+to
+[`training/boundary_reconciliation.json`](/en/reference/output/metadata/#trainingboundary_reconciliationjson).
 
 Here one anticipated-commitment slot the source priced (plant `17`, delivering
 in January 2028) is not modelled by this study, so it is dropped and counted
 under `anticipated.dropped_source`; with `strict: true` that same drop would
 reject the load instead.
+Plant `9`'s in-transit bucket has no counterpart in the source policy, which prices no
+in-transit water for plant `9`, so it takes the source's storage coefficient of plant `9`
+(`filled_from_storage`); the
+[field reference](/en/reference/output/metadata/#trainingboundary_reconciliationjson)
+lists every resolution.
 
 See [Policy Management — Boundary Cuts](/en/running/policy-management/#boundary-cuts)
 for a full explanation of the coupling workflow, and

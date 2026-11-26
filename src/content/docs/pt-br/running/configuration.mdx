@@ -1061,7 +1061,7 @@ só é reconciliada quando a execução treina, de modo que um caso com o treina
     "reconciled": true,
     "storage": { "copy": 44, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
     "inflow_lag": { "copy": 44, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
-    "transit_bucket": { "copy": 6, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
+    "transit_bucket": { "copy": 0, "fan_out": 1, "straddling": 0, "filled_from_storage": 1, "default_zero": 0, "dropped_source": 0 },
     "anticipated": { "copy": 3, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 1 },
     "anticipated_coverage": { "source_interval_count": 4 },
     "other_identity": { "copy": 0, "fan_out": 0, "straddling": 0, "filled_from_storage": 0, "default_zero": 0, "dropped_source": 0 },
@@ -1069,15 +1069,42 @@ só é reconciliada quando a execução treina, de modo que um caso com o treina
       { "family": "anticipated", "entity_id": 17, "subindex": 0, "interval": ["2028-01-01", "2028-02-01"], "reference_date": null }
     ],
     "straddling_slots": [],
-    "filled_from_storage_slots": []
+    "filled_from_storage_slots": [
+      { "family": "transit-bucket", "entity_id": 9, "subindex": 1, "interval": ["2027-12-01", "2028-01-01"], "reference_date": null }
+    ],
+    "transit_bucket_mapping": [
+      {
+        "target": { "family": "transit-bucket", "entity_id": 4, "subindex": 1, "interval": ["2027-12-01", "2028-01-01"], "reference_date": null },
+        "resolution": "fan_out",
+        "sources": [
+          { "slot": { "family": "transit-bucket", "entity_id": 4, "subindex": 1, "interval": ["2027-12-01", "2028-01-01"], "reference_date": null }, "weight": 1.0 }
+        ]
+      },
+      {
+        "target": { "family": "transit-bucket", "entity_id": 9, "subindex": 1, "interval": ["2027-12-01", "2028-01-01"], "reference_date": null },
+        "resolution": "filled_from_storage",
+        "sources": [
+          { "slot": { "family": "storage", "entity_id": 9, "subindex": 0, "interval": null, "reference_date": null }, "weight": 1.0 }
+        ]
+      }
+    ]
   }
 }
 ```
+
+Uma execução que treina com `policy.boundary` grava o mesmo `boundary_date` e o mesmo
+`report` em
+[`training/boundary_reconciliation.json`](/reference/output/metadata/#trainingboundary_reconciliationjson).
 
 Aqui, uma posição de compromisso antecipado que a origem precificou (usina `17`, com entrega
 em janeiro de 2028) não é modelada por este estudo; por isso, é descartada e contabilizada
 em `anticipated.dropped_source`; com `strict: true`, esse mesmo descarte faria a
 carga ser rejeitada.
+O bucket em trânsito da usina `9` não tem correspondente na política de origem, que não
+precifica água em trânsito para a usina `9`; por isso ele assume o coeficiente de
+armazenamento da usina `9` na origem (`filled_from_storage`); a
+[referência de campos](/reference/output/metadata/#trainingboundary_reconciliationjson)
+lista todas as resoluções.
 
 Veja [Gerenciamento da política — Cortes de fronteira](/running/policy-management/#cortes-de-fronteira)
 para uma explicação completa do fluxo de acoplamento, e
