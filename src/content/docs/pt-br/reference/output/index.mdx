@@ -37,6 +37,7 @@ diretórios abaixo, com a página que o documenta.
 | [`training/scaling_report.json`](/reference/output/training/#trainingscaling_reportjson)                                 | [Saídas do treinamento](/reference/output/training/)           |
 | [`training/hydro_models.json`](/reference/output/hydro-models/#traininghydro_modelsjson)                                 | [Artefatos dos modelos hidrelétricos](/reference/output/hydro-models/) |
 | [`training/model_provenance.json`](/reference/output/metadata/#trainingmodel_provenancejson)                             | [Arquivos de metadados](/reference/output/metadata/)            |
+| [`training/boundary_reconciliation.json`](/reference/output/metadata/#trainingboundary_reconciliationjson)               | [Arquivos de metadados](/reference/output/metadata/)            |
 | [`training/cut_selection/iterations.parquet`](/reference/output/training/#trainingcut_selectioniterationsparquet)        | [Saídas do treinamento](/reference/output/training/)           |
 | [`training/_SUCCESS`](#marcadores-de-sucesso)                                                                                  | [Formato de Saída](#marcadores-de-sucesso)                        |
 | [`policy/manifest.bin`](/reference/output/policy/#policymanifestbin)                                                     | [Checkpoint da política](/reference/output/policy/)           |
@@ -103,6 +104,7 @@ não produz `simulation/pumping_stations/`.
     scaling_report.json
     hydro_models.json                (sempre)
     model_provenance.json            (sempre)
+    boundary_reconciliation.json     (quando policy.boundary se aplica)
     cut_selection/
       iterations.parquet           (quando há método de seleção ou max_active_per_stage definido)
     _SUCCESS                         # após training/metadata.json
@@ -210,13 +212,14 @@ quando houve simulação:
    `training/_SUCCESS` obsoleto e os arquivos condicionais do treinamento
    (`training/cut_selection/`, arquivos de `training/solver/`,
    `anticipated/fixed_deliveries.parquet`, `hydro_models/*.parquet`,
-   `generic_constraints/resolved_echo.parquet`) são removidos; quando a simulação
+   `generic_constraints/resolved_echo.parquet`, `training/boundary_reconciliation.json`) são removidos; quando a simulação
    vai ser executada, `simulation/_SUCCESS` e toda saída de simulação anterior (cada
    árvore `simulation/<family>/`, arquivos de `simulation/solver/`, `paths.parquet`,
    `scenario_summary.parquet` e `metadata.json`) são removidos; em seguida, são gravados
    `training/hydro_models.json`, `training/model_provenance.json`, as
    exportações de `stochastic/` (quando `exports.stochastic = true`) e
-   `training/scaling_report.json`.
+   `training/scaling_report.json`, e depois `training/boundary_reconciliation.json` quando
+   `policy.boundary` se aplica.
 2. Durante o treinamento: checkpoints periódicos em `policy.path` quando
    `policy.checkpointing.enabled` é `true`.
 3. Após o treinamento: o checkpoint da política em `policy.path` (`policy/` por

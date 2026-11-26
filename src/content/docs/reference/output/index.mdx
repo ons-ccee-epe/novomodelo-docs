@@ -37,6 +37,7 @@ tree below, with the page that documents it.
 | [`training/scaling_report.json`](/en/reference/output/training/#trainingscaling_reportjson)                                 | [Training Output](/en/reference/output/training/)           |
 | [`training/hydro_models.json`](/en/reference/output/hydro-models/#traininghydro_modelsjson)                                 | [Hydro Model Artifacts](/en/reference/output/hydro-models/) |
 | [`training/model_provenance.json`](/en/reference/output/metadata/#trainingmodel_provenancejson)                             | [Metadata Files](/en/reference/output/metadata/)            |
+| [`training/boundary_reconciliation.json`](/en/reference/output/metadata/#trainingboundary_reconciliationjson)               | [Metadata Files](/en/reference/output/metadata/)            |
 | [`training/cut_selection/iterations.parquet`](/en/reference/output/training/#trainingcut_selectioniterationsparquet)        | [Training Output](/en/reference/output/training/)           |
 | [`training/_SUCCESS`](#success-markers)                                                                                  | [Output Format](#success-markers)                        |
 | [`policy/manifest.bin`](/en/reference/output/policy/#policymanifestbin)                                                     | [Policy Checkpoint](/en/reference/output/policy/)           |
@@ -103,6 +104,7 @@ will not produce `simulation/pumping_stations/`.
     scaling_report.json
     hydro_models.json                (always)
     model_provenance.json            (always)
+    boundary_reconciliation.json     (when policy.boundary applies)
     cut_selection/
       iterations.parquet           (when a selection method or max_active_per_stage is set)
     _SUCCESS                         # after training/metadata.json
@@ -210,13 +212,14 @@ when a simulation ran:
    `training/_SUCCESS` and the conditional training files
    (`training/cut_selection/`, `training/solver/` files,
    `anticipated/fixed_deliveries.parquet`, `hydro_models/*.parquet`,
-   `generic_constraints/resolved_echo.parquet`) are removed; when a simulation
+   `generic_constraints/resolved_echo.parquet`, `training/boundary_reconciliation.json`) are removed; when a simulation
    will run, `simulation/_SUCCESS` and every earlier simulation output (each
    `simulation/<family>/` tree, `simulation/solver/` files, `paths.parquet`,
    `scenario_summary.parquet` and `metadata.json`) are removed; then
    `training/hydro_models.json`, `training/model_provenance.json`, the
    `stochastic/` exports (when `exports.stochastic = true`) and
-   `training/scaling_report.json` are written.
+   `training/scaling_report.json` are written, then `training/boundary_reconciliation.json` when
+   `policy.boundary` applies.
 2. During training: periodic checkpoints under `policy.path` when
    `policy.checkpointing.enabled` is `true`.
 3. After training: the policy checkpoint under `policy.path` (`policy/` by
